@@ -1,0 +1,129 @@
+---
+# Ansible playbook for managing Windows workstations (Armitage, Wintermute)
+# Run from Linux control node (motoko) with: ansible-playbook -i inventory/hosts.yml playbooks/windows-workstation.yml --limit armitage
+
+- name: Configure Windows Workstations
+  hosts: windows
+  gather_facts: yes
+  
+  tasks:
+    - name: Ensure WinRM is configured
+      win_service:
+        name: WinRM
+        state: started
+        start_mode: auto
+      tags: [winrm]
+
+    - name: Install Chocolatey package manager
+      win_chocolatey:
+        name: chocolatey
+        state: present
+      tags: [chocolatey]
+
+    - name: Install development tools via Chocolatey
+      win_chocolatey:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - git
+        - vscode
+        - docker-desktop
+        - nvidia-display-driver
+        - cuda
+        - python3
+        - nodejs
+        - tailscale
+      tags: [packages]
+
+    - name: Enable WSL2 feature
+      win_feature:
+        name: 
+          - Microsoft-Windows-Subsystem-Linux
+          - VirtualMachinePlatform
+        state: present
+      register: wsl_feature
+      tags: [wsl]
+
+    - name: Set WSL2 as default
+      win_command: wsl --set-default-version 2
+      when: wsl_feature.changed
+      tags: [wsl]
+
+    - name: Configure Windows power plan for gaming
+      win_power_plan:
+        name: high performance
+      when: workstation_mode is defined and workstation_mode == 'gaming'
+      tags: [power]
+
+    - name: Manage Windows services based on mode
+      win_service:
+        name: "{{ item.name }}"
+        state: "{{ item.state }}"
+        start_mode: "{{ item.start_mode | default('manual') }}"
+      loop: "{{ windows_services }}"
+      when: windows_services is defined
+      tags: [services]
+
+    - name: Configure NVIDIA GPU settings
+      win_shell: |
+        & "${env:ProgramFiles}\NVIDIA Corporation\NVSMI\nvidia-smi.exe" -pm {{ gpu_persistence_mode | default('0') }}
+      when: 
+        - ansible_facts['ansible_video_cards'] is defined
+        - "'NVIDIA' in ansible_facts['ansible_video_cards'][0]['name']"
+      tags: [nvidia]
+
+    - name: Set registry values for gaming optimizations
+      win_regedit:
+        path: "{{ item.path }}"
+        name: "{{ item.name }}"
+        data: "{{ item.data }}"
+        type: "{{ item.type }}"
+      loop:
+        - path: HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers
+          name: HwSchMode
+          data: 2
+          type: dword
+        - path: HKCU:\Software\Microsoft\GameBar
+          name: AutoGameModeEnabled
+          data: "{{ (workstation_mode == 'gaming') | ternary(1, 0) }}"
+          type: dword
+      when: workstation_mode is defined
+      tags: [registry, gaming]
+
+    - name: Deploy PowerShell profile scripts
+      win_copy:
+        src: "{{ item }}"
+        dest: C:\Users\{{ ansible_user }}\Documents\WindowsPowerShell\
+      loop:
+        - files/Microsoft.PowerShell_profile.ps1
+      tags: [powershell]
+
+    - name: Configure Windows Defender exclusions for development
+      win_shell: |
+        Add-MpPreference -ExclusionPath "C:\Users\{{ ansible_user }}\dev"
+        Add-MpPreference -ExclusionPath "C:\ProgramData\Docker"
+      tags: [defender]
+
+    - name: Ensure Tailscale is running
+      win_service:
+        name: Tailscale
+        state: started
+        start_mode: auto
+      tags: [tailscale]
+
+# Separate playbook section for mode switching
+- name: Switch Workstation Mode
+  hosts: "{{ target_host | default('armitage') }}"
+  gather_facts: no
+  vars_prompt:
+    - name: target_mode
+      prompt: "Enter mode (gaming/productivity/development)"
+      private: no
+      default: productivity
+  
+  tasks:
+    - name: Apply workstation mode
+      include_role:
+        name: windows-workstation-mode
+      vars:
+        workstation_mode: "{{ target_mode }}"

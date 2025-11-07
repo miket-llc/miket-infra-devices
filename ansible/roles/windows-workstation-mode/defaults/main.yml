@@ -1,0 +1,55 @@
+---
+# Default variables for windows-workstation-mode role
+
+# Define the different workstation modes
+workstation_modes:
+  gaming:
+    description: "Optimized for gaming performance"
+    services_to_stop:
+      - WSearch           # Windows Search
+      - SysMain          # Superfetch
+      - DiagTrack        # Diagnostics Tracking
+      - TabletInputService
+      - Spooler          # Print Spooler
+      - Themes           # Themes service
+    services_to_start:
+      - BEService        # BattlEye (if installed)
+      - EasyAntiCheat    # EAC (if installed)
+    power_plan: "High Performance"
+    power_plan_guid: "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+    game_mode_enabled: true
+    gpu_persistence: 1
+    network_autotuning: disabled  # Better for low latency
+    
+  productivity:
+    description: "Balanced for daily work"
+    services_to_stop: []
+    services_to_start:
+      - WSearch
+      - SysMain
+      - Themes
+      - Spooler
+    power_plan: "Balanced"
+    power_plan_guid: "381b4222-f694-41f0-9685-ff5bb260df2e"
+    game_mode_enabled: false
+    gpu_persistence: 0
+    network_autotuning: normal
+    
+  development:
+    description: "Optimized for development with Docker and WSL"
+    services_to_stop:
+      - DiagTrack
+      - TabletInputService
+    services_to_start:
+      - WSearch
+      - com.docker.service
+      - LxssManager      # WSL
+      - vmcompute        # Hyper-V compute
+    power_plan: "Balanced"
+    power_plan_guid: "381b4222-f694-41f0-9685-ff5bb260df2e"
+    game_mode_enabled: false
+    gpu_persistence: 1  # For CUDA workloads
+    network_autotuning: normal
+
+# Default mode if not specified
+default_workstation_mode: productivity

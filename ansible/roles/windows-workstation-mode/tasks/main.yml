@@ -1,0 +1,84 @@
+---
+# Ansible role: windows-workstation-mode
+# Manages different operational modes for Windows workstations
+
+- name: Set mode-specific variables
+  set_fact:
+    mode_config: "{{ workstation_modes[workstation_mode] }}"
+
+- name: Display mode being applied
+  debug:
+    msg: "Applying {{ workstation_mode }} mode to {{ inventory_hostname }}"
+
+# Stop services for the selected mode
+- name: Stop services for {{ workstation_mode }} mode
+  win_service:
+    name: "{{ item }}"
+    state: stopped
+    start_mode: disabled
+  loop: "{{ mode_config.services_to_stop | default([]) }}"
+  ignore_errors: yes
+
+# Start services for the selected mode
+- name: Start services for {{ workstation_mode }} mode
+  win_service:
+    name: "{{ item }}"
+    state: started
+    start_mode: auto
+  loop: "{{ mode_config.services_to_start | default([]) }}"
+  ignore_errors: yes
+
+# Apply power plan
+- name: Set power plan to {{ mode_config.power_plan }}
+  win_shell: |
+    powercfg /setactive {{ mode_config.power_plan_guid }}
+  when: mode_config.power_plan_guid is defined
+
+# Configure Game Mode via registry
+- name: Configure Windows Game Mode
+  win_regedit:
+    path: HKCU:\Software\Microsoft\GameBar
+    name: AutoGameModeEnabled
+    data: "{{ mode_config.game_mode_enabled | ternary(1, 0) }}"
+    type: dword
+
+# Configure GPU settings
+- name: Configure NVIDIA GPU persistence mode
+  win_shell: |
+    $nvidiaSmi = "${env:ProgramFiles}\NVIDIA Corporation\NVSMI\nvidia-smi.exe"
+    if (Test-Path $nvidiaSmi) {
+      & $nvidiaSmi -pm {{ mode_config.gpu_persistence | default('0') }}
+    }
+  when: "'NVIDIA' in gpu.model"
+  ignore_errors: yes
+
+# Apply network optimizations
+- name: Configure network settings for {{ workstation_mode }}
+  win_shell: |
+    netsh int tcp set global autotuninglevel={{ mode_config.network_autotuning | default('normal') }}
+  when: mode_config.network_autotuning is defined
+
+# Save current mode state
+- name: Save workstation mode state
+  win_file:
+    path: C:\ProgramData\ArmitageMode
+    state: directory
+
+- name: Write current mode to state file
+  win_copy:
+    content: |
+      {
+        "mode": "{{ workstation_mode }}",
+        "applied": "{{ ansible_date_time.iso8601 }}",
+        "applied_by": "ansible",
+        "hostname": "{{ inventory_hostname }}"
+      }
+    dest: C:\ProgramData\ArmitageMode\current_mode.json
+
+- name: Display completion message
+  debug:
+    msg: 
+      - "✅ Successfully applied {{ workstation_mode }} mode"
+      - "Services stopped: {{ mode_config.services_to_stop | default([]) | join(', ') }}"
+      - "Services started: {{ mode_config.services_to_start | default([]) | join(', ') }}"
+      - "Power plan: {{ mode_config.power_plan }}"
