@@ -28,26 +28,55 @@
         start_mode: auto
       tags: [docker]
     
-    - name: Ensure Docker Desktop GUI is running
+    - name: Ensure Docker Desktop GUI is running (headless mode)
       win_shell: |
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Checking Docker Desktop status..." -ForegroundColor Yellow
+        
         $dockerDesktopPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-        if (Test-Path $dockerDesktopPath) {
-          $process = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
-          if (-not $process) {
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting Docker Desktop GUI..." -ForegroundColor Yellow
-            Start-Process $dockerDesktopPath
-            Start-Sleep -Seconds 5
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop GUI started" -ForegroundColor Green
-          } else {
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop GUI is already running" -ForegroundColor Cyan
-          }
-        } else {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop executable not found at $dockerDesktopPath" -ForegroundColor Red
+        if (-not (Test-Path $dockerDesktopPath)) {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop executable not found" -ForegroundColor Red
           exit 1
+        }
+        
+        # Check if Docker Desktop process is running
+        $process = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
+        if (-not $process) {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting Docker Desktop (headless)..." -ForegroundColor Yellow
+          # Start Docker Desktop minimized/headless for service account
+          Start-Process $dockerDesktopPath -WindowStyle Hidden
+          Start-Sleep -Seconds 10
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop started" -ForegroundColor Green
+        } else {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop is already running" -ForegroundColor Cyan
         }
       register: docker_gui_start
       changed_when: "'Starting' in docker_gui_start.stdout"
       tags: [docker]
+    
+    - name: Ensure WSL2 docker-desktop distro is running
+      win_shell: |
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Checking WSL2 docker-desktop distro..." -ForegroundColor Yellow
+        
+        $wslList = wsl --list --verbose 2>&1
+        Write-Host $wslList
+        
+        if ($wslList -match "docker-desktop.*Running") {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 docker-desktop is running" -ForegroundColor Green
+          exit 0
+        } elseif ($wslList -match "docker-desktop.*Stopped") {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting WSL2 docker-desktop distro..." -ForegroundColor Yellow
+          wsl -d docker-desktop -- echo "Starting" 2>&1 | Out-Null
+          Start-Sleep -Seconds 5
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 docker-desktop started" -ForegroundColor Green
+          exit 0
+        } else {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 docker-desktop distro not found - Docker Desktop may still be initializing" -ForegroundColor Yellow
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] This is normal for first-time setup" -ForegroundColor Cyan
+          exit 0
+        }
+      register: wsl_check
+      tags: [docker]
+      failed_when: false
     
     - name: Wait for Docker to be ready (with progress output)
       win_shell: |
