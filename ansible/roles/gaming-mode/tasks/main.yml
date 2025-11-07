@@ -1,0 +1,82 @@
+---
+- name: Disable low-priority background services
+  vars:
+    default_gaming_mode_services:
+      - bluetooth.service
+      - cups.service
+      - avahi-daemon.service
+      - packagekit.service
+    background_service_candidates: "{{ background_services_to_disable | default(default_gaming_mode_services, true) }}"
+    resolved_background_services: "{{ (background_service_candidates | length > 0) | ternary(background_service_candidates, default_gaming_mode_services) }}"
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: "{{ gaming_mode_mask_services | default(false) }}"
+  loop: "{{ resolved_background_services | list }}"
+  register: gaming_mode_service_changes
+  failed_when: >-
+    (gaming_mode_service_changes is failed) and not (gaming_mode_ignore_missing_services | default(true))
+  when: (resolved_background_services | length) > 0
+
+- name: Apply kernel tuning for gaming performance
+  vars:
+    default_performance_tweaks:
+      - { name: "vm.swappiness", value: "10" }
+      - { name: "kernel.sched_migration_cost_ns", value: "5000000" }
+      - { name: "kernel.perf_event_paranoid", value: "0" }
+      - { name: "kernel.nmi_watchdog", value: "0" }
+    performance_candidates: "{{ performance_tweaks | default(default_performance_tweaks, true) }}"
+    resolved_performance_tweaks: "{{ (performance_candidates | length > 0) | ternary(performance_candidates, default_performance_tweaks) }}"
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop: "{{ resolved_performance_tweaks | list }}"
+  when: (resolved_performance_tweaks | length) > 0
+
+- name: Switch to performance power profile when available
+  ansible.builtin.command: powerprofilesctl set performance
+  register: gaming_mode_powerprofilesctl
+  changed_when: >-
+    gaming_mode_powerprofilesctl.rc == 0 and
+    (gaming_mode_powerprofilesctl.stdout | lower).find('performance') != -1 and
+    'already' not in (gaming_mode_powerprofilesctl.stderr | lower)
+  failed_when: false
+  when: gaming_mode_use_powerprofilesctl | default(true)
+
+- name: Enable AMD/NVIDIA persistence mode if supported
+  ansible.builtin.command: nvidia-smi -pm 1
+  register: gaming_mode_nvidia_persistenced
+  changed_when: "'Enabled persistence mode' in gaming_mode_nvidia_persistenced.stdout"
+  failed_when: false
+  when: gaming_mode_enable_gpu_persistence | default(true)
+
+- name: Configure firewall rules for latency-sensitive services
+  vars:
+    default_firewall_rules:
+      - { port: "27015-27050", protocol: "udp" }
+      - { port: "27015-27030", protocol: "tcp" }
+      - { port: "3478-3480", protocol: "udp" }
+    firewall_rule_candidates: "{{ gaming_mode_firewall_rules | default(default_firewall_rules, true) }}"
+    resolved_firewall_rules: "{{ (firewall_rule_candidates | length > 0) | ternary(firewall_rule_candidates, default_firewall_rules) }}"
+  ansible.posix.firewalld:
+    port: "{{ item.port }}"
+    protocol: "{{ item.protocol }}"
+    zone: "{{ item.zone | default('public') }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ resolved_firewall_rules | list }}"
+  when: gaming_mode_manage_firewall | default(true)
+
+- name: Allow performance monitoring for unprivileged users
+  ansible.posix.sysctl:
+    name: kernel.kptr_restrict
+    value: "0"
+    sysctl_set: true
+    state: present
+    reload: true
+  when: gaming_mode_allow_perf | default(true)

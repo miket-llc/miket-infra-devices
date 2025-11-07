@@ -1,0 +1,29 @@
+---
+# Hardware and OS profile for the armitage workstation
+hardware:
+  vendor: "Framework"
+  model: "Laptop 16 (dGPU)"
+  cpu:
+    model: "AMD Ryzen 9 7940HS"
+    cores: 8
+    threads: 16
+  gpu:
+    vendor: "AMD"
+    model: "Radeon RX 7700S"
+    vram_gb: 8
+  memory_gb: 32
+network:
+  interfaces:
+    - name: "wlan0"
+      mac_address: "d4:6d:6d:42:11:7a"
+      type: "wifi"
+    - name: "eth0"
+      mac_address: "00:1e:06:34:9a:bf"
+      type: "ethernet"
+os:
+  name: "Fedora Linux"
+  version: "39"
+  kernel: "6.6"
+roles:
+  - gaming-mode
+  - llm-serving

@@ -1,0 +1,90 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "title": "Armitage Workstation Overview",
+  "uid": "armitage-overview",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "type": "graph",
+      "title": "GPU Temperature",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "dcgm_gpu_temp_celsius{device='armitage'}",
+          "legendFormat": "{{gpu}}"
+        }
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "graph",
+      "title": "vLLM Request Rate",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(vllm_requests_total{device='armitage'}[5m])",
+          "legendFormat": "req/s"
+        }
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "stat",
+      "title": "Mode",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "max(armitage_mode_state{device='armitage'})",
+          "legendFormat": "Mode"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "orientation": "horizontal",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Productivity"
+                },
+                "1": {
+                  "text": "Gaming"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 0.5}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 9}
+    },
+    {
+      "type": "graph",
+      "title": "CPU Usage",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "avg(rate(node_cpu_seconds_total{device='armitage',mode!='idle'}[5m]))",
+          "legendFormat": "Usage"
+        }
+      ],
+      "gridPos": {"h": 9, "w": 12, "x": 6, "y": 9}
+    }
+  ]
+}

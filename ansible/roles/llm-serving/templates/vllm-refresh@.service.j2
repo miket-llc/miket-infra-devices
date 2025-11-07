@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+[Unit]
+Description=vLLM container refresh (%i)
+After=vllm-container@%i.service
+Requires=vllm-container@%i.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart vllm-container@%i.service
+ExecStartPost=/usr/bin/docker system prune --force --filter "label=vllm-temporary=true"
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Nightly refresh of vLLM container (%i)
+
+[Timer]
+OnCalendar={{ vllm_refresh_schedule | default('daily') }}
+RandomizedDelaySec=10m
+Unit=vllm-refresh@%i.service
+
+[Install]
+WantedBy=timers.target

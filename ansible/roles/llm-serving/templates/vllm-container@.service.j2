@@ -1,0 +1,36 @@
+# {{ ansible_managed }}
+[Unit]
+Description=vLLM inference container (%i)
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Environment="IMAGE={{ vllm_container_image }}"
+Environment="MODEL_NAME={{ vllm_model_name }}"
+Environment="CONTAINER_NAME={{ vllm_container_name | default('vllm-' + inventory_hostname) }}"
+ExecStartPre=-/usr/bin/docker rm -f ${CONTAINER_NAME}
+ExecStart=/usr/bin/docker run \
+  --name ${CONTAINER_NAME} \
+  --gpus {{ vllm_container_gpu | default('all') }} \
+  --network {{ vllm_container_network | default('host') }} \
+  --env MODEL_NAME=${MODEL_NAME} \
+  {% if vllm_container_extra_env is defined %}{% for key, value in vllm_container_extra_env.items() %}--env {{ key }}={{ value }} \
+  {% endfor %}{% endif %}
+  {% if vllm_container_mounts is defined %}{% for mount in vllm_container_mounts %}-v {{ mount }} \
+  {% endfor %}{% endif %}
+  ${IMAGE} \
+  python -m vllm.entrypoints.openai.api_server --model ${MODEL_NAME} {{ vllm_container_extra_args | default('') }}
+ExecStop=/usr/bin/docker stop ${CONTAINER_NAME}
+Restart=always
+RestartSec=15
+TimeoutStartSec=300
+TimeoutStopSec=45
+WorkingDirectory=/var/lib/vllm
+RuntimeDirectory=vllm
+RuntimeDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

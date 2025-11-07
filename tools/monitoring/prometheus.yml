@@ -1,0 +1,42 @@
+# Prometheus configuration for the device fleet
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+rule_files:
+  - alerts/armitage.yml
+
+scrape_configs:
+  - job_name: "armitage-node"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - armitage.local:9100
+        labels:
+          device: armitage
+          role: workstation
+          mode: gaming
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: armitage
+
+  - job_name: "armitage-gpu"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - armitage.local:9400
+        labels:
+          device: armitage
+          exporter: dcgm
+    scrape_interval: 30s
+
+  - job_name: "armitage-vllm"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - armitage.local:8000
+        labels:
+          device: armitage
+          service: vllm
+    scrape_interval: 15s
