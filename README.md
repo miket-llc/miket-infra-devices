@@ -76,13 +76,20 @@ miket-infra-devices/
 
 3. Copy and customize configuration templates from `configs/`
 
-## Integration with motoko-devops
+## Repository Integration
 
+### With motoko-devops
 This repository complements the `~/motoko-devops` script repository. While motoko-devops contains reusable administrative scripts, this repository focuses on:
 - Device-specific configurations
 - Infrastructure documentation
 - Cross-device orchestration
 - Backup and monitoring configurations
+
+### With miket-infra
+This repository works in conjunction with `../miket-infra` for Tailscale network configuration:
+- **miket-infra**: Defines Tailscale ACL policies, tags, and network rules via Terraform
+- **miket-infra-devices**: Applies those tags to devices and manages their configurations
+- See `docs/tailscale-integration.md` for full integration details
 
 ## Ansible with Tailscale
 
