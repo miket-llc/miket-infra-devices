@@ -1,0 +1,46 @@
+---
+# Ansible playbook to standardize user accounts across infrastructure
+# This creates consistent usernames without full SSO
+
+- name: Standardize user accounts across infrastructure
+  hosts: all
+  become: yes
+  vars:
+    standard_users:
+      - username: mdt
+        full_name: "Mike T"
+        groups:
+          - sudo
+          - docker
+        shell: /bin/bash
+        ssh_keys:
+          - "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+      
+  tasks:
+    - name: Create standard users on Linux systems
+      when: ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+      user:
+        name: "{{ item.username }}"
+        comment: "{{ item.full_name }}"
+        groups: "{{ item.groups }}"
+        shell: "{{ item.shell }}"
+        append: yes
+        state: present
+      loop: "{{ standard_users }}"
+    
+    - name: Set up SSH keys
+      authorized_key:
+        user: "{{ item.0.username }}"
+        key: "{{ item.1 }}"
+        state: present
+      loop: "{{ standard_users | subelements('ssh_keys') }}"
+    
+    - name: Configure sudoers for standard users
+      lineinfile:
+        path: /etc/sudoers.d/{{ item.username }}
+        line: "{{ item.username }} ALL=(ALL) NOPASSWD:ALL"
+        create: yes
+        validate: 'visudo -cf %s'
+      loop: "{{ standard_users }}"
+      when: "'sudo' in item.groups"
+

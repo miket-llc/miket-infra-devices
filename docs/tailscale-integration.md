@@ -91,6 +91,9 @@ terraform apply
 
 ### Step 3: Setup Ansible Control Node (motoko)
 
+See [Motoko Ansible Control Node Setup](./runbooks/motoko-ansible-setup.md) for complete instructions.
+
+Quick setup:
 ```bash
 # SSH to motoko (via local network if Tailscale not yet configured)
 ssh mdt@192.168.1.201 -p 2222
@@ -98,14 +101,6 @@ ssh mdt@192.168.1.201 -p 2222
 # Run setup script
 cd ~/miket-infra-devices
 ./scripts/setup-tailscale.sh motoko
-
-# Clone the repo if not present
-git clone https://github.com/miket-llc/miket-infra-devices.git
-
-# Install Ansible (done by setup script)
-sudo apt update
-sudo apt install -y ansible python3-pip
-pip3 install pywinrm
 ```
 
 ### Step 4: Test Connectivity

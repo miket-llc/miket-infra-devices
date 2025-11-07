@@ -58,23 +58,33 @@ miket-infra-devices/
 
 ## Quick Start
 
+### Setting Up Motoko as Ansible Control Node
+
+**One-command setup:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-motoko.sh | bash
+```
+
+Or manually:
+```bash
+git clone https://github.com/miket-llc/miket-infra-devices.git ~/miket-infra-devices
+cd ~/miket-infra-devices
+./scripts/bootstrap-motoko.sh
+```
+
+See [Quick Start Guide](docs/QUICK_START_MOTOKO.md) for details.
+
 ### Prerequisites
 - Git
 - PowerShell 5.1+ (Windows) or Bash (Linux/MacOS)
 - SSH access to managed devices
-- Ansible (optional, for automation)
+- Ansible (installed automatically on motoko)
 
-### Setup
+### Device Setup
 
-1. Clone this repository:
-   ```bash
-   git clone <repository-url>
-   cd miket-infra-devices
-   ```
-
-2. Review device configurations in `devices/`
-
-3. Copy and customize configuration templates from `configs/`
+1. **Motoko (Ansible Control Node):** Run `./scripts/bootstrap-motoko.sh`
+2. **Other devices:** Follow device-specific guides in `docs/runbooks/`
+3. **Review configurations:** Check `devices/` for device-specific configs
 
 ## Repository Integration
 
