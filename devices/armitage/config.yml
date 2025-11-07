@@ -1,6 +1,51 @@
-# Placeholder configuration for armitage
+# Armitage - Windows Gaming/Development Laptop
+# Last Updated: 2024-11-07
+
+device:
+  hostname: armitage
+  type: laptop
+  location: mobile
+  primary_user: mdt
+
 hardware:
-  cpu: "Intel Core i7 (placeholder)"
-  gpu: "NVIDIA GeForce RTX 4070"
+  manufacturer: Alienware
+  model: Gaming Laptop
+  cpu: Intel Core i9-13900HX (24 cores, 32 threads)
+  gpu: NVIDIA GeForce RTX 4070 (8GB VRAM)
+  memory: 32GB DDR5
+  storage:
+    - 2TB NVMe SSD (Primary)
+    - 1TB NVMe SSD (Games/Data)
+
+operating_system:
+  os: Windows 11 Pro
+  version: 22H2
+  wsl: true
+  docker_desktop: true
+
+network:
+  tailscale_enabled: true
+  remote_desktop: true
+  wake_on_lan: true
+
+services:
+  - Docker Desktop with WSL2 backend
+  - NVIDIA CUDA Toolkit
+  - WSL2 (Ubuntu 22.04)
+  - Steam/Gaming platforms
+  - Development IDEs (VS Code, Visual Studio)
+  - NVIDIA Container Toolkit (via WSL2)
+
+use_cases:
+  - Mobile development workstation
+  - High-performance gaming
+  - CUDA/ML development
+  - Docker containerization
+  - Remote access via Tailscale
+
 notes:
-  - "High-performance laptop tuned for mobile dev workflows"
+  - High-performance Alienware laptop with RTX 4070
+  - Optimized for both gaming and development workflows
+  - Supports GPU passthrough to WSL2 for CUDA workloads
+  - Connected to Tailnet for secure remote access
+  - Gaming mode optimizations available via Windows Game Mode

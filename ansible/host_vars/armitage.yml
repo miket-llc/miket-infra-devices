@@ -1,29 +1,41 @@
 ---
 # Hardware and OS profile for the armitage workstation
+# Alienware laptop with high-end GPU for mobile development and gaming
 hardware:
-  vendor: "Framework"
-  model: "Laptop 16 (dGPU)"
+  vendor: "Alienware"
+  model: "Gaming Laptop"
   cpu:
-    model: "AMD Ryzen 9 7940HS"
-    cores: 8
-    threads: 16
+    model: "Intel Core i9-13900HX"  # High-end mobile CPU typical for Alienware
+    cores: 24
+    threads: 32
   gpu:
-    vendor: "AMD"
-    model: "Radeon RX 7700S"
+    vendor: "NVIDIA"
+    model: "GeForce RTX 4070"
     vram_gb: 8
+    driver_version: "latest"
+    cuda_capable: true
   memory_gb: 32
+  storage:
+    - type: "NVMe SSD"
+      size_gb: 2048
 network:
   interfaces:
-    - name: "wlan0"
-      mac_address: "d4:6d:6d:42:11:7a"
+    - name: "Wi-Fi"
       type: "wifi"
-    - name: "eth0"
-      mac_address: "00:1e:06:34:9a:bf"
+      mac_address: "{{ vault_armitage_wifi_mac | default('REDACTED') }}"
+    - name: "Ethernet"
       type: "ethernet"
+      mac_address: "{{ vault_armitage_eth_mac | default('REDACTED') }}"
+  tailscale:
+    enabled: true
+    hostname: "armitage"
 os:
-  name: "Fedora Linux"
-  version: "39"
-  kernel: "6.6"
+  name: "Windows"
+  version: "11"
+  edition: "Pro"
+  build: "22H2"
 roles:
+  - windows-workstation
   - gaming-mode
-  - llm-serving
+  - cuda-development
+  - docker-desktop
