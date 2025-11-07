@@ -1,0 +1,6 @@
+# Placeholder configuration for motoko
+hardware:
+  cpu: "AMD EPYC (placeholder)"
+  gpu: "NVIDIA GeForce RTX 2080"
+notes:
+  - "Docker host optimized for GPU workloads"

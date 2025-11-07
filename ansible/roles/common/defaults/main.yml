@@ -1,0 +1,4 @@
+---
+# Default variables for the common role
+packages: []
+services: []
