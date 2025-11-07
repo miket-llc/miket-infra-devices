@@ -1,0 +1,6 @@
+# Placeholder configuration for wintermute
+hardware:
+  cpu: "Intel Core i9 (placeholder)"
+  gpu: "NVIDIA GeForce RTX 4070 Super"
+notes:
+  - "Primary Windows development and gaming workstation"

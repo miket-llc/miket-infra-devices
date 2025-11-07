@@ -1,0 +1,4 @@
+---
+# Default variables for the gaming-mode role
+performance_tweaks: []
+background_services_to_disable: []

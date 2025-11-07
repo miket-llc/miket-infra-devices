@@ -1,0 +1,6 @@
+# Placeholder configuration for count-zero
+hardware:
+  cpu: "Apple M-series (placeholder)"
+  gpu: "Integrated Apple GPU"
+notes:
+  - "MacBook Pro with custom terminal tooling"

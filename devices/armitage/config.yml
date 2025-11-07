@@ -1,0 +1,6 @@
+# Placeholder configuration for armitage
+hardware:
+  cpu: "Intel Core i7 (placeholder)"
+  gpu: "NVIDIA GeForce RTX 4070"
+notes:
+  - "High-performance laptop tuned for mobile dev workflows"

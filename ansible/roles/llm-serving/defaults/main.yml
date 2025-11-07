@@ -1,0 +1,5 @@
+---
+# Default variables for the llm-serving role
+model_repos: []
+serving_ports: []
+accelerator_type: auto
