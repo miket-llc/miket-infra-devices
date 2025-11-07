@@ -141,7 +141,8 @@
       until: docker_ready.rc == 0
       retries: 1
       delay: 0
-      timeout: 310
+      async: 320
+      poll: 10
       tags: [docker]
     
     - name: Create scripts directory
