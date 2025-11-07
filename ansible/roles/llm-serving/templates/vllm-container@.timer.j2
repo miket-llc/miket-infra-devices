@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Ensure vLLM container (%i) is started after boot
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec={{ vllm_container_restart_interval | default('6h') }}
+Unit=vllm-container@%i.service
+AccuracySec=1m
+
+[Install]
+WantedBy=timers.target

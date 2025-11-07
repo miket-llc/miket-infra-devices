@@ -1,0 +1,34 @@
+# Alerting rules tailored for the Armitage workstation
+---
+groups:
+  - name: armitage.rules
+    rules:
+      - alert: ArmitageHighGpuTemp
+        expr: max_over_time(dcgm_gpu_temp_celsius{device="armitage"}[5m]) > 82
+        for: 10m
+        labels:
+          severity: warning
+          device: armitage
+        annotations:
+          summary: "Armitage GPU temperature is trending high"
+          description: "The GPU temperature has exceeded 82C for more than 10 minutes. Ensure the chassis fans are unobstructed and gaming mode limits background workloads."
+
+      - alert: ArmitageVLLMRequestErrors
+        expr: rate(vllm_request_errors_total{device="armitage"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          device: armitage
+        annotations:
+          summary: "vLLM on Armitage is returning errors"
+          description: "The OpenAI-compatible endpoint on Armitage is serving errors. Check the vLLM container logs and consider running the refresh timer."
+
+      - alert: ArmitageModeDrift
+        expr: max_over_time(armitage_mode_state{device="armitage"}[10m]) != 1
+        for: 30m
+        labels:
+          severity: info
+          device: armitage
+        annotations:
+          summary: "Armitage left gaming mode"
+          description: "The mode_switcher reported that Armitage is no longer in gaming mode. Confirm whether the change was intentional before tournaments or showcases."
