@@ -43,9 +43,20 @@ use_cases:
   - Docker containerization
   - Remote access via Tailscale
 
+vllm:
+  enabled: true
+  model: "mistralai/Mistral-7B-Instruct-v0.2"
+  port: 8000
+  container_name: "vllm-armitage"
+  image: "vllm/vllm-openai:latest"
+  auto_switch: true
+  check_interval_minutes: 5
+  idle_threshold_minutes: 5
+
 notes:
   - High-performance Alienware laptop with RTX 4070
   - Optimized for both gaming and development workflows
   - Supports GPU passthrough to WSL2 for CUDA workloads
   - Connected to Tailnet for secure remote access
   - Gaming mode optimizations available via Windows Game Mode
+  - vLLM serving with automatic mode switching between workstation and LLM modes

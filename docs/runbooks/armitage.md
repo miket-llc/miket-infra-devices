@@ -2,43 +2,63 @@
 
 This document explains how to operate the Armitage workstation when switching between productivity and gaming workloads, as well as the observability resources that are available for the device.
 
+## Overview
+
+Armitage is a Windows 11 workstation configured for:
+- **Workstation Mode**: Normal productivity and gaming use
+- **LLM Serving Mode**: Automatic vLLM inference when idle
+- **Automatic Switching**: Seamlessly transitions between modes based on usage
+
+See [Armitage vLLM Setup](./armitage-vllm.md) for detailed vLLM configuration.
+
 ## Mode Switching Workflow
 
-The `devices/armitage/scripts/mode_switcher.py` helper drives the transition between the two supported modes (`gaming` and `productivity`). The script enables or stops the relevant systemd units and records the current mode so that the monitoring stack can expose the device state.
+### Automatic Mode Switching
 
-### Prerequisites
+Armitage automatically switches between modes based on system activity:
+- **Workstation Mode**: When user is active or GPU is in use
+- **LLM Serving Mode**: When system is idle (starts vLLM container)
 
-* The workstation must be configured with the `gaming-mode` and `llm-serving` roles.
-* The user running the script requires permissions to interact with `systemctl` for the managed units.
+The auto-switcher runs via scheduled task every 5 minutes and monitors:
+- User logon sessions and active applications
+- GPU usage by non-Docker processes
+- System idle time
 
-### Switch to Gaming Mode
+### Manual Mode Switching
 
-```bash
-sudo devices/armitage/scripts/mode_switcher.py switch gaming
+The `devices/armitage/scripts/Set-WorkstationMode.ps1` script provides manual control:
+
+**Switch to Gaming Mode:**
+```powershell
+.\Set-WorkstationMode.ps1 -Mode Gaming
 ```
 
-This command performs the following actions:
-
-1. Stops low-priority background targets (for example `llm-idle.target`).
-2. Starts the `gaming-mode.target`, which applies service, firewall, and kernel tunings for latency-sensitive use cases.
-3. Starts `vllm-container@armitage.service` if an LLM endpoint is needed for demos.
-4. Persists the new state to `~/.local/share/armitage/mode_state.json` for reference by observability tooling.
-
-### Switch Back to Productivity Mode
-
-```bash
-sudo devices/armitage/scripts/mode_switcher.py switch productivity
+**Switch to Productivity Mode:**
+```powershell
+.\Set-WorkstationMode.ps1 -Mode Productivity
 ```
 
-This reverses the previous changes by bringing background services back online and disabling the latency optimizations.
-
-### Check the Current Mode
-
-```bash
-devices/armitage/scripts/mode_switcher.py status
+**Switch to Development Mode:**
+```powershell
+.\Set-WorkstationMode.ps1 -Mode Development
 ```
 
-Outputs the last stored mode without performing any changes. Use this in scripts or health checks when you only need to know the expected configuration.
+### vLLM Mode Management
+
+For vLLM-specific mode switching, use `Auto-ModeSwitcher.ps1`:
+
+```powershell
+# Force workstation mode (stops vLLM)
+.\Auto-ModeSwitcher.ps1 -ForceMode workstation
+
+# Force LLM mode (starts vLLM)
+.\Auto-ModeSwitcher.ps1 -ForceMode llm
+
+# Enable auto mode (default)
+.\Auto-ModeSwitcher.ps1 -ForceMode auto
+```
+
+See [Armitage vLLM Setup](./armitage-vllm.md) for complete vLLM documentation.
 
 ## Expected Behavior in Gaming Mode
 

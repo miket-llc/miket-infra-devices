@@ -1,0 +1,146 @@
+---
+# Ansible playbook for setting up vLLM on Armitage Windows workstation
+# Run from Linux control node (motoko):
+#   ansible-playbook -i inventory/hosts.yml playbooks/armitage-vllm-setup.yml --limit armitage --ask-vault-pass
+
+- name: Setup vLLM on Armitage
+  hosts: armitage
+  gather_facts: yes
+  vars:
+    vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
+    vllm_port: "{{ vllm_api_port | default(8000) }}"
+    vllm_container_name: "vllm-armitage"
+    vllm_image: "vllm/vllm-openai:latest"
+    auto_switch_enabled: true
+    check_interval_minutes: 5
+  
+  tasks:
+    - name: Ensure Docker Desktop is installed
+      win_chocolatey:
+        name: docker-desktop
+        state: present
+      tags: [docker]
+    
+    - name: Ensure Docker Desktop service is running
+      win_service:
+        name: com.docker.service
+        state: started
+        start_mode: auto
+      tags: [docker]
+    
+    - name: Wait for Docker to be ready
+      win_shell: |
+        $timeout = 60
+        $elapsed = 0
+        while ($elapsed -lt $timeout) {
+          try {
+            docker version 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+          } catch {
+            Start-Sleep -Seconds 2
+            $elapsed += 2
+          }
+        }
+        exit 1
+      register: docker_ready
+      until: docker_ready.rc == 0
+      retries: 30
+      delay: 2
+      tags: [docker]
+    
+    - name: Create scripts directory
+      win_file:
+        path: C:\Users\{{ ansible_user }}\dev\armitage\scripts
+        state: directory
+      tags: [scripts]
+    
+    - name: Deploy vLLM management script
+      win_copy:
+        src: "{{ playbook_dir }}/../devices/armitage/scripts/Start-VLLM.ps1"
+        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1
+      tags: [scripts]
+    
+    - name: Deploy auto mode switcher script
+      win_copy:
+        src: "{{ playbook_dir }}/../devices/armitage/scripts/Auto-ModeSwitcher.ps1"
+        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Auto-ModeSwitcher.ps1
+      tags: [scripts]
+    
+    - name: Update mode switcher script
+      win_copy:
+        src: "{{ playbook_dir }}/../devices/armitage/scripts/Set-WorkstationMode.ps1"
+        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Set-WorkstationMode.ps1
+      tags: [scripts]
+    
+    - name: Create vLLM configuration directory
+      win_file:
+        path: C:\ProgramData\ArmitageMode
+        state: directory
+      tags: [config]
+    
+    - name: Create vLLM config file
+      win_copy:
+        content: |
+          {
+            "model": "{{ vllm_model }}",
+            "port": {{ vllm_port }},
+            "container_name": "{{ vllm_container_name }}",
+            "image": "{{ vllm_image }}",
+            "auto_switch": {{ auto_switch_enabled | lower }}
+          }
+        dest: C:\ProgramData\ArmitageMode\vllm_config.json
+      tags: [config]
+    
+    - name: Create scheduled task for auto mode switching
+      win_scheduled_task:
+        name: Armitage Auto Mode Switcher
+        description: Automatically switches between workstation and LLM serving modes
+        actions:
+          - path: powershell.exe
+            arguments: >
+              -ExecutionPolicy Bypass -NoProfile -File
+              "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Auto-ModeSwitcher.ps1"
+        triggers:
+          - type: boot
+          - type: logon
+          - type: daily
+            start_time: "00:00"
+          - type: time
+            minutes_interval: "{{ check_interval_minutes }}"
+            repetition_interval: "PT{{ check_interval_minutes }}M"
+            repetition_duration: "PT24H"
+        state: present
+        enabled: "{{ auto_switch_enabled }}"
+        run_level: highest
+        username: SYSTEM
+      tags: [scheduled_task]
+    
+    - name: Test vLLM script availability
+      win_shell: |
+        if (Test-Path "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1") {
+          Write-Host "✅ vLLM scripts deployed successfully"
+          exit 0
+        } else {
+          Write-Host "❌ vLLM scripts not found"
+          exit 1
+        }
+      register: script_test
+      tags: [scripts, test]
+    
+    - name: Display setup summary
+      debug:
+        msg:
+          - "✅ vLLM setup complete for Armitage"
+          - "Model: {{ vllm_model }}"
+          - "Port: {{ vllm_port }}"
+          - "Auto-switching: {{ auto_switch_enabled }}"
+          - "Check interval: {{ check_interval_minutes }} minutes"
+          - ""
+          - "To manually start vLLM:"
+          - "  powershell -ExecutionPolicy Bypass -File C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1 -Action Start"
+          - ""
+          - "To check status:"
+          - "  powershell -ExecutionPolicy Bypass -File C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1 -Action Status"
+
