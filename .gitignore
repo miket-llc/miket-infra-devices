@@ -1,0 +1,84 @@
+# Sensitive files
+*.key
+*.pem
+*.crt
+*.cer
+*.pfx
+*.p12
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+known_hosts
+authorized_keys
+
+# Credentials and secrets
+.env
+.env.local
+.env.*.local
+secrets.yml
+secrets.yaml
+vault.yml
+vault.yaml
+*password*
+*token*
+*apikey*
+*api_key*
+*.secret
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Ansible
+*.retry
+ansible/*.retry
+ansible/inventory/hosts.local
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Local overrides
+*.local
+local/

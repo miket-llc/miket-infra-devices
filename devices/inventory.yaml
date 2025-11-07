@@ -1,0 +1,77 @@
+# Infrastructure Device Inventory
+# Last Updated: 2025-11-06
+
+devices:
+  servers:
+    motoko:
+      hostname: motoko
+      fqdn: motoko.hopto.org
+      os: Ubuntu 24.04.2 LTS
+      codename: noble
+      type: Server
+      hardware:
+        model: Alienware Laptop
+        gpu: NVIDIA GeForce RTX 2080
+        gpu_driver: 535.230.02
+        cuda_version: "12.2"
+      services:
+        - docker
+        - samba
+        - netatalk
+        - fail2ban
+        - postfix
+        - text-generation-webui
+      storage:
+        docker_root: /mnt/data/docker
+        backup_location: /mnt/lacie
+        model_storage: /mnt/lacie/llama-model
+      network:
+        ssh_enabled: true
+        ssh_auth: key_only
+        tailscale: enabled
+      notes: |
+        Primary infrastructure server
+        Hosts Docker containers with NVIDIA runtime
+        Provides backup services via Samba/AFP
+        
+  workstations:
+    wintermute:
+      hostname: wintermute
+      os: Windows 11
+      type: Workstation
+      hardware:
+        gpu: NVIDIA GeForce RTX 4070 Super
+      network:
+        tailscale: enabled
+      notes: Primary development workstation
+      
+    armitage:
+      hostname: armitage
+      os: Windows 11
+      type: Laptop Workstation
+      hardware:
+        model: Alienware Laptop
+        gpu: NVIDIA GeForce RTX 4070
+      network:
+        tailscale: enabled
+      notes: Mobile development workstation
+      
+  macos:
+    count-zero:
+      hostname: count-zero
+      os: macOS
+      type: MacBook Pro
+      owner: personal
+      network:
+        tailscale: enabled
+        ssh_enabled: true
+      terminal: WarpTerminal
+      notes: Personal development laptop with custom configuration
+      
+    managed-macbook:
+      hostname: IT-managed
+      os: macOS
+      type: MacBook Pro
+      owner: corporate
+      managed_by: IT
+      notes: Corporate managed device
