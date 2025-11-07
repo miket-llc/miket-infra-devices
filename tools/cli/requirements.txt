@@ -1,0 +1,6 @@
+ansible
+textual
+typer
+rich
+paramiko
+wakeonlan
