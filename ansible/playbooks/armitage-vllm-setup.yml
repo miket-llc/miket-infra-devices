@@ -51,10 +51,11 @@
     
     - name: Wait for Docker to be ready (with progress output)
       win_shell: |
-        $timeout = 120
+        $timeout = 300
         $elapsed = 0
-        $checkInterval = 5
+        $checkInterval = 10
         Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Waiting for Docker to be ready (timeout: ${timeout}s)..." -ForegroundColor Yellow
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Note: Docker Desktop can take 2-3 minutes to fully initialize" -ForegroundColor Cyan
         while ($elapsed -lt $timeout) {
           try {
             $dockerVersion = docker version 2>&1
@@ -72,12 +73,13 @@
           $elapsed += $checkInterval
         }
         Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ❌ Docker did not become ready within ${timeout}s" -ForegroundColor Red
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Check Docker Desktop GUI for errors or try restarting Docker Desktop manually" -ForegroundColor Yellow
         exit 1
       register: docker_ready
       until: docker_ready.rc == 0
       retries: 1
       delay: 0
-      timeout: 130
+      timeout: 310
       tags: [docker]
     
     - name: Create scripts directory
