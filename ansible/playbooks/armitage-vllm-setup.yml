@@ -28,6 +28,27 @@
         start_mode: auto
       tags: [docker]
     
+    - name: Ensure Docker Desktop GUI is running
+      win_shell: |
+        $dockerDesktopPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+        if (Test-Path $dockerDesktopPath) {
+          $process = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
+          if (-not $process) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting Docker Desktop GUI..." -ForegroundColor Yellow
+            Start-Process $dockerDesktopPath
+            Start-Sleep -Seconds 5
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop GUI started" -ForegroundColor Green
+          } else {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop GUI is already running" -ForegroundColor Cyan
+          }
+        } else {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop executable not found at $dockerDesktopPath" -ForegroundColor Red
+          exit 1
+        }
+      register: docker_gui_start
+      changed_when: "'Starting' in docker_gui_start.stdout"
+      tags: [docker]
+    
     - name: Wait for Docker to be ready (with progress output)
       win_shell: |
         $timeout = 120
