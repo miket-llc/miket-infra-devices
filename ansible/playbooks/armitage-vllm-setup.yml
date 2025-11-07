@@ -28,26 +28,35 @@
         start_mode: auto
       tags: [docker]
     
-    - name: Wait for Docker to be ready
+    - name: Wait for Docker to be ready (with progress output)
       win_shell: |
-        $timeout = 60
+        $timeout = 120
         $elapsed = 0
+        $checkInterval = 5
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Waiting for Docker to be ready (timeout: ${timeout}s)..." -ForegroundColor Yellow
         while ($elapsed -lt $timeout) {
           try {
-            docker version 2>&1 | Out-Null
+            $dockerVersion = docker version 2>&1
             if ($LASTEXITCODE -eq 0) {
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ✅ Docker is ready!" -ForegroundColor Green
+              Write-Host $dockerVersion
               exit 0
+            } else {
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ⏳ Docker not ready yet (${elapsed}s/${timeout}s)..." -ForegroundColor Cyan
             }
           } catch {
-            Start-Sleep -Seconds 2
-            $elapsed += 2
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ⏳ Docker not ready yet (${elapsed}s/${timeout}s)..." -ForegroundColor Cyan
           }
+          Start-Sleep -Seconds $checkInterval
+          $elapsed += $checkInterval
         }
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ❌ Docker did not become ready within ${timeout}s" -ForegroundColor Red
         exit 1
       register: docker_ready
       until: docker_ready.rc == 0
-      retries: 30
-      delay: 2
+      retries: 1
+      delay: 0
+      timeout: 130
       tags: [docker]
     
     - name: Create scripts directory
