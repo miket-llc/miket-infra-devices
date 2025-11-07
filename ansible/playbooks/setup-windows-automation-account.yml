@@ -9,7 +9,7 @@
   gather_facts: yes
   vars:
     automation_account_name: "mdt"
-    automation_account_description: "Management, Deployment, and Tooling Account - Infrastructure automation account for Ansible"
+    automation_account_description: "MDT - Infrastructure automation account"
     automation_account_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
   
   tasks:
