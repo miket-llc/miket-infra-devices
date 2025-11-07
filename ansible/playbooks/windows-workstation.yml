@@ -98,10 +98,46 @@
         - files/Microsoft.PowerShell_profile.ps1
       tags: [powershell]
 
-    - name: Configure Windows Defender exclusions for development
+    - name: Configure Windows Defender exclusions for development and automation
       win_shell: |
-        Add-MpPreference -ExclusionPath "C:\Users\{{ ansible_user }}\dev"
-        Add-MpPreference -ExclusionPath "C:\ProgramData\Docker"
+        Write-Host "Configuring Windows Defender exclusions for Ansible automation..." -ForegroundColor Yellow
+        
+        # Path exclusions
+        $exclusionPaths = @(
+          "C:\Users\{{ ansible_user }}\dev",
+          "C:\ProgramData\Docker",
+          "C:\Windows\Temp",
+          "C:\ProgramData\ArmitageMode"
+        )
+        
+        foreach ($path in $exclusionPaths) {
+          if (Test-Path $path) {
+            try {
+              Add-MpPreference -ExclusionPath $path -ErrorAction SilentlyContinue
+              Write-Host "  Added exclusion: $path" -ForegroundColor Green
+            } catch {
+              # May already exist
+            }
+          }
+        }
+        
+        # Process exclusions (for performance)
+        $exclusionProcesses = @(
+          "powershell.exe",
+          "wsl.exe",
+          "docker.exe"
+        )
+        
+        foreach ($process in $exclusionProcesses) {
+          try {
+            Add-MpPreference -ExclusionProcess $process -ErrorAction SilentlyContinue
+            Write-Host "  Added process exclusion: $process" -ForegroundColor Green
+          } catch {
+            # May already exist
+          }
+        }
+        
+        Write-Host "Windows Defender exclusions configured" -ForegroundColor Green
       tags: [defender]
 
     - name: Ensure Tailscale is running
