@@ -1,42 +1,78 @@
 # Prometheus configuration for the device fleet
+# Replace `tailnet-name` with the actual tailnet domain or override via file_sd targets.
+
 global:
   scrape_interval: 15s
   evaluation_interval: 30s
 
 rule_files:
-  - alerts/armitage.yml
+  - alerts/*.yml
 
 scrape_configs:
-  - job_name: "armitage-node"
+  # Linux and Windows workstations
+  - job_name: "workstations-node"
     metrics_path: /metrics
     static_configs:
       - targets:
-          - armitage.local:9100
+          - armitage.tailnet-name.ts.net:9100  # node_exporter
         labels:
           device: armitage
           role: workstation
-          mode: gaming
+      - targets:
+          - wintermute.tailnet-name.ts.net:9182  # windows_exporter
+        labels:
+          device: wintermute
+          role: workstation
     relabel_configs:
       - source_labels: [__address__]
+        regex: '([^.]+)\..+'
         target_label: instance
-        replacement: armitage
+        replacement: '$1'
 
-  - job_name: "armitage-gpu"
-    metrics_path: /metrics
+  - job_name: "workstations-gpu"
+    scrape_interval: 30s
     static_configs:
       - targets:
-          - armitage.local:9400
+          - armitage.tailnet-name.ts.net:9400  # NVIDIA DCGM exporter
         labels:
           device: armitage
           exporter: dcgm
-    scrape_interval: 30s
+    metric_relabel_configs:
+      - source_labels: [hostname]
+        target_label: instance
 
-  - job_name: "armitage-vllm"
+  # Headless and rack-mounted servers
+  - job_name: "servers-node"
     metrics_path: /metrics
     static_configs:
       - targets:
-          - armitage.local:8000
+          - motoko.tailnet-name.ts.net:9100
         labels:
-          device: armitage
+          device: motoko
+          role: server
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^.]+)\..+'
+        target_label: instance
+        replacement: '$1'
+
+  - job_name: "servers-gpu"
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - motoko.tailnet-name.ts.net:9400
+        labels:
+          device: motoko
+          exporter: dcgm
+    metric_relabel_configs:
+      - source_labels: [hostname]
+        target_label: instance
+
+  - job_name: "servers-services"
+    static_configs:
+      - targets:
+          - motoko.tailnet-name.ts.net:8000  # Example: vLLM or custom API
+        labels:
+          device: motoko
           service: vllm
     scrape_interval: 15s
