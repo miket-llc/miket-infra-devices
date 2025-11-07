@@ -1,0 +1,23 @@
+# Ansible Vault Template - Windows Passwords
+# 
+# This file is a template showing the structure of Windows vault files.
+# DO NOT store actual passwords in this file - use ansible-vault to encrypt.
+#
+# To create the actual vault file:
+#   ansible-vault create ansible/group_vars/windows/vault.yml
+#
+# To edit:
+#   ansible-vault edit ansible/group_vars/windows/vault.yml
+
+---
+# Windows WinRM passwords for Ansible automation
+# These passwords are used for WinRM connections to Windows workstations
+#
+# Note: These are plaintext passwords that will be encrypted by Ansible Vault
+# The inventory file references these variables:
+#   ansible_password: "{{ vault_armitage_password }}"
+#   ansible_password: "{{ vault_wintermute_password }}"
+
+vault_armitage_password: ""  # Armitage Windows workstation password
+vault_wintermute_password: ""  # Wintermute Windows workstation password
+

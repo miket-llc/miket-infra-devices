@@ -51,6 +51,14 @@ ssh 100.92.23.71
 ssh-motoko
 ```
 
+## Password Management
+
+User passwords are managed via Ansible Vault:
+- **Linux/macOS**: Passwords stored as encrypted hashes in `ansible/group_vars/all/vault.yml`
+- **Windows**: Passwords stored in `ansible/group_vars/windows/vault.yml`
+- See [Password Recovery Runbook](./password-recovery.md) for reset procedures
+- See [Ansible Vault Setup](./ansible-vault-setup.md) for vault management
+
 ## Future SSO Considerations
 
 When ready for full SSO, consider:
@@ -64,4 +72,5 @@ For now, this lightweight approach provides:
 - Easy SSH access via Tailscale
 - No complex SSO infrastructure to maintain
 - Easy rollback if needed
+- Centralized password management via Ansible Vault
 

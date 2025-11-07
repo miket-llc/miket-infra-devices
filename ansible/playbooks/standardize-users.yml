@@ -1,6 +1,19 @@
 ---
 # Ansible playbook to standardize user accounts across infrastructure
 # This creates consistent usernames without full SSO
+#
+# Password Management:
+# - Linux/macOS: Set passwords via vault_user_passwords variable (optional)
+# - Windows: Passwords managed separately via WinRM vault variables
+# - Passwords are optional - SSH keys are primary authentication method
+#
+# Usage:
+#   # Without password (SSH keys only):
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/standardize-users.yml
+#
+#   # With password from vault:
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/standardize-users.yml \
+#     --ask-vault-pass -e @ansible/group_vars/all/vault.yml
 
 - name: Standardize user accounts across infrastructure
   hosts: all
@@ -15,6 +28,11 @@
         shell: /bin/bash
         ssh_keys:
           - "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    # Password management (optional - loaded from vault)
+    # vault_user_passwords should be defined in ansible/group_vars/all/vault.yml
+    # Format: { 'mdt': 'encrypted_password_hash' }
+    # To generate password hash: python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))"
+    set_passwords: "{{ vault_user_passwords | default({}) }}"
       
   tasks:
     - name: Create standard users on Linux systems
@@ -27,6 +45,17 @@
         append: yes
         state: present
       loop: "{{ standard_users }}"
+    
+    - name: Set passwords for Linux users (if provided)
+      when: 
+        - ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+        - set_passwords[item.username] is defined
+      user:
+        name: "{{ item.username }}"
+        password: "{{ set_passwords[item.username] }}"
+        update_password: always
+      loop: "{{ standard_users }}"
+      no_log: true  # Don't log password operations
     
     - name: Set up SSH keys
       authorized_key:
@@ -43,4 +72,40 @@
         validate: 'visudo -cf %s'
       loop: "{{ standard_users }}"
       when: "'sudo' in item.groups"
+    
+    - name: Create standard users on macOS systems
+      when: ansible_system == "Darwin"
+      become_user: root
+      shell: |
+        if ! dscl . -read /Users/{{ item.username }} > /dev/null 2>&1; then
+          dscl . -create /Users/{{ item.username }}
+          dscl . -create /Users/{{ item.username }} UserShell {{ item.shell }}
+          dscl . -create /Users/{{ item.username }} RealName "{{ item.full_name }}"
+          dscl . -create /Users/{{ item.username }} UniqueID 501
+          dscl . -create /Users/{{ item.username }} PrimaryGroupID 20
+          dscl . -create /Users/{{ item.username }} NFSHomeDirectory /Users/{{ item.username }}
+          createhomedir -c -u {{ item.username }}
+        fi
+      loop: "{{ standard_users }}"
+      changed_when: false
+    
+    - name: Set passwords for macOS users (if provided)
+      when:
+        - ansible_system == "Darwin"
+        - set_passwords[item.username] is defined
+      become_user: root
+      shell: |
+        dscl . -passwd /Users/{{ item.username }} "{{ set_passwords[item.username] }}"
+      loop: "{{ standard_users }}"
+      no_log: true
+    
+    - name: Add macOS users to groups
+      when: ansible_system == "Darwin"
+      become_user: root
+      shell: |
+        for group in {{ item.groups | join(' ') }}; do
+          dscl . -append /Groups/$group GroupMembership {{ item.username }} || true
+        done
+      loop: "{{ standard_users }}"
+      changed_when: false
 

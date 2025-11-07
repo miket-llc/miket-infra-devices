@@ -1,0 +1,20 @@
+# Ansible Vault Template - Linux Secrets
+# 
+# This file is a template for Linux-specific secrets.
+# DO NOT store actual secrets in this file - use ansible-vault to encrypt.
+#
+# To create the actual vault file:
+#   ansible-vault create ansible/group_vars/linux/vault.yml
+#
+# To edit:
+#   ansible-vault edit ansible/group_vars/linux/vault.yml
+
+---
+# Linux-specific secrets
+# Add any Linux-specific sensitive data here
+# Examples: API keys, service passwords, tokens, etc.
+
+# Example structure:
+# vault_api_key: ""
+# vault_service_password: ""
+

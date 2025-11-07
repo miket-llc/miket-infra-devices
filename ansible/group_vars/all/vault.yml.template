@@ -1,0 +1,25 @@
+# Ansible Vault Template
+# 
+# This file is a template showing the structure of vault files.
+# DO NOT store actual passwords in this file - use ansible-vault to encrypt.
+#
+# To create the actual vault file:
+#   ansible-vault create ansible/group_vars/all/vault.yml
+#
+# To edit:
+#   ansible-vault edit ansible/group_vars/all/vault.yml
+
+---
+# Linux/macOS user passwords
+# Format: { 'username': 'encrypted_password_hash' }
+# 
+# To generate password hash:
+#   python3 -c "import crypt; print(crypt.crypt('password', crypt.mksalt(crypt.METHOD_SHA512)))"
+#
+# Example:
+#   vault_user_passwords:
+#     mdt: '$6$rounds=656000$...encrypted_hash...'
+
+vault_user_passwords:
+  mdt: ''  # Replace with generated hash
+
