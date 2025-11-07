@@ -21,7 +21,8 @@
   vars:
     standard_users:
       - username: mdt
-        full_name: "Mike T"
+        full_name: "Management, Deployment, and Tooling Account"
+        comment: "MDT - Infrastructure automation account for Ansible and tooling"
         groups:
           - sudo
           - docker

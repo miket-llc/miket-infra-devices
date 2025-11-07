@@ -3,17 +3,28 @@
 ## Overview
 This document describes our user mapping strategy without full SSO.
 
+## Automation Account: `mdt`
+
+**Full Name:** Management, Deployment, and Tooling Account
+
+The `mdt` account is the dedicated automation account for infrastructure management:
+- **Management**: Infrastructure management operations
+- **Deployment**: Automated deployment and configuration  
+- **Tooling**: Automation tooling and scripts
+
+This account is separate from user accounts and used exclusively by Ansible and infrastructure automation. See [Account Architecture](../architecture/account-architecture.md) for complete details.
+
 ## User Mapping Table
 
 | Device/Tag     | Standard User | Local Alternative | Notes                    |
 |---------------|--------------|-------------------|--------------------------|
-| tag:linux     | mdt          | -                 | Standard Linux user      |
-| tag:windows   | mdt          | miket             | Windows local accounts   |
+| tag:linux     | mdt          | -                 | Automation account (MDT)  |
+| tag:windows   | mdt          | miket             | Automation account (MDT)  |
 | tag:macos     | miket        | -                 | macOS primary user       |
-| motoko        | mdt          | -                 | Linux server             |
+| motoko        | mdt          | -                 | Automation account (MDT)  |
 | count-zero    | miket        | -                 | macOS workstation        |
-| wintermute    | mdt          | -                 | Windows workstation      |
-| armitage      | mdt          | -                 | Windows workstation      |
+| wintermute    | mdt          | -                 | Automation account (MDT)  |
+| armitage      | mdt          | -                 | Automation account (MDT)  |
 
 ## SSH Config Template
 

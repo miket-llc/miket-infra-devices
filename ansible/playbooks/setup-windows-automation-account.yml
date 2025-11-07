@@ -1,0 +1,104 @@
+---
+# Playbook to create local automation account (mdt) on Windows devices
+# This follows IaC/CaC principles - all account creation via Ansible
+# Run from motoko:
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/setup-windows-automation-account.yml --limit armitage --ask-vault-pass
+
+- name: Setup local automation account (mdt) on Windows devices
+  hosts: windows
+  gather_facts: yes
+  vars:
+    automation_account_name: "mdt"
+    automation_account_description: "Management, Deployment, and Tooling Account - Infrastructure automation account for Ansible"
+    automation_account_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+  
+  tasks:
+    - name: Check if automation account already exists
+      win_shell: |
+        $account = Get-LocalUser -Name "{{ automation_account_name }}" -ErrorAction SilentlyContinue
+        if ($account) {
+          Write-Host "EXISTS"
+          exit 0
+        } else {
+          Write-Host "NOT_EXISTS"
+          exit 1
+        }
+      register: account_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Create local automation account
+      win_shell: |
+        $password = ConvertTo-SecureString "{{ automation_account_password }}" -AsPlainText -Force
+        $params = @{
+          Name = "{{ automation_account_name }}"
+          Password = $password
+          Description = "{{ automation_account_description }}"
+          PasswordNeverExpires = $true
+          UserMayNotChangePassword = $true
+        }
+        try {
+          New-LocalUser @params -ErrorAction Stop
+          Write-Host "Account created successfully"
+          exit 0
+        } catch {
+          if ($_.Exception.Message -like "*already exists*") {
+            Write-Host "Account already exists"
+            exit 0
+          } else {
+            Write-Host "Error: $($_.Exception.Message)"
+            exit 1
+          }
+        }
+      when: account_check.stdout == "NOT_EXISTS"
+      no_log: true  # Don't log password
+    
+    - name: Add automation account to Administrators group
+      win_shell: |
+        $group = Get-LocalGroup -Name "Administrators" -ErrorAction Stop
+        $user = Get-LocalUser -Name "{{ automation_account_name }}" -ErrorAction Stop
+        try {
+          Add-LocalGroupMember -Group $group -Member $user -ErrorAction Stop
+          Write-Host "Added to Administrators group"
+          exit 0
+        } catch {
+          if ($_.Exception.Message -like "*already a member*") {
+            Write-Host "Already a member"
+            exit 0
+          } else {
+            Write-Host "Error: $($_.Exception.Message)"
+            exit 1
+          }
+        }
+      register: admin_add
+    
+    - name: Verify automation account exists and has admin privileges
+      win_shell: |
+        $user = Get-LocalUser -Name "{{ automation_account_name }}" -ErrorAction SilentlyContinue
+        if (-not $user) {
+          Write-Host "Account not found"
+          exit 1
+        }
+        $isAdmin = (Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*{{ automation_account_name }}" })
+        if ($isAdmin) {
+          Write-Host "Account exists and is in Administrators group"
+          Write-Host "Name: $($user.Name)"
+          Write-Host "Description: $($user.Description)"
+          Write-Host "Enabled: $($user.Enabled)"
+          exit 0
+        } else {
+          Write-Host "Account exists but not in Administrators group"
+          exit 1
+        }
+      register: account_verify
+    
+    - name: Display account information
+      debug:
+        msg:
+          - "✅ Automation account '{{ automation_account_name }}' configured successfully"
+          - "Description: {{ automation_account_description }}"
+          - "Privileges: Administrator"
+          - ""
+          - "This account is used exclusively for Ansible automation"
+          - "Do not use this account for interactive login"
+
