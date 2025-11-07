@@ -74,6 +74,22 @@ cd ~/miket-infra-devices
 
 See [Quick Start Guide](docs/QUICK_START_MOTOKO.md) for details.
 
+### Setting Up Armitage (Windows Workstation)
+
+**One-command setup (from armitage as Administrator):**
+```powershell
+git clone https://github.com/miket-llc/miket-infra-devices.git C:\Users\$env:USERNAME\dev\miket-infra-devices
+cd C:\Users\$env:USERNAME\dev\miket-infra-devices
+.\scripts\bootstrap-armitage.ps1
+```
+
+This will:
+- Configure WinRM for Ansible management
+- Configure Tailscale with proper tags (`tag:workstation,tag:windows,tag:gaming`)
+- Verify connectivity
+
+See [Armitage Setup Runbook](docs/runbooks/armitage-setup.md) for detailed instructions.
+
 ### Prerequisites
 - Git
 - PowerShell 5.1+ (Windows) or Bash (Linux/MacOS)
@@ -83,8 +99,9 @@ See [Quick Start Guide](docs/QUICK_START_MOTOKO.md) for details.
 ### Device Setup
 
 1. **Motoko (Ansible Control Node):** Run `./scripts/bootstrap-motoko.sh`
-2. **Other devices:** Follow device-specific guides in `docs/runbooks/`
-3. **Review configurations:** Check `devices/` for device-specific configs
+2. **Armitage (Windows Workstation):** Run `.\scripts\bootstrap-armitage.ps1`
+3. **Other devices:** Follow device-specific guides in `docs/runbooks/`
+4. **Review configurations:** Check `devices/` for device-specific configs
 
 ## Repository Integration
 

@@ -72,8 +72,8 @@ try {
     if ($status.BackendState -eq "Running") {
         Write-Host "Tailscale is already connected" -ForegroundColor Yellow
         
-        $currentTags = $status.Self.Tags -join ","
-        Write-Host "Current tags: $($currentTags ?? 'none')"
+        $currentTags = if ($status.Self.Tags) { $status.Self.Tags -join "," } else { "none" }
+        Write-Host "Current tags: $currentTags"
         
         $response = Read-Host "Reconfigure with new tags? (y/N)"
         if ($response -ne 'y') {
