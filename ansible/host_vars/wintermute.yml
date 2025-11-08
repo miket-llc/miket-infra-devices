@@ -1,0 +1,42 @@
+---
+# Hardware and OS profile for the wintermute workstation
+# Desktop workstation with high-end GPU for development and gaming
+hardware:
+  vendor: "Desktop"
+  model: "Custom Build"
+  cpu:
+    model: "Intel Core i9"  # TODO: Update with actual CPU model
+    cores: 16  # TODO: Update with actual core count
+    threads: 24  # TODO: Update with actual thread count
+  gpu:
+    vendor: "NVIDIA"
+    model: "GeForce RTX 4070 Super"
+    vram_gb: 12
+    driver_version: "latest"
+    cuda_capable: true
+  memory_gb: 32  # TODO: Update with actual memory amount
+  storage:
+    - type: "NVMe SSD"
+      size_gb: 1000  # TODO: Update with actual storage size
+network:
+  interfaces:
+    - name: "Ethernet"
+      type: "ethernet"
+      mac_address: "{{ vault_wintermute_eth_mac | default('REDACTED') }}"
+    - name: "Wi-Fi"
+      type: "wifi"
+      mac_address: "{{ vault_wintermute_wifi_mac | default('REDACTED') }}"
+  tailscale:
+    enabled: true
+    hostname: "wintermute"
+os:
+  name: "Windows"
+  version: "11"
+  edition: "Pro"
+  build: "22H2"
+roles:
+  - windows-workstation
+  - gaming-mode
+  - cuda-development
+  - docker-desktop
+

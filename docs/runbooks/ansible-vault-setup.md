@@ -281,6 +281,30 @@ export ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible/vault_pass.txt
 
 ## Integration with Password Managers
 
+### Azure Key Vault Integration (Recommended for Automation)
+
+Azure Key Vault provides automated, non-interactive access to the vault password:
+
+```bash
+# Quick setup
+./scripts/setup-azure-keyvault-vault.sh
+
+# Or manually configure
+az keyvault secret set \
+    --vault-name "miket-infra-secrets" \
+    --name "ansible-vault-password" \
+    --value "$(op read 'op://miket.io/Ansible - Motoko Key Vault/password')"
+```
+
+**Benefits:**
+- No physical access required to motoko
+- Supports Managed Identity for Azure resources
+- Service Principal authentication for CI/CD
+- Centralized secret management
+- Audit logging of access
+
+See [Azure Key Vault Integration Guide](./azure-keyvault-ansible-vault.md) for detailed setup instructions.
+
 ### 1Password Integration
 
 ```bash
@@ -306,6 +330,16 @@ EOF
 chmod +x ~/.ansible/vault_pass.sh
 export ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible/vault_pass.sh
 ```
+
+### Multi-Source Script (Automatic Fallback)
+
+The repository includes a multi-source script (`scripts/ansible-vault-password.sh`) that tries multiple sources in order:
+
+1. Azure Key Vault (for automation)
+2. 1Password (for manual operations)
+3. Local password file (for offline scenarios)
+
+This is configured by default in `ansible/ansible.cfg` and provides the best of all worlds.
 
 ## Related Documentation
 

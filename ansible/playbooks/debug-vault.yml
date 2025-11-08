@@ -1,0 +1,14 @@
+---
+# Debug playbook to test vault variable loading
+- name: Debug Vault Variables
+  hosts: windows
+  gather_facts: no
+  
+  tasks:
+    - name: Display vault variables
+      debug:
+        msg: 
+          - "vault_wintermute_password: {{ vault_wintermute_password | default('NOT DEFINED') }}"
+          - "vault_armitage_password: {{ vault_armitage_password | default('NOT DEFINED') }}"
+          - "ansible_password for {{ inventory_hostname }}: {{ ansible_password | default('NOT DEFINED') }}"
+

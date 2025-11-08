@@ -1,0 +1,10 @@
+---
+# Simple test playbook for Windows connectivity
+- name: Test Windows Connectivity
+  hosts: windows
+  gather_facts: yes
+  
+  tasks:
+    - name: Test WinRM connectivity
+      win_ping:
+
