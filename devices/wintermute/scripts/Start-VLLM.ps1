@@ -34,7 +34,7 @@ $Config = @{
     Image = "vllm/vllm-openai:latest"
     GpuCount = 1
     MaxModelLen = 8192
-    GpuMemoryUtilization = 0.90
+    GpuMemoryUtilization = 0.85
     TensorParallelSize = 1
 }
 
