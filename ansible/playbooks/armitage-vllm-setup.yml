@@ -2,8 +2,6 @@
 # Ansible playbook for setting up vLLM on Armitage Windows workstation
 # Run from Linux control node (motoko):
 #   ansible-playbook -i inventory/hosts.yml playbooks/armitage-vllm-setup.yml --limit armitage --ask-vault-pass
-#
-# Progress tracking: This playbook has ~12 tasks. Use -v or -vv for detailed output.
 
 - name: Setup vLLM on Armitage
   hosts: armitage
@@ -18,180 +16,182 @@
     check_interval_minutes: 5
   
   tasks:
-    - name: Display setup progress header
-      debug:
-        msg:
-          - "================================================================"
-          - "  Armitage vLLM Setup - Progress Tracker"
-          - "================================================================"
-          - "Total tasks: 12"
-          - "Starting setup..."
-          - ""
+    - name: Record playbook start time
+      set_fact:
+        playbook_start_time: "{{ ansible_date_time.epoch }}"
       tags: [always]
     
-    - name: "[1/12] Ensure WSL2 is installed and configured"
+    - name: "[1/11] Ensure WSL2 is installed and configured"
       win_shell: |
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Checking WSL2 installation..." -ForegroundColor Yellow
+        $ErrorActionPreference = "Continue"
         
-        # Check if WSL2 is installed
-        $wslStatus = wsl --status 2>&1
-        Write-Host $wslStatus
-        
-        # Check if WSL feature is enabled
+        # Enable WSL feature if needed
         $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -ErrorAction SilentlyContinue
         if ($wslFeature.State -ne "Enabled") {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL feature not enabled - enabling..." -ForegroundColor Yellow
-          Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart -ErrorAction Stop
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL feature enabled" -ForegroundColor Green
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Enabling WSL feature..." -ForegroundColor Yellow
+          Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart -ErrorAction Stop | Out-Null
         }
         
-        # Check if Virtual Machine Platform is enabled (required for WSL2)
+        # Enable Virtual Machine Platform if needed
         $vmFeature = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -ErrorAction SilentlyContinue
         if ($vmFeature.State -ne "Enabled") {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Virtual Machine Platform not enabled - enabling..." -ForegroundColor Yellow
-          Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart -ErrorAction Stop
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Virtual Machine Platform enabled" -ForegroundColor Green
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Enabling Virtual Machine Platform..." -ForegroundColor Yellow
+          Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart -ErrorAction Stop | Out-Null
         }
         
-        # Set WSL2 as default version
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Setting WSL2 as default version..." -ForegroundColor Yellow
+        # Set WSL2 as default
         wsl --set-default-version 2 2>&1 | Out-Null
         
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 is configured" -ForegroundColor Green
+        # Check for existing WSL distributions
+        $wslList = wsl --list --verbose 2>&1
+        $hasDistro = $false
+        
+        if ($wslList -match "^\s+\w+") {
+          $distros = $wslList | Select-String -Pattern "^\s+(\w+)" | ForEach-Object { $_.Matches.Groups[1].Value }
+          foreach ($distro in $distros) {
+            if ($distro -notmatch "docker-desktop|NAME") {
+              $hasDistro = $true
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Found WSL distribution: $distro" -ForegroundColor Green
+              break
+            }
+          }
+        }
+        
+        # Install Ubuntu if no distribution exists
+        if (-not $hasDistro) {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Installing Ubuntu WSL distribution..." -ForegroundColor Yellow
+          wsl --install -d Ubuntu --no-launch 2>&1 | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Ubuntu installation initiated" -ForegroundColor Green
+          }
+        }
+        
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 configured" -ForegroundColor Green
       register: wsl_setup
       tags: [docker, wsl]
       failed_when: false
     
-    - name: "[2/12] Ensure Docker Desktop is installed"
+    - name: "[2/11] Check if Docker Desktop is installed"
+      win_stat:
+        path: 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+      register: docker_desktop_exe
+      tags: [docker]
+    
+    - name: "[3/11] Install Docker Desktop if needed"
       win_chocolatey:
         name: docker-desktop
         state: present
+      when: not docker_desktop_exe.stat.exists
       tags: [docker]
+      register: docker_install
     
-    - name: "[3/12] Ensure Docker Desktop service is running"
+    - name: "[4/11] Ensure Docker Desktop service is running"
       win_service:
         name: com.docker.service
         state: started
         start_mode: auto
       tags: [docker]
     
-    - name: "[4/12] Ensure Docker Desktop GUI is running (headless mode)"
+    - name: "[5/11] Start Docker Desktop GUI"
       win_shell: |
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Checking Docker Desktop status..." -ForegroundColor Yellow
-        
-        $dockerDesktopPath = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+        $dockerDesktopPath = 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
         if (-not (Test-Path $dockerDesktopPath)) {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop executable not found" -ForegroundColor Red
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop not found" -ForegroundColor Red
           exit 1
         }
         
-        # Check if Docker Desktop process is running
+        # Ensure WSL distribution is running (Docker Desktop needs this)
+        $wslList = wsl --list --verbose 2>&1
+        if ($wslList -match "Ubuntu.*Stopped") {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting Ubuntu WSL distribution..." -ForegroundColor Yellow
+          wsl -d Ubuntu -- echo "Starting Ubuntu" 2>&1 | Out-Null
+          Start-Sleep -Seconds 5
+        }
+        
         $process = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
         if (-not $process) {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting Docker Desktop (headless)..." -ForegroundColor Yellow
-          # Start Docker Desktop minimized/headless for service account
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting Docker Desktop..." -ForegroundColor Yellow
           Start-Process $dockerDesktopPath -WindowStyle Hidden
-          Start-Sleep -Seconds 10
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop started" -ForegroundColor Green
+          Start-Sleep -Seconds 15
+          
+          # Verify it started
+          $process = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
+          if ($process) {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop started successfully" -ForegroundColor Green
+          } else {
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Warning: Docker Desktop process not found after start attempt" -ForegroundColor Yellow
+          }
         } else {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop is already running" -ForegroundColor Cyan
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker Desktop is already running" -ForegroundColor Green
         }
       register: docker_gui_start
       changed_when: "'Starting' in docker_gui_start.stdout"
       tags: [docker]
     
-    - name: "[5/12] Ensure WSL2 docker-desktop distro is running"
+    - name: "[6/11] Wait for Docker daemon to be ready"
       win_shell: |
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Checking WSL2 docker-desktop distro..." -ForegroundColor Yellow
-        
-        $wslList = wsl --list --verbose 2>&1
-        Write-Host $wslList
-        
-        if ($wslList -match "docker-desktop.*Running") {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 docker-desktop is running" -ForegroundColor Green
-          exit 0
-        } elseif ($wslList -match "docker-desktop.*Stopped") {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Starting WSL2 docker-desktop distro..." -ForegroundColor Yellow
-          wsl -d docker-desktop -- echo "Starting" 2>&1 | Out-Null
-          Start-Sleep -Seconds 5
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 docker-desktop started" -ForegroundColor Green
-          exit 0
-        } else {
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] WSL2 docker-desktop distro not found - Docker Desktop may still be initializing" -ForegroundColor Yellow
-          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] This is normal for first-time setup" -ForegroundColor Cyan
-          exit 0
-        }
-      register: wsl_check
-      tags: [docker]
-      failed_when: false
-    
-    - name: "[6/12] Wait for Docker to be ready (with progress output)"
-      win_shell: |
-        $timeout = 300
+        $timeout = 600
         $elapsed = 0
-        $checkInterval = 10
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Waiting for Docker to be ready (timeout: ${timeout}s)..." -ForegroundColor Yellow
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Note: Docker Desktop can take 2-3 minutes to fully initialize" -ForegroundColor Cyan
+        $checkInterval = 15
+        $startTime = Get-Date
+        
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Waiting for Docker daemon (timeout: ${timeout}s)..." -ForegroundColor Yellow
+        
         while ($elapsed -lt $timeout) {
           try {
-            $dockerVersion = docker version 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ✅ Docker is ready!" -ForegroundColor Green
-              Write-Host $dockerVersion
+            $dockerOutput = docker version 2>&1
+            $dockerExitCode = $LASTEXITCODE
+            
+            if ($dockerExitCode -eq 0 -and $dockerOutput -match "Server:" -and $dockerOutput -match "Version:") {
+              $duration = (Get-Date) - $startTime
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ✅ Docker ready! (took $([math]::Round($duration.TotalSeconds, 1))s)" -ForegroundColor Green
               exit 0
-            } else {
-              $percent = [math]::Round(($elapsed / $timeout) * 100, 1)
-              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ⏳ Docker not ready yet (${elapsed}s/${timeout}s - ${percent}%)..." -ForegroundColor Cyan
             }
+            
+            $percent = [math]::Round(($elapsed / $timeout) * 100, 1)
+            $remaining = $timeout - $elapsed
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ⏳ Waiting... (${elapsed}s/${timeout}s - ${percent}% - ${remaining}s remaining)" -ForegroundColor Cyan
           } catch {
             $percent = [math]::Round(($elapsed / $timeout) * 100, 1)
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ⏳ Docker not ready yet (${elapsed}s/${timeout}s - ${percent}%)..." -ForegroundColor Cyan
+            $remaining = $timeout - $elapsed
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ⏳ Error checking Docker (${elapsed}s/${timeout}s)" -ForegroundColor Yellow
           }
+          
           Start-Sleep -Seconds $checkInterval
           $elapsed += $checkInterval
         }
+        
         Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ❌ Docker did not become ready within ${timeout}s" -ForegroundColor Red
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Check Docker Desktop GUI for errors or try restarting Docker Desktop manually" -ForegroundColor Yellow
         exit 1
       register: docker_ready
-      until: docker_ready.rc == 0
-      retries: 1
-      delay: 0
-      async: 320
-      poll: 10
+      async: 660
+      poll: 20
       tags: [docker]
+      timeout: 660
     
-    - name: "[7/12] Create scripts directory"
+    - name: "[7/11] Create scripts directory"
       win_file:
         path: C:\Users\{{ ansible_user }}\dev\armitage\scripts
         state: directory
       tags: [scripts]
     
-    - name: "[8/12] Deploy vLLM management script"
+    - name: "[8/11] Deploy vLLM scripts"
       win_copy:
-        src: "{{ playbook_dir }}/../devices/armitage/scripts/Start-VLLM.ps1"
-        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - { src: "{{ playbook_dir }}/../devices/armitage/scripts/Start-VLLM.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1" }
+        - { src: "{{ playbook_dir }}/../devices/armitage/scripts/Auto-ModeSwitcher.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Auto-ModeSwitcher.ps1" }
+        - { src: "{{ playbook_dir }}/../devices/armitage/scripts/Set-WorkstationMode.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Set-WorkstationMode.ps1" }
       tags: [scripts]
     
-    - name: "[9/12] Deploy auto mode switcher script"
-      win_copy:
-        src: "{{ playbook_dir }}/../devices/armitage/scripts/Auto-ModeSwitcher.ps1"
-        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Auto-ModeSwitcher.ps1
-      tags: [scripts]
-    
-    - name: "[10/12] Update mode switcher script"
-      win_copy:
-        src: "{{ playbook_dir }}/../devices/armitage/scripts/Set-WorkstationMode.ps1"
-        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Set-WorkstationMode.ps1
-      tags: [scripts]
-    
-    - name: "[11/12] Create vLLM configuration directory"
+    - name: "[9/11] Create vLLM configuration"
       win_file:
         path: C:\ProgramData\ArmitageMode
         state: directory
       tags: [config]
     
-    - name: "[11/12] Create vLLM config file"
+    - name: "[9/11] Write vLLM config file"
       win_copy:
         content: |
           {
@@ -204,7 +204,7 @@
         dest: C:\ProgramData\ArmitageMode\vllm_config.json
       tags: [config]
     
-    - name: "[12/12] Create scheduled task for auto mode switching"
+    - name: "[10/11] Create scheduled task for auto mode switching"
       win_scheduled_task:
         name: Armitage Auto Mode Switcher
         description: Automatically switches between workstation and LLM serving modes
@@ -228,39 +228,30 @@
         username: SYSTEM
       tags: [scheduled_task]
     
-    - name: Test vLLM script availability
+    - name: "[11/11] Verify deployment"
       win_shell: |
-        if (Test-Path "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1") {
-          Write-Host "✅ vLLM scripts deployed successfully"
+        $scriptsOk = Test-Path "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1"
+        $configOk = Test-Path "C:\ProgramData\ArmitageMode\vllm_config.json"
+        
+        if ($scriptsOk -and $configOk) {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ✅ All files deployed successfully" -ForegroundColor Green
           exit 0
         } else {
-          Write-Host "❌ vLLM scripts not found"
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ❌ Deployment verification failed" -ForegroundColor Red
           exit 1
         }
-      register: script_test
-      tags: [scripts, test]
+      tags: [verify]
     
-    - name: Display setup summary
+    - name: Display deployment summary
       debug:
         msg:
           - ""
           - "================================================================"
-          - "  ✅ vLLM Setup Complete for Armitage"
+          - "  ✅ vLLM Setup Complete"
           - "================================================================"
+          - "Duration: {{ ((ansible_date_time.epoch | int) - (playbook_start_time | int)) // 60 }}m {{ ((ansible_date_time.epoch | int) - (playbook_start_time | int)) % 60 }}s"
           - "Model: {{ vllm_model }}"
           - "Port: {{ vllm_port }}"
-          - "Auto-switching: {{ auto_switch_enabled }}"
-          - "Check interval: {{ check_interval_minutes }} minutes"
-          - ""
-          - "Next Steps:"
-          - "  1. Manually start vLLM:"
-          - "     powershell -ExecutionPolicy Bypass -File C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1 -Action Start"
-          - ""
-          - "  2. Check status:"
-          - "     powershell -ExecutionPolicy Bypass -File C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1 -Action Status"
-          - ""
-          - "  3. API will be available at:"
-          - "     http://armitage.tail2e55fe.ts.net:{{ vllm_port }}"
+          - "API: http://armitage.tail2e55fe.ts.net:{{ vllm_port }}"
           - ""
       tags: [always]
-

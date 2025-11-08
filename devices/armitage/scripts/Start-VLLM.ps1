@@ -131,6 +131,7 @@ function Start-VLLM {
     }
     
     # Build docker run command
+    # Note: vllm/vllm-openai image has entrypoint pre-configured
     $dockerArgs = @(
         "run",
         "-d",
@@ -138,15 +139,12 @@ function Start-VLLM {
         "--gpus", "all",
         "-p", "$($Config.Port):8000",
         "--restart", "unless-stopped",
-        "-e", "MODEL_NAME=$($Config.Model)",
-        "-e", "MAX_MODEL_LEN=$($Config.MaxModelLen)",
-        "-e", "TENSOR_PARALLEL_SIZE=$($Config.TensorParallelSize)",
         $Config.Image,
-        "python", "-m", "vllm.entrypoints.openai.api_server",
         "--model", $Config.Model,
         "--port", "8000",
         "--host", "0.0.0.0",
-        "--tensor-parallel-size", $Config.TensorParallelSize.ToString()
+        "--tensor-parallel-size", $Config.TensorParallelSize.ToString(),
+        "--max-model-len", $Config.MaxModelLen.ToString()
     )
     
     try {

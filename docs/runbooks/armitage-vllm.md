@@ -42,12 +42,29 @@ The auto-switcher monitors:
 
 From the Ansible control node (motoko):
 
+**Recommended: Use the deployment script (with enhanced observability):**
+
 ```bash
-ansible-playbook -i ansible/inventory/hosts.yml \
-  ansible/playbooks/armitage-vllm-setup.yml \
-  --limit armitage \
-  --ask-vault-pass
+cd /path/to/miket-infra-devices
+./scripts/deploy-armitage-vllm.sh
 ```
+
+**Or manually:**
+
+```bash
+cd ansible
+ansible-playbook -i inventory/hosts.yml \
+  playbooks/armitage-vllm-setup.yml \
+  --limit armitage \
+  --ask-vault-pass \
+  -v
+```
+
+**Key improvements for observability:**
+- WinRM timeouts configured (600s) to prevent connection drops during long operations
+- Real-time progress output with timestamps
+- Enhanced Docker wait task with progress indicators
+- Deployment duration tracking
 
 This will:
 1. Ensure Docker Desktop is installed and running
@@ -193,6 +210,47 @@ docker ps --filter "name=vllm-armitage"
 ```
 
 ## Troubleshooting
+
+### WinRM Timeout Issues
+
+If you encounter WinRM timeouts during deployment:
+
+**Symptoms:**
+- Playbook hangs or fails with "WinRM operation timeout" errors
+- Connection drops during long-running tasks (especially Docker wait)
+- Tasks fail with "Operation timed out" messages
+
+**Solution:**
+
+WinRM timeout settings are now configured in `ansible/group_vars/windows/main.yml`:
+- `ansible_winrm_read_timeout: 600` (10 minutes)
+- `ansible_winrm_operation_timeout: 600` (10 minutes)
+
+**Verify configuration:**
+```bash
+# Check that timeout settings are loaded
+ansible armitage -i ansible/inventory/hosts.yml -m debug -a "var=ansible_winrm_read_timeout"
+```
+
+**If timeouts persist:**
+1. Check WinRM service on Armitage:
+   ```powershell
+   Get-Service WinRM
+   winrm get winrm/config
+   ```
+
+2. Verify Tailscale connectivity:
+   ```bash
+   # From motoko
+   ping armitage.tail2e55fe.ts.net
+   ```
+
+3. Test WinRM connection:
+   ```bash
+   ansible armitage -i ansible/inventory/hosts.yml -m win_ping -vvv
+   ```
+
+4. Increase timeouts further if needed (edit `ansible/group_vars/windows/main.yml`)
 
 ### vLLM Container Won't Start
 

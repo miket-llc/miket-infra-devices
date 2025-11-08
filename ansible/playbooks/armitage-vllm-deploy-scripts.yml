@@ -1,0 +1,191 @@
+---
+# Simplified vLLM deployment - just scripts and config
+# Prerequisites: Docker Desktop already installed and working
+
+- name: Deploy vLLM scripts to Armitage
+  hosts: armitage
+  gather_facts: no
+  
+  vars:
+    vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
+    vllm_port: "{{ vllm_api_port | default(8000) }}"
+    vllm_container_name: "vllm-armitage"
+    vllm_image: "vllm/vllm-openai:latest"
+    auto_switch_enabled: true
+    check_interval_minutes: 5
+  
+  tasks:
+    - name: Check PowerShell execution policy
+      win_shell: |
+        $policy = Get-ExecutionPolicy
+        if ($policy -eq 'Restricted' -or $policy -eq 'AllSigned') {
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          Write-Host "Execution policy updated to RemoteSigned"
+        } else {
+          Write-Host "Execution policy is $policy - scripts can run"
+        }
+      register: execution_policy
+      changed_when: "'updated' in execution_policy.stdout"
+      failed_when: false
+    
+    - name: Ensure Docker Desktop service is running
+      win_service:
+        name: com.docker.service
+        state: started
+        start_mode: auto
+    
+    - name: Ensure Docker config directory exists
+      win_file:
+        path: C:\Users\{{ ansible_user }}\.docker
+        state: directory
+    
+    - name: Configure Docker to disable credential helper
+      win_copy:
+        content: |
+          {
+            "credsStore": ""
+          }
+        dest: C:\Users\{{ ansible_user }}\.docker\config.json
+      register: docker_config
+    
+    - name: Copy NVIDIA Container Toolkit install script to Windows
+      win_copy:
+        src: /home/mdt/miket-infra-devices/devices/armitage/scripts/Install-NvidiaContainerToolkit.sh
+        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Install-NvidiaContainerToolkit.sh
+      tags: [docker, gpu]
+    
+    - name: Install NVIDIA Container Toolkit in WSL2
+      win_shell: |
+        Write-Host "Installing NVIDIA Container Toolkit in WSL2..." -ForegroundColor Yellow
+        wsl -d Ubuntu -- bash /mnt/c/Users/{{ ansible_user }}/dev/armitage/scripts/Install-NvidiaContainerToolkit.sh
+        Write-Host "NVIDIA Container Toolkit installation complete" -ForegroundColor Green
+      register: nvidia_toolkit
+      async: 300
+      poll: 15
+      tags: [docker, gpu]
+      failed_when: false
+    
+    - name: Restart Docker to apply NVIDIA runtime configuration
+      win_service:
+        name: com.docker.service
+        state: restarted
+      when: nvidia_toolkit.changed
+      tags: [docker, gpu]
+    
+    - name: Wait for Docker to restart
+      win_shell: |
+        $timeout = 60
+        $elapsed = 0
+        while ($elapsed -lt $timeout) {
+          try {
+            $dockerOutput = docker version 2>&1
+            if ($LASTEXITCODE -eq 0 -and $dockerOutput -match "Server:") {
+              Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker is ready" -ForegroundColor Green
+              exit 0
+            }
+          } catch { }
+          Start-Sleep -Seconds 5
+          $elapsed += 5
+        }
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker ready" -ForegroundColor Green
+      when: nvidia_toolkit.changed
+      register: docker_wait
+      failed_when: false
+      tags: [docker, gpu]
+    
+    - name: Pull vLLM Docker image
+      win_shell: |
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Pulling vLLM Docker image (this may take several minutes)..." -ForegroundColor Yellow
+        $startTime = Get-Date
+        docker pull {{ vllm_image }}
+        if ($LASTEXITCODE -eq 0) {
+          $duration = (Get-Date) - $startTime
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ✅ Image pulled successfully (took $([math]::Round($duration.TotalSeconds, 1))s)" -ForegroundColor Green
+          exit 0
+        } else {
+          Write-Host "[$(Get-Date -Format 'HH:mm:ss')] ❌ Failed to pull image" -ForegroundColor Red
+          exit 1
+        }
+      register: docker_pull
+      async: 900
+      poll: 30
+      tags: [docker]
+    
+    - name: Create scripts directory
+      win_file:
+        path: C:\Users\{{ ansible_user }}\dev\armitage\scripts
+        state: directory
+    
+    - name: Deploy vLLM scripts
+      win_copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Start-VLLM.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1" }
+        - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Auto-ModeSwitcher.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Auto-ModeSwitcher.ps1" }
+        - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Set-WorkstationMode.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Set-WorkstationMode.ps1" }
+    
+    - name: Create vLLM configuration directory
+      win_file:
+        path: C:\ProgramData\ArmitageMode
+        state: directory
+    
+    - name: Write vLLM config file
+      win_copy:
+        content: |
+          {
+            "model": "{{ vllm_model }}",
+            "port": {{ vllm_port }},
+            "container_name": "{{ vllm_container_name }}",
+            "image": "{{ vllm_image }}",
+            "auto_switch": {{ auto_switch_enabled | lower }}
+          }
+        dest: C:\ProgramData\ArmitageMode\vllm_config.json
+    
+    - name: Create scheduled task
+      win_scheduled_task:
+        name: Armitage Auto Mode Switcher
+        description: Automatically switches between workstation and LLM serving modes
+        actions:
+          - path: powershell.exe
+            arguments: >
+              -ExecutionPolicy Bypass -NoProfile -File
+              "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Auto-ModeSwitcher.ps1"
+        triggers:
+          - type: boot
+          - type: logon
+          - type: daily
+            start_boundary: "2025-01-01T00:00:00"
+            repetition:
+              interval: "PT{{ check_interval_minutes }}M"
+              duration: "P1D"
+        state: present
+        enabled: "{{ auto_switch_enabled }}"
+        run_level: highest
+        username: SYSTEM
+    
+    - name: Verify deployment
+      win_shell: |
+        $scriptsOk = Test-Path "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1"
+        $configOk = Test-Path "C:\ProgramData\ArmitageMode\vllm_config.json"
+        
+        if ($scriptsOk -and $configOk) {
+          Write-Host "✅ Deployment successful" -ForegroundColor Green
+          exit 0
+        } else {
+          Write-Host "❌ Deployment failed" -ForegroundColor Red
+          exit 1
+        }
+    
+    - name: Display next steps
+      debug:
+        msg:
+          - ""
+          - "✅ vLLM scripts deployed successfully"
+          - ""
+          - "To start vLLM:"
+          - "  powershell -File C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1 -Action Start"
+          - ""
+          - "API will be available at: http://armitage.tail2e55fe.ts.net:{{ vllm_port }}"
+          - ""
+
