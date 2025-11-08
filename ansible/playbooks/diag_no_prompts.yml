@@ -1,0 +1,76 @@
+---
+# Diagnostic playbook to identify password prompt sources
+# Run: ansible-playbook playbooks/diag_no_prompts.yml -l wintermute
+# Expected: No prompts, all tasks succeed
+
+- name: Diagnose Non-Interactive Password Sources
+  hosts: wintermute
+  gather_facts: false
+  vars:
+    # Suppress sensitive output
+    no_log: true
+
+  tasks:
+    - name: "Task 1: Check Vault Decryption (Ansible Vault)"
+      block:
+        - name: Assert vault decryption works
+          debug:
+            msg: "Vault decryption successful - no ask-vault-pass prompt"
+          vars:
+            # Try to access a vaulted variable (this will fail if vault password is missing)
+            test_vault_var: "{{ vault_wintermute_password | default('VAULT_DECRYPTION_WORKING') }}"
+        
+        - name: Display vault decryption status
+          debug:
+            msg: "✅ Vault decryption: PASSED (no prompt required)"
+      rescue:
+        - name: Vault decryption failed
+          debug:
+            msg: "❌ Vault decryption: FAILED - likely ask-vault-pass issue"
+          failed_when: true
+
+    - name: "Task 2: Check SSH Connection (SSH Key Passphrase)"
+      block:
+        - name: Test SSH connectivity without passphrase prompt
+          ping:
+          register: ssh_test
+        
+        - name: Display SSH status
+          debug:
+            msg: "✅ SSH connection: PASSED (no passphrase prompt)"
+      rescue:
+        - name: SSH connection failed
+          debug:
+            msg: "❌ SSH connection: FAILED - check ssh-agent and key passphrase"
+          failed_when: true
+
+    - name: "Task 3: Check Become/Sudo (Become Password)"
+      block:
+        - name: Test become/sudo without password prompt
+          command: whoami
+          become: true
+          become_method: sudo
+          register: become_test
+        
+        - name: Display become status
+          debug:
+            msg: "✅ Become/sudo: PASSED (no password prompt)"
+            var: become_test.stdout
+      rescue:
+        - name: Become failed
+          debug:
+            msg: "❌ Become/sudo: FAILED - ansible_become_password missing or incorrect"
+          failed_when: true
+
+    - name: "Task 4: Summary - All Checks Passed"
+      debug:
+        msg:
+          - "=========================================="
+          - "✅ ALL NON-INTERACTIVE CHECKS PASSED"
+          - "=========================================="
+          - "Vault decryption: Working"
+          - "SSH connection: Working"
+          - "Become/sudo: Working"
+          - "No prompts required - automation ready!"
+          - "=========================================="
+

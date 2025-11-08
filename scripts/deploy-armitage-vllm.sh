@@ -21,15 +21,8 @@ echo ""
 echo "Press Ctrl+C to cancel, or Enter to continue..."
 read -r
 
-# Check if vault password is needed
-if [ ! -f .vault_pass ]; then
-    echo ""
-    echo "Vault password file not found. You'll be prompted for the vault password."
-    echo ""
-    VAULT_FLAG="--ask-vault-pass"
-else
-    VAULT_FLAG="--vault-password-file .vault_pass"
-fi
+# Vault password is handled automatically via ansible.cfg (vault_identity_list)
+# No need for --ask-vault-pass or --vault-password-file flags
 
 # Run with verbose output and timing
 echo ""
@@ -41,7 +34,6 @@ ansible-playbook \
     -i inventory/hosts.yml \
     playbooks/armitage-vllm-setup.yml \
     --limit armitage \
-    ${VAULT_FLAG} \
     -v \
     --diff \
     "$@"

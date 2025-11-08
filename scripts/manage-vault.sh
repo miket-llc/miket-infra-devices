@@ -58,24 +58,16 @@ EOF
 
 check_vault_password() {
     if [ "$USE_OP" = true ]; then
-        # Use 1Password script
-        VAULT_OPTS="--vault-password-file <(op read 'op://miket.io/Ansible - Motoko Key Vault/password')"
-        # For commands that don't support process substitution, use temp file
-        OP_PASS_FILE=$(mktemp)
-        op read "op://miket.io/Ansible - Motoko Key Vault/password" > "$OP_PASS_FILE"
-        chmod 600 "$OP_PASS_FILE"
-        VAULT_OPTS="--vault-password-file $OP_PASS_FILE"
-        trap "rm -f $OP_PASS_FILE" EXIT
+        # Use 1Password script (same as ansible.cfg)
+        VAULT_OPTS="--vault-id default@scripts/vault_pass.sh"
     elif [ -f "$VAULT_PASSWORD_FILE" ]; then
         VAULT_OPTS="--vault-password-file $VAULT_PASSWORD_FILE"
     else
         echo -e "${YELLOW}Warning: Vault password file not found at $VAULT_PASSWORD_FILE${NC}"
-        echo "You'll be prompted for the vault password."
-        echo "To avoid prompts, create the password file:"
-        echo "  echo 'your-password' > $VAULT_PASSWORD_FILE"
-        echo "  chmod 600 $VAULT_PASSWORD_FILE"
-        echo "Or use 1Password: op read 'op://miket.io/Ansible - Motoko Key Vault/password' > $VAULT_PASSWORD_FILE"
-        VAULT_OPTS="--ask-vault-pass"
+        echo "Vault password will be retrieved from 1Password via scripts/vault_pass.sh"
+        echo "If that fails, ensure you're signed in: op signin"
+        # Use vault_identity_list from ansible.cfg (no flag needed)
+        VAULT_OPTS=""
     fi
 }
 

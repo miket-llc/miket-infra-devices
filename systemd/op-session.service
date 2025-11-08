@@ -1,0 +1,28 @@
+[Unit]
+Description=1Password CLI Session Manager
+Documentation=https://developer.1password.com/docs/cli
+After=network.target
+
+[Service]
+Type=oneshot
+# Use service account token for headless operation (Mode A)
+# Set OP_SERVICE_ACCOUNT_TOKEN in environment or systemd override
+Environment="OP_SERVICE_ACCOUNT_TOKEN="
+# For Mode B (Desktop + CLI), use regular signin
+ExecStart=/usr/bin/op signin --account %i
+# Verify signin succeeded
+ExecStartPost=/usr/bin/op account list
+# Clean up session on stop (optional)
+ExecStop=/usr/bin/op signout
+
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target
+

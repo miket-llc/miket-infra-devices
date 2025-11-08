@@ -40,3 +40,11 @@ roles:
   - cuda-development
   - docker-desktop
 
+# Non-interactive become/sudo configuration for Linux
+# If Wintermute is Linux, these settings enable passwordless sudo via 1Password
+ansible_become: true
+ansible_become_method: sudo
+# Retrieve sudo password from environment variable or 1Password lookup
+# Priority: ANSIBLE_BECOME_PASS env var > 1Password lookup plugin > pipe lookup > empty (passwordless sudo)
+ansible_become_password: "{{ lookup('env', 'ANSIBLE_BECOME_PASS') | default(lookup('community.general.onepassword', 'op://Automation/wintermute/sudo', errors='ignore') | default(lookup('pipe', 'op read op://Automation/wintermute/sudo 2>/dev/null || echo'), true), true) | default('', true) }}"
+

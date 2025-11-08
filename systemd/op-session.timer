@@ -1,0 +1,14 @@
+[Unit]
+Description=1Password CLI Session Refresh Timer
+Documentation=https://developer.1password.com/docs/cli
+Requires=op-session.service
+
+[Timer]
+# Refresh session every 30 minutes (1Password sessions typically last 30-60 minutes)
+OnBootSec=5min
+OnUnitActiveSec=30min
+Unit=op-session.service
+
+[Install]
+WantedBy=timers.target
+

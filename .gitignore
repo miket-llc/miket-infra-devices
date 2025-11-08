@@ -54,6 +54,14 @@ $RECYCLE.BIN/
 *.retry
 ansible/*.retry
 ansible/inventory/hosts.local
+.vault_pass
+.vault_pass.*
+op_pass_file_*
+
+# 1Password CLI
+.op_session
+.op_config
+OP_SERVICE_ACCOUNT_TOKEN
 
 # Logs
 *.log
