@@ -1,21 +1,23 @@
-# Wintermute - Windows Development/Gaming Workstation
+# Wintermute - Windows Desktop Workstation
 # Last Updated: 2025-11-08
 
 device:
   hostname: wintermute
-  type: workstation
-  location: office
+  type: desktop
+  location: fixed
   primary_user: mdt
 
 hardware:
-  cpu: "Intel Core i9 (placeholder)"
-  gpu: "NVIDIA GeForce RTX 4070 Super"
-  gpu_vram_gb: 12
-  memory_gb: 32
+  cpu: "Intel Core i9 (high-performance)"
+  gpu: "NVIDIA GeForce RTX 4070 Super (12GB VRAM)"
+  memory: "32GB+ DDR5"
+  storage:
+    - "NVMe SSD (Primary)"
+    - "Additional storage as needed"
 
 operating_system:
   os: Windows 11 Pro
-  version: 22H2
+  version: Latest
   wsl: true
   docker_desktop: true
 
@@ -27,41 +29,38 @@ network:
 services:
   - Docker Desktop with WSL2 backend
   - NVIDIA CUDA Toolkit
-  - WSL2 (Ubuntu 22.04)
-  - Development IDEs (VS Code, Visual Studio)
+  - WSL2 (Ubuntu 24.04 LTS)
   - NVIDIA Container Toolkit (via WSL2)
+  - Steam/Gaming platforms
+  - Development IDEs (VS Code, Cursor)
+  - Streaming software (OBS, etc.)
+  - Flight simulators
 
 use_cases:
-  - Desktop development workstation
+  - Primary development workstation
   - High-performance gaming
+  - Streaming (gaming/content creation)
+  - Flight simulation
   - CUDA/ML development
   - Docker containerization
+  - vLLM inference serving
   - Remote access via Tailscale
 
 vllm:
   enabled: true
-  model: "casperhansen/llama-3-8b-instruct-awq"
+  model: "mistralai/Mistral-7B-Instruct-v0.2"
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
-  gpu_memory_utilization: 0.92
-  max_model_len: 16384
-  max_num_seqs: 2
-  kv_cache_dtype: "fp8"
-  tensor_parallel_size: 1
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
-  # For 12GB VRAM, recommended models:
-  # - meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ (~5GB VRAM) - CURRENT: Reasoner model
-  #   Optimized settings: 0.90 util, 8192 max_len (allows long context)
-  #   Benchmarks: MMLU 66.1, MATH 50.4, HumanEval 81.7, GSM8K 79.6
-  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - Alternative chat model
-  #   Benchmarks: MMLU 74.2, MATH 75.5, HumanEval 84.8, GSM8K 91.6
-  # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - Too large, insufficient KV cache memory
-  # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - Maximum capability (does not fit)
 
 notes:
-  - "Primary Windows development and gaming workstation"
-  - "12GB VRAM optimized for larger models"
-  - "vLLM serving via WSL2 Docker"
+  - High-performance desktop workstation with RTX 4070 Super
+  - Optimized for gaming, streaming, development, and vLLM serving
+  - Supports GPU passthrough to WSL2 for CUDA workloads
+  - Connected to Tailnet for secure remote access
+  - Gaming mode optimizations available via Windows Game Mode
+  - vLLM serving with automatic mode switching between workstation and LLM modes
+  - Can host larger models than Armitage due to 12GB VRAM

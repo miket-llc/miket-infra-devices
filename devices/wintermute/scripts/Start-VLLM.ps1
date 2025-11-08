@@ -5,7 +5,7 @@
     Starts, stops, and manages vLLM inference containers using Docker Desktop
     with NVIDIA GPU support via WSL2 backend
 .PARAMETER Action
-    Action to perform: Start, Stop, Restart, Status
+    Action to perform: Start, Stop, Restart, Status, Logs
 .PARAMETER Model
     Model name to serve (default from config)
 .PARAMETER Port
@@ -17,7 +17,7 @@ param(
     [ValidateSet('Start', 'Stop', 'Restart', 'Status', 'Logs')]
     [string]$Action,
     
-    [string]$Model = "casperhansen/llama-3-8b-instruct-awq",
+    [string]$Model = "mistralai/Mistral-7B-Instruct-v0.2",
     [int]$Port = 8000,
     [string]$ContainerName = "vllm-wintermute"
 )
@@ -33,10 +33,7 @@ $Config = @{
     ContainerName = $ContainerName
     Image = "vllm/vllm-openai:latest"
     GpuCount = 1
-    MaxModelLen = 16384
-    MaxNumSeqs = 2
-    GpuMemoryUtilization = 0.92
-    KvCacheDtype = "fp8"
+    MaxModelLen = 4096
     TensorParallelSize = 1
 }
 
@@ -44,23 +41,14 @@ if (Test-Path $ConfigPath) {
     try {
         $yamlContent = Get-Content $ConfigPath -Raw
         # Simple YAML parsing (basic)
-        if ($yamlContent -match 'vllm:\s*\n\s*model:\s*"([^"]+)"') {
-            $Config.Model = $matches[1].Trim()
+        if ($yamlContent -match 'vllm:\s*\n\s*model:\s*(.+)') {
+            $Config.Model = $matches[1].Trim().Trim('"')
         }
         if ($yamlContent -match 'vllm:\s*\n\s*port:\s*(\d+)') {
             $Config.Port = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*max_model_len:\s*(\d+)') {
-            $Config.MaxModelLen = [int]$matches[1]
-        }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*gpu_memory_utilization:\s*([\d.]+)') {
-            $Config.GpuMemoryUtilization = [double]$matches[1]
-        }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*max_num_seqs:\s*(\d+)') {
-            $Config.MaxNumSeqs = [int]$matches[1]
-        }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*kv_cache_dtype:\s*"([^"]+)"') {
-            $Config.KvCacheDtype = $matches[1].Trim()
+        if ($yamlContent -match 'vllm:\s*\n\s*container_name:\s*(.+)') {
+            $Config.ContainerName = $matches[1].Trim().Trim('"')
         }
     } catch {
         Write-Warning "Could not parse config file: $_"
@@ -138,10 +126,6 @@ function Start-VLLM {
     Write-Host "  Model: $($Config.Model)"
     Write-Host "  Port: $($Config.Port)"
     Write-Host "  Container: $($Config.ContainerName)"
-    Write-Host "  Max Model Length: $($Config.MaxModelLen)"
-    Write-Host "  Max Num Seqs: $($Config.MaxNumSeqs)"
-    Write-Host "  GPU Memory Utilization: $($Config.GpuMemoryUtilization)"
-    Write-Host "  KV Cache Dtype: $($Config.KvCacheDtype)"
     
     # Check if container exists and remove if stopped
     if ($status -eq "stopped") {
@@ -150,7 +134,6 @@ function Start-VLLM {
     }
     
     # Build docker run command
-    # Note: vllm/vllm-openai image has entrypoint pre-configured
     $dockerArgs = @(
         "run",
         "-d",
@@ -158,14 +141,14 @@ function Start-VLLM {
         "--gpus", "all",
         "-p", "$($Config.Port):8000",
         "--restart", "unless-stopped",
+        "-e", "MODEL_NAME=$($Config.Model)",
+        "-e", "MAX_MODEL_LEN=$($Config.MaxModelLen)",
+        "-e", "TENSOR_PARALLEL_SIZE=$($Config.TensorParallelSize)",
         $Config.Image,
+        "python", "-m", "vllm.entrypoints.openai.api_server",
         "--model", $Config.Model,
         "--port", "8000",
         "--host", "0.0.0.0",
-        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString(),
-        "--max-model-len", $Config.MaxModelLen.ToString(),
-        "--max-num-seqs", $Config.MaxNumSeqs.ToString(),
-        "--kv-cache-dtype", $Config.KvCacheDtype,
         "--tensor-parallel-size", $Config.TensorParallelSize.ToString()
     )
     
@@ -174,6 +157,7 @@ function Start-VLLM {
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ vLLM container started successfully"
             Write-Host "API available at: http://localhost:$($Config.Port)"
+            Write-Host "Tailnet: http://wintermute.tail2e55fe.ts.net:$($Config.Port)"
             return $true
         } else {
             Write-Error "Failed to start container"
@@ -245,6 +229,7 @@ function Show-Status {
         docker ps --filter "name=$($Config.ContainerName)" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         
         Write-Host "`nAPI Endpoint: http://localhost:$($Config.Port)" -ForegroundColor Green
+        Write-Host "Tailnet: http://wintermute.tail2e55fe.ts.net:$($Config.Port)" -ForegroundColor Green
         Write-Host "Health Check: http://localhost:$($Config.Port)/health" -ForegroundColor Green
     }
 }

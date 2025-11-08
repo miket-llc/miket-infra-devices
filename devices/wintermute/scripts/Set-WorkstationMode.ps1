@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Manages workstation modes for Wintermute (gaming vs productivity)
+    Manages workstation modes for Wintermute (gaming vs productivity vs development)
 .DESCRIPTION
-    Switches between gaming and productivity modes by adjusting Windows settings,
+    Switches between gaming, productivity, and development modes by adjusting Windows settings,
     services, and GPU configurations for optimal performance
 .PARAMETER Mode
-    The mode to switch to: Gaming or Productivity
+    The mode to switch to: Gaming, Productivity, or Development
 #>
 
 param(
@@ -19,7 +19,7 @@ $ErrorActionPreference = "Stop"
 # Configuration for each mode
 $ModeConfigs = @{
     Gaming = @{
-        Description = "Optimized for gaming performance"
+        Description = "Optimized for gaming, streaming, and flight sims"
         Services = @{
             Stop = @(
                 "WSearch",          # Windows Search
@@ -55,7 +55,7 @@ $ModeConfigs = @{
     }
     
     Development = @{
-        Description = "Optimized for development with Docker and WSL2"
+        Description = "Optimized for development with Docker, WSL2, and vLLM"
         Services = @{
             Stop = @(
                 "DiagTrack",
@@ -220,3 +220,4 @@ Save-ModeState -Mode $Mode
 
 Write-Host "`n✅ Successfully switched to $Mode mode!" -ForegroundColor Green
 Write-Host "Mode configuration saved to: $env:LOCALAPPDATA\WintermuteMode\current_mode.json"
+
