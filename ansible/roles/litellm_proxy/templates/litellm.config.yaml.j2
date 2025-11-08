@@ -13,8 +13,15 @@ model_list:
   # Local reasoner model - Wintermute (configurable via wintermute_model_* vars)
   - model_name: {{ wintermute_model_name }}
     litellm_params:
-      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+      model: {{ wintermute_model_display }}
       api_base: "{{ wintermute_base_url }}"
+      api_key: "dummy"
+
+  # Local reasoning model - Motoko (Mistral-7B-Instruct-AWQ)
+  - model_name: local/reasoning
+    litellm_params:
+      model: openai/mistral-7b-instruct-awq
+      api_base: "{{ motoko_reasoning_base_url }}"
       api_key: "dummy"
 
   # Local embeddings model - Motoko (BGE Base) - uses vLLM
@@ -50,6 +57,7 @@ routing:
     route_to:
       - "local/chat"
     fallback_models:
+      - "local/reasoning"
       - "{{ wintermute_model_name }}"
       - "openai/strong"
 
@@ -68,6 +76,7 @@ policies:
       healthcheck_failures: 3
       for_models:
         - "local/chat"
+        - "local/reasoning"
         - "{{ wintermute_model_name }}"
         - "local/embed"
     on_trigger: "route:openai/strong"

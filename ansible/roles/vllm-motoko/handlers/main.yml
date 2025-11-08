@@ -1,0 +1,9 @@
+---
+# Handlers for vLLM Motoko role
+
+- name: restart vllm services
+  command: docker compose -f "{{ vllm_compose_file }}" restart
+  args:
+    chdir: "{{ vllm_compose_dir }}"
+  listen: restart vllm services
+

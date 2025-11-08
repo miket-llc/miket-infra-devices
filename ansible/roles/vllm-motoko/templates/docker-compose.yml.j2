@@ -1,0 +1,70 @@
+# {{ ansible_managed }}
+version: "3.9"
+
+services:
+{% if vllm_reasoning_enabled | bool %}
+  vllm-reasoning:
+    image: {{ vllm_reasoning_image }}
+    container_name: {{ vllm_reasoning_container_name }}
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model {{ vllm_reasoning_model }}
+      {% if vllm_reasoning_quantization is defined %}--quantization {{ vllm_reasoning_quantization }}{% endif %}
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len {{ vllm_reasoning_max_len }}
+      --gpu-memory-utilization {{ vllm_reasoning_gpu_util }}
+      --tensor-parallel-size 1
+    ports:
+      - "{{ vllm_reasoning_port }}:8000"
+    {% if vllm_network_mode == "host" %}
+    network_mode: host
+    {% endif %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: {{ vllm_restart_policy }}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+{% endif %}
+
+{% if vllm_embeddings_enabled | bool %}
+  vllm-embeddings:
+    image: {{ vllm_embeddings_image }}
+    container_name: {{ vllm_embeddings_container_name }}
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model {{ vllm_embeddings_model }}
+      --host 0.0.0.0
+      --port 8000
+      --gpu-memory-utilization {{ vllm_embeddings_gpu_util }}
+      --tensor-parallel-size 1
+    ports:
+      - "{{ vllm_embeddings_port }}:8000"
+    {% if vllm_network_mode == "host" %}
+    network_mode: host
+    {% endif %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: {{ vllm_restart_policy }}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+{% endif %}
+

@@ -1,0 +1,32 @@
+---
+# Default variables for vLLM deployment on Motoko
+# Override in group_vars/motoko.yml or host_vars/motoko/ as needed
+
+# Reasoning model configuration
+vllm_reasoning_enabled: true
+vllm_reasoning_model: "mistralai/Mistral-7B-Instruct-v0.2-AWQ"
+vllm_reasoning_quantization: "awq"
+vllm_reasoning_port: 8001
+vllm_reasoning_gpu_util: 0.45
+vllm_reasoning_max_len: 4096
+vllm_reasoning_container_name: "vllm-reasoning-motoko"
+vllm_reasoning_image: "vllm/vllm-openai:latest"
+
+# Embeddings model configuration
+vllm_embeddings_enabled: true
+vllm_embeddings_model: "BAAI/bge-base-en-v1.5"
+vllm_embeddings_port: 8200
+vllm_embeddings_gpu_util: 0.30
+vllm_embeddings_container_name: "vllm-embeddings-motoko"
+vllm_embeddings_image: "vllm/vllm-openai:latest"
+
+# Docker Compose configuration
+vllm_compose_dir: "/opt/vllm-motoko"
+vllm_compose_file: "{{ vllm_compose_dir }}/docker-compose.yml"
+
+# Network configuration
+vllm_network_mode: "bridge"  # or "host" for better performance
+
+# Service management
+vllm_restart_policy: "unless-stopped"
+

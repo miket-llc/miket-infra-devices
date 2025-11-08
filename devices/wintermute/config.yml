@@ -40,18 +40,20 @@ use_cases:
 
 vllm:
   enabled: true
-  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
+  model: "casperhansen/llama-3-8b-instruct-awq"
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
-  gpu_memory_utilization: 0.85
+  gpu_memory_utilization: 0.90
   max_model_len: 8192
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
   # For 12GB VRAM, recommended models:
-  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - BEST CHOICE: Most capable model that fits comfortably
+  # - meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ (~5GB VRAM) - CURRENT: Reasoner model
   #   Optimized settings: 0.90 util, 8192 max_len (allows long context)
+  #   Benchmarks: MMLU 66.1, MATH 50.4, HumanEval 81.7, GSM8K 79.6
+  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - Alternative chat model
   #   Benchmarks: MMLU 74.2, MATH 75.5, HumanEval 84.8, GSM8K 91.6
   # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - Too large, insufficient KV cache memory
   # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - Maximum capability (does not fit)

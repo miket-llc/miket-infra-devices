@@ -1,0 +1,133 @@
+---
+# Tasks for deploying vLLM services on Motoko
+
+- name: Ensure vLLM compose directory exists
+  file:
+    path: "{{ vllm_compose_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render Docker Compose file for vLLM services
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ vllm_compose_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart vllm services
+
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+  ignore_errors: true
+  check_mode: no
+
+- name: Install Docker + Compose plugin if not present
+  apt:
+    name:
+      - docker.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+  when:
+    - ansible_os_family == "Debian"
+    - docker_check is failed or docker_check.rc != 0
+
+- name: Ensure Docker service is running
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+  when: ansible_os_family == "Debian"
+
+- name: Pull Docker images
+  shell: docker pull {{ item }}
+  loop:
+    - "{{ vllm_reasoning_image }}"
+    - "{{ vllm_embeddings_image }}"
+  when:
+    - vllm_reasoning_enabled | bool
+    - vllm_embeddings_enabled | bool
+  changed_when: true
+  failed_when: false
+
+- name: Start vLLM services with Docker Compose
+  command: docker compose -f "{{ vllm_compose_file }}" up -d
+  args:
+    chdir: "{{ vllm_compose_dir }}"
+  register: docker_compose_result
+  changed_when: "'Creating' in docker_compose_result.stdout or 'Starting' in docker_compose_result.stdout or docker_compose_result.stdout is not defined"
+  check_mode: no
+
+- name: Wait for reasoning service to be ready
+  wait_for:
+    port: "{{ vllm_reasoning_port }}"
+    host: "127.0.0.1"
+    delay: 15
+    timeout: 300
+  when: vllm_reasoning_enabled | bool
+
+- name: Wait for embeddings service to be ready
+  wait_for:
+    port: "{{ vllm_embeddings_port }}"
+    host: "127.0.0.1"
+    delay: 15
+    timeout: 300
+  when: vllm_embeddings_enabled | bool
+
+- name: Verify reasoning service health
+  uri:
+    url: "http://127.0.0.1:{{ vllm_reasoning_port }}/health"
+    method: GET
+    status_code: 200
+  register: reasoning_health
+  failed_when: false
+  when: vllm_reasoning_enabled | bool
+
+- name: Verify embeddings service health
+  uri:
+    url: "http://127.0.0.1:{{ vllm_embeddings_port }}/health"
+    method: GET
+    status_code: 200
+  register: embeddings_health
+  failed_when: false
+  when: vllm_embeddings_enabled | bool
+
+- name: Check GPU utilization
+  command: docker exec {{ vllm_reasoning_container_name }} nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader 2>&1 || echo "GPU check failed"
+  register: gpu_check
+  changed_when: false
+  failed_when: false
+  when: vllm_reasoning_enabled | bool
+
+- name: Display GPU utilization
+  debug:
+    msg: "GPU Status: {{ gpu_check.stdout }}"
+  when:
+    - vllm_reasoning_enabled | bool
+    - gpu_check.stdout != ""
+
+- name: Assert reasoning service is healthy
+  assert:
+    that:
+      - reasoning_health.status == 200
+    fail_msg: "Reasoning service health check failed"
+    success_msg: "Reasoning service is healthy"
+  when:
+    - vllm_reasoning_enabled | bool
+    - reasoning_health.status is defined
+
+- name: Assert embeddings service is healthy
+  assert:
+    that:
+      - embeddings_health.status == 200
+    fail_msg: "Embeddings service health check failed"
+    success_msg: "Embeddings service is healthy"
+  when:
+    - vllm_embeddings_enabled | bool
+    - embeddings_health.status is defined
+

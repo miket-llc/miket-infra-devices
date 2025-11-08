@@ -2,12 +2,12 @@
 # vLLM management script for Linux/WSL2
 # Matches architecture pattern: direct docker run commands (like systemd template)
 # Optimized for 12GB VRAM (RTX 4070 Super)
-# Model: Qwen2.5-7B-Instruct-AWQ - Most capable model that fits comfortably
+# Model: Llama 3.1 8B Instruct AWQ - Reasoner model (matches LiteLLM config)
 
 set -e
 
 CONTAINER_NAME="vllm-wintermute"
-MODEL_NAME="${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
+MODEL_NAME="${VLLM_MODEL:-casperhansen/llama-3-8b-instruct-awq}"
 PORT="${VLLM_PORT:-8000}"
 IMAGE="vllm/vllm-openai:latest"
 GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.85}"

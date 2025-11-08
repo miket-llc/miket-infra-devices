@@ -12,13 +12,14 @@ litellm_port: 8000
 # Backend service URLs
 armitage_base_url: "http://armitage:8000/v1"
 wintermute_base_url: "http://wintermute:8000/v1"
+motoko_reasoning_base_url: "http://motoko:8001/v1"
 motoko_embed_base_url: "http://motoko:8200/v1"
 
 # Wintermute reasoner model (defaults to Llama 3.1 8B AWQ). To switch to Gemma,
 # change these three vars only.
 wintermute_model_name: "local/reasoner"
 wintermute_model_display: "openai/llama-3.1-8b-instruct-awq"
-wintermute_model_hf_id: "meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ"
+wintermute_model_hf_id: "casperhansen/llama-3-8b-instruct-awq"
 
 # --- Gemma option (uncomment to use) ---
 # wintermute_model_display: "openai/gemma-2-9b-it-awq"

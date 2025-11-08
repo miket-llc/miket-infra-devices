@@ -17,7 +17,7 @@ param(
     [ValidateSet('Start', 'Stop', 'Restart', 'Status', 'Logs')]
     [string]$Action,
     
-    [string]$Model = "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    [string]$Model = "casperhansen/llama-3-8b-instruct-awq",
     [int]$Port = 8000,
     [string]$ContainerName = "vllm-wintermute"
 )

@@ -1,6 +1,96 @@
-# Placeholder configuration for motoko
+# Motoko - Primary Infrastructure Server
+# Last Updated: 2025-01-XX
+
+device:
+  hostname: motoko
+  fqdn: motoko.hopto.org
+  type: server
+  location: primary
+  primary_user: mdt
+  os: Ubuntu 24.04.2 LTS
+  codename: noble
+
 hardware:
-  cpu: "AMD EPYC (placeholder)"
+  manufacturer: Alienware
+  model: Laptop (repurposed as server)
+  cpu: "AMD EPYC (placeholder - verify actual CPU)"
   gpu: "NVIDIA GeForce RTX 2080"
+  gpu_driver: "535.230.02"
+  cuda_version: "12.2"
+  memory_gb: 32  # Verify actual memory
+  storage:
+    - "/mnt/data/docker"  # Docker root
+    - "/mnt/lacie"  # Backup storage
+    - "/mnt/lacie/llama-model"  # Model storage
+
+operating_system:
+  os: Ubuntu
+  version: "24.04.2 LTS"
+  codename: noble
+  kernel: "6.x"  # Verify actual kernel version
+
+network:
+  tailscale_enabled: true
+  tailscale_tags:
+    - "tag:server"
+    - "tag:linux"
+    - "tag:ansible"
+  ssh_enabled: true
+  ssh_auth: key_only
+  ssh_port: 22
+
+services:
+  - Docker (with NVIDIA runtime)
+  - Docker Compose
+  - LiteLLM Proxy (port 8000)
+  - vLLM Reasoning (port 8001)
+  - vLLM Embeddings (port 8200)
+  - Samba (file sharing)
+  - Netatalk (AFP for macOS)
+  - fail2ban (security)
+  - postfix (mail)
+
+vllm:
+  reasoning:
+    enabled: true
+    model: "mistralai/Mistral-7B-Instruct-v0.2-AWQ"
+    port: 8001
+    container_name: "vllm-reasoning-motoko"
+    gpu_memory_utilization: 0.45
+    max_model_len: 4096
+  embeddings:
+    enabled: true
+    model: "BAAI/bge-base-en-v1.5"
+    port: 8200
+    container_name: "vllm-embeddings-motoko"
+    gpu_memory_utilization: 0.30
+
+litellm:
+  enabled: true
+  port: 8000
+  container_name: "litellm"
+  config_path: "/opt/litellm/litellm.config.yaml"
+  routes_to:
+    - "Armitage (local/chat)"
+    - "Wintermute (local/reasoner)"
+    - "Motoko (local/reasoning)"
+    - "Motoko (local/embed)"
+    - "OpenAI (fallback)"
+
+use_cases:
+  - Primary Ansible control node
+  - Docker container hosting
+  - LLM inference (reasoning and embeddings)
+  - LLM request routing (LiteLLM proxy)
+  - Backup storage server
+  - File sharing (Samba/AFP)
+  - Knowledge graph building (with vLLM models)
+
 notes:
-  - "Docker host optimized for GPU workloads"
+  - Primary infrastructure server and Ansible control node
+  - Hosts Docker containers with NVIDIA GPU runtime
+  - Provides backup services via Samba/AFP
+  - Routes LLM requests via LiteLLM proxy
+  - GPU memory allocation: 45% reasoning, 30% embeddings, 25% headroom
+  - Connected to Tailnet for secure remote access
+  - Self-managed via Ansible playbooks in `ansible/playbooks/motoko/`

@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: miket-infra-devices
+  description: Deploy vLLM reasoning and embeddings services on Motoko
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - "24.04"
+  galaxy_tags:
+    - vllm
+    - gpu
+    - llm
+    - motoko
+
+dependencies: []
+

@@ -1,0 +1,10 @@
+---
+# Deploy vLLM services on Motoko
+# Deploys reasoning and embeddings models using vLLM
+
+- name: Deploy vLLM services on Motoko
+  hosts: motoko
+  become: true
+  roles:
+    - vllm-motoko
+

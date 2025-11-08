@@ -10,7 +10,7 @@
   #   - ../group_vars/windows/vault.yml
   vars:
     ansible_password: "{{ vault_wintermute_password | default('REPLACE_ME') }}"
-    vllm_model: "{{ vllm_model_name | default('meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ') }}"
+    vllm_model: "{{ vllm_model_name | default('casperhansen/llama-3-8b-instruct-awq') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-wintermute"
     vllm_image: "vllm/vllm-openai:latest"
@@ -71,10 +71,10 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
       loop:
-        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/Start-VLLM.ps1", dest: "{{ scripts_dest }}\\Start-VLLM.ps1" }
-        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/Auto-ModeSwitcher.ps1", dest: "{{ scripts_dest }}\\Auto-ModeSwitcher.ps1" }
-        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/Set-WorkstationMode.ps1", dest: "{{ scripts_dest }}\\Set-WorkstationMode.ps1" }
-        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/vllm.sh", dest: "{{ scripts_dest }}\\vllm.sh" }
+        - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/Start-VLLM.ps1", dest: "{{ scripts_dest }}\\Start-VLLM.ps1" }
+        - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/Auto-ModeSwitcher.ps1", dest: "{{ scripts_dest }}\\Auto-ModeSwitcher.ps1" }
+        - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/Set-WorkstationMode.ps1", dest: "{{ scripts_dest }}\\Set-WorkstationMode.ps1" }
+        - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/vllm.sh", dest: "{{ scripts_dest }}\\vllm.sh" }
     
     - name: Copy bash script to WSL2 filesystem (optional)
       win_shell: |
