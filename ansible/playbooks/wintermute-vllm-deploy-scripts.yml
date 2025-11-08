@@ -1,0 +1,181 @@
+---
+# Deploy vLLM scripts to Wintermute (WSL2-based)
+# Prerequisites: Docker Desktop with WSL2 backend already installed and working
+# Non-destructive: Won't stop/restart containers if already running
+
+- name: Deploy vLLM scripts to Wintermute
+  hosts: wintermute
+  gather_facts: no
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_wintermute_password }}"
+    vllm_model: "{{ vllm_model_name | default('Qwen/Qwen2.5-14B-Instruct-AWQ') }}"
+    vllm_port: "{{ vllm_api_port | default(8000) }}"
+    vllm_container_name: "vllm-wintermute"
+    vllm_image: "vllm/vllm-openai:latest"
+    gpu_memory_utilization: "{{ vllm_gpu_memory_utilization | default(0.95) }}"
+    max_model_len: "{{ vllm_max_model_len | default(8192) }}"
+    auto_switch_enabled: "{{ vllm_auto_switch | default(true) }}"
+    check_interval_minutes: "{{ vllm_check_interval_minutes | default(5) }}"
+    wsl_distro: "{{ wsl_distribution | default('Ubuntu') }}"
+    scripts_dest: "C:\\Users\\{{ ansible_user }}\\dev\\wintermute\\scripts"
+    wsl_scripts_dest: "/home/{{ ansible_user }}/dev/wintermute/scripts"
+  
+  tasks:
+    - name: Check if vLLM container is already running
+      win_shell: |
+        $containerStatus = docker ps --filter name={{ vllm_container_name }} --format '{{ "{{" }}.Names{{ "}}" }}' 2>&1
+        if ($containerStatus -match "{{ vllm_container_name }}") {
+          Write-Host "EXISTS_RUNNING"
+          exit 0
+        } else {
+          Write-Host "NOT_RUNNING"
+          exit 0
+        }
+      register: container_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Display current container status
+      debug:
+        msg: "{{ 'vLLM container is already running - deployment will be non-destructive' if (container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout) else 'vLLM container is not running - will deploy scripts only' }}"
+      when: container_check.stdout is defined
+    
+    - name: Check PowerShell execution policy
+      win_shell: |
+        $policy = Get-ExecutionPolicy
+        if ($policy -eq 'Restricted' -or $policy -eq 'AllSigned') {
+          Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+          Write-Host "Execution policy updated to RemoteSigned"
+        } else {
+          Write-Host "Execution policy is $policy - scripts can run"
+        }
+      register: execution_policy
+      changed_when: "'updated' in execution_policy.stdout"
+      failed_when: false
+    
+    - name: Ensure Docker Desktop service is running
+      win_service:
+        name: com.docker.service
+        state: started
+        start_mode: auto
+    
+    - name: Create scripts directory
+      win_file:
+        path: "{{ scripts_dest }}"
+        state: directory
+    
+    - name: Deploy vLLM scripts
+      win_copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/Start-VLLM.ps1", dest: "{{ scripts_dest }}\\Start-VLLM.ps1" }
+        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/Auto-ModeSwitcher.ps1", dest: "{{ scripts_dest }}\\Auto-ModeSwitcher.ps1" }
+        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/Set-WorkstationMode.ps1", dest: "{{ scripts_dest }}\\Set-WorkstationMode.ps1" }
+        - { src: "{{ playbook_dir }}/../../devices/wintermute/scripts/vllm.sh", dest: "{{ scripts_dest }}\\vllm.sh" }
+    
+    - name: Copy bash script to WSL2 filesystem (optional)
+      win_shell: |
+        $wslPath = wsl -d {{ wsl_distro }} -- wslpath -u "{{ scripts_dest }}" 2>&1
+        if ($LASTEXITCODE -ne 0) {
+          $wslPath = "{{ wsl_scripts_dest }}"
+        }
+        wsl -d {{ wsl_distro }} -- mkdir -p "$wslPath" 2>&1 | Out-Null
+        wsl -d {{ wsl_distro }} -- cp "/mnt/c/Users/{{ ansible_user }}/dev/wintermute/scripts/vllm.sh" "$wslPath/vllm.sh" 2>&1 | Out-Null
+        wsl -d {{ wsl_distro }} -- chmod +x "$wslPath/vllm.sh" 2>&1 | Out-Null
+        Write-Host "Bash script copied to WSL2: $wslPath/vllm.sh"
+      register: script_copy
+      failed_when: false
+    
+    - name: Create vLLM configuration directory
+      win_file:
+        path: C:\ProgramData\WintermuteMode
+        state: directory
+    
+    - name: Write vLLM config file
+      win_copy:
+        content: |
+          {
+            "model": "{{ vllm_model }}",
+            "port": {{ vllm_port }},
+            "container_name": "{{ vllm_container_name }}",
+            "image": "{{ vllm_image }}",
+            "gpu_memory_utilization": {{ gpu_memory_utilization }},
+            "max_model_len": {{ max_model_len }},
+            "auto_switch": {{ auto_switch_enabled | lower }}
+          }
+        dest: C:\ProgramData\WintermuteMode\vllm_config.json
+    
+    - name: Create scheduled task
+      win_scheduled_task:
+        name: Wintermute Auto Mode Switcher
+        description: Automatically switches between workstation and LLM serving modes
+        actions:
+          - path: powershell.exe
+            arguments: >
+              -ExecutionPolicy Bypass -NoProfile -File
+              "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
+        triggers:
+          - type: boot
+          - type: logon
+          - type: daily
+            start_boundary: "2025-01-01T00:00:00"
+            repetition:
+              interval: "PT{{ check_interval_minutes }}M"
+              duration: "P1D"
+        state: present
+        enabled: "{{ auto_switch_enabled }}"
+        run_level: highest
+        username: SYSTEM
+    
+    - name: Verify deployment
+      win_shell: |
+        $scriptsOk = Test-Path "{{ scripts_dest }}\Start-VLLM.ps1"
+        $autoSwitcherOk = Test-Path "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
+        $modeSwitcherOk = Test-Path "{{ scripts_dest }}\Set-WorkstationMode.ps1"
+        $configOk = Test-Path "C:\ProgramData\WintermuteMode\vllm_config.json"
+        
+        if ($scriptsOk -and $autoSwitcherOk -and $modeSwitcherOk -and $configOk) {
+          Write-Host "✅ Deployment successful" -ForegroundColor Green
+          Write-Host "  PowerShell scripts: $scriptsOk"
+          Write-Host "  Auto-switcher: $autoSwitcherOk"
+          Write-Host "  Mode switcher: $modeSwitcherOk"
+          Write-Host "  Config file: $configOk"
+          exit 0
+        } else {
+          Write-Host "❌ Deployment verification failed" -ForegroundColor Red
+          Write-Host "  Start-VLLM.ps1 exists: $scriptsOk"
+          Write-Host "  Auto-ModeSwitcher.ps1 exists: $autoSwitcherOk"
+          Write-Host "  Set-WorkstationMode.ps1 exists: $modeSwitcherOk"
+          Write-Host "  Config exists: $configOk"
+          exit 1
+        }
+      register: verify_deployment
+      failed_when: verify_deployment.rc != 0
+    
+    - name: Display deployment summary
+      debug:
+        msg:
+          - ""
+          - "✅ vLLM scripts deployed successfully to Wintermute"
+          - ""
+          - "Current container status: {{ 'Running' if 'EXISTS_RUNNING' in container_check.stdout else 'Not running' }}"
+          - ""
+          - "To manage vLLM (PowerShell):"
+          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Start"
+          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Stop"
+          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Status"
+          - ""
+          - "To manage modes:"
+          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Gaming"
+          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Productivity"
+          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Development"
+          - ""
+          - "Auto-switcher: {{ 'Enabled' if auto_switch_enabled else 'Disabled' }}"
+          - "  Scheduled task runs every {{ check_interval_minutes }} minutes"
+          - ""
+          - "API will be available at: http://wintermute.tail2e55fe.ts.net:{{ vllm_port }}/v1"
+          - ""
+

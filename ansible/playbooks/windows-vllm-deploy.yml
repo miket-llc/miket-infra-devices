@@ -1,0 +1,49 @@
+---
+# Unified vLLM deployment for Windows workstations
+# Prerequisites: Docker Desktop already installed and working
+# Non-destructive: Won't stop/restart containers if already running
+# Works for: armitage, wintermute, and any future Windows workstation
+
+- name: Deploy vLLM scripts to Windows workstation
+  hosts: "{{ target_hosts | default('windows') }}"
+  gather_facts: no
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+    vllm_container_name: "vllm-{{ inventory_hostname }}"
+    vllm_config_dir: "C:\\ProgramData\\{{ inventory_hostname | capitalize }}Mode"
+    vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2' if inventory_hostname == 'armitage' else 'Qwen/Qwen2.5-14B-Instruct-AWQ') }}"
+    vllm_powershell_scripts:
+      - { src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Start-VLLM.ps1", dest: "{{ scripts_dest }}\\Start-VLLM.ps1" }
+      - { src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Auto-ModeSwitcher.ps1", dest: "{{ scripts_dest }}\\Auto-ModeSwitcher.ps1" }
+      - { src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Set-WorkstationMode.ps1", dest: "{{ scripts_dest }}\\Set-WorkstationMode.ps1" }
+  
+  roles:
+    - windows-vllm-deploy
+  
+  tasks:
+    - name: Display deployment summary
+      debug:
+        msg:
+          - ""
+          - "✅ vLLM scripts deployed successfully to {{ inventory_hostname | capitalize }}"
+          - ""
+          - "Current container status: {{ 'Running' if 'EXISTS_RUNNING' in container_check.stdout else 'Not running' }}"
+          - ""
+          - "To manage vLLM (PowerShell):"
+          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Start"
+          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Stop"
+          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Status"
+          - ""
+          - "To manage modes:"
+          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Gaming"
+          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Productivity"
+          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Development"
+          - ""
+          - "Auto-switcher: {{ 'Enabled' if auto_switch_enabled else 'Disabled' }}"
+          - "  Scheduled task runs every {{ check_interval_minutes }} minutes"
+          - ""
+          - "API will be available at: http://{{ inventory_hostname }}.tail2e55fe.ts.net:{{ vllm_port }}/v1"
+          - ""
+

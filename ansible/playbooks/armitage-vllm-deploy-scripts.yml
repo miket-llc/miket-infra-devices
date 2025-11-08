@@ -5,8 +5,10 @@
 - name: Deploy vLLM scripts to Armitage
   hosts: armitage
   gather_facts: no
-  
+  vars_files:
+    - ../group_vars/windows/vault.yml
   vars:
+    ansible_password: "{{ vault_armitage_password }}"
     vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-armitage"
@@ -15,6 +17,25 @@
     check_interval_minutes: 5
   
   tasks:
+    - name: Check if vLLM container is already running
+      win_shell: |
+        $containerStatus = docker ps --filter name={{ vllm_container_name }} --format '{{ "{{" }}.Names{{ "}}" }}' 2>&1
+        if ($containerStatus -match "{{ vllm_container_name }}") {
+          Write-Host "EXISTS_RUNNING"
+          exit 0
+        } else {
+          Write-Host "NOT_RUNNING"
+          exit 0
+        }
+      register: container_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Display current container status
+      debug:
+        msg: "{{ 'vLLM container is already running - deployment will be non-destructive' if (container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout) else 'vLLM container is not running - will deploy scripts only' }}"
+      when: container_check.stdout is defined
+    
     - name: Check PowerShell execution policy
       win_shell: |
         $policy = Get-ExecutionPolicy
@@ -48,10 +69,20 @@
         dest: C:\Users\{{ ansible_user }}\.docker\config.json
       register: docker_config
     
+    - name: Check if NVIDIA Container Toolkit is already installed
+      win_shell: |
+        $toolkitInstalled = wsl -d Ubuntu -- bash -c "dpkg -l | grep -q nvidia-container-toolkit && echo 'INSTALLED' || echo 'NOT_INSTALLED'" 2>&1
+        Write-Host $toolkitInstalled
+      register: nvidia_toolkit_check
+      changed_when: false
+      failed_when: false
+      tags: [docker, gpu]
+    
     - name: Copy NVIDIA Container Toolkit install script to Windows
       win_copy:
         src: /home/mdt/miket-infra-devices/devices/armitage/scripts/Install-NvidiaContainerToolkit.sh
         dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Install-NvidiaContainerToolkit.sh
+      when: "'NOT_INSTALLED' in nvidia_toolkit_check.stdout"
       tags: [docker, gpu]
     
     - name: Install NVIDIA Container Toolkit in WSL2
@@ -62,6 +93,7 @@
       register: nvidia_toolkit
       async: 300
       poll: 15
+      when: "'NOT_INSTALLED' in nvidia_toolkit_check.stdout"
       tags: [docker, gpu]
       failed_when: false
     
@@ -69,7 +101,7 @@
       win_service:
         name: com.docker.service
         state: restarted
-      when: nvidia_toolkit.changed
+      when: nvidia_toolkit.changed | default(false)
       tags: [docker, gpu]
     
     - name: Wait for Docker to restart
@@ -88,10 +120,23 @@
           $elapsed += 5
         }
         Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Docker ready" -ForegroundColor Green
-      when: nvidia_toolkit.changed
+      when: nvidia_toolkit.changed | default(false)
       register: docker_wait
       failed_when: false
       tags: [docker, gpu]
+    
+    - name: Check if vLLM Docker image already exists
+      win_shell: |
+        $imageExists = docker images {{ vllm_image }} --format "{{.Repository}}:{{.Tag}}" 2>&1
+        if ($LASTEXITCODE -eq 0 -and $imageExists) {
+          Write-Host "EXISTS"
+        } else {
+          Write-Host "NOT_EXISTS"
+        }
+      register: docker_image_check
+      changed_when: false
+      failed_when: false
+      tags: [docker]
     
     - name: Pull vLLM Docker image
       win_shell: |
@@ -109,6 +154,7 @@
       register: docker_pull
       async: 900
       poll: 30
+      when: "'NOT_EXISTS' in docker_image_check.stdout"
       tags: [docker]
     
     - name: Create scripts directory
@@ -171,11 +217,17 @@
         
         if ($scriptsOk -and $configOk) {
           Write-Host "✅ Deployment successful" -ForegroundColor Green
+          Write-Host "  Windows scripts: $scriptsOk"
+          Write-Host "  Config file: $configOk"
           exit 0
         } else {
-          Write-Host "❌ Deployment failed" -ForegroundColor Red
+          Write-Host "❌ Deployment verification failed" -ForegroundColor Red
+          Write-Host "  Scripts exist: $scriptsOk"
+          Write-Host "  Config exists: $configOk"
           exit 1
         }
+      register: verify_deployment
+      failed_when: verify_deployment.rc != 0
     
     - name: Display next steps
       debug:

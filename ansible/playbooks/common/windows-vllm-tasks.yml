@@ -1,0 +1,45 @@
+---
+# Common tasks for Windows vLLM deployments
+# Shared between armitage and wintermute playbooks
+
+- name: Check if vLLM container is already running
+  win_shell: |
+    $containerStatus = docker ps --filter name={{ vllm_container_name }} --format '{{ "{{" }}.Names{{ "}}" }}' 2>&1
+    if ($containerStatus -match "{{ vllm_container_name }}") {
+      Write-Host "EXISTS_RUNNING"
+      exit 0
+    } else {
+      Write-Host "NOT_RUNNING"
+      exit 0
+    }
+  register: container_check
+  changed_when: false
+  failed_when: false
+
+- name: Display current container status
+  debug:
+    msg: "{{ 'vLLM container is already running - deployment will be non-destructive' if (container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout) else 'vLLM container is not running - will deploy scripts only' }}"
+  when: container_check.stdout is defined
+
+- name: Ensure Docker Desktop service is running
+  win_service:
+    name: com.docker.service
+    state: started
+    start_mode: auto
+
+- name: Create vLLM configuration directory
+  win_file:
+    path: "{{ vllm_config_dir }}"
+    state: directory
+
+- name: Write vLLM config file
+  win_copy:
+    content: |
+      {
+        "model": "{{ vllm_model }}",
+        "port": {{ vllm_port }},
+        "container_name": "{{ vllm_container_name }}",
+        "image": "{{ vllm_image }}"
+      }
+    dest: "{{ vllm_config_dir }}\vllm_config.json"
+

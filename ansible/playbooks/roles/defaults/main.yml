@@ -1,0 +1,9 @@
+---
+# Shared defaults for Windows vLLM deployments
+vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
+vllm_port: "{{ vllm_api_port | default(8000) }}"
+vllm_image: "vllm/vllm-openai:latest"
+auto_switch_enabled: "{{ vllm_auto_switch | default(true) }}"
+check_interval_minutes: "{{ vllm_check_interval_minutes | default(5) }}"
+scripts_dest: "C:\\Users\\{{ ansible_user }}\\dev\\{{ inventory_hostname }}\\scripts"
+

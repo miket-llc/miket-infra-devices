@@ -25,6 +25,6 @@ ansible_winrm_server_cert_validation: ignore  # Ignore cert validation (Tailscal
 ansible_command_timeout: 600            # Maximum time for command execution (10 minutes)
 ansible_task_timeout: 600               # Maximum time for task execution (10 minutes)
 
-# WinRM passwords - set per host in host_vars or use vault variables
-# These are set per-host to avoid resolving vault variables in inventory
-# See host_vars/*/vault.yml or group_vars/windows/vault.yml
+# WinRM passwords - set per host using vault variables
+# These are resolved from vault after decryption
+ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else (vault_armitage_password if inventory_hostname == 'armitage' else '') }}"

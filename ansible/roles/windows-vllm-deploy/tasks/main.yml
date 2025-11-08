@@ -1,0 +1,117 @@
+---
+# Shared tasks for Windows vLLM deployments
+# Used by both armitage and wintermute playbooks
+
+- name: Check if vLLM container is already running
+  win_shell: |
+    $containerStatus = docker ps --filter name={{ vllm_container_name }} --format '{{ "{{" }}.Names{{ "}}" }}' 2>&1
+    if ($containerStatus -match "{{ vllm_container_name }}") {
+      Write-Host "EXISTS_RUNNING"
+      exit 0
+    } else {
+      Write-Host "NOT_RUNNING"
+      exit 0
+    }
+  register: container_check
+  changed_when: false
+  failed_when: false
+
+- name: Display current container status
+  debug:
+    msg: "{{ 'vLLM container is already running - deployment will be non-destructive' if (container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout) else 'vLLM container is not running - will deploy scripts only' }}"
+  when: container_check.stdout is defined
+
+- name: Check PowerShell execution policy
+  win_shell: |
+    $policy = Get-ExecutionPolicy
+    if ($policy -eq 'Restricted' -or $policy -eq 'AllSigned') {
+      Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+      Write-Host "Execution policy updated to RemoteSigned"
+    } else {
+      Write-Host "Execution policy is $policy - scripts can run"
+    }
+  register: execution_policy
+  changed_when: "'updated' in execution_policy.stdout"
+  failed_when: false
+
+- name: Ensure Docker Desktop service is running
+  win_service:
+    name: com.docker.service
+    state: started
+    start_mode: auto
+
+- name: Create scripts directory
+  win_file:
+    path: "{{ scripts_dest }}"
+    state: directory
+
+- name: Deploy vLLM PowerShell scripts
+  win_copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop: "{{ vllm_powershell_scripts }}"
+
+- name: Create vLLM configuration directory
+  win_file:
+    path: "{{ vllm_config_dir }}"
+    state: directory
+
+- name: Write vLLM config file
+  win_copy:
+    content: |
+      {
+        "model": "{{ vllm_model }}",
+        "port": {{ vllm_port }},
+        "container_name": "{{ vllm_container_name }}",
+        "image": "{{ vllm_image }}",
+        "auto_switch": {{ auto_switch_enabled | lower }}
+      }
+    dest: "{{ vllm_config_dir }}\\vllm_config.json"
+
+- name: Create scheduled task
+  win_scheduled_task:
+    name: "{{ inventory_hostname | capitalize }} Auto Mode Switcher"
+    description: Automatically switches between workstation and LLM serving modes
+    actions:
+      - path: powershell.exe
+        arguments: >
+          -ExecutionPolicy Bypass -NoProfile -File
+          "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
+    triggers:
+      - type: boot
+      - type: logon
+      - type: daily
+        start_boundary: "2025-01-01T00:00:00"
+        repetition:
+          interval: "PT{{ check_interval_minutes }}M"
+          duration: "P1D"
+    state: present
+    enabled: "{{ auto_switch_enabled }}"
+    run_level: highest
+    username: SYSTEM
+
+- name: Verify deployment
+  win_shell: |
+    $scriptsOk = Test-Path "{{ scripts_dest }}\Start-VLLM.ps1"
+    $autoSwitcherOk = Test-Path "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
+    $modeSwitcherOk = Test-Path "{{ scripts_dest }}\Set-WorkstationMode.ps1"
+    $configOk = Test-Path "{{ vllm_config_dir }}\vllm_config.json"
+    
+    if ($scriptsOk -and $autoSwitcherOk -and $modeSwitcherOk -and $configOk) {
+      Write-Host "✅ Deployment successful" -ForegroundColor Green
+      Write-Host "  PowerShell scripts: $scriptsOk"
+      Write-Host "  Auto-switcher: $autoSwitcherOk"
+      Write-Host "  Mode switcher: $modeSwitcherOk"
+      Write-Host "  Config file: $configOk"
+      exit 0
+    } else {
+      Write-Host "❌ Deployment verification failed" -ForegroundColor Red
+      Write-Host "  Start-VLLM.ps1 exists: $scriptsOk"
+      Write-Host "  Auto-ModeSwitcher.ps1 exists: $autoSwitcherOk"
+      Write-Host "  Set-WorkstationMode.ps1 exists: $modeSwitcherOk"
+      Write-Host "  Config exists: $configOk"
+      exit 1
+    }
+  register: verify_deployment
+  failed_when: verify_deployment.rc != 0
+

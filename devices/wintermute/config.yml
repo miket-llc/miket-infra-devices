@@ -46,6 +46,9 @@ vllm:
   image: "vllm/vllm-openai:latest"
   gpu_memory_utilization: 0.95
   max_model_len: 8192
+  auto_switch: true
+  check_interval_minutes: 5
+  idle_threshold_minutes: 5
   # For 12GB VRAM, recommended models:
   # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - best balance
   # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - maximum capability
