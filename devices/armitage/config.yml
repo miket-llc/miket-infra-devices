@@ -45,13 +45,20 @@ use_cases:
 
 vllm:
   enabled: true
-  model: "mistralai/Mistral-7B-Instruct-v0.2"
+  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
   port: 8000
   container_name: "vllm-armitage"
   image: "vllm/vllm-openai:latest"
+  gpu_memory_utilization: 0.85
+  max_model_len: 4096
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
+  # For 8GB VRAM, recommended models:
+  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - BEST CHOICE: Most capable model that fits comfortably
+  #   Optimized settings: 0.85 util, 4096 max_len (good balance for 8GB)
+  #   Benchmarks: MMLU 74.2, MATH 75.5, HumanEval 84.8, GSM8K 91.6
+  # - Qwen/Qwen2.5-3B-Instruct-AWQ (~2-3GB VRAM) - Fits very comfortably but less capable
 
 notes:
   - High-performance Alienware laptop with RTX 4070

@@ -40,19 +40,21 @@ use_cases:
 
 vllm:
   enabled: true
-  model: "Qwen/Qwen2.5-14B-Instruct-AWQ"
+  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
-  gpu_memory_utilization: 0.85
-  max_model_len: 1024
+  gpu_memory_utilization: 0.90
+  max_model_len: 8192
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
   # For 12GB VRAM, recommended models:
-  # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - best balance (optimized: 0.85 util, 2048 max_len)
-  # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - maximum capability (may not fit)
-  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - comfortable fit
+  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - BEST CHOICE: Most capable model that fits comfortably
+  #   Optimized settings: 0.90 util, 8192 max_len (allows long context)
+  #   Benchmarks: MMLU 74.2, MATH 75.5, HumanEval 84.8, GSM8K 91.6
+  # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - Too large, insufficient KV cache memory
+  # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - Maximum capability (does not fit)
 
 notes:
   - "Primary Windows development and gaming workstation"

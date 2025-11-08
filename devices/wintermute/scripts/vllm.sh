@@ -2,15 +2,16 @@
 # vLLM management script for Linux/WSL2
 # Matches architecture pattern: direct docker run commands (like systemd template)
 # Optimized for 12GB VRAM (RTX 4070 Super)
+# Model: Qwen2.5-7B-Instruct-AWQ - Most capable model that fits comfortably
 
 set -e
 
 CONTAINER_NAME="vllm-wintermute"
-MODEL_NAME="${VLLM_MODEL:-Qwen/Qwen2.5-14B-Instruct-AWQ}"
+MODEL_NAME="${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}"
 PORT="${VLLM_PORT:-8000}"
 IMAGE="vllm/vllm-openai:latest"
-GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.85}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-1024}"
+GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.90}"
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
 
 function start_vllm() {
     if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
