@@ -44,14 +44,14 @@ vllm:
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
-  gpu_memory_utilization: 0.95
-  max_model_len: 8192
+  gpu_memory_utilization: 0.85
+  max_model_len: 1024
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
   # For 12GB VRAM, recommended models:
-  # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - best balance
-  # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - maximum capability
+  # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - best balance (optimized: 0.85 util, 2048 max_len)
+  # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - maximum capability (may not fit)
   # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - comfortable fit
 
 notes:

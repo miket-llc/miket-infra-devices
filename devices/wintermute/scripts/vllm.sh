@@ -9,8 +9,8 @@ CONTAINER_NAME="vllm-wintermute"
 MODEL_NAME="${VLLM_MODEL:-Qwen/Qwen2.5-14B-Instruct-AWQ}"
 PORT="${VLLM_PORT:-8000}"
 IMAGE="vllm/vllm-openai:latest"
-GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.95}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
+GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.85}"
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-1024}"
 
 function start_vllm() {
     if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -29,7 +29,7 @@ function start_vllm() {
     docker run -d \
         --name ${CONTAINER_NAME} \
         --gpus all \
-        --network host \
+        -p ${PORT}:8000 \
         --ipc host \
         --restart unless-stopped \
         -v ~/.cache/huggingface:/root/.cache/huggingface \
@@ -59,8 +59,10 @@ function status_vllm() {
         echo "Status: Running"
         docker ps --filter name=${CONTAINER_NAME} --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         echo ""
-        echo "API: http://localhost:${PORT}/v1"
-        echo "Health: http://localhost:${PORT}/health"
+        echo "API Endpoints:"
+        echo "  Local:    http://localhost:${PORT}/v1"
+        echo "  Health:   http://localhost:${PORT}/health"
+        echo "  Tailscale: http://wintermute.tail2e55fe.ts.net:${PORT}/v1"
     else
         echo "Status: Stopped"
     fi
