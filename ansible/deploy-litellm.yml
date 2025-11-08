@@ -1,0 +1,11 @@
+---
+# Deploy LiteLLM Proxy on Motoko
+# This playbook provisions and manages the LiteLLM proxy service
+# which routes requests to local models (Armitage, Wintermute) and OpenAI fallback
+
+- name: Deploy LiteLLM proxy on motoko
+  hosts: motoko
+  become: true
+  roles:
+    - litellm_proxy
+

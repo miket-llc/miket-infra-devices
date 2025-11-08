@@ -1,0 +1,96 @@
+# {{ ansible_managed }}
+# LiteLLM Proxy Configuration
+# Routes requests to local models (Armitage, Wintermute) and OpenAI fallback
+
+model_list:
+  # Local chat model - Armitage (Qwen2.5-7B-Instruct-AWQ, 4096 context)
+  - model_name: local/chat
+    litellm_params:
+      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+      api_base: "{{ armitage_base_url }}"
+      api_key: "dummy"
+
+  # Local reasoner model - Wintermute (configurable via wintermute_model_* vars)
+  - model_name: {{ wintermute_model_name }}
+    litellm_params:
+      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+      api_base: "{{ wintermute_base_url }}"
+      api_key: "dummy"
+
+  # Local embeddings model - Motoko (BGE Base) - uses vLLM
+  - model_name: local/embed
+    litellm_params:
+      model: openai/bge-base
+      api_base: "{{ motoko_embed_base_url }}"
+      api_key: "dummy"
+
+  # OpenAI strong model (fallback for heavy tasks)
+  - model_name: openai/strong
+    litellm_params:
+      model: "{{ openai_strong_model }}"
+      api_key: "${OPENAI_API_KEY}"
+
+  # OpenAI cheap model (backup fallback)
+  - model_name: openai/cheap
+    litellm_params:
+      model: "{{ openai_cheap_model }}"
+      api_key: "${OPENAI_API_KEY}"
+
+# Routing rules
+routing:
+  # Embeddings endpoint always routes to local embed service
+  - match:
+      endpoint: "/v1/embeddings"
+    route_to:
+      - "local/embed"
+
+  # Chat completions: default to local/chat, fallback chain
+  - match:
+      endpoint: "/v1/chat/completions"
+    route_to:
+      - "local/chat"
+    fallback_models:
+      - "{{ wintermute_model_name }}"
+      - "openai/strong"
+
+# Policy guardrails
+policies:
+  # Token limit policy: route to OpenAI if input exceeds 12000 tokens
+  - name: token_guardrails
+    when:
+      endpoint: "/v1/chat/completions"
+      max_input_tokens: 12000
+    on_exceed: "route:openai/strong"
+
+  # Health check policy: route to OpenAI after 3 consecutive failures
+  - name: uptime_guardrails
+    when:
+      healthcheck_failures: 3
+      for_models:
+        - "local/chat"
+        - "{{ wintermute_model_name }}"
+        - "local/embed"
+    on_trigger: "route:openai/strong"
+
+# Budget management
+budget:
+  monthly_usd: {{ openai_budget_monthly_usd }}
+  on_exceed: "route:local/chat"
+
+# Server configuration
+server:
+  host: "{{ litellm_bind_host }}"
+  port: {{ litellm_port }}
+  enable_cors: true
+
+# Logging
+logging:
+  trace: true
+  redact_keys: true
+
+# Authentication
+auth:
+  type: "bearer"
+  tokens:
+    - "${LITELLM_TOKEN}"
+

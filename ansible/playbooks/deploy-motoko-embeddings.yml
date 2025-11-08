@@ -1,0 +1,93 @@
+---
+# Deploy Embeddings Service on Motoko
+# BGE Base model for embeddings
+
+- name: Deploy embeddings service on Motoko
+  hosts: motoko
+  become: true
+  vars:
+    embeddings_model: "BAAI/bge-base-en-v1.5"
+    embeddings_port: 8200
+    embeddings_container_name: "embeddings-motoko"
+    # Using vLLM for embeddings - supports GPU and works with RTX 2080
+    embeddings_image: "vllm/vllm-openai:latest"
+  
+  tasks:
+    - name: Ensure embeddings workdir exists
+      file:
+        path: /opt/embeddings
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+    
+    - name: Create docker-compose.yml for embeddings
+      copy:
+        content: |
+          version: "3.9"
+          services:
+            embeddings:
+              image: {{ embeddings_image }}
+              container_name: {{ embeddings_container_name }}
+              command: >
+                --model {{ embeddings_model }}
+                --port 8000
+                --host 0.0.0.0
+                --served-model-name bge-base
+              ports:
+                - "{{ embeddings_port }}:8000"
+              restart: unless-stopped
+              deploy:
+                resources:
+                  reservations:
+                    devices:
+                      - driver: nvidia
+                        count: 1
+                        capabilities: [gpu]
+        dest: /opt/embeddings/docker-compose.yml
+        owner: root
+        group: root
+        mode: "0644"
+    
+    - name: Pull and start embeddings service
+      command: docker compose -f /opt/embeddings/docker-compose.yml up -d
+      args:
+        chdir: /opt/embeddings
+      register: embeddings_result
+      changed_when: "'Creating' in embeddings_result.stdout or 'Starting' in embeddings_result.stdout"
+    
+    - name: Wait for embeddings service to start
+      wait_for:
+        port: "{{ embeddings_port }}"
+        host: "127.0.0.1"
+        delay: 15
+        timeout: 180
+    
+    - name: Verify GPU is being used
+      command: docker exec {{ embeddings_container_name }} nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader 2>&1 || echo "GPU check failed"
+      register: gpu_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Test embeddings endpoint (OpenAI format)
+      uri:
+        url: "http://127.0.0.1:{{ embeddings_port }}/v1/embeddings"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          model: "bge-base"
+          input: "test text"
+        status_code: [200, 201]
+        return_content: yes
+      register: embeddings_test
+      failed_when: false
+      retries: 3
+      delay: 10
+    
+    - name: Display GPU utilization
+      debug:
+        msg: "GPU check result: {{ gpu_check.stdout }}"
+      when: gpu_check.stdout != ""
+

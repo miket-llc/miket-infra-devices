@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+version: "3.9"
+
+services:
+  litellm:
+    image: litellm/litellm:{{ litellm_version }}
+    container_name: litellm
+    env_file:
+      - {{ litellm_env_path }}
+    command: --config {{ litellm_config_path }} --port {{ litellm_port }}
+    network_mode: host
+    volumes:
+      - {{ litellm_config_path }}:{{ litellm_config_path }}:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:{{ litellm_port }}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+

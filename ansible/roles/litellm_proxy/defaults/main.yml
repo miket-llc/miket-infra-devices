@@ -1,0 +1,13 @@
+---
+# Default variables for litellm_proxy role
+# Override in group_vars or host_vars as needed
+
+# File paths
+litellm_config_path: "/opt/litellm/litellm.config.yaml"
+litellm_env_path: "/opt/litellm/.env"
+litellm_compose_path: "/opt/litellm/docker-compose.yml"
+
+# Service configuration
+litellm_service_name: "litellm"
+litellm_workdir: "/opt/litellm"
+

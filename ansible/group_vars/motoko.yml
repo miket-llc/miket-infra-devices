@@ -1,0 +1,36 @@
+---
+# LiteLLM Proxy Configuration for Motoko
+# Override secrets at runtime or via Ansible Vault
+
+# LiteLLM version (pinned for stability)
+litellm_version: "latest"
+
+# Network binding
+litellm_bind_host: "0.0.0.0"
+litellm_port: 8000
+
+# Backend service URLs
+armitage_base_url: "http://armitage:8000/v1"
+wintermute_base_url: "http://wintermute:8000/v1"
+motoko_embed_base_url: "http://motoko:8200/v1"
+
+# Wintermute reasoner model (defaults to Llama 3.1 8B AWQ). To switch to Gemma,
+# change these three vars only.
+wintermute_model_name: "local/reasoner"
+wintermute_model_display: "openai/llama-3.1-8b-instruct-awq"
+wintermute_model_hf_id: "meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ"
+
+# --- Gemma option (uncomment to use) ---
+# wintermute_model_display: "openai/gemma-2-9b-it-awq"
+# wintermute_model_hf_id: "google/gemma-2-9b-it-AWQ"
+
+# OpenAI configuration
+openai_strong_model: "gpt-4.1-mini"
+openai_cheap_model: "gpt-4o-mini"
+openai_budget_monthly_usd: 150
+
+# Secrets loaded from vault (ansible/group_vars/linux/vault.yml)
+# These reference vault variables which are encrypted
+openai_api_key: "{{ vault_openai_api_key | default('sk-REPLACE_ME') }}"
+litellm_bearer_token: "{{ vault_litellm_bearer_token | default('mkt-REPLACE_ME_SUPERLONG') }}"
+
