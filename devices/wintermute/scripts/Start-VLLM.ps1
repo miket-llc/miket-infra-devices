@@ -17,7 +17,7 @@ param(
     [ValidateSet('Start', 'Stop', 'Restart', 'Status', 'Logs')]
     [string]$Action,
     
-    [string]$Model = "Qwen/Qwen2.5-14B-Instruct-AWQ",
+    [string]$Model = "Qwen/Qwen2.5-7B-Instruct-AWQ",
     [int]$Port = 8000,
     [string]$ContainerName = "vllm-wintermute"
 )
@@ -33,7 +33,8 @@ $Config = @{
     ContainerName = $ContainerName
     Image = "vllm/vllm-openai:latest"
     GpuCount = 1
-    MaxModelLen = 4096
+    MaxModelLen = 8192
+    GpuMemoryUtilization = 0.90
     TensorParallelSize = 1
 }
 
@@ -41,11 +42,17 @@ if (Test-Path $ConfigPath) {
     try {
         $yamlContent = Get-Content $ConfigPath -Raw
         # Simple YAML parsing (basic)
-        if ($yamlContent -match 'vllm:\s*\n\s*model:\s*(.+)') {
+        if ($yamlContent -match 'vllm:\s*\n\s*model:\s*"([^"]+)"') {
             $Config.Model = $matches[1].Trim()
         }
         if ($yamlContent -match 'vllm:\s*\n\s*port:\s*(\d+)') {
             $Config.Port = [int]$matches[1]
+        }
+        if ($yamlContent -match 'vllm:\s*\n[^#]*max_model_len:\s*(\d+)') {
+            $Config.MaxModelLen = [int]$matches[1]
+        }
+        if ($yamlContent -match 'vllm:\s*\n[^#]*gpu_memory_utilization:\s*([\d.]+)') {
+            $Config.GpuMemoryUtilization = [double]$matches[1]
         }
     } catch {
         Write-Warning "Could not parse config file: $_"
@@ -143,7 +150,7 @@ function Start-VLLM {
         "--model", $Config.Model,
         "--port", "8000",
         "--host", "0.0.0.0",
-        "--tensor-parallel-size", $Config.TensorParallelSize.ToString(),
+        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString(),
         "--max-model-len", $Config.MaxModelLen.ToString()
     )
     
