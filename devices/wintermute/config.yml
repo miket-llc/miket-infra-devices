@@ -1,6 +1,57 @@
-# Placeholder configuration for wintermute
+# Wintermute - Windows Development/Gaming Workstation
+# Last Updated: 2025-11-08
+
+device:
+  hostname: wintermute
+  type: workstation
+  location: office
+  primary_user: mdt
+
 hardware:
   cpu: "Intel Core i9 (placeholder)"
   gpu: "NVIDIA GeForce RTX 4070 Super"
+  gpu_vram_gb: 12
+  memory_gb: 32
+
+operating_system:
+  os: Windows 11 Pro
+  version: 22H2
+  wsl: true
+  docker_desktop: true
+
+network:
+  tailscale_enabled: true
+  remote_desktop: true
+  wake_on_lan: true
+
+services:
+  - Docker Desktop with WSL2 backend
+  - NVIDIA CUDA Toolkit
+  - WSL2 (Ubuntu 22.04)
+  - Development IDEs (VS Code, Visual Studio)
+  - NVIDIA Container Toolkit (via WSL2)
+
+use_cases:
+  - Desktop development workstation
+  - High-performance gaming
+  - CUDA/ML development
+  - Docker containerization
+  - Remote access via Tailscale
+
+vllm:
+  enabled: true
+  model: "Qwen/Qwen2.5-14B-Instruct-AWQ"
+  port: 8000
+  container_name: "vllm-wintermute"
+  image: "vllm/vllm-openai:latest"
+  gpu_memory_utilization: 0.95
+  max_model_len: 8192
+  # For 12GB VRAM, recommended models:
+  # - Qwen/Qwen2.5-14B-Instruct-AWQ (~9GB VRAM) - best balance
+  # - Qwen/Qwen2.5-32B-Instruct-AWQ (~12GB VRAM) - maximum capability
+  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - comfortable fit
+
 notes:
   - "Primary Windows development and gaming workstation"
+  - "12GB VRAM optimized for larger models"
+  - "vLLM serving via WSL2 Docker"
