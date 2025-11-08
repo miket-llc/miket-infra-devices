@@ -6,21 +6,21 @@ model_list:
   # Local chat model - Armitage (Qwen2.5-7B-Instruct-AWQ, 4096 context)
   - model_name: local/chat
     litellm_params:
-      model: openai/qwen2.5-7b-instruct
+      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
       api_base: "{{ armitage_base_url }}"
       api_key: "dummy"
 
   # Local reasoner model - Wintermute (configurable via wintermute_model_* vars)
   - model_name: {{ wintermute_model_name }}
     litellm_params:
-      model: {{ wintermute_model_display }}
+      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
 
-  # Local embeddings model - Motoko (BGE Base) - placeholder
+  # Local embeddings model - Motoko (BGE Base) - uses vLLM
   - model_name: local/embed
     litellm_params:
-      model: text-embedding-bge-base-en
+      model: openai/bge-base
       api_base: "{{ motoko_embed_base_url }}"
       api_key: "dummy"
 

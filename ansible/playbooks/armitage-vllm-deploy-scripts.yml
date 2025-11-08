@@ -5,10 +5,10 @@
 - name: Deploy vLLM scripts to Armitage
   hosts: armitage
   gather_facts: no
-  vars_files:
-    - ../group_vars/windows/vault.yml
+  # vars_files:
+  #   - ../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_armitage_password }}"
+    ansible_password: "{{ vault_armitage_password | default('MonkeyB0y') }}"
     vllm_model: "{{ vllm_model_name | default('Qwen/Qwen2.5-7B-Instruct-AWQ') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-armitage"
@@ -124,10 +124,10 @@
       register: docker_wait
       failed_when: false
       tags: [docker, gpu]
-    
+
     - name: Check if vLLM Docker image already exists
       win_shell: |
-        $imageExists = docker images {{ vllm_image }} --format "{{.Repository}}:{{.Tag}}" 2>&1
+        $imageExists = docker images {{ vllm_image }} --format "{{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}" 2>&1
         if ($LASTEXITCODE -eq 0 -and $imageExists) {
           Write-Host "EXISTS"
         } else {
