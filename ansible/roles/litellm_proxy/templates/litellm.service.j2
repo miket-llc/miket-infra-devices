@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+[Unit]
+Description=LiteLLM Proxy (Docker Compose)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ litellm_workdir }}
+ExecStart=/usr/bin/docker compose -f {{ litellm_compose_path }} up -d
+ExecReload=/usr/bin/docker compose -f {{ litellm_compose_path }} up -d
+ExecStop=/usr/bin/docker compose -f {{ litellm_compose_path }} down
+RemainAfterExit=yes
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+
