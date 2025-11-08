@@ -1,0 +1,150 @@
+---
+# LiteLLM Proxy Deployment Tasks
+# Idempotent tasks to deploy and manage LiteLLM proxy on Motoko
+
+- name: Ensure workdir exists
+  file:
+    path: "{{ litellm_workdir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render LiteLLM config
+  template:
+    src: "litellm.config.yaml.j2"
+    dest: "{{ litellm_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart litellm
+
+- name: Render env file
+  template:
+    src: "litellm.env.j2"
+    dest: "{{ litellm_env_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: restart litellm
+
+- name: Render docker compose
+  template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ litellm_compose_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart litellm
+
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Install/Upgrade Docker + Compose plugin (Debian/Ubuntu only)
+  apt:
+    name:
+      - docker.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+  when:
+    - ansible_os_family == "Debian"
+    - docker_check.rc != 0
+
+- name: Ensure Docker service is running
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+  when: ansible_os_family == "Debian"
+
+- name: Pull and start LiteLLM
+  command: docker compose -f "{{ litellm_compose_path }}" up -d
+  args:
+    chdir: "{{ litellm_workdir }}"
+  register: docker_compose_result
+  changed_when: "'Creating' in docker_compose_result.stdout or 'Starting' in docker_compose_result.stdout"
+
+- name: Create/refresh systemd unit
+  template:
+    src: "litellm.service.j2"
+    dest: "/etc/systemd/system/{{ litellm_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Enable + restart service
+  systemd:
+    name: "{{ litellm_service_name }}"
+    enabled: true
+    state: restarted
+
+- name: Wait for LiteLLM service to be ready
+  wait_for:
+    port: "{{ litellm_port }}"
+    host: "127.0.0.1"
+    delay: 5
+    timeout: 30
+
+- name: Verify LiteLLM models endpoint returns expected models
+  uri:
+    url: "http://127.0.0.1:{{ litellm_port }}/v1/models"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ litellm_bearer_token }}"
+    status_code: 200
+    return_content: yes
+  register: models_response
+  failed_when: false
+
+- name: Extract model IDs from response
+  set_fact:
+    model_ids: "{{ models_response.json.data | map(attribute='id') | list }}"
+
+- name: Assert local/chat model is available
+  assert:
+    that:
+      - "'local/chat' in model_ids"
+    fail_msg: "local/chat model not found in LiteLLM models list"
+    success_msg: "local/chat model is available"
+
+- name: Assert {{ wintermute_model_name }} model is available
+  assert:
+    that:
+      - "'{{ wintermute_model_name }}' in model_ids"
+    fail_msg: "{{ wintermute_model_name }} model not found in LiteLLM models list"
+    success_msg: "{{ wintermute_model_name }} model is available"
+
+- name: Test chat completion with {{ wintermute_model_name }}
+  uri:
+    url: "http://127.0.0.1:{{ litellm_port }}/v1/chat/completions"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ litellm_bearer_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      model: "{{ wintermute_model_name }}"
+      messages:
+        - role: "user"
+          content: "Say hello"
+      max_tokens: 10
+    status_code: 200
+    return_content: yes
+  register: chat_test
+  failed_when: false
+
+- name: Assert chat completion test succeeded
+  assert:
+    that:
+      - chat_test.status == 200
+      - chat_test.json.choices is defined
+      - chat_test.json.choices | length > 0
+    fail_msg: "Chat completion test failed for {{ wintermute_model_name }}"
+    success_msg: "Chat completion test passed for {{ wintermute_model_name }}"
+  when: chat_test.status == 200
+

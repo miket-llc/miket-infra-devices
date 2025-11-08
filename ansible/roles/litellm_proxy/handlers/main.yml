@@ -1,0 +1,13 @@
+---
+# Handlers for litellm_proxy role
+# These handlers are triggered by notify directives in tasks
+
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: restart litellm
+  systemd:
+    name: "{{ litellm_service_name }}"
+    state: restarted
+

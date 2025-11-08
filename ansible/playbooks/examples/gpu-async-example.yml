@@ -1,0 +1,157 @@
+---
+# Example Playbook: Async Execution for GPU Setup Tasks
+# Demonstrates async/poll pattern for long-running GPU operations
+# Use this pattern for: Docker pulls, model downloads, GPU initialization, service startups
+
+- name: Deploy GPU services with async execution
+  hosts: gpu_8gb,gpu_12gb
+  strategy: free  # Allow hosts to proceed independently
+  gather_facts: no  # Skip facts if not needed (faster startup)
+  
+  vars:
+    docker_image: "vllm/vllm-openai:latest"
+    model_download_timeout: 1800  # 30 minutes for large model downloads
+    container_start_timeout: 600   # 10 minutes for container startup
+    
+  tasks:
+    # ============================================================================
+    # ASYNC PATTERN 1: Docker Image Pull (long-running, can run in parallel)
+    # ============================================================================
+    - name: Pull Docker image (async)
+      # For Linux hosts
+      command: docker pull {{ docker_image }}
+      async: 600  # Maximum time task can run (10 minutes)
+      poll: 10    # Check status every 10 seconds
+      register: docker_pull_result
+      when: ansible_os_family == "Debian"
+      # No need to wait - let it run in background while other tasks proceed
+    
+    - name: Pull Docker image via WSL2 (async)
+      # For Windows hosts using WSL2
+      win_shell: |
+        wsl -d Ubuntu -- docker pull {{ docker_image }}
+      async: 600
+      poll: 10
+      register: docker_pull_result
+      when: ansible_os_family == "Windows"
+    
+    # ============================================================================
+    # ASYNC PATTERN 2: GPU Service Startup (wait for readiness)
+    # ============================================================================
+    - name: Start vLLM container (async with long timeout)
+      # Start container and let it initialize in background
+      command: docker compose -f /opt/vllm/docker-compose.yml up -d
+      async: "{{ container_start_timeout }}"
+      poll: 15  # Check every 15 seconds
+      register: container_start
+      when: ansible_os_family == "Debian"
+      # This will poll until container is running or timeout
+    
+    - name: Start vLLM container via WSL2 (async)
+      win_shell: |
+        wsl -d Ubuntu -- docker compose -f /opt/vllm/docker-compose.yml up -d
+      async: "{{ container_start_timeout }}"
+      poll: 15
+      register: container_start
+      when: ansible_os_family == "Windows"
+    
+    # ============================================================================
+    # ASYNC PATTERN 3: Model Download (very long-running, fire-and-forget)
+    # ============================================================================
+    - name: Pre-download model files (fire-and-forget)
+      # Download model in background, don't wait
+      command: |
+        python -c "
+        from huggingface_hub import snapshot_download
+        snapshot_download('{{ vllm_model }}', local_dir='/opt/models/{{ vllm_model }}')
+        "
+      async: "{{ model_download_timeout }}"
+      poll: 0  # Don't poll - fire and forget
+      register: model_download
+      when: ansible_os_family == "Debian"
+      # Task completes immediately, download continues in background
+      # Check status later with async_status module if needed
+    
+    # ============================================================================
+    # ASYNC PATTERN 4: Check async task status (if needed)
+    # ============================================================================
+    - name: Check Docker pull status
+      async_status:
+        jid: "{{ docker_pull_result.ansible_job_id }}"
+      register: pull_status
+      until: pull_status.finished
+      retries: 60  # Check up to 60 times
+      delay: 10    # Wait 10 seconds between checks
+      when: docker_pull_result.ansible_job_id is defined
+    
+    - name: Display pull result
+      debug:
+        msg: "Docker pull {{ 'succeeded' if pull_status.finished == 1 and pull_status.rc == 0 else 'failed or still running' }}"
+      when: pull_status.finished == 1
+    
+    # ============================================================================
+    # ASYNC PATTERN 5: Wait for service readiness (after async start)
+    # ============================================================================
+    - name: Wait for vLLM API to be ready
+      uri:
+        url: "http://localhost:8000/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      until: health_check.status == 200
+      retries: 40
+      delay: 15
+      # This runs after container_start completes
+      # Retries until service is actually ready
+    
+    # ============================================================================
+    # ASYNC PATTERN 6: Batch operations with strategy: free
+    # ============================================================================
+    - name: Verify GPU availability (runs in parallel across all hosts)
+      command: nvidia-smi --query-gpu=name,memory.total --format=csv
+      register: gpu_info
+      when: ansible_os_family == "Debian"
+      # With strategy: free, this runs simultaneously on all hosts
+    
+    - name: Verify GPU via WSL2 (runs in parallel)
+      win_shell: wsl -d Ubuntu -- nvidia-smi --query-gpu=name,memory.total --format=csv
+      register: gpu_info
+      when: ansible_os_family == "Windows"
+    
+    - name: Display GPU information
+      debug:
+        msg: "GPU Info: {{ gpu_info.stdout_lines }}"
+      when: gpu_info.stdout_lines is defined
+
+---
+# Example: Using async with error handling
+- name: Async task with proper error handling
+  hosts: gpu_8gb
+  gather_facts: no
+  
+  tasks:
+    - name: Long-running GPU operation (async with error handling)
+      command: python /opt/scripts/initialize_gpu.py
+      async: 300
+      poll: 10
+      register: gpu_init
+      ignore_errors: yes  # Don't fail playbook if this fails
+    
+    - name: Check async task result
+      async_status:
+        jid: "{{ gpu_init.ansible_job_id }}"
+      register: init_result
+      until: init_result.finished
+      retries: 30
+      delay: 10
+    
+    - name: Fail if initialization failed
+      fail:
+        msg: "GPU initialization failed: {{ init_result.msg }}"
+      when: init_result.finished == 1 and init_result.failed == true
+    
+    - name: Success message
+      debug:
+        msg: "GPU initialization completed successfully"
+      when: init_result.finished == 1 and init_result.failed == false
+

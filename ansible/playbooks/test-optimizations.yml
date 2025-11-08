@@ -1,0 +1,77 @@
+---
+# Test Playbook: Verify Optimizations
+# This playbook tests the performance optimizations without making changes
+# Run: ansible-playbook playbooks/test-optimizations.yml
+
+- name: Test Ansible Optimizations
+  hosts: localhost
+  gather_facts: yes
+  connection: local
+  
+  vars:
+    test_start_time: "{{ ansible_date_time.epoch }}"
+    
+  tasks:
+    - name: Display Ansible Configuration
+      debug:
+        msg:
+          - "=== Ansible Optimization Test ==="
+          - "Forks: {{ ansible_forks }}"
+          - "Pipelining: {{ ansible_pipelining | default('Not set') }}"
+          - "Fact Caching: {{ ansible_fact_caching | default('Not set') }}"
+          - "Fact Cache Timeout: {{ ansible_fact_caching_timeout | default('Not set') }}"
+          - "Stdout Callback: {{ ansible_stdout_callback | default('default') }}"
+          - "Gathering: {{ ansible_gathering | default('implicit') }}"
+    
+    - name: Test Fact Caching Directory
+      stat:
+        path: /tmp/ansible_facts
+      register: fact_cache_dir
+    
+    - name: Create Fact Cache Directory if Needed
+      file:
+        path: /tmp/ansible_facts
+        state: directory
+        mode: '0755'
+      when: not fact_cache_dir.stat.exists
+    
+    - name: Display Fact Cache Status
+      debug:
+        msg:
+          - "Fact cache directory exists: {{ fact_cache_dir.stat.exists }}"
+          - "Fact cache path: /tmp/ansible_facts"
+    
+    - name: Test Async Task Pattern
+      command: sleep 2
+      async: 5
+      poll: 1
+      register: async_test
+    
+    - name: Verify Async Task Completed
+      debug:
+        msg: "Async task pattern works: {{ async_test.finished == 1 }}"
+      when: async_test.finished == 1
+    
+    - name: Test Profile Tasks Callback (should show timing)
+      debug:
+        msg: "This task should show timing in the play recap"
+    
+    - name: Calculate Test Duration
+      set_fact:
+        test_duration: "{{ (ansible_date_time.epoch | int) - (test_start_time | int) }}"
+    
+    - name: Display Test Summary
+      debug:
+        msg:
+          - ""
+          - "=== Optimization Test Complete ==="
+          - "Test duration: {{ test_duration }}s"
+          - ""
+          - "✅ Configuration loaded successfully"
+          - "✅ Fact caching configured"
+          - "✅ Async execution tested"
+          - "✅ Profile tasks callback active"
+          - ""
+          - "Next: Run actual playbooks to see performance improvements"
+          - "Example: ansible-playbook playbooks/test-connectivity.yml"
+

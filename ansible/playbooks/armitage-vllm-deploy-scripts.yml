@@ -9,7 +9,7 @@
     - ../group_vars/windows/vault.yml
   vars:
     ansible_password: "{{ vault_armitage_password }}"
-    vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
+    vllm_model: "{{ vllm_model_name | default('Qwen/Qwen2.5-7B-Instruct-AWQ') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-armitage"
     vllm_image: "vllm/vllm-openai:latest"

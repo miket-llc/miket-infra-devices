@@ -5,7 +5,8 @@
 
 - name: Setup vLLM on Armitage
   hosts: armitage
-  gather_facts: yes
+  gather_facts: yes  # Keep facts for ansible_date_time usage
+  # Note: For multi-host playbooks, use strategy: free and gather_facts: no when possible
   
   vars:
     vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"

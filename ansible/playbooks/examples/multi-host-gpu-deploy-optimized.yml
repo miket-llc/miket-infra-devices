@@ -1,0 +1,125 @@
+---
+# Optimized Multi-Host GPU Deployment Playbook
+# Demonstrates: async execution, strategy: free, reduced fact gathering
+# Use this pattern for deploying to multiple GPU hosts simultaneously
+
+- name: Deploy vLLM to all GPU workstations (optimized)
+  hosts: gpu_8gb,gpu_12gb
+  strategy: free  # Allow hosts to proceed independently - critical for parallelism
+  gather_facts: no  # Skip facts if not needed - saves 2-5 seconds per host
+  
+  vars:
+    vllm_image: "vllm/vllm-openai:latest"
+    docker_start_timeout: 600
+    api_ready_timeout: 300
+    
+  tasks:
+    # Quick fact gathering only for what we need
+    - name: Gather minimal facts (OS family only)
+      setup:
+        gather_subset:
+          - '!all'
+          - '!any'
+      register: minimal_facts
+    
+    # ============================================================================
+    # ASYNC: Docker Image Pull (runs in parallel across all hosts)
+    # ============================================================================
+    - name: Pull vLLM Docker image (async - parallel execution)
+      # For Linux hosts
+      command: docker pull {{ vllm_image }}
+      async: 900  # 15 minutes max for large image pulls
+      poll: 15    # Check every 15 seconds
+      register: docker_pull
+      when: ansible_os_family == "Debian"
+      # With strategy: free, this runs simultaneously on all Linux hosts
+    
+    - name: Pull vLLM Docker image via WSL2 (async - parallel execution)
+      # For Windows hosts
+      win_shell: |
+        wsl -d Ubuntu -- docker pull {{ vllm_image }}
+      async: 900
+      poll: 15
+      register: docker_pull
+      when: ansible_os_family == "Windows"
+      # With strategy: free, this runs simultaneously on all Windows hosts
+    
+    # ============================================================================
+    # ASYNC: Container Startup (wait for readiness)
+    # ============================================================================
+    - name: Start vLLM container (async)
+      command: docker compose -f /opt/vllm/docker-compose.yml up -d
+      async: "{{ docker_start_timeout }}"
+      poll: 10
+      register: container_start
+      when: ansible_os_family == "Debian"
+    
+    - name: Start vLLM container via WSL2 (async)
+      win_shell: |
+        wsl -d Ubuntu -- docker compose -f /opt/vllm/docker-compose.yml up -d
+      async: "{{ docker_start_timeout }}"
+      poll: 10
+      register: container_start
+      when: ansible_os_family == "Windows"
+    
+    # ============================================================================
+    # PARALLEL: Health checks (run simultaneously on all hosts)
+    # ============================================================================
+    - name: Wait for vLLM API to be ready
+      uri:
+        url: "http://localhost:8000/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      until: health_check.status == 200
+      retries: 20
+      delay: 15
+      # With strategy: free, each host checks independently
+      # No blocking - hosts proceed at their own pace
+    
+    - name: Verify GPU is being used
+      command: docker exec {{ vllm_container_name }} nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader
+      register: gpu_util
+      when: ansible_os_family == "Debian"
+      failed_when: false
+    
+    - name: Verify GPU via WSL2
+      win_shell: wsl -d Ubuntu -- docker exec {{ vllm_container_name }} nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader
+      register: gpu_util
+      when: ansible_os_family == "Windows"
+      failed_when: false
+    
+    - name: Display deployment status
+      debug:
+        msg:
+          - "Host: {{ inventory_hostname }}"
+          - "Container: {{ 'Running' if health_check.status == 200 else 'Not ready' }}"
+          - "GPU Utilization: {{ gpu_util.stdout | default('N/A') }}%"
+          - "API: http://{{ ansible_hostname }}:8000"
+
+---
+# Example: Fire-and-forget async tasks
+- name: Pre-warm models on all GPU hosts (fire-and-forget)
+  hosts: gpu_8gb,gpu_12gb
+  strategy: free
+  gather_facts: no
+  
+  tasks:
+    - name: Download model in background (don't wait)
+      command: |
+        python -c "
+        from huggingface_hub import snapshot_download
+        snapshot_download('{{ model_name }}', local_dir='/opt/models/{{ model_name }}')
+        "
+      async: 3600  # 1 hour max
+      poll: 0      # Fire and forget - don't poll
+      register: model_download
+      when: ansible_os_family == "Debian"
+      # Task completes immediately, download continues in background
+      # Check status later if needed with async_status module
+    
+    - name: Task completed - model download continues in background
+      debug:
+        msg: "Model download job started: {{ model_download.ansible_job_id }}"
+      when: model_download.ansible_job_id is defined
+

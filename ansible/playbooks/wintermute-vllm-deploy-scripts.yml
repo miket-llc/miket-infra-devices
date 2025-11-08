@@ -10,7 +10,7 @@
     - ../group_vars/windows/vault.yml
   vars:
     ansible_password: "{{ vault_wintermute_password }}"
-    vllm_model: "{{ vllm_model_name | default('Qwen/Qwen2.5-14B-Instruct-AWQ') }}"
+    vllm_model: "{{ vllm_model_name | default('meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-wintermute"
     vllm_image: "vllm/vllm-openai:latest"
