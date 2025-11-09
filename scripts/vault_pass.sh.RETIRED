@@ -1,4 +1,35 @@
 #!/bin/sh
+# ============================================================================
+# RETIRED: This script is no longer used
+# ============================================================================
+#
+# This script was previously used to retrieve Ansible vault passwords from
+# 1Password CLI. As of the migration to file-based vault passwords, this
+# script is no longer needed and has been retired.
+#
+# REASON FOR RETIREMENT:
+# - Eliminated dependency on 1Password CLI (op) for Ansible operations
+# - Removed interactive authentication requirements
+# - Improved security by using local root-only file storage
+# - Simplified automation and removed external service dependencies
+#
+# NEW APPROACH:
+# - Vault password stored in: /etc/ansible/.vault-pass.txt
+# - File permissions: 600 (root:root)
+# - Configured in ansible.cfg: vault_identity_list = default@/etc/ansible/.vault-pass.txt
+# - No external dependencies or network calls required
+#
+# MIGRATION:
+# See MIGRATION.md for complete before/after examples
+#
+# TO RESTORE 1PASSWORD INTEGRATION (not recommended):
+# 1. Rename this file back to vault_pass.sh
+# 2. Update ansible.cfg to use: vault_identity_list = default@../scripts/vault_pass.sh
+# 3. Ensure 1Password CLI is installed and authenticated
+#
+# ORIGINAL SCRIPT (for reference):
+# ============================================================================
+
 # Ansible Vault Password Script - 1Password Integration
 # Retrieves vault password from 1Password CLI non-interactively
 # Used by Ansible via vault_identity_list in ansible.cfg
@@ -40,3 +71,4 @@ fi
 
 # Output only the password (no newline, no stderr)
 printf '%s' "$VAULT_PASSWORD"
+

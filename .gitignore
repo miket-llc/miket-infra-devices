@@ -58,7 +58,12 @@ ansible/inventory/hosts.local
 .vault_pass.*
 op_pass_file_*
 
-# 1Password CLI
+# Local vault and become password files (Motoko only)
+/etc/ansible/.vault-pass.txt
+/etc/ansible/.become-pass.txt
+.ansible_cache/
+
+# 1Password CLI (deprecated for Ansible use)
 .op_session
 .op_config
 OP_SERVICE_ACCOUNT_TOKEN

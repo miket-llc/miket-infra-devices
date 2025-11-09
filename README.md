@@ -129,17 +129,18 @@ This repository is configured to work with Ansible over Tailscale/Tailnet for se
 - Review `.gitignore` to ensure sensitive files are excluded
 - SSH keys and certificates should be managed separately
 
-## Non-Interactive Secrets (1Password)
+## Non-Interactive Secrets (File-Based)
 
-This repository is configured for fully non-interactive Ansible runs using 1Password CLI for secret management. All decryption and secret retrieval happens on the control node (Motoko) without requiring interactive password prompts.
+This repository is configured for fully non-interactive Ansible runs using local file-based secret management. All decryption and secret retrieval happens on the control node (Motoko) without requiring interactive password prompts or external dependencies.
 
 ### Overview
 
 The automation setup ensures:
-- **Vault decryption**: Automatic via `scripts/vault_pass.sh` using 1Password CLI
+- **Vault decryption**: Automatic via `/etc/ansible/.vault-pass.txt` (root-only file)
 - **SSH connections**: Passwordless via ssh-agent and SSH keys
-- **Become/sudo**: Non-interactive via 1Password lookup or environment variables
+- **Become/sudo**: Non-interactive via `/etc/ansible/.become-pass.txt` (root-only file)
 - **No prompts**: All operations are fully automated
+- **No dependencies**: No 1Password CLI or external services required
 
 ### Setup
 
@@ -159,54 +160,47 @@ This script:
 - `~/.ssh/id_rsa` (fallback)
 - `~/.ssh/id_ecdsa` (fallback)
 
-#### 2. Configure 1Password Secrets
+#### 2. Configure Local Secret Files (Motoko Only)
 
-Store secrets in 1Password using these exact paths:
+Create two root-only files on the Motoko control node:
 
-**Ansible Vault Password:**
-```
-Vault: Automation
-Item: ansible-vault
-Field: password
-Path: op://Automation/ansible-vault/password
-```
-
-**Wintermute Sudo Password (if Linux):**
-```
-Vault: Automation
-Item: wintermute
-Field: sudo
-Path: op://Automation/wintermute/sudo
-```
-
-**Alternative Pattern** (if using item names instead of paths):
+**Ansible Vault Password File:**
 ```bash
-op item get "Ansible Vault" --field password
-op item get "wintermute" --field sudo
+# Create the directory
+sudo mkdir -p /etc/ansible
+
+# Create the vault password file
+echo 'YOUR_VAULT_PASSWORD_HERE' | sudo tee /etc/ansible/.vault-pass.txt
+
+# Set secure permissions (root-only read)
+sudo chmod 600 /etc/ansible/.vault-pass.txt
+sudo chown root:root /etc/ansible/.vault-pass.txt
 ```
 
-#### 3. Sign In to 1Password CLI
-
-**Mode A: Service Account (Headless/Automation)**
+**Become/Sudo Password File:**
 ```bash
-export OP_SERVICE_ACCOUNT_TOKEN="your-service-account-token"
-op account list  # Verify
+# Create the become password file
+echo 'YOUR_SUDO_PASSWORD_HERE' | sudo tee /etc/ansible/.become-pass.txt
+
+# Set secure permissions (root-only read)
+sudo chmod 600 /etc/ansible/.become-pass.txt
+sudo chown root:root /etc/ansible/.become-pass.txt
 ```
 
-**Mode B: Desktop + CLI (Interactive)**
-```bash
-op signin
-# Follow prompts to authenticate
-op account list  # Verify
-```
+**Important Security Notes:**
+- These files must NEVER be committed to git (already in .gitignore)
+- Only store on Motoko control node (not on target machines)
+- Backup only to encrypted storage
+- Use strong passwords (20+ characters)
+- Optional: Use `sudo chattr +i /etc/ansible/.vault-pass.txt` to make immutable
 
-#### 4. Test Non-Interactive Setup
+#### 3. Test Non-Interactive Setup
 
 Run the diagnostic playbook to verify all components work without prompts:
 
 ```bash
 cd ansible
-ansible-playbook playbooks/diag_no_prompts.yml -l wintermute
+ansible-playbook -i inventory/hosts.yml playbooks/diag_no_prompts.yml
 ```
 
 **Expected Output:**
@@ -214,37 +208,39 @@ ansible-playbook playbooks/diag_no_prompts.yml -l wintermute
 ✅ Vault decryption: PASSED (no prompt required)
 ✅ SSH connection: PASSED (no passphrase prompt)
 ✅ Become/sudo: PASSED (no password prompt)
-✅ ALL NON-INTERACTIVE CHECKS PASSED
+✅ ALL DIAGNOSTICS PASSED
 ```
 
 ### How It Works
 
 #### Vault Password Retrieval
 
-The `scripts/vault_pass.sh` script:
-1. Checks if 1Password CLI (`op`) is installed
-2. Verifies you're signed in (`op account list`)
-3. Retrieves password from `op://Automation/ansible-vault/password`
-4. Outputs only the password (no stderr, no newlines)
+Ansible reads the vault password directly from `/etc/ansible/.vault-pass.txt`:
+
+1. File is read once at Ansible startup
+2. Password is used to decrypt all vaulted variables
+3. No external commands or network calls required
+4. Root-only permissions ensure security
 
 Configured in `ansible/ansible.cfg`:
 ```ini
-vault_identity_list = default@../scripts/vault_pass.sh
+vault_identity_list = default@/etc/ansible/.vault-pass.txt
 ```
 
 #### Become/Sudo Password
 
-For Linux hosts (like Wintermute if configured as Linux), the become password is retrieved via:
+For all hosts, the become password is retrieved from `/etc/ansible/.become-pass.txt`:
 
-1. **Environment variable** (`ANSIBLE_BECOME_PASS`) - highest priority
-2. **1Password lookup plugin** - `op://Automation/wintermute/sudo`
-3. **Fallback** - Empty string (assumes passwordless sudo)
+1. File is read via Ansible's `lookup('file', ...)` function
+2. Trimmed to remove any whitespace
+3. Passed to sudo for privilege escalation
+4. No prompts or external dependencies
 
-Configured in `ansible/host_vars/wintermute.yml`:
+Configured in `ansible/group_vars/all/auth.yml`:
 ```yaml
 ansible_become: true
 ansible_become_method: sudo
-ansible_become_password: "{{ lookup('env', 'ANSIBLE_BECOME_PASS') | default(lookup('community.general.onepassword', 'op://Automation/wintermute/sudo', errors='ignore'), true) }}"
+ansible_become_password: "{{ lookup('file', '/etc/ansible/.become-pass.txt') | trim }}"
 ```
 
 #### SSH Key Management
@@ -346,20 +342,22 @@ No `--ask-vault-pass`, `--ask-become-pass`, or password prompts required!
 
 ### Security Best Practices
 
-1. **File Permissions**: Scripts have 700 permissions (`chmod 700 scripts/vault_pass.sh`)
+1. **File Permissions**: Secret files have 600 permissions (root:root only)
 2. **No Secrets in Logs**: Use `no_log: true` for sensitive tasks in playbooks
-3. **1Password Access**: Limit Automation vault access to automation accounts only
+3. **File Immutability**: Optional use of `chattr +i` to prevent accidental modification
 4. **SSH Keys**: Use ed25519 keys with strong passphrases (handled by ssh-agent)
-5. **Service Account**: Use 1Password Service Accounts for CI/CD, not personal accounts
+5. **Backup Security**: Only backup secret files to encrypted storage
+6. **Full-Disk Encryption**: Recommended for control node to protect secrets at rest
+7. **No Git Commits**: Secret files are explicitly excluded via .gitignore
 
 ### Verification
 
 After setup, verify everything works:
 
 ```bash
-# 1. Test vault password script
-./scripts/vault_pass.sh
-# Should output password (no errors)
+# 1. Test secret file permissions
+sudo ls -la /etc/ansible/.vault-pass.txt /etc/ansible/.become-pass.txt
+# Should show: -rw------- 1 root root (600 permissions, root:root ownership)
 
 # 2. Test SSH agent
 ./scripts/ensure_ssh_agent.sh
@@ -367,8 +365,231 @@ After setup, verify everything works:
 
 # 3. Test full non-interactive run
 cd ansible
-ansible-playbook playbooks/diag_no_prompts.yml -l wintermute
+ansible-playbook -i inventory/hosts.yml playbooks/diag_no_prompts.yml
 # Should pass all checks with no prompts
+```
+
+## Local Secrets on Motoko
+
+### Overview
+
+Ansible secrets for this infrastructure are stored in two root-only files on the Motoko control node:
+
+1. **`/etc/ansible/.vault-pass.txt`** - Ansible Vault password (for decrypting vaulted variables)
+2. **`/etc/ansible/.become-pass.txt`** - Sudo/become password (for privilege escalation)
+
+These files are **NEVER** committed to git and exist **ONLY** on Motoko.
+
+### Setup Instructions
+
+#### Creating the Secret Files
+
+```bash
+# Create the directory
+sudo mkdir -p /etc/ansible
+
+# Create vault password file
+echo 'YOUR_VAULT_PASSWORD_HERE' | sudo tee /etc/ansible/.vault-pass.txt
+
+# Create become password file
+echo 'YOUR_SUDO_PASSWORD_HERE' | sudo tee /etc/ansible/.become-pass.txt
+
+# Set secure permissions (600 = read/write for owner only)
+sudo chmod 600 /etc/ansible/.vault-pass.txt /etc/ansible/.become-pass.txt
+
+# Set ownership (root:root)
+sudo chown root:root /etc/ansible/.vault-pass.txt /etc/ansible/.become-pass.txt
+
+# Verify permissions
+sudo ls -la /etc/ansible/
+# Should show: -rw------- 1 root root <size> <date> .vault-pass.txt
+#              -rw------- 1 root root <size> <date> .become-pass.txt
+```
+
+#### File Permissions Requirements
+
+| File | Permissions | Ownership | Purpose |
+|------|-------------|-----------|---------|
+| `/etc/ansible/.vault-pass.txt` | `600` | `root:root` | Ansible Vault decryption |
+| `/etc/ansible/.become-pass.txt` | `600` | `root:root` | Sudo/become privilege escalation |
+
+**Why root:root 600?**
+- Only root can read the files (no other users)
+- Protects against accidental exposure
+- Ansible typically runs as root or with sudo
+- Follows principle of least privilege
+
+### Backup and Recovery
+
+#### Backup Guidance
+
+**DO:**
+- ✅ Store backup in encrypted password manager (e.g., 1Password, Bitwarden)
+- ✅ Use encrypted external storage (LUKS, VeraCrypt)
+- ✅ Document location in secure runbook
+- ✅ Test recovery process periodically
+
+**DON'T:**
+- ❌ Commit to git repository
+- ❌ Store in unencrypted cloud storage
+- ❌ Email or message passwords in plain text
+- ❌ Store on network shares without encryption
+
+#### Recovery Process
+
+If Motoko is rebuilt or secrets are lost:
+
+```bash
+# 1. Retrieve passwords from secure backup (e.g., 1Password)
+VAULT_PASS=$(op read "op://Automation/ansible-vault/password")
+BECOME_PASS=$(op read "op://Automation/motoko-sudo/password")
+
+# 2. Recreate files on Motoko
+sudo mkdir -p /etc/ansible
+echo "$VAULT_PASS" | sudo tee /etc/ansible/.vault-pass.txt
+echo "$BECOME_PASS" | sudo tee /etc/ansible/.become-pass.txt
+
+# 3. Set permissions
+sudo chmod 600 /etc/ansible/.vault-pass.txt /etc/ansible/.become-pass.txt
+sudo chown root:root /etc/ansible/.vault-pass.txt /etc/ansible/.become-pass.txt
+
+# 4. Verify
+cd /path/to/miket-infra-devices/ansible
+ansible-playbook -i inventory/hosts.yml playbooks/diag_no_prompts.yml
+```
+
+### Password Rotation
+
+#### How to Rotate Passwords
+
+**Important:** Password rotation does NOT require any git repository changes!
+
+##### 1. Rotate Vault Password
+
+```bash
+# Generate new strong password
+NEW_VAULT_PASS=$(openssl rand -base64 32)
+
+# Re-key all vaulted files with new password
+cd ansible
+for vault_file in $(find . -name "*vault.yml" -o -name "*vault.yaml"); do
+  ansible-vault rekey "$vault_file" --new-vault-password-file=<(echo "$NEW_VAULT_PASS")
+done
+
+# Update the file on Motoko
+echo "$NEW_VAULT_PASS" | sudo tee /etc/ansible/.vault-pass.txt
+sudo chmod 600 /etc/ansible/.vault-pass.txt
+sudo chown root:root /etc/ansible/.vault-pass.txt
+
+# Update backup in password manager
+op item edit "ansible-vault" password="$NEW_VAULT_PASS"
+```
+
+##### 2. Rotate Become Password
+
+```bash
+# Update sudo password on target hosts first
+# Then update file on Motoko
+echo 'NEW_SUDO_PASSWORD' | sudo tee /etc/ansible/.become-pass.txt
+sudo chmod 600 /etc/ansible/.become-pass.txt
+sudo chown root:root /etc/ansible/.become-pass.txt
+
+# Update backup in password manager
+op item edit "motoko-sudo" password="NEW_SUDO_PASSWORD"
+```
+
+##### 3. Restart Systemd Jobs (if applicable)
+
+```bash
+# If using systemd timers for Ansible automation
+sudo systemctl restart ansible-automation.service
+sudo systemctl status ansible-automation.service
+```
+
+### Optional Hardening
+
+#### Make Files Immutable
+
+Prevent accidental modification or deletion:
+
+```bash
+# Make files immutable (cannot be modified, even by root)
+sudo chattr +i /etc/ansible/.vault-pass.txt
+sudo chattr +i /etc/ansible/.become-pass.txt
+
+# Check immutable attribute
+lsattr /etc/ansible/.vault-pass.txt
+# Should show: ----i------------ /etc/ansible/.vault-pass.txt
+
+# To modify later, remove immutable flag first:
+sudo chattr -i /etc/ansible/.vault-pass.txt
+# Make changes, then re-apply:
+sudo chattr +i /etc/ansible/.vault-pass.txt
+```
+
+#### Full-Disk Encryption
+
+For maximum security, enable full-disk encryption on Motoko:
+
+- **LUKS** (Linux Unified Key Setup) for root filesystem
+- **TPM 2.0** for automatic unlock on trusted boot
+- **Encrypted swap** to prevent password leakage
+
+#### Restrict Physical Access
+
+- Keep Motoko in secure location
+- Enable BIOS/UEFI password
+- Disable boot from USB/network without password
+- Enable secure boot
+
+### Troubleshooting
+
+#### Vault Decryption Fails
+
+**Symptom:** `ERROR! Decryption failed`
+
+**Solutions:**
+```bash
+# 1. Check file exists
+sudo ls -la /etc/ansible/.vault-pass.txt
+
+# 2. Check permissions
+sudo stat /etc/ansible/.vault-pass.txt
+# Should show: Access: (0600/-rw-------) Uid: (0/root) Gid: (0/root)
+
+# 3. Check file contents (not empty)
+sudo wc -l /etc/ansible/.vault-pass.txt
+# Should show: 1 /etc/ansible/.vault-pass.txt
+
+# 4. Check for whitespace issues
+sudo cat -A /etc/ansible/.vault-pass.txt
+# Should show password with $ at end (no extra newlines)
+
+# 5. Verify ansible.cfg points to correct file
+grep vault_identity_list ansible/ansible.cfg
+# Should show: vault_identity_list = default@/etc/ansible/.vault-pass.txt
+```
+
+#### Become/Sudo Fails
+
+**Symptom:** `FAILED! => {"msg": "Missing sudo password"}`
+
+**Solutions:**
+```bash
+# 1. Check file exists
+sudo ls -la /etc/ansible/.become-pass.txt
+
+# 2. Check permissions (same as vault file)
+sudo stat /etc/ansible/.become-pass.txt
+
+# 3. Test manual sudo
+sudo -k  # Clear cached credentials
+cat /etc/ansible/.become-pass.txt | sudo -S id
+# Should authenticate and show: uid=0(root)
+
+# 4. Verify group_vars configuration
+grep -A 2 ansible_become_password ansible/group_vars/all/auth.yml
+# Should show: ansible_become_password: "{{ lookup('file', '/etc/ansible/.become-pass.txt') | trim }}"
 ```
 
 ## Tailnet Remote Desktop

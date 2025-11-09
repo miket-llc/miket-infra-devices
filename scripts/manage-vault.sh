@@ -7,14 +7,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ANSIBLE_DIR="$REPO_ROOT/ansible"
-# Try 1Password first, fall back to password file
-if command -v op >/dev/null 2>&1 && op read "op://miket.io/Ansible - Motoko Key Vault/password" >/dev/null 2>&1; then
-    VAULT_PASSWORD_FILE=""
-    USE_OP=true
-else
-    VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-$HOME/.ansible/vault_pass.txt}"
-    USE_OP=false
-fi
+# Use file-based vault password (no 1Password dependency)
+VAULT_PASSWORD_FILE="${ANSIBLE_VAULT_PASSWORD_FILE:-/etc/ansible/.vault-pass.txt}"
+USE_FILE=true
 
 # Colors for output
 RED='\033[0;31m'
@@ -51,21 +46,18 @@ Examples:
     $0 test
 
 Environment Variables:
-    ANSIBLE_VAULT_PASSWORD_FILE    Path to vault password file (default: ~/.ansible/vault_pass.txt)
+    ANSIBLE_VAULT_PASSWORD_FILE    Path to vault password file (default: /etc/ansible/.vault-pass.txt)
 
 EOF
 }
 
 check_vault_password() {
-    if [ "$USE_OP" = true ]; then
-        # Use 1Password script (same as ansible.cfg)
-        VAULT_OPTS="--vault-id default@scripts/vault_pass.sh"
-    elif [ -f "$VAULT_PASSWORD_FILE" ]; then
+    if [ -f "$VAULT_PASSWORD_FILE" ]; then
         VAULT_OPTS="--vault-password-file $VAULT_PASSWORD_FILE"
     else
         echo -e "${YELLOW}Warning: Vault password file not found at $VAULT_PASSWORD_FILE${NC}"
-        echo "Vault password will be retrieved from 1Password via scripts/vault_pass.sh"
-        echo "If that fails, ensure you're signed in: op signin"
+        echo "Please ensure /etc/ansible/.vault-pass.txt exists with correct permissions (600 root:root)"
+        echo "See documentation for setup instructions."
         # Use vault_identity_list from ansible.cfg (no flag needed)
         VAULT_OPTS=""
     fi

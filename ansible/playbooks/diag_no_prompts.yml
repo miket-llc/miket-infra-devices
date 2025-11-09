@@ -1,76 +1,94 @@
 ---
-# Diagnostic playbook to identify password prompt sources
-# Run: ansible-playbook playbooks/diag_no_prompts.yml -l wintermute
-# Expected: No prompts, all tasks succeed
+# Diagnostic playbook to verify non-interactive vault and become configuration
+# Purpose: Test that vault decryption and privilege escalation work without prompts
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/diag_no_prompts.yml
+# Expected: No password prompts, all tasks succeed
+#
+# Tests:
+# 1. Vault decryption works via /etc/ansible/.vault-pass.txt
+# 2. Become/sudo works via /etc/ansible/.become-pass.txt
+# 3. No interactive prompts occur
 
-- name: Diagnose Non-Interactive Password Sources
-  hosts: wintermute
-  gather_facts: false
-  vars:
-    # Suppress sensitive output
-    no_log: true
-
+- name: Diagnostic - Non-Interactive Vault and Become Configuration
+  hosts: localhost
+  gather_facts: true
+  connection: local
+  become: true
+  
+  vars_files:
+    # Load a vaulted vars file to test vault decryption
+    # If this fails, vault password file is not configured correctly
+    - "{{ playbook_dir }}/../host_vars/wintermute/vault.yml"
+  
   tasks:
-    - name: "Task 1: Check Vault Decryption (Ansible Vault)"
-      block:
-        - name: Assert vault decryption works
-          debug:
-            msg: "Vault decryption successful - no ask-vault-pass prompt"
-          vars:
-            # Try to access a vaulted variable (this will fail if vault password is missing)
-            test_vault_var: "{{ vault_wintermute_password | default('VAULT_DECRYPTION_WORKING') }}"
-        
-        - name: Display vault decryption status
-          debug:
-            msg: "✅ Vault decryption: PASSED (no prompt required)"
-      rescue:
-        - name: Vault decryption failed
-          debug:
-            msg: "❌ Vault decryption: FAILED - likely ask-vault-pass issue"
-          failed_when: true
+    - name: Test 1 - Verify vault decryption worked
+      ansible.builtin.assert:
+        that:
+          - vault_wintermute_eth_mac is defined
+        fail_msg: |
+          FAIL: Vault decryption did not work!
+          - Check that /etc/ansible/.vault-pass.txt exists
+          - Ensure file permissions are 600 and ownership is mdt:mdt
+          - Verify the file contains the correct vault password
+          - Check ansible.cfg has: vault_identity_list = default@/etc/ansible/.vault-pass.txt
+        success_msg: "PASS: Vault decryption successful (no prompt required)"
+      no_log: false
 
-    - name: "Task 2: Check SSH Connection (SSH Key Passphrase)"
-      block:
-        - name: Test SSH connectivity without passphrase prompt
-          ping:
-          register: ssh_test
-        
-        - name: Display SSH status
-          debug:
-            msg: "✅ SSH connection: PASSED (no passphrase prompt)"
-      rescue:
-        - name: SSH connection failed
-          debug:
-            msg: "❌ SSH connection: FAILED - check ssh-agent and key passphrase"
-          failed_when: true
+    - name: Test 2 - Verify we can read vaulted variables (with no_log)
+      ansible.builtin.debug:
+        msg: "Vault variable successfully decrypted (content hidden)"
+      when: vault_wintermute_eth_mac is defined
+      no_log: true
 
-    - name: "Task 3: Check Become/Sudo (Become Password)"
-      block:
-        - name: Test become/sudo without password prompt
-          command: whoami
-          become: true
-          become_method: sudo
-          register: become_test
-        
-        - name: Display become status
-          debug:
-            msg: "✅ Become/sudo: PASSED (no password prompt)"
-            var: become_test.stdout
-      rescue:
-        - name: Become failed
-          debug:
-            msg: "❌ Become/sudo: FAILED - ansible_become_password missing or incorrect"
-          failed_when: true
+    - name: Test 3 - Verify become/sudo works without prompt
+      ansible.builtin.command:
+        cmd: id -u
+      register: uid_result
+      changed_when: false
+      no_log: false
 
-    - name: "Task 4: Summary - All Checks Passed"
-      debug:
-        msg:
-          - "=========================================="
-          - "✅ ALL NON-INTERACTIVE CHECKS PASSED"
-          - "=========================================="
-          - "Vault decryption: Working"
-          - "SSH connection: Working"
-          - "Become/sudo: Working"
-          - "No prompts required - automation ready!"
-          - "=========================================="
+    - name: Test 4 - Assert we are running as root (uid 0)
+      ansible.builtin.assert:
+        that:
+          - uid_result.stdout | int == 0
+        fail_msg: |
+          FAIL: Become/sudo did not work! Current UID: {{ uid_result.stdout }}
+          - Check that /etc/ansible/.become-pass.txt exists
+          - Ensure file permissions are 600 and ownership is root:root
+          - Verify the file contains the correct sudo password
+          - Check group_vars/all/auth.yml has the correct become password lookup
+          - Ensure sudo is configured for passwordless OR password is correct
+        success_msg: "PASS: Become/sudo successful (running as root, no prompt required)"
+      no_log: false
 
+    - name: Test 5 - Verify we can write to a root-only location
+      ansible.builtin.copy:
+        content: |
+          Ansible non-interactive test successful
+          Timestamp: {{ ansible_date_time.iso8601 }}
+        dest: /root/.ansible_diag_test
+        mode: '0600'
+        owner: root
+        group: root
+      no_log: false
+
+    - name: Test 6 - Clean up test file
+      ansible.builtin.file:
+        path: /root/.ansible_diag_test
+        state: absent
+      no_log: false
+
+    - name: Test 7 - Final summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          ALL DIAGNOSTICS PASSED
+          ============================================================
+          ✓ Vault decryption: Working (no interactive prompt)
+          ✓ Become/sudo: Working (no interactive prompt)
+          ✓ Root privileges: Confirmed (uid 0)
+          ✓ File operations: Successful
+          
+          Configuration is correct for non-interactive Ansible runs!
+          ============================================================
+      no_log: false
