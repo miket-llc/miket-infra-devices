@@ -1,0 +1,42 @@
+---
+# Playbook: remote_clients.yml
+# Installs BOTH RDP and VNC viewers on ALL workstations
+# Every workstation needs both viewers to connect to any other workstation
+
+- name: Install Linux RDP/VNC clients (both viewers on all Linux workstations)
+  hosts: workstations:&linux
+  gather_facts: yes
+  become: yes
+  tags:
+    - remote
+    - remote:client
+  tasks:
+    - name: Install Remmina, FreeRDP, and VNC viewers
+      ansible.builtin.include_role:
+        name: remote_client_linux
+
+- name: Install Windows RDP/VNC clients (both viewers on all Windows workstations)
+  hosts: workstations:&windows
+  gather_facts: yes
+  become: no
+  tags:
+    - remote
+    - remote:client
+  vars:
+    ansible_become: no  # Explicitly disable become for Windows
+  tasks:
+    - name: Install MSTSC (RDP) and TigerVNC viewer (VNC)
+      ansible.builtin.include_role:
+        name: remote_client_windows
+
+- name: Configure macOS remote desktop clients (both viewers)
+  hosts: workstations:&macos
+  gather_facts: yes
+  tags:
+    - remote
+    - remote:client
+  tasks:
+    - name: Document and configure macOS clients (RDP + VNC)
+      ansible.builtin.include_role:
+        name: remote_client_macos
+

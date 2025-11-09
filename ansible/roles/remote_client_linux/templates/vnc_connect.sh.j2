@@ -1,0 +1,26 @@
+#!/bin/bash
+# VNC connection helper script
+# Usage: vnc HOSTNAME [PORT]
+
+HOST="${1:-motoko}"
+PORT="${2:-5900}"
+
+# Use Tailscale MagicDNS
+if host "${HOST}.tail2e55fe.ts.net" > /dev/null 2>&1; then
+    TARGET="${HOST}.tail2e55fe.ts.net:${PORT}"
+else
+    TARGET="${HOST}:${PORT}"
+fi
+
+# Try Remmina first (if available), then vncviewer, then tigervnc-viewer
+if command -v remmina > /dev/null 2>&1; then
+    remmina -c "vnc://${TARGET}"
+elif command -v vncviewer > /dev/null 2>&1; then
+    vncviewer "${TARGET}"
+elif command -v tigervnc-viewer > /dev/null 2>&1; then
+    tigervnc-viewer "${TARGET}"
+else
+    echo "No VNC viewer found. Install: remmina-plugin-vnc or tigervnc-viewer"
+    exit 1
+fi
+

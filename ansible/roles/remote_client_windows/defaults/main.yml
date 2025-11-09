@@ -1,0 +1,6 @@
+---
+# Defaults for remote_client_windows role
+
+remote_protocol: rdp
+remote_port: 3389
+

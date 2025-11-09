@@ -1,0 +1,30 @@
+---
+# Playbook: remote_detect.yml
+# Detects existing remote desktop servers on Linux hosts (primarily Motoko)
+
+- name: Detect remote desktop servers
+  hosts: motoko
+  gather_facts: yes
+  tags:
+    - remote
+    - remote:detect
+  tasks:
+    - name: Run detection role
+      ansible.builtin.include_role:
+        name: remote_detect_linux
+
+    - name: Set facts for Ansible inventory
+      ansible.builtin.set_fact:
+        remote_server_type: "{{ 'vnc' if (remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active) else ('xrdp' if remote_detection.xrdp.active else 'none') }}"
+        remote_server_active: "{{ remote_detection.xrdp.active or remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active }}"
+        remote_display_server: "{{ remote_detection.display_server.type }}"
+
+    - name: Display detection summary
+      ansible.builtin.debug:
+        msg:
+          - "Detection Summary:"
+          - "  Server Type: {{ remote_server_type }}"
+          - "  Active: {{ remote_server_active }}"
+          - "  Display Server: {{ remote_display_server }}"
+          - "  Recommended: {{ remote_detection.recommended_server }}"
+

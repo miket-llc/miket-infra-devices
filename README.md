@@ -371,6 +371,301 @@ ansible-playbook playbooks/diag_no_prompts.yml -l wintermute
 # Should pass all checks with no prompts
 ```
 
+## Tailnet Remote Desktop
+
+This repository includes comprehensive Ansible automation for standardizing remote desktop access across the Tailscale tailnet. All connections are restricted to the Tailscale network (100.64.0.0/10) and use MagicDNS for hostname resolution.
+
+### Overview
+
+- **Linux Servers**: VNC (x11vnc) for **session sharing** - accesses existing kiosk/auto-login sessions
+- **Windows Servers**: Native RDP with Network Level Authentication (NLA) - shares existing sessions
+- **macOS**: VNC/Screen Sharing (RDP not natively supported)
+- **Security**: All firewall rules restrict access to Tailscale subnet only
+- **Zero Public Exposure**: No ports exposed to the internet
+- **Session Sharing**: Linux uses VNC to share the existing desktop session (not create new ones like xrdp)
+
+### Quick Start
+
+#### 1. Detect Existing Remote Desktop Servers
+
+Run detection on Motoko to identify any existing VNC or RDP servers:
+
+```bash
+cd ansible
+ansible-playbook playbooks/remote_detect.yml -l motoko --tags remote:detect
+```
+
+This will:
+- Detect xrdp, x11vnc, TigerVNC, GNOME Remote Desktop, Vino
+- Identify display server (Xorg vs Wayland)
+- Detect firewall type (ufw, firewalld, iptables)
+- Recommend server type based on existing setup
+
+#### 2. Configure Remote Desktop Servers
+
+Install and configure remote desktop servers on all hosts:
+
+```bash
+# Configure all servers
+ansible-playbook playbooks/remote_server.yml --tags remote:server
+
+# Or target specific groups
+ansible-playbook playbooks/remote_server.yml -l linux_servers --tags remote:server  # VNC for session sharing
+ansible-playbook playbooks/remote_server.yml -l windows_servers --tags remote:server  # RDP
+```
+
+**Note**: Linux servers use VNC (x11vnc) to share the existing desktop session. This is important for kiosk/auto-login setups like Motoko where you need to access the same session that boots automatically.
+
+#### 3. Install Remote Desktop Clients
+
+Install clients on workstations:
+
+```bash
+ansible-playbook playbooks/remote_clients.yml --tags remote:client
+```
+
+#### 4. Configure Firewall Rules
+
+Ensure firewall rules are configured (idempotent):
+
+```bash
+ansible-playbook playbooks/remote_firewall.yml --tags remote:firewall
+```
+
+#### 5. Generate Connection Cheatsheet
+
+Create a connection reference document:
+
+```bash
+ansible-playbook playbooks/remote_cheatsheet.yml --tags remote:docs
+```
+
+The cheatsheet will be generated at `docs/remote-desktop-cheatsheet.md`.
+
+### Connection Methods
+
+#### Linux Clients
+
+**GUI (Remmina)**:
+```bash
+remmina
+# Then add VNC connection: motoko.tail2e55fe.ts.net:5900
+# Protocol: VNC
+```
+
+**CLI (VNC)**:
+```bash
+# Using helper script
+vnc motoko
+
+# Or directly with vncviewer
+vncviewer motoko.tail2e55fe.ts.net:5900
+
+# Or with Remmina CLI
+remmina -c vnc://motoko.tail2e55fe.ts.net:5900
+```
+
+#### Windows Clients
+
+**GUI (MSTSC)**:
+```powershell
+# Launch Remote Desktop Connection
+mstsc
+
+# Or via command line
+mstsc /v:motoko.tail2e55fe.ts.net:3389
+```
+
+**CLI Helper**:
+```powershell
+rdp motoko
+```
+
+#### macOS Clients
+
+**RDP (Microsoft Remote Desktop)**:
+```bash
+# Install from Mac App Store first, then:
+rdp motoko
+
+# Or open directly
+open -a "Microsoft Remote Desktop" "rdp://full%20address=s:motoko.tail2e55fe.ts.net:3389"
+```
+
+**VNC (Screen Sharing - built-in)**:
+```bash
+vnc motoko
+
+# Or directly
+open vnc://motoko.tail2e55fe.ts.net:5900
+```
+
+### Protocols and Ports
+
+| Host | Protocol | Port | MagicDNS Hostname | Notes |
+|------|----------|------|-------------------|-------|
+| motoko | VNC | 5900 | `motoko.tail2e55fe.ts.net:5900` | Shares existing kiosk session |
+| wintermute | RDP | 3389 | `wintermute.tail2e55fe.ts.net:3389` | Windows RDP |
+| armitage | RDP | 3389 | `armitage.tail2e55fe.ts.net:3389` | Windows RDP |
+| count-zero | VNC | 5900 | `count-zero.tail2e55fe.ts.net:5900` | macOS Screen Sharing |
+
+### Why VNC for Linux (Session Sharing)
+
+Linux servers use VNC (x11vnc) instead of RDP because:
+
+1. **Session Sharing**: VNC can attach to and share the existing desktop session
+2. **Kiosk Mode**: For auto-login setups like Motoko, you need to access the same session that boots automatically
+3. **xrdp Limitation**: xrdp creates new sessions, not the existing one - this breaks kiosk mode workflows
+4. **Troubleshooting**: Sometimes you need to see the exact screen that's displayed locally (e.g., for 1Password credentials)
+
+**Important**: The VNC server (x11vnc) shares the existing X11 session. When you connect, you see exactly what's on the physical display - the same kiosk session that auto-logged in.
+
+### Troubleshooting
+
+#### Connection Issues
+
+**Verify Tailscale connectivity**:
+```bash
+ping motoko.tail2e55fe.ts.net
+tailscale status
+```
+
+**Check firewall rules**:
+```bash
+# Linux (ufw)
+sudo ufw status | grep 3389
+
+# Linux (firewalld)
+sudo firewall-cmd --list-all | grep 3389
+
+# Windows
+Get-NetFirewallRule -Name "*RDP*" | Select-Object DisplayName, Enabled, Direction
+```
+
+**Verify service is running**:
+```bash
+# Linux
+systemctl status xrdp
+systemctl status xrdp-sesman
+
+# Windows
+Get-Service TermService
+```
+
+#### Wayland Issues (Linux)
+
+RDP works best with Xorg. If you're on Wayland:
+
+1. **Switch to Xorg session** at login (select "GNOME on Xorg" or "Xorg")
+2. **Or configure xorgxrdp** for Wayland compatibility (advanced)
+3. **Check display server**:
+   ```bash
+   echo $XDG_SESSION_TYPE
+   loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type
+   ```
+
+#### Blank Screen Fixes
+
+- Ensure desktop environment is running: `systemctl --user status gnome-session`
+- Check xrdp logs: `sudo journalctl -u xrdp -n 50`
+- Verify Xorg session file exists: `ls /usr/share/xsessions/Xorg.desktop`
+- Try reconnecting with different session type in Remmina
+
+#### Firewall Checks
+
+**Linux**:
+```bash
+# UFW
+sudo ufw status numbered
+
+# Firewalld
+sudo firewall-cmd --list-all-zones
+
+# Verify Tailscale subnet restriction
+sudo ufw status | grep "100.64.0.0/10"
+```
+
+**Windows**:
+```powershell
+# Check RDP firewall rule
+Get-NetFirewallRule -Name "RDP-Tailscale" | Format-List
+
+# Verify Tailscale subnet
+Get-NetFirewallRule -Name "RDP-Tailscale" | Get-NetFirewallAddressFilter
+```
+
+### Playbook Tags
+
+All remote desktop playbooks support these tags for targeted execution:
+
+- `remote` - All remote desktop tasks
+- `remote:detect` - Detection tasks only
+- `remote:server` - Server configuration only
+- `remote:client` - Client installation only
+- `remote:firewall` - Firewall configuration only
+- `remote:docs` - Documentation generation only
+
+Example:
+```bash
+# Only configure servers, skip clients and firewall
+ansible-playbook playbooks/remote_server.yml --tags remote:server
+
+# Only generate cheatsheet
+ansible-playbook playbooks/remote_cheatsheet.yml --tags remote:docs
+```
+
+### Inventory Groups
+
+New inventory groups for remote desktop management:
+
+- `tailnet_all` - All hosts in the tailnet
+- `linux_servers` - Linux hosts serving remote desktop (motoko)
+- `windows_servers` - Windows hosts serving remote desktop (wintermute, armitage)
+- `workstations` - All workstations that need clients installed
+
+### Host Variables
+
+Each host can override defaults in `host_vars/HOSTNAME.yml`:
+
+```yaml
+# Remote desktop configuration
+remote_protocol: rdp  # or 'vnc'
+remote_port: 3389
+restrict_to_tailscale: true
+desktop_env: "GNOME"  # Linux only
+display_server: "Xorg"  # Linux only
+```
+
+### Security Notes
+
+- **No Public Exposure**: All firewall rules restrict access to Tailscale subnet (100.64.0.0/10)
+- **MagicDNS**: Use `.tail2e55fe.ts.net` hostnames for automatic resolution
+- **NLA Enabled**: Windows RDP requires Network Level Authentication
+- **SSL Certificates**: xrdp uses self-signed certificates (ignore warnings in clients)
+
+### Migration Notes
+
+If Motoko currently runs a VNC server:
+
+1. **Detection** will identify the existing server
+2. **Server setup** will install xrdp alongside (or replace if you stop VNC)
+3. **Both can coexist** - use different ports (VNC: 5900, RDP: 3389)
+4. **To revert**: Stop xrdp services and restart your VNC server
+
+**Revert to VNC**:
+```bash
+sudo systemctl stop xrdp xrdp-sesman
+sudo systemctl disable xrdp xrdp-sesman
+sudo systemctl start x11vnc  # or your VNC server
+sudo systemctl enable x11vnc
+```
+
+### Additional Resources
+
+- Generated cheatsheet: `docs/remote-desktop-cheatsheet.md`
+- Ansible roles: `ansible/roles/remote_*`
+- Playbooks: `ansible/playbooks/remote_*.yml`
+
 ## Contributing
 
 1. Create feature branches for new configurations

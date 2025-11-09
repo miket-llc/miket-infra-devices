@@ -1,0 +1,175 @@
+---
+# Ansible role: remote_detect_linux
+# Detects existing remote desktop servers and system configuration on Linux hosts
+
+- name: Check if xrdp service exists
+  ansible.builtin.command: systemctl list-unit-files xrdp.service
+  register: xrdp_unit_check
+  changed_when: false
+  failed_when: false
+
+- name: Check xrdp service status
+  ansible.builtin.systemd:
+    name: xrdp
+  register: xrdp_status
+  failed_when: false
+  when: xrdp_unit_check.rc == 0
+
+- name: Check xrdp port
+  ansible.builtin.wait_for:
+    host: localhost
+    port: 3389
+    timeout: 1
+  register: xrdp_port_check
+  changed_when: false
+  failed_when: false
+  when: xrdp_status is defined and xrdp_status.status is defined and xrdp_status.status.ActiveState == "active"
+
+- name: Check for VNC servers (x11vnc)
+  ansible.builtin.command: systemctl list-unit-files x11vnc.service
+  register: x11vnc_check
+  changed_when: false
+  failed_when: false
+
+- name: Check x11vnc service status
+  ansible.builtin.systemd:
+    name: x11vnc
+  register: x11vnc_status
+  failed_when: false
+  when: x11vnc_check.rc == 0
+
+- name: Check for TigerVNC servers
+  ansible.builtin.command: systemctl list-unit-files "tigervnc*"
+  register: tigervnc_check
+  changed_when: false
+  failed_when: false
+
+- name: Get TigerVNC service status
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+  register: tigervnc_status
+  loop: "{{ tigervnc_check.stdout_lines | select('match', 'tigervnc.*\\.service') | list | map('regex_replace', '^([^\\s]+).*', '\\1') | list }}"
+  failed_when: false
+  when: tigervnc_check.rc == 0
+
+- name: Check for GNOME Remote Desktop
+  ansible.builtin.command: systemctl --user list-unit-files gnome-remote-desktop.service
+  register: gnome_remote_check
+  changed_when: false
+  failed_when: false
+
+- name: Check GNOME Remote Desktop status
+  ansible.builtin.command: systemctl --user is-active gnome-remote-desktop.service
+  register: gnome_remote_status
+  changed_when: false
+  failed_when: false
+  when: gnome_remote_check.rc == 0
+
+- name: Check for Vino (GNOME VNC)
+  ansible.builtin.command: systemctl --user list-unit-files vino-server.service
+  register: vino_check
+  changed_when: false
+  failed_when: false
+
+- name: Check Vino status
+  ansible.builtin.command: systemctl --user is-active vino-server.service
+  register: vino_status
+  changed_when: false
+  failed_when: false
+  when: vino_check.rc == 0
+
+- name: Detect display server (Xorg vs Wayland)
+  ansible.builtin.command: loginctl show-session {{ ansible_env.XDG_SESSION_ID | default('self') }} -p Type
+  register: display_server_check
+  changed_when: false
+  failed_when: false
+  when: ansible_env.XDG_SESSION_ID is defined
+
+- name: Fallback display server detection via environment
+  ansible.builtin.shell: echo $XDG_SESSION_TYPE
+  register: display_server_fallback
+  changed_when: false
+  failed_when: false
+  when: ansible_env.XDG_SESSION_ID is not defined or (display_server_check is defined and display_server_check.rc != 0) or (display_server_check is defined and display_server_check.stdout == "")
+
+- name: Detect firewall type
+  ansible.builtin.command: which ufw
+  register: ufw_check
+  changed_when: false
+  failed_when: false
+
+- name: Check for firewalld
+  ansible.builtin.command: which firewall-cmd
+  register: firewalld_check
+  changed_when: false
+  failed_when: false
+
+- name: Check for iptables
+  ansible.builtin.command: which iptables
+  register: iptables_check
+  changed_when: false
+  failed_when: false
+
+- name: Detect Tailscale interface
+  ansible.builtin.command: ip link show tailscale0
+  register: tailscale_interface_check
+  changed_when: false
+  failed_when: false
+
+- name: Fallback to wg0 for Tailscale
+  ansible.builtin.command: ip link show wg0
+  register: wg0_check
+  changed_when: false
+  failed_when: false
+  when: tailscale_interface_check.rc != 0
+
+- name: Extract display server type from loginctl output
+  ansible.builtin.set_fact:
+    display_server_type: "{{ display_server_check.stdout | regex_search('Type=(.*)', '\\1') | default('') | trim | upper }}"
+  when: display_server_check is defined and display_server_check.rc is defined and display_server_check.rc == 0 and display_server_check.stdout != ""
+
+- name: Set display server type from fallback
+  ansible.builtin.set_fact:
+    display_server_type: "{{ display_server_fallback.stdout | default('unknown') | trim | upper }}"
+  when: display_server_type is not defined or display_server_type == ""
+
+- name: Set detection facts
+  ansible.builtin.set_fact:
+    remote_detection:
+      xrdp:
+        installed: "{{ (xrdp_unit_check.rc | default(1)) == 0 }}"
+        active: "{{ (xrdp_status.status.ActiveState | default('inactive')) == 'active' if (xrdp_status is defined and xrdp_status.status is defined and xrdp_status.status.ActiveState is defined) else false }}"
+        enabled: "{{ (xrdp_status.status.UnitFileState | default('disabled')) == 'enabled' if (xrdp_status is defined and xrdp_status.status is defined and xrdp_status.status.UnitFileState is defined) else false }}"
+        port_open: "{{ (xrdp_port_check.state | default('stopped')) == 'started' if (xrdp_port_check is defined and xrdp_port_check.state is defined) else false }}"
+      vnc:
+        x11vnc:
+          installed: "{{ (x11vnc_check.rc | default(1)) == 0 }}"
+          active: "{{ (x11vnc_status.status.ActiveState | default('inactive')) == 'active' if (x11vnc_status is defined and x11vnc_status.status is defined and x11vnc_status.status.ActiveState is defined) else false }}"
+        tigervnc:
+          installed: "{{ ((tigervnc_check.rc | default(1)) == 0 and (tigervnc_check.stdout_lines | default([]) | select('match', 'tigervnc') | list | length) > 0) if tigervnc_check is defined else false }}"
+          active: "{{ (tigervnc_status.results | default([]) | selectattr('status', 'defined') | selectattr('status.ActiveState', 'equalto', 'active') | list | length > 0) if (tigervnc_status is defined and tigervnc_status.results is defined) else false }}"
+        gnome_remote_desktop:
+          installed: "{{ (gnome_remote_check.rc | default(1)) == 0 if gnome_remote_check is defined else false }}"
+          active: "{{ (gnome_remote_status.stdout | default('inactive')) == 'active' if (gnome_remote_status is defined and gnome_remote_status.stdout is defined) else false }}"
+        vino:
+          installed: "{{ (vino_check.rc | default(1)) == 0 if vino_check is defined else false }}"
+          active: "{{ (vino_status.stdout | default('inactive')) == 'active' if (vino_status is defined and vino_status.stdout is defined) else false }}"
+      display_server:
+        type: "{{ display_server_type | default('unknown') }}"
+        is_xorg: "{{ display_server_type | default('unknown') == 'X11' }}"
+        is_wayland: "{{ display_server_type | default('unknown') == 'WAYLAND' }}"
+      firewall:
+        type: "{{ 'ufw' if ((ufw_check.rc | default(1)) == 0) else ('firewalld' if ((firewalld_check.rc | default(1)) == 0) else ('iptables' if ((iptables_check.rc | default(1)) == 0) else 'none')) }}"
+      tailscale:
+        interface: "{{ 'tailscale0' if ((tailscale_interface_check.rc | default(1)) == 0) else ('wg0' if ((wg0_check.rc | default(1)) == 0) else 'unknown') }}"
+        detected: "{{ ((tailscale_interface_check.rc | default(1)) == 0) or ((wg0_check.rc | default(1)) == 0) }}"
+
+- name: Determine recommended server type
+  ansible.builtin.set_fact:
+    remote_detection:
+      "{{ remote_detection | combine({'recommended_server': 'vnc' if (remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active) else ('keep_vnc' if remote_detection.vnc.x11vnc.installed else ('xrdp' if (remote_detection.xrdp.installed and remote_detection.xrdp.active) else 'vnc'))}) }}"
+
+- name: Display detection results
+  ansible.builtin.debug:
+    var: remote_detection
+

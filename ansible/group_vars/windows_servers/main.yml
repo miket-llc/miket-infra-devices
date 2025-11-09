@@ -1,0 +1,6 @@
+---
+# Remote desktop defaults for Windows servers
+remote_protocol: rdp
+remote_port: 3389
+remote_rdp_nla_enabled: true
+

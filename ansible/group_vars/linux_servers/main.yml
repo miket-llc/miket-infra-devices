@@ -1,0 +1,9 @@
+---
+# Remote desktop defaults for Linux servers
+# Uses VNC for session sharing (access existing kiosk session)
+remote_protocol: vnc
+remote_port: 5900
+desktop_env: "GNOME"  # Default, can be overridden per host
+display_server: "Xorg"  # Prefer Xorg for VNC stability
+session_sharing: true  # Share existing session, don't create new one
+

@@ -1,0 +1,7 @@
+---
+# Defaults for remote_server_windows_rdp role
+
+remote_rdp_port: 3389
+remote_rdp_enabled: true
+remote_rdp_nla_enabled: true
+

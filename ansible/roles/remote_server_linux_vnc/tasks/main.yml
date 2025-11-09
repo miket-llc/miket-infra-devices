@@ -1,0 +1,135 @@
+---
+# Ansible role: remote_server_linux_vnc
+# Configures VNC server to share the existing desktop session (for kiosk/auto-login setups)
+# Prefers TigerVNC if already running, otherwise uses x11vnc
+
+- name: Check if TigerVNC is already running
+  ansible.builtin.systemd:
+    name: tigervnc.service
+  register: tigervnc_check
+  failed_when: false
+
+- name: Get TigerVNC service configuration
+  ansible.builtin.stat:
+    path: /etc/systemd/system/tigervnc.service
+  register: tigervnc_service_file
+  when: tigervnc_check.status.ActiveState == "active"
+
+- name: Read TigerVNC service file
+  ansible.builtin.slurp:
+    src: /etc/systemd/system/tigervnc.service
+  register: tigervnc_service_content
+  when: 
+    - tigervnc_check.status.ActiveState == "active"
+    - tigervnc_service_file.stat.exists
+
+- name: Check if TigerVNC is listening on localhost only
+  ansible.builtin.shell: |
+    sudo lsof -i :5900 2>/dev/null | grep -q "localhost" && echo "localhost_only" || echo "network_accessible"
+  register: tigervnc_listen_check
+  changed_when: false
+  failed_when: false
+  when: tigervnc_check.status.ActiveState == "active"
+
+- name: Update TigerVNC service to listen on all interfaces
+  ansible.builtin.template:
+    src: tigervnc.service.j2
+    dest: /etc/systemd/system/tigervnc.service
+    mode: '0644'
+  become: yes
+  when:
+    - tigervnc_check.status.ActiveState == "active"
+    - tigervnc_listen_check.stdout == "localhost_only"
+  vars:
+    vnc_display: "1"  # TigerVNC uses :1
+  notify: restart tigervnc
+
+- name: Restart TigerVNC if updated
+  ansible.builtin.systemd:
+    name: tigervnc.service
+    state: restarted
+    daemon_reload: yes
+  become: yes
+  when:
+    - tigervnc_check.status.ActiveState == "active"
+    - tigervnc_listen_check.stdout == "localhost_only"
+
+- name: Install and configure x11vnc (fallback if TigerVNC not running)
+  block:
+    - name: Check if x11vnc is installed
+      ansible.builtin.command: which x11vnc
+      register: x11vnc_installed_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install x11vnc
+      ansible.builtin.apt:
+        name: x11vnc
+        state: present
+        update_cache: yes
+      become: yes
+      when: x11vnc_installed_check.rc != 0
+
+    - name: Get active X11 display from running processes
+      ansible.builtin.shell: |
+        # Try to find Xorg or Xwayland process and extract display
+        DISPLAY=$(ps aux | grep -E '[X]org|[X]wayland' | head -1 | awk '{for(i=1;i<=NF;i++) if($i ~ /:[0-9]+/) print $i}' | head -1)
+        if [ -z "$DISPLAY" ]; then
+          # Fallback: check DISPLAY env var from logged in user
+          DISPLAY=$(sudo -u {{ ansible_user }} printenv DISPLAY 2>/dev/null || echo ":0")
+        fi
+        echo "${DISPLAY:-:0}"
+      register: x11_display
+      changed_when: false
+      failed_when: false
+
+    - name: Set display number from detected display
+      ansible.builtin.set_fact:
+        vnc_display: "{{ (x11_display.stdout | default(':0') | regex_replace('.*:(\\d+).*', '\\1')) | default('0') }}"
+
+    - name: Create x11vnc systemd user service directory
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/.config/systemd/user
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Create x11vnc systemd user service
+      ansible.builtin.template:
+        src: x11vnc.service.j2
+        dest: /home/{{ ansible_user }}/.config/systemd/user/x11vnc.service
+        mode: '0644'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      become: yes
+      become_user: "{{ ansible_user }}"
+
+    - name: Enable and start x11vnc service
+      ansible.builtin.systemd:
+        name: x11vnc.service
+        scope: user
+        enabled: yes
+        state: started
+        daemon_reload: yes
+      become: yes
+      become_user: "{{ ansible_user }}"
+  when: tigervnc_check.status.ActiveState != "active"
+
+- name: Wait for VNC to be accessible
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "5900"
+    delay: 2
+    timeout: 10
+  register: vnc_port_check
+  failed_when: false
+
+- name: Display connection information
+  ansible.builtin.debug:
+    msg:
+      - "✅ VNC server configured to share existing session"
+      - "Server: {{ 'TigerVNC' if (tigervnc_check.status.ActiveState == 'active') else 'x11vnc' }}"
+      - "Connect via VNC to: {{ inventory_hostname }}.tail2e55fe.ts.net:5900"
+      - "This shares the existing mdt desktop session (kiosk mode)"
+

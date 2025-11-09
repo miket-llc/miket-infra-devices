@@ -1,0 +1,23 @@
+[Unit]
+Description=x11vnc server (share existing X11 session)
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+# Share existing X11 display session (for kiosk/auto-login setups)
+# -auth guess: automatically find X11 auth file
+# -forever: keep running
+# -loop: restart on disconnect
+# -noxdamage: don't use X damage extension (more compatible)
+# -repeat: forward key repeats
+# -shared: allow multiple connections
+# -nopw: no password (restricted by Tailscale firewall)
+# -xkb: enable X keyboard extension
+ExecStart=/usr/bin/x11vnc -display :{{ vnc_display | default('0') }} -auth guess -forever -loop -noxdamage -repeat -rfbport {{ remote_port | default(5900) }} -shared -nopw -xkb
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+

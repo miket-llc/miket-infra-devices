@@ -1,0 +1,10 @@
+---
+# Default remote desktop configuration for all hosts
+remote_protocol: rdp
+remote_port: 3389
+restrict_to_tailscale: true
+
+# Tailscale configuration
+tailscale_subnet: "100.64.0.0/10"
+tailscale_interface: "tailscale0"  # Fallback to wg0 if not found
+

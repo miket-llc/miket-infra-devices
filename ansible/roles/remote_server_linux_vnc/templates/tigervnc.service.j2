@@ -1,0 +1,21 @@
+[Unit]
+Description=TigerVNC x0vncserver (Display Sharing)
+After=graphical-session.target
+
+[Service]
+Type=simple
+User=mdt
+Group=mdt
+WorkingDirectory=/home/mdt
+Environment="HOME=/home/mdt"
+Environment="DISPLAY=:{{ vnc_display | default('1') }}"
+Environment="XAUTHORITY=/run/user/1000/gdm/Xauthority"
+ExecStartPre=/bin/sh -c 'DISPLAY=:{{ vnc_display | default("1") }} XAUTHORITY=/run/user/1000/gdm/Xauthority xset q &>/dev/null || sleep 2'
+ExecStart=/usr/bin/x0vncserver -display :{{ vnc_display | default('1') }} -rfbport 5900 -PasswordFile /home/mdt/.vnc/tigervnc-passwd -SecurityTypes VncAuth -AlwaysShared -localhost no -fg
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=30
+
+[Install]
+WantedBy=default.target
+

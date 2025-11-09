@@ -1,0 +1,6 @@
+---
+# Defaults for remote_server_linux_xrdp role
+
+remote_rdp_port: 3389
+remote_rdp_enabled: true
+

@@ -1,0 +1,10 @@
+---
+# Handlers for remote_server_linux_vnc role
+
+- name: restart tigervnc
+  ansible.builtin.systemd:
+    name: tigervnc.service
+    state: restarted
+    daemon_reload: yes
+  become: yes
+

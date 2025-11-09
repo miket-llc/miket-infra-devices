@@ -1,0 +1,87 @@
+---
+# Ansible role: remote_firewall
+# Configures firewall rules for remote desktop access restricted to Tailscale interface/subnet
+
+- name: Detect Tailscale interface (Linux)
+  ansible.builtin.command: ip -4 addr show tailscale0 | grep -oP 'inet \K[\d.]+'
+  register: tailscale_ip
+  changed_when: false
+  failed_when: false
+  when: ansible_system == "Linux"
+
+- name: Fallback to wg0 for Tailscale (Linux)
+  ansible.builtin.command: ip -4 addr show wg0 | grep -oP 'inet \K[\d.]+'
+  register: tailscale_ip_fallback
+  changed_when: false
+  failed_when: false
+  when: ansible_system == "Linux" and tailscale_ip.rc != 0
+
+- name: Get Tailscale subnet (Linux)
+  ansible.builtin.set_fact:
+    tailscale_subnet: "100.64.0.0/10"
+  when: ansible_system == "Linux"
+
+- name: Configure UFW firewall rule for VNC (Linux)
+  ansible.builtin.ufw:
+    rule: allow
+    port: "5900"
+    proto: tcp
+    to_ip: "{{ tailscale_subnet }}"
+    comment: "VNC access via Tailscale"
+  become: yes
+  when:
+    - ansible_system == "Linux"
+    - (remote_detection.firewall.type | default('ufw')) == "ufw"
+    - remote_protocol | default('vnc') == 'vnc'
+
+- name: Configure firewalld firewall rule for VNC (Linux)
+  ansible.posix.firewalld:
+    port: "{{ remote_port | default(5900) }}/tcp"
+    source: "{{ tailscale_subnet }}"
+    permanent: true
+    immediate: true
+    state: enabled
+    zone: public
+  become: yes
+  when:
+    - ansible_system == "Linux"
+    - remote_detection.firewall.type == "firewalld"
+    - remote_protocol | default('vnc') == 'vnc'
+
+- name: Configure iptables firewall rule for VNC (Linux)
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ remote_port | default(5900) }}"
+    source: "{{ tailscale_subnet }}"
+    jump: ACCEPT
+    comment: "VNC access via Tailscale"
+  become: yes
+  when:
+    - ansible_system == "Linux"
+    - remote_detection.firewall.type == "iptables"
+    - remote_protocol | default('vnc') == 'vnc'
+
+- name: Configure Windows firewall rule for RDP (already handled in remote_server_windows_rdp)
+  ansible.builtin.debug:
+    msg: "Windows RDP firewall rules are configured by remote_server_windows_rdp role"
+  when: ansible_system == "Windows"
+
+- name: Verify firewall rule is active (Linux - UFW)
+  ansible.builtin.command: ufw status | grep "5900"
+  register: ufw_status_check
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_system == "Linux"
+    - (remote_detection.firewall.type | default('ufw')) == "ufw"
+
+- name: Display firewall configuration
+  ansible.builtin.debug:
+    msg:
+      - "✅ Firewall configured for remote desktop access"
+      - "Protocol: {{ remote_protocol | default('vnc') }}"
+      - "Port: 5900"
+      - "Restricted to: Tailscale subnet (100.64.0.0/10)"
+      - "Interface: tailscale0"
+

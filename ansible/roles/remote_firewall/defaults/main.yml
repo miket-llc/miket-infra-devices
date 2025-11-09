@@ -1,0 +1,7 @@
+---
+# Defaults for remote_firewall role
+
+remote_protocol: rdp
+remote_port: 3389
+tailscale_subnet: "100.64.0.0/10"
+
