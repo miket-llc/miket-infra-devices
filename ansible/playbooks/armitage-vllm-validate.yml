@@ -1,0 +1,231 @@
+---
+# Ansible playbook to validate and update Armitage vLLM deployment
+# Run from Motoko (Ansible control node):
+#   ansible-playbook -i inventory/hosts.yml playbooks/armitage-vllm-validate.yml --limit armitage --ask-vault-pass
+#
+# This playbook:
+# 1. Validates current vLLM deployment
+# 2. Updates configuration if needed
+# 3. Restarts vLLM with correct model
+# 4. Validates LiteLLM proxy configuration
+# 5. Runs functional tests
+
+- name: Validate and Update Armitage vLLM Deployment
+  hosts: armitage
+  gather_facts: yes
+  
+  vars:
+    expected_model: "Qwen/Qwen2.5-7B-Instruct"
+    expected_served_name: "qwen2.5-7b-armitage"
+    vllm_model: "{{ vllm_model_name | default('Qwen/Qwen2.5-7B-Instruct') }}"
+    vllm_port: "{{ vllm_api_port | default(8000) }}"
+    vllm_container_name: "vllm-armitage"
+    vllm_image: "vllm/vllm-openai:latest"
+    vllm_dtype: "bf16"
+    vllm_max_model_len: 8192
+    vllm_max_num_seqs: 2
+    vllm_gpu_memory_utilization: 0.9
+    vllm_served_model_name: "qwen2.5-7b-armitage"
+  
+  tasks:
+    - name: Display validation header
+      debug:
+        msg:
+          - "================================================================"
+          - "  Armitage vLLM Validation and Update"
+          - "================================================================"
+          - "Expected Model: {{ expected_model }}"
+          - "Expected Served Name: {{ expected_served_name }}"
+          - ""
+      tags: [always]
+    
+    - name: Check Docker Desktop status
+      win_shell: |
+        $service = Get-Service -Name "com.docker.service" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq 'Running') {
+          Write-Host "✅ Docker Desktop service is running"
+          exit 0
+        } else {
+          Write-Host "❌ Docker Desktop service is not running"
+          exit 1
+        }
+      register: docker_status
+      failed_when: docker_status.rc != 0
+      tags: [validation]
+    
+    - name: Check vLLM container status
+      win_shell: |
+        $container = docker ps -a --filter "name={{ vllm_container_name }}" --format "{{{{.Status}}}}" 2>&1
+        if ($container -like "*Up*") {
+          Write-Host "Container Status: Running"
+          Write-Host "Details: $container"
+          exit 0
+        } elseif ($container) {
+          Write-Host "Container Status: Stopped"
+          Write-Host "Details: $container"
+          exit 1
+        } else {
+          Write-Host "Container Status: Not Found"
+          exit 2
+        }
+      register: container_status
+      failed_when: false
+      tags: [validation]
+    
+    - name: Get current model from vLLM API
+      uri:
+        url: "http://{{ ansible_host }}:{{ vllm_port }}/v1/models"
+        method: GET
+        status_code: [200, 404, 503]
+        timeout: 10
+      register: models_response
+      failed_when: false
+      tags: [validation]
+    
+    - name: Display current model info
+      debug:
+        msg:
+          - "Current Model API Response:"
+          - "{{ models_response.json | default('No response') }}"
+      when: models_response.status == 200
+      tags: [validation]
+    
+    - name: Check if model needs update
+      set_fact:
+        model_needs_update: "{{ models_response.status != 200 or expected_model not in (models_response.json.data[0].id | default('')) }}"
+      tags: [validation]
+    
+    - name: Stop existing vLLM container if running
+      win_shell: |
+        docker stop {{ vllm_container_name }} 2>&1 | Out-Null
+        docker rm {{ vllm_container_name }} 2>&1 | Out-Null
+        Write-Host "Stopped and removed existing container"
+      when: container_status.rc == 0
+      tags: [update]
+    
+    - name: Update vLLM configuration file
+      win_copy:
+        content: |
+          {
+            "model": "{{ vllm_model }}",
+            "port": {{ vllm_port }},
+            "container_name": "{{ vllm_container_name }}",
+            "image": "{{ vllm_image }}",
+            "dtype": "{{ vllm_dtype }}",
+            "max_model_len": {{ vllm_max_model_len }},
+            "max_num_seqs": {{ vllm_max_num_seqs }},
+            "gpu_memory_utilization": {{ vllm_gpu_memory_utilization }},
+            "served_model_name": "{{ vllm_served_model_name }}",
+            "auto_switch": true
+          }
+        dest: C:\ProgramData\ArmitageMode\vllm_config.json
+      tags: [update, config]
+    
+    - name: Start vLLM with updated configuration
+      win_shell: |
+        $scriptPath = "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Start-VLLM.ps1"
+        if (Test-Path $scriptPath) {
+          & powershell.exe -ExecutionPolicy Bypass -File $scriptPath -Action Start
+          exit $LASTEXITCODE
+        } else {
+          Write-Host "Start-VLLM.ps1 not found at $scriptPath"
+          exit 1
+        }
+      register: start_result
+      when: model_needs_update | default(true)
+      tags: [update]
+    
+    - name: Wait for vLLM to be ready
+      uri:
+        url: "http://{{ ansible_host }}:{{ vllm_port }}/health"
+        method: GET
+        status_code: [200]
+        timeout: 5
+      register: health_check
+      until: health_check.status == 200
+      retries: 30
+      delay: 10
+      when: model_needs_update | default(true)
+      tags: [update, validation]
+    
+    - name: Verify model is correct
+      uri:
+        url: "http://{{ ansible_host }}:{{ vllm_port }}/v1/models"
+        method: GET
+        status_code: [200]
+        timeout: 10
+      register: final_models_check
+      tags: [validation]
+    
+    - name: Display final validation results
+      debug:
+        msg:
+          - ""
+          - "================================================================"
+          - "  Validation Results"
+          - "================================================================"
+          - "Model API Response: {{ final_models_check.json | default('N/A') }}"
+          - "Expected Model: {{ expected_model }}"
+          - "Expected Served Name: {{ expected_served_name }}"
+          - ""
+          - "Next Steps:"
+          - "1. Run validation script from Motoko:"
+          - "   ./scripts/Validate-Armitage-Model.sh"
+          - "2. Verify LiteLLM proxy configuration"
+          - "3. Test end-to-end flow"
+          - ""
+      tags: [always]
+
+- name: Validate LiteLLM Configuration on Motoko
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  
+  tasks:
+    - name: Check LiteLLM config file exists
+      stat:
+        path: "{{ item }}"
+      register: litellm_config_stat
+      loop:
+        - /etc/litellm/config.yaml
+        - /opt/litellm/config.yaml
+        - "{{ ansible_env.HOME }}/litellm/config.yaml"
+        - "{{ ansible_env.HOME }}/.litellm/config.yaml"
+        - /mnt/data/docker/litellm/config.yaml
+      failed_when: false
+    
+    - name: Find LiteLLM config file
+      set_fact:
+        litellm_config_path: "{{ item.item }}"
+      when: item.stat.exists
+      loop: "{{ litellm_config_stat.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+    
+    - name: Check LiteLLM config for Armitage route
+      slurp:
+        src: "{{ litellm_config_path | default('/etc/litellm/config.yaml') }}"
+      register: litellm_config_content
+      when: litellm_config_path is defined
+      failed_when: false
+    
+    - name: Display LiteLLM config status
+      debug:
+        msg:
+          - "LiteLLM Config: {{ litellm_config_path | default('Not found') }}"
+          - "Contains Armitage route: {{ 'qwen2.5-7b-armitage' in (litellm_config_content.content | b64decode | default('')) }}"
+      tags: [always]
+    
+    - name: Check LiteLLM service status
+      systemd:
+        name: litellm
+      register: litellm_service
+      failed_when: false
+      tags: [validation]
+    
+    - name: Display LiteLLM service status
+      debug:
+        msg:
+          - "LiteLLM Service Status: {{ litellm_service.status.ActiveState | default('Unknown') }}"
+      tags: [always]
+

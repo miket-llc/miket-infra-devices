@@ -17,7 +17,7 @@ param(
     [ValidateSet('Start', 'Stop', 'Restart', 'Status', 'Logs')]
     [string]$Action,
     
-    [string]$Model = "Qwen/Qwen2.5-7B-Instruct-AWQ",
+    [string]$Model = "Qwen/Qwen2.5-7B-Instruct",
     [int]$Port = 8000,
     [string]$ContainerName = "vllm-armitage"
 )
@@ -34,9 +34,10 @@ $Config = @{
     Image = "vllm/vllm-openai:latest"
     GpuCount = 1
     MaxModelLen = 8192
-    MaxNumSeqs = 1
-    GpuMemoryUtilization = 0.90
-    KvCacheDtype = "fp8"
+    MaxNumSeqs = 2
+    GpuMemoryUtilization = 0.9
+    Dtype = "bf16"
+    ServedModelName = "qwen2.5-7b-armitage"
     TensorParallelSize = 1
 }
 
@@ -53,14 +54,17 @@ if (Test-Path $ConfigPath) {
         if ($yamlContent -match 'vllm:\s*\n[^#]*max_model_len:\s*(\d+)') {
             $Config.MaxModelLen = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*gpu_memory_utilization:\s*([\d.]+)') {
-            $Config.GpuMemoryUtilization = [double]$matches[1]
-        }
         if ($yamlContent -match 'vllm:\s*\n[^#]*max_num_seqs:\s*(\d+)') {
             $Config.MaxNumSeqs = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*kv_cache_dtype:\s*"([^"]+)"') {
-            $Config.KvCacheDtype = $matches[1].Trim()
+        if ($yamlContent -match 'vllm:\s*\n[^#]*gpu_memory_utilization:\s*([\d.]+)') {
+            $Config.GpuMemoryUtilization = [double]$matches[1]
+        }
+        if ($yamlContent -match 'vllm:\s*\n[^#]*dtype:\s*"([^"]+)"') {
+            $Config.Dtype = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'vllm:\s*\n[^#]*served_model_name:\s*"([^"]+)"') {
+            $Config.ServedModelName = $matches[1].Trim()
         }
     } catch {
         Write-Warning "Could not parse config file: $_"
@@ -141,7 +145,8 @@ function Start-VLLM {
     Write-Host "  Max Model Length: $($Config.MaxModelLen)"
     Write-Host "  Max Num Seqs: $($Config.MaxNumSeqs)"
     Write-Host "  GPU Memory Utilization: $($Config.GpuMemoryUtilization)"
-    Write-Host "  KV Cache Dtype: $($Config.KvCacheDtype)"
+    Write-Host "  Dtype: $($Config.Dtype)"
+    Write-Host "  Served Model Name: $($Config.ServedModelName)"
     
     # Check if container exists and remove if stopped
     if ($status -eq "stopped") {
@@ -159,13 +164,15 @@ function Start-VLLM {
         "-p", "$($Config.Port):8000",
         "--restart", "unless-stopped",
         $Config.Image,
+        "python", "-m", "vllm.entrypoints.openai.api_server",
         "--model", $Config.Model,
-        "--port", "8000",
-        "--host", "0.0.0.0",
-        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString(),
+        "--dtype", $Config.Dtype,
         "--max-model-len", $Config.MaxModelLen.ToString(),
         "--max-num-seqs", $Config.MaxNumSeqs.ToString(),
-        "--kv-cache-dtype", $Config.KvCacheDtype,
+        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString(),
+        "--served-model-name", $Config.ServedModelName,
+        "--port", "8000",
+        "--host", "0.0.0.0",
         "--tensor-parallel-size", $Config.TensorParallelSize.ToString()
     )
     

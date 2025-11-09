@@ -103,6 +103,26 @@ See [Armitage Setup Runbook](docs/runbooks/armitage-setup.md) for detailed instr
 3. **Other devices:** Follow device-specific guides in `docs/runbooks/`
 4. **Review configurations:** Check `devices/` for device-specific configs
 
+## Model Validation
+
+To validate that Armitage is running the correct model (Qwen2.5-7B-Instruct) and verify the full vLLM → LiteLLM → Ansible control flow:
+
+```bash
+# From Motoko
+cd ~/miket-infra-devices
+./scripts/Validate-Armitage-Model.sh
+```
+
+Or use the Ansible playbook:
+```bash
+ansible-playbook -i ansible/inventory/hosts.yml \
+  ansible/playbooks/armitage-vllm-validate.yml \
+  --limit armitage \
+  --ask-vault-pass
+```
+
+See [Armitage Model Validation Runbook](docs/runbooks/armitage-model-validation.md) for detailed instructions.
+
 ## Repository Integration
 
 ### With motoko-devops

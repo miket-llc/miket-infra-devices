@@ -45,23 +45,24 @@ use_cases:
 
 vllm:
   enabled: true
-  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
+  model: "Qwen/Qwen2.5-7B-Instruct"
   port: 8000
   container_name: "vllm-armitage"
   image: "vllm/vllm-openai:latest"
-  gpu_memory_utilization: 0.90
+  dtype: "bf16"
   max_model_len: 8192
-  max_num_seqs: 1
-  kv_cache_dtype: "fp8"
+  max_num_seqs: 2
+  gpu_memory_utilization: 0.9
+  served_model_name: "qwen2.5-7b-armitage"
   tensor_parallel_size: 1
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
-  # For 8GB VRAM, recommended models:
-  # - Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM) - BEST CHOICE: Most capable model that fits comfortably
-  #   Optimized settings: 0.85 util, 4096 max_len (good balance for 8GB)
-  #   Benchmarks: MMLU 74.2, MATH 75.5, HumanEval 84.8, GSM8K 91.6
-  # - Qwen/Qwen2.5-3B-Instruct-AWQ (~2-3GB VRAM) - Fits very comfortably but less capable
+  # For 8GB VRAM, fp16/bf16 build (current configuration):
+  # - Qwen/Qwen2.5-7B-Instruct (bf16) - fp16/bf16 build as specified
+  #   Settings: 0.9 util, 8192 max_len, 2 max_seqs (optimized for fp16/bf16)
+  #   Note: AWQ quantized version available if memory constraints require it
+  #   AWQ version: Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM, use kv_cache_dtype: fp8)
 
 notes:
   - High-performance Alienware laptop with RTX 4070
