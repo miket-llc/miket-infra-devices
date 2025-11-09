@@ -1,0 +1,32 @@
+## RDP Deployment Status
+
+I attempted to deploy RDP to Armitage, but encountered an authentication issue with the playbook. However, since you mentioned you upgraded to Windows Pro, RDP should be available.
+
+**To enable RDP manually on Armitage:**
+1. Open Settings > System > Remote Desktop
+2. Enable Remote Desktop
+3. Ensure Network Level Authentication is enabled
+4. Configure Windows Firewall to allow RDP on port 3389 from Tailscale subnet (100.64.0.0/10)
+
+**Or run via PowerShell on Armitage:**
+```powershell
+# Enable RDP
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name fDenyTSConnections -Value 0
+
+# Enable NLA
+Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name UserAuthentication -Value 1
+
+# Start RDP service
+Start-Service TermService
+Set-Service TermService -StartupType Automatic
+
+# Create firewall rule for Tailscale
+New-NetFirewallRule -DisplayName 'Remote Desktop (RDP) - Tailscale' -Name 'RDP-Tailscale' -Direction Inbound -Protocol TCP -LocalPort 3389 -RemoteAddress 100.64.0.0/10 -Action Allow -Enabled True
+```
+
+**Connection:**
+- Hostname: `armitage.tail2e55fe.ts.net:3389`
+- Protocol: RDP
+- Use your Windows credentials
+
+I've created a playbook at `ansible/playbooks/deploy-armitage-rdp.yml` that you can run once the authentication is resolved.
