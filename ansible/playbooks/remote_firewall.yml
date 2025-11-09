@@ -1,0 +1,48 @@
+---
+# Playbook: remote_firewall.yml
+# Configures firewall rules for remote desktop access (idempotent)
+
+- name: Configure Linux firewall rules
+  hosts: linux_servers
+  gather_facts: yes
+  become: yes
+  tags:
+    - remote
+    - remote:firewall
+  tasks:
+    - name: Include detection role
+      ansible.builtin.include_role:
+        name: remote_detect_linux
+      when: inventory_hostname == "motoko"
+
+    - name: Configure firewall for remote desktop
+      ansible.builtin.include_role:
+        name: remote_firewall
+      vars:
+        remote_protocol: "{{ remote_protocol | default('rdp') }}"
+        remote_port: "{{ remote_port | default(3389) }}"
+
+- name: Verify Windows firewall rules
+  hosts: windows_servers
+  gather_facts: yes
+  tags:
+    - remote
+    - remote:firewall
+  tasks:
+    - name: Check RDP firewall rule
+      win_shell: |
+        $rule = Get-NetFirewallRule -Name "RDP-Tailscale" -ErrorAction SilentlyContinue
+        if ($rule) {
+          Write-Output "RDP firewall rule exists"
+          $rule | Select-Object DisplayName, Enabled, Direction, Action
+        } else {
+          Write-Output "RDP firewall rule not found - run remote_server.yml"
+          exit 1
+        }
+      register: firewall_check
+      changed_when: false
+
+    - name: Display firewall status
+      ansible.builtin.debug:
+        var: firewall_check.stdout_lines
+

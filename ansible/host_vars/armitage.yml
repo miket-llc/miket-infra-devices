@@ -39,3 +39,8 @@ roles:
   - gaming-mode
   - cuda-development
   - docker-desktop
+
+# Remote desktop configuration
+remote_protocol: rdp
+remote_port: 3389
+restrict_to_tailscale: true

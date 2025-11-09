@@ -1,0 +1,10 @@
+---
+# Remote desktop configuration for motoko (Linux server)
+# Uses VNC to share the existing mdt kiosk session (not create a new one)
+remote_protocol: vnc
+remote_port: 5900
+restrict_to_tailscale: true
+desktop_env: "GNOME"
+display_server: "Xorg"  # Will be auto-detected
+session_sharing: true  # Share existing session, don't create new one
+

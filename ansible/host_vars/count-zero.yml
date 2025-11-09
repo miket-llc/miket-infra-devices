@@ -1,0 +1,6 @@
+---
+# Remote desktop configuration for count-zero (macOS workstation)
+remote_protocol: vnc  # macOS uses VNC/Screen Sharing
+remote_port: 5900
+restrict_to_tailscale: true
+

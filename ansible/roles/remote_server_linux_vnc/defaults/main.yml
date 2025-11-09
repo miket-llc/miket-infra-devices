@@ -1,0 +1,7 @@
+---
+# Defaults for remote_server_linux_vnc role
+
+remote_protocol: vnc
+remote_port: 5900
+vnc_display: "0"  # Will be auto-detected
+

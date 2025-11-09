@@ -1,0 +1,7 @@
+---
+# Defaults for remote_client_macos role
+
+remote_protocol: rdp
+remote_port: 3389
+remote_vnc_port: 5900
+

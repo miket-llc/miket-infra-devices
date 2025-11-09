@@ -1,0 +1,82 @@
+---
+# Ansible role: remote_server_windows_rdp
+# Enables and configures RDP on Windows hosts with NLA
+
+- name: Enable Remote Desktop
+  win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 0
+    type: dword
+  become: yes
+
+- name: Enable Network Level Authentication (NLA)
+  win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
+    name: UserAuthentication
+    data: 1
+    type: dword
+  become: yes
+
+- name: Ensure Remote Desktop service is running
+  win_service:
+    name: TermService
+    state: started
+    start_mode: auto
+  become: yes
+
+- name: Get Tailscale adapter information
+  win_shell: |
+    $adapter = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Tailscale*" -or $_.Name -like "*Tailscale*" }
+    if ($adapter) {
+      $adapter | Select-Object -First 1 | Select-Object -ExpandProperty Name
+    } else {
+      Write-Output "Tailscale"
+    }
+  register: tailscale_adapter
+  changed_when: false
+
+- name: Remove existing RDP firewall rules (to recreate with Tailscale restriction)
+  win_shell: |
+    $rules = Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*Remote Desktop*" -or $_.DisplayName -like "*RDP*" }
+    if ($rules) {
+      $rules | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+    }
+  become: yes
+  changed_when: false
+  failed_when: false
+
+- name: Create RDP firewall rule restricted to Tailscale subnet
+  win_shell: |
+    New-NetFirewallRule -DisplayName "Remote Desktop (RDP) - Tailscale" `
+      -Name "RDP-Tailscale" `
+      -Direction Inbound `
+      -Protocol TCP `
+      -LocalPort 3389 `
+      -RemoteAddress 100.64.0.0/10 `
+      -Action Allow `
+      -Enabled True `
+      -ErrorAction SilentlyContinue
+  become: yes
+  register: firewall_rule_result
+  changed_when: firewall_rule_result.rc == 0
+
+- name: Verify RDP is accessible
+  win_shell: |
+    $listener = Get-NetTCPConnection -LocalPort 3389 -ErrorAction SilentlyContinue
+    if ($listener) {
+      Write-Output "RDP is listening on port 3389"
+    } else {
+      Write-Output "RDP is not listening"
+      exit 1
+    }
+  register: rdp_verify
+  changed_when: false
+
+- name: Display connection information
+  ansible.builtin.debug:
+    msg:
+      - "✅ RDP is enabled with Network Level Authentication"
+      - "Connect via RDP to: {{ inventory_hostname }}.tail2e55fe.ts.net:3389"
+      - "Firewall rule created for Tailscale subnet (100.64.0.0/10)"
+

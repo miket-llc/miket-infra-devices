@@ -1,0 +1,45 @@
+---
+# Ansible role: remote_client_macos
+# Documents and ensures RDP/VNC clients are available on macOS workstations
+
+- name: Check if Microsoft Remote Desktop is installed
+  ansible.builtin.stat:
+    path: /Applications/Microsoft Remote Desktop.app
+  register: ms_rdp_check
+
+- name: Check if Screen Sharing is available (built-in)
+  ansible.builtin.stat:
+    path: /System/Library/CoreServices/Screen Sharing.app
+  register: screen_sharing_check
+
+- name: Display client installation instructions
+  ansible.builtin.debug:
+    msg:
+      - "📱 macOS Remote Desktop Clients"
+      - ""
+      - "For RDP connections:"
+      - "  1. Install 'Microsoft Remote Desktop' from Mac App Store"
+      - "  2. Or use: open -a 'Microsoft Remote Desktop'"
+      - ""
+      - "For VNC connections (built-in):"
+      - "  1. Use 'Screen Sharing' app (built-in)"
+      - "  2. Or use: open vnc://HOSTNAME.tail2e55fe.ts.net"
+      - ""
+      - "Connection examples:"
+      - "  RDP: Connect to motoko.tail2e55fe.ts.net:3389"
+      - "  VNC: vnc://motoko.tail2e55fe.ts.net:5900"
+
+- name: Create RDP connection helper script
+  ansible.builtin.template:
+    src: rdp_connect.sh.j2
+    dest: /usr/local/bin/rdp
+    mode: '0755'
+  become: yes
+
+- name: Create VNC connection helper script
+  ansible.builtin.template:
+    src: vnc_connect.sh.j2
+    dest: /usr/local/bin/vnc
+    mode: '0755'
+  become: yes
+

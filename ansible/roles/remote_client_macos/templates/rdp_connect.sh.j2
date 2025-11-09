@@ -1,0 +1,24 @@
+#!/bin/bash
+# RDP connection helper script for macOS
+# Usage: rdp HOSTNAME
+
+HOST="${1:-motoko}"
+PORT="3389"
+
+# Use Tailscale MagicDNS
+if host "${HOST}.tail2e55fe.ts.net" > /dev/null 2>&1; then
+    TARGET="${HOST}.tail2e55fe.ts.net:${PORT}"
+else
+    TARGET="${HOST}:${PORT}"
+fi
+
+# Try Microsoft Remote Desktop first, fall back to open command
+if [ -d "/Applications/Microsoft Remote Desktop.app" ]; then
+    open -a "Microsoft Remote Desktop" "rdp://full%20address=s:${TARGET}"
+else
+    echo "Microsoft Remote Desktop not found. Please install from Mac App Store."
+    echo "Connecting via: ${TARGET}"
+    # Fallback: try to open with default handler
+    open "rdp://${TARGET}"
+fi
+

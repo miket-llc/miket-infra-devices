@@ -1,0 +1,17 @@
+#!/bin/bash
+# VNC connection helper script for macOS
+# Usage: vnc HOSTNAME [PORT]
+
+HOST="${1:-motoko}"
+PORT="${2:-5900}"
+
+# Use Tailscale MagicDNS
+if host "${HOST}.tail2e55fe.ts.net" > /dev/null 2>&1; then
+    TARGET="${HOST}.tail2e55fe.ts.net:${PORT}"
+else
+    TARGET="${HOST}:${PORT}"
+fi
+
+# Use built-in Screen Sharing app
+open "vnc://${TARGET}"
+

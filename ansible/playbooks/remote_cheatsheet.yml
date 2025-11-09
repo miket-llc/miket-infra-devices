@@ -1,0 +1,24 @@
+---
+# Playbook: remote_cheatsheet.yml
+# Generates a connection cheatsheet from inventory
+
+- name: Generate remote desktop cheatsheet
+  hosts: localhost
+  gather_facts: yes
+  connection: local
+  tags:
+    - remote
+    - remote:docs
+  tasks:
+    - name: Generate cheatsheet markdown
+      ansible.builtin.template:
+        src: remote_cheatsheet.md.j2
+        dest: "{{ playbook_dir }}/../docs/remote-desktop-cheatsheet.md"
+        mode: '0644'
+
+    - name: Display cheatsheet location
+      ansible.builtin.debug:
+        msg:
+          - "✅ Remote Desktop Cheatsheet generated"
+          - "Location: docs/remote-desktop-cheatsheet.md"
+

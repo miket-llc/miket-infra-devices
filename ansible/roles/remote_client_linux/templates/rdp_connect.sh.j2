@@ -1,0 +1,24 @@
+#!/bin/bash
+# RDP connection helper script
+# Usage: rdp HOSTNAME [OPTIONS]
+
+HOST="${1:-motoko}"
+PROTOCOL="rdp"
+PORT="3389"
+
+# Use Tailscale MagicDNS
+if host "${HOST}.tail2e55fe.ts.net" > /dev/null 2>&1; then
+    TARGET="${HOST}.tail2e55fe.ts.net:${PORT}"
+else
+    TARGET="${HOST}:${PORT}"
+fi
+
+# Shift to get remaining arguments
+shift 2>/dev/null || true
+
+# Default options
+DEFAULT_OPTS="/u:mdt /cert-ignore /gfx:rfx /rfx"
+
+# Run xfreerdp with default options and any additional args
+exec xfreerdp ${DEFAULT_OPTS} /v:"${TARGET}" "$@"
+
