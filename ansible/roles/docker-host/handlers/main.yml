@@ -1,0 +1,10 @@
+---
+# Handlers for docker-host role
+
+- name: restart docker
+  systemd:
+    name: docker
+    state: restarted
+    enabled: true
+  become: true
+

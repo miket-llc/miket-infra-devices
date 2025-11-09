@@ -1,0 +1,80 @@
+---
+# Docker Host Configuration Role
+# Configures Docker daemon to use custom data-root and logging settings
+# Idempotent tasks following existing repository patterns
+
+- name: Check if Docker is installed
+  command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Ensure Docker engine and Compose v2 installed
+  apt:
+    name:
+      - docker.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+  when:
+    - ansible_os_family == "Debian"
+    - docker_check.rc != 0
+  become: true
+
+- name: Ensure data-root directory exists
+  file:
+    path: "{{ docker_data_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+  become: true
+
+- name: Backup existing daemon.json if it exists
+  copy:
+    src: /etc/docker/daemon.json
+    dest: /etc/docker/daemon.json.bak
+    remote_src: true
+  when: ansible_os_family == "Debian"
+  failed_when: false
+  changed_when: false
+  become: true
+
+- name: Render Docker daemon.json
+  template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+    owner: root
+    group: root
+  when: ansible_os_family == "Debian"
+  notify: restart docker
+  become: true
+
+- name: Ensure Docker service is running and enabled
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+  when: ansible_os_family == "Debian"
+  become: true
+
+- name: Wait for Docker to be ready
+  wait_for:
+    path: /var/run/docker.sock
+    state: present
+    timeout: 30
+  when: ansible_os_family == "Debian"
+
+- name: Verify docker root dir
+  command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Display Docker root directory
+  debug:
+    msg: "Docker Root Dir: {{ docker_info.stdout | regex_search('Docker Root Dir:\\s*(.*)', '\\1') | first }}"
+  when: docker_info.stdout is defined
+

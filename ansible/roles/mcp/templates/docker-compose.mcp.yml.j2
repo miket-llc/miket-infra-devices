@@ -1,0 +1,45 @@
+# {{ ansible_managed }}
+version: "3.9"
+
+services:
+{% for svc in mcp_servers %}
+  {{ svc.name }}:
+    image: {{ svc.image }}
+    container_name: {{ svc.name }}
+    restart: unless-stopped
+    env_file:
+      - {{ mcp_env_file }}
+    {% if svc.env is defined and svc.env|length > 0 %}
+    environment:
+    {% for k, v in svc.env.items() %}
+      {{ k }}: "{{ v }}"
+    {% endfor %}
+    {% endif %}
+    networks:
+      - {{ mcp_network }}
+    logging:
+      driver: json-file
+      options:
+        max-size: "{{ mcp_log_max_size }}"
+        max-file: "{{ mcp_log_max_file }}"
+    {% if svc.ports is defined and svc.ports|length > 0 %}
+    ports:
+    {% for p in svc.ports %}
+      - "{{ p }}"
+    {% endfor %}
+    {% else %}
+    # Default: keep services private on loopback unless explicitly opened
+    # (Set ports: ["127.0.0.1:PORT:PORT"] in vars if needed)
+    {% endif %}
+    {% if svc.data_dirs is defined and svc.data_dirs|length > 0 %}
+    volumes:
+    {% for d in svc.data_dirs %}
+      - "{{ mcp_project_dir }}/volumes/{{ svc.name }}/{{ d.name }}:{{ d.container_path }}"
+    {% endfor %}
+    {% endif %}
+{% endfor %}
+
+networks:
+  {{ mcp_network }}:
+    external: true
+

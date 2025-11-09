@@ -1,0 +1,124 @@
+---
+# MCP Server Deployment Role
+# Deploys MCP servers via Docker Compose on Motoko
+# Idempotent tasks following existing repository patterns
+
+- name: Ensure project and config directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  loop:
+    - "{{ mcp_project_dir }}"
+    - "/etc/mcp"
+  become: true
+
+- name: Create per-service volume directories
+  file:
+    path: "{{ mcp_project_dir }}/volumes/{{ item.0.name }}/{{ item.1.name }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  with_subelements:
+    - "{{ mcp_servers }}"
+    - data_dirs
+    - skip_missing: true
+  become: true
+
+- name: Ensure dedicated Docker network exists
+  community.docker.docker_network:
+    name: "{{ mcp_network }}"
+    driver: bridge
+  become: true
+
+- name: Verify Docker images exist (pre-check)
+  command: docker manifest inspect {{ item.image }}
+  loop: "{{ mcp_servers }}"
+  register: image_check
+  failed_when: false
+  changed_when: false
+  become: true
+
+- name: Report image verification results
+  debug:
+    msg: "{{ item.item.image }}: {{ 'OK' if item.rc == 0 else 'NOT FOUND - verify image name' }}"
+  loop: "{{ image_check.results }}"
+  loop_control:
+    label: "{{ item.item.image }}"
+
+- name: Fail if any images are missing
+  fail:
+    msg: "One or more Docker images could not be found. Please verify image names in group_vars/mcp_hosts.yml. Check Docker MCP Catalog: https://docs.docker.com/ai/mcp-catalog-and-toolkit/catalog/"
+  when: image_check.results | selectattr('rc', '!=', 0) | list | length > 0
+
+- name: Render env file from Vault (0600)
+  copy:
+    dest: "{{ mcp_env_file }}"
+    mode: "0600"
+    owner: root
+    group: root
+    content: |
+      {% for k, v in vault_mcp_env.items() %}
+      {{ k }}={{ v }}
+      {% endfor %}
+  become: true
+  no_log: true
+
+- name: Render Compose file
+  template:
+    src: "{{ mcp_compose_file }}.j2"
+    dest: "{{ mcp_project_dir }}/{{ mcp_compose_file }}"
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+
+- name: Deploy MCP stack (compose v2)
+  community.docker.docker_compose_v2:
+    project_src: "{{ mcp_project_dir }}"
+    files: ["{{ mcp_compose_file }}"]
+    state: present
+    pull: always
+    recreate: auto
+    remove_orphans: true
+  become: true
+
+- name: Wait a moment for containers to initialize
+  pause:
+    seconds: 5
+
+- name: Collect container info
+  community.docker.docker_container_info:
+    name: "{{ item.name }}"
+  loop: "{{ mcp_servers }}"
+  register: mcp_info
+  become: true
+  failed_when: false
+
+- name: Show container states
+  debug:
+    msg: "{{ item.container.Name }} -> {{ item.container.State.Status }}"
+  loop: "{{ mcp_info.results }}"
+  when: item.container is defined
+
+# Optional smoke checks (simple HTTP tests or no-op commands)
+- name: Simple HTTP smoke check (Grafana)
+  uri:
+    url: "{{ vault_mcp_env.GRAFANA_URL | default('', true) }}"
+    method: HEAD
+    status_code: [200, 302, 401, 403]
+    validate_certs: false
+  when:
+    - mcp_smoke_tests | bool
+    - (vault_mcp_env.GRAFANA_URL | default('', true)) != ""
+  register: grafana_smoke
+  failed_when: false
+
+- name: Debug smoke results
+  debug:
+    var: grafana_smoke
+  when: grafana_smoke is defined
+

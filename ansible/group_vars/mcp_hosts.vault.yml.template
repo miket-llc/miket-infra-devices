@@ -1,0 +1,92 @@
+# Ansible Vault Template - MCP Server Secrets
+# 
+# This file is a template for MCP server secrets.
+# DO NOT store actual secrets in this file - use ansible-vault to encrypt.
+#
+# To create the actual vault file:
+#   ansible-vault create ansible/group_vars/mcp_hosts.vault.yml
+#
+# To edit:
+#   ansible-vault edit ansible/group_vars/mcp_hosts.vault.yml
+#
+# The vault password file should be located at /etc/ansible/.vault-pass.txt
+# (configured in ansible.cfg)
+
+---
+# MCP Server Environment Variables (encrypted)
+# All secrets for MCP servers are stored here and rendered to /etc/mcp/mcp.env (0600)
+vault_mcp_env:
+  # Slack
+  SLACK_BOT_TOKEN: ""
+  SLACK_SIGNING_SECRET: ""
+
+  # Atlassian
+  ATLASSIAN_CLOUD_BASEURL: ""
+  ATLASSIAN_EMAIL: ""
+  ATLASSIAN_API_TOKEN: ""
+
+  # GitHub
+  GITHUB_TOKEN: ""
+
+  # NPM
+  NPM_TOKEN: ""
+
+  # Docker Hub
+  DOCKERHUB_TOKEN: ""
+
+  # Cloudflare
+  CF_API_TOKEN: ""
+  CF_ACCOUNT_ID: ""
+  R2_ACCOUNT_ID: ""
+  R2_ACCESS_KEY_ID: ""
+  R2_SECRET_ACCESS_KEY: ""
+  R2_BUCKET: ""
+  D1_DATABASE_ID: ""
+
+  # PostgreSQL
+  PGHOST: ""
+  PGPORT: "5432"
+  PGUSER: ""
+  PGPASSWORD: ""
+  PGDATABASE: ""
+
+  # Neo4j
+  NEO4J_URI: ""
+  NEO4J_USERNAME: ""
+  NEO4J_PASSWORD: ""
+
+  # Grafana
+  GRAFANA_URL: ""
+  GRAFANA_API_TOKEN: ""
+
+  # Obsidian
+  OBSIDIAN_VAULT_PATH: "/mnt/data/obsidian/Main"
+
+  # Hugging Face
+  HUGGINGFACE_API_KEY: ""
+
+  # Azure
+  AZURE_TENANT_ID: ""
+  AZURE_CLIENT_ID: ""
+  AZURE_CLIENT_SECRET: ""
+  AZURE_SUBSCRIPTION_ID: ""
+
+  # LinkedIn
+  LINKEDIN_CLIENT_ID: ""
+  LINKEDIN_CLIENT_SECRET: ""
+  LINKEDIN_ACCESS_TOKEN: ""
+
+  # PayPal
+  PAYPAL_CLIENT_ID: ""
+  PAYPAL_CLIENT_SECRET: ""
+  PAYPAL_ENV: "sandbox"
+
+  # Oxylabs
+  OXYLABS_USERNAME: ""
+  OXYLABS_PASSWORD: ""
+
+  # Terraform
+  TF_API_TOKEN: ""
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+

@@ -1,0 +1,9 @@
+---
+# Prep Docker host and deploy MCP servers
+- name: Prep Docker host and deploy MCP servers
+  hosts: mcp_hosts
+  become: true
+  roles:
+    - docker-host
+    - mcp
+

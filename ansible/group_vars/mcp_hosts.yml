@@ -1,0 +1,249 @@
+---
+# MCP Server Deployment Configuration
+# Model Context Protocol (MCP) servers running on Motoko via Docker Compose
+# Managed by Ansible playbooks/mcp.yml
+
+# Docker host & layout
+docker_data_root: /mnt/data/docker
+
+# MCP project layout
+mcp_project_dir: /mnt/data/containers/mcp
+mcp_network: mcpnet
+mcp_env_file: /etc/mcp/mcp.env
+mcp_compose_file: docker-compose.mcp.yml
+
+# Logging defaults
+mcp_log_max_size: "10m"
+mcp_log_max_file: "3"
+
+# Enable small HTTP/API smoke tests after deploy
+mcp_smoke_tests: true
+
+# Declarative MCP service list.
+# IMPORTANT: Verify each image exists and supports linux/amd64.
+# 
+# Docker MCP Catalog Format: Images use the `mcp/<name>` prefix from Docker Hub.
+# Official catalog: https://docs.docker.com/ai/mcp-catalog-and-toolkit/catalog/
+#
+# NOTE: Many MCP servers are npm packages (@modelcontextprotocol/server-*) that
+# may not have official Docker images yet. For those, you may need to:
+# 1. Build custom Docker images from the npm packages
+# 2. Use community-built images (verify authenticity)
+# 3. Wait for official Docker images to be published
+#
+# To verify an image exists:
+#   docker pull mcp/<name>:latest
+#
+# Current configuration uses Docker MCP Catalog format (mcp/*).
+# Update image names based on actual availability in the catalog.
+mcp_servers:
+  # --- Comms / Collab ---
+  - name: mcp-slack
+    image: mcp/slack:latest
+    env:
+      SLACK_BOT_TOKEN: "{{ vault_mcp_env.SLACK_BOT_TOKEN }}"
+      SLACK_SIGNING_SECRET: "{{ vault_mcp_env.SLACK_SIGNING_SECRET }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  - name: mcp-atlassian
+    image: mcp/atlassian:latest
+    env:
+      ATLASSIAN_CLOUD_BASEURL: "{{ vault_mcp_env.ATLASSIAN_CLOUD_BASEURL }}"
+      ATLASSIAN_EMAIL: "{{ vault_mcp_env.ATLASSIAN_EMAIL }}"
+      ATLASSIAN_API_TOKEN: "{{ vault_mcp_env.ATLASSIAN_API_TOKEN }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  # --- DevTooling / Code Hosts ---
+  - name: mcp-github
+    image: mcp/github:latest
+    env:
+      GITHUB_TOKEN: "{{ vault_mcp_env.GITHUB_TOKEN }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  - name: mcp-git
+    image: mcp/git:latest
+    env: {}
+    data_dirs:
+      - { name: home, container_path: /home/mcp }
+
+  - name: mcp-nodejs
+    image: mcp/nodejs:latest
+    env: {}
+    data_dirs:
+      - { name: npm_cache, container_path: /home/node/.npm }
+
+  - name: mcp-npm
+    image: mcp/npm:latest
+    env:
+      NPM_TOKEN: "{{ vault_mcp_env.NPM_TOKEN | default('', true) }}"
+    data_dirs:
+      - { name: npm_cache, container_path: /home/node/.npm }
+
+  - name: mcp-playwright
+    image: mcp/playwright:latest
+    env: {}
+    data_dirs:
+      - { name: pwl_cache, container_path: /ms-playwright }
+
+  - name: mcp-docker
+    image: docker/hub-mcp:latest
+    env:
+      DOCKERHUB_TOKEN: "{{ vault_mcp_env.DOCKERHUB_TOKEN | default('', true) }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  # --- Cloudflare stack ---
+  - name: mcp-cloudflare-workers
+    image: mcp/cloudflare-workers:latest
+    env:
+      CLOUDFLARE_API_TOKEN: "{{ vault_mcp_env.CF_API_TOKEN }}"
+      CLOUDFLARE_ACCOUNT_ID: "{{ vault_mcp_env.CF_ACCOUNT_ID }}"
+    data_dirs: []
+
+  - name: mcp-cloudflare-kv
+    image: mcp/cloudflare-kv:latest
+    env:
+      CLOUDFLARE_API_TOKEN: "{{ vault_mcp_env.CF_API_TOKEN }}"
+      CLOUDFLARE_ACCOUNT_ID: "{{ vault_mcp_env.CF_ACCOUNT_ID }}"
+    data_dirs: []
+
+  - name: mcp-cloudflare-r2
+    image: mcp/cloudflare-r2:latest
+    env:
+      R2_ACCOUNT_ID: "{{ vault_mcp_env.R2_ACCOUNT_ID }}"
+      R2_ACCESS_KEY_ID: "{{ vault_mcp_env.R2_ACCESS_KEY_ID }}"
+      R2_SECRET_ACCESS_KEY: "{{ vault_mcp_env.R2_SECRET_ACCESS_KEY }}"
+      R2_BUCKET: "{{ vault_mcp_env.R2_BUCKET }}"
+    data_dirs:
+      - { name: r2_cache, container_path: /var/lib/mcp }
+
+  - name: mcp-cloudflare-d1
+    image: mcp/cloudflare-d1:latest
+    env:
+      CLOUDFLARE_API_TOKEN: "{{ vault_mcp_env.CF_API_TOKEN }}"
+      CLOUDFLARE_ACCOUNT_ID: "{{ vault_mcp_env.CF_ACCOUNT_ID }}"
+      D1_DATABASE_ID: "{{ vault_mcp_env.D1_DATABASE_ID }}"
+    data_dirs: []
+
+  # --- Data / DBs ---
+  - name: mcp-postgresql
+    image: mcp/postgresql:latest
+    env:
+      PGHOST: "{{ vault_mcp_env.PGHOST }}"
+      PGPORT: "{{ vault_mcp_env.PGPORT | default('5432') }}"
+      PGUSER: "{{ vault_mcp_env.PGUSER }}"
+      PGPASSWORD: "{{ vault_mcp_env.PGPASSWORD }}"
+      PGDATABASE: "{{ vault_mcp_env.PGDATABASE }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  - name: mcp-neo4j
+    image: mcp/neo4j:latest
+    env:
+      NEO4J_URI: "{{ vault_mcp_env.NEO4J_URI }}"
+      NEO4J_USERNAME: "{{ vault_mcp_env.NEO4J_USERNAME }}"
+      NEO4J_PASSWORD: "{{ vault_mcp_env.NEO4J_PASSWORD }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  # --- Observability / QA ---
+  - name: mcp-grafana
+    image: mcp/grafana:latest
+    env:
+      GRAFANA_URL: "{{ vault_mcp_env.GRAFANA_URL }}"
+      GRAFANA_API_TOKEN: "{{ vault_mcp_env.GRAFANA_API_TOKEN }}"
+    data_dirs:
+      - { name: cache, container_path: /var/lib/mcp }
+
+  # --- Knowledge / Content ---
+  - name: mcp-wikipedia
+    image: mcp/wikipedia:latest
+    env: {}
+    data_dirs:
+      - { name: cache, container_path: /var/cache/mcp }
+
+  - name: mcp-obsidian
+    image: mcp/obsidian:latest
+    env:
+      OBSIDIAN_VAULT_PATH: "{{ vault_mcp_env.OBSIDIAN_VAULT_PATH | default('/data/vault') }}"
+    data_dirs:
+      - { name: vault, container_path: /data/vault }
+
+  - name: mcp-huggingface
+    image: mcp/huggingface:latest
+    env:
+      HUGGINGFACE_API_KEY: "{{ vault_mcp_env.HUGGINGFACE_API_KEY | default('', true) }}"
+    data_dirs:
+      - { name: hf_cache, container_path: /root/.cache/huggingface }
+
+  # --- Clouds / Payments / Misc APIs ---
+  - name: mcp-azure
+    image: mcp/azure:latest
+    env:
+      AZURE_TENANT_ID: "{{ vault_mcp_env.AZURE_TENANT_ID }}"
+      AZURE_CLIENT_ID: "{{ vault_mcp_env.AZURE_CLIENT_ID }}"
+      AZURE_CLIENT_SECRET: "{{ vault_mcp_env.AZURE_CLIENT_SECRET }}"
+      AZURE_SUBSCRIPTION_ID: "{{ vault_mcp_env.AZURE_SUBSCRIPTION_ID }}"
+    data_dirs: []
+
+  - name: mcp-linkedin
+    image: mcp/linkedin:latest
+    env:
+      LINKEDIN_CLIENT_ID: "{{ vault_mcp_env.LINKEDIN_CLIENT_ID }}"
+      LINKEDIN_CLIENT_SECRET: "{{ vault_mcp_env.LINKEDIN_CLIENT_SECRET }}"
+      LINKEDIN_ACCESS_TOKEN: "{{ vault_mcp_env.LINKEDIN_ACCESS_TOKEN | default('', true) }}"
+    data_dirs: []
+
+  - name: mcp-paypal
+    image: mcp/paypal:latest
+    env:
+      PAYPAL_CLIENT_ID: "{{ vault_mcp_env.PAYPAL_CLIENT_ID }}"
+      PAYPAL_CLIENT_SECRET: "{{ vault_mcp_env.PAYPAL_CLIENT_SECRET }}"
+      PAYPAL_ENV: "{{ vault_mcp_env.PAYPAL_ENV | default('sandbox') }}"
+    data_dirs: []
+
+  - name: mcp-oxylabs
+    image: mcp/oxylabs:latest
+    env:
+      OXYLABS_USERNAME: "{{ vault_mcp_env.OXYLABS_USERNAME }}"
+      OXYLABS_PASSWORD: "{{ vault_mcp_env.OXYLABS_PASSWORD }}"
+    data_dirs: []
+
+  # --- IaC / Terraform ---
+  - name: mcp-terraform
+    image: mcp/terraform:latest
+    env:
+      TF_API_TOKEN: "{{ vault_mcp_env.TF_API_TOKEN | default('', true) }}"
+      AWS_ACCESS_KEY_ID: "{{ vault_mcp_env.AWS_ACCESS_KEY_ID | default('', true) }}"
+      AWS_SECRET_ACCESS_KEY: "{{ vault_mcp_env.AWS_SECRET_ACCESS_KEY | default('', true) }}"
+      AZURE_TENANT_ID: "{{ vault_mcp_env.AZURE_TENANT_ID | default('', true) }}"
+      AZURE_CLIENT_ID: "{{ vault_mcp_env.AZURE_CLIENT_ID | default('', true) }}"
+      AZURE_CLIENT_SECRET: "{{ vault_mcp_env.AZURE_CLIENT_SECRET | default('', true) }}"
+    data_dirs:
+      - { name: tf_cache, container_path: /home/mcp/.terraform.d }
+
+  # --- HTTP / Data helpers ---
+  - name: mcp-fetch
+    image: mcp/fetch:latest
+    env: {}
+    data_dirs: []
+
+  - name: mcp-text-to-graphql
+    image: mcp/text-to-graphql:latest
+    env: {}
+    data_dirs: []
+
+  # --- Reference / Utilities ---
+  - name: mcp-time
+    image: mcp/time:latest
+    env: {}
+    data_dirs: []
+
+  - name: mcp-sequential-thinking
+    image: mcp/sequential-thinking:latest
+    env: {}
+    data_dirs: []
+
