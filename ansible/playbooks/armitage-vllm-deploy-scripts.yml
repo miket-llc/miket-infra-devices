@@ -171,6 +171,11 @@
         - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Auto-ModeSwitcher.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Auto-ModeSwitcher.ps1" }
         - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Set-WorkstationMode.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Set-WorkstationMode.ps1" }
     
+    - name: Deploy vLLM config.yml
+      win_copy:
+        src: "/home/mdt/miket-infra-devices/devices/armitage/config.yml"
+        dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\config.yml"
+        
     - name: Create vLLM configuration directory
       win_file:
         path: C:\ProgramData\ArmitageMode
@@ -228,6 +233,33 @@
         }
       register: verify_deployment
       failed_when: verify_deployment.rc != 0
+    
+    - name: Restart vLLM container with new configuration
+      win_shell: |
+        cd C:\Users\{{ ansible_user }}\dev\armitage\scripts
+        .\Start-VLLM.ps1 Restart
+      register: restart_result
+      when: container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout
+      
+    - name: Wait for vLLM to be ready after restart
+      win_shell: |
+        $timeout = 60
+        $elapsed = 0
+        while ($elapsed -lt $timeout) {
+          try {
+            $response = Invoke-WebRequest -Uri "http://localhost:{{ vllm_port }}/health" -TimeoutSec 5 -UseBasicParsing -ErrorAction Stop
+            if ($response.StatusCode -eq 200) {
+              Write-Host "vLLM is ready"
+              exit 0
+            }
+          } catch { }
+          Start-Sleep -Seconds 5
+          $elapsed += 5
+        }
+        Write-Host "vLLM ready check completed"
+      when: container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout
+      register: ready_check
+      failed_when: false
     
     - name: Display next steps
       debug:

@@ -10,8 +10,11 @@ CONTAINER_NAME="vllm-wintermute"
 MODEL_NAME="${VLLM_MODEL:-casperhansen/llama-3-8b-instruct-awq}"
 PORT="${VLLM_PORT:-8000}"
 IMAGE="vllm/vllm-openai:latest"
-GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.85}"
-MAX_MODEL_LEN="${MAX_MODEL_LEN:-8192}"
+GPU_MEMORY_UTILIZATION="${GPU_MEMORY_UTILIZATION:-0.92}"
+MAX_MODEL_LEN="${MAX_MODEL_LEN:-16384}"
+MAX_NUM_SEQS="${MAX_NUM_SEQS:-2}"
+KV_CACHE_DTYPE="${KV_CACHE_DTYPE:-fp8}"
+TENSOR_PARALLEL_SIZE="${TENSOR_PARALLEL_SIZE:-1}"
 
 function start_vllm() {
     if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
@@ -26,6 +29,10 @@ function start_vllm() {
     echo "  Model: ${MODEL_NAME}"
     echo "  Port: ${PORT}"
     echo "  Container: ${CONTAINER_NAME}"
+    echo "  Max Model Length: ${MAX_MODEL_LEN}"
+    echo "  Max Num Seqs: ${MAX_NUM_SEQS}"
+    echo "  GPU Memory Utilization: ${GPU_MEMORY_UTILIZATION}"
+    echo "  KV Cache Dtype: ${KV_CACHE_DTYPE}"
     
     docker run -d \
         --name ${CONTAINER_NAME} \
@@ -39,7 +46,10 @@ function start_vllm() {
         --port 8000 \
         --host 0.0.0.0 \
         --gpu-memory-utilization ${GPU_MEMORY_UTILIZATION} \
-        --max-model-len ${MAX_MODEL_LEN}
+        --max-model-len ${MAX_MODEL_LEN} \
+        --max-num-seqs ${MAX_NUM_SEQS} \
+        --kv-cache-dtype ${KV_CACHE_DTYPE} \
+        --tensor-parallel-size ${TENSOR_PARALLEL_SIZE}
     
     echo "✅ vLLM container started"
     echo "API available at: http://localhost:${PORT}/v1"

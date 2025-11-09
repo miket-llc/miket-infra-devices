@@ -18,7 +18,7 @@ motoko_embed_base_url: "http://motoko:8200/v1"
 # Wintermute reasoner model (defaults to Llama 3.1 8B AWQ). To switch to Gemma,
 # change these three vars only.
 wintermute_model_name: "local/reasoner"
-wintermute_model_display: "openai/llama-3.1-8b-instruct-awq"
+wintermute_model_display: openai/casperhansen/llama-3-8b-instruct-awq
 wintermute_model_hf_id: "casperhansen/llama-3-8b-instruct-awq"
 
 # --- Gemma option (uncomment to use) ---
