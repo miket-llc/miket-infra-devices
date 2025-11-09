@@ -72,3 +72,4 @@ fi
 # Output only the password (no newline, no stderr)
 printf '%s' "$VAULT_PASSWORD"
 
+

@@ -1,6 +1,6 @@
 ---
-# Authentication and privilege escalation configuration
-# This file configures non-interactive become/sudo for all hosts
+# Authentication and privilege escalation configuration for Linux hosts
+# This file configures non-interactive become/sudo
 
 # Enable privilege escalation
 ansible_become: true
@@ -8,8 +8,9 @@ ansible_become_method: sudo
 
 # Non-interactive become password
 # File stored on Motoko control node only (not in git)
-# Location: /etc/ansible/.become-pass.txt (root:root 600)
+# Location: /etc/ansible/.become-pass.txt (mdt:mdt 600)
 # Create with: echo 'YOUR_SUDO_PASSWORD' | sudo tee /etc/ansible/.become-pass.txt
-# Set permissions: sudo chmod 600 /etc/ansible/.become-pass.txt && sudo chown root:root /etc/ansible/.become-pass.txt
+# Set permissions: sudo chmod 600 /etc/ansible/.become-pass.txt && sudo chown mdt:mdt /etc/ansible/.become-pass.txt
 ansible_become_password: "{{ lookup('file', '/etc/ansible/.become-pass.txt') | trim }}"
+
 
