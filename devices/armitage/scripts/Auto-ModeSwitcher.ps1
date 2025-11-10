@@ -96,36 +96,72 @@ function Set-Mode {
     return $true
 }
 
-function Test-UserActive {
-    # Check for active user sessions
-    $sessions = Get-CimInstance -ClassName Win32_LogonSession | 
-        Where-Object { $_.LogonType -eq 2 -or $_.LogonType -eq 10 } |
-        Where-Object { $_.Status -eq "Active" }
-    
-    if ($sessions.Count -gt 0) {
-        # Check if user is actually using the system
-        $idleTime = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime
-        $currentTime = Get-Date
-        
-        # Check for recent keyboard/mouse activity (Windows 10/11)
-        $idleThreshold = New-TimeSpan -Minutes $IdleThreshold
-        $lastInput = Get-CimInstance Win32_OperatingSystem | 
-            Select-Object -ExpandProperty LastBootUpTime
-        
-        # Simple check: if system has been up less than threshold, consider active
-        $uptime = $currentTime - $idleTime
-        if ($uptime.TotalMinutes -lt $IdleThreshold) {
-            return $true
+function Get-IdleTime {
+    # Use Windows API to get actual user idle time (keyboard/mouse)
+    # This is lightweight and doesn't wake the GPU
+    try {
+        if (-not ([System.Management.Automation.PSTypeName]'IdleTime').Type) {
+            Add-Type @"
+                using System;
+                using System.Runtime.InteropServices;
+                public class IdleTime {
+                    [DllImport("user32.dll")]
+                    static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+                    
+                    [StructLayout(LayoutKind.Sequential)]
+                    struct LASTINPUTINFO {
+                        public uint cbSize;
+                        public uint dwTime;
+                    }
+                    
+                    public static TimeSpan GetIdleTime() {
+                        LASTINPUTINFO lastInput = new LASTINPUTINFO();
+                        lastInput.cbSize = (uint)Marshal.SizeOf(lastInput);
+                        GetLastInputInfo(ref lastInput);
+                        return TimeSpan.FromMilliseconds(Environment.TickCount - lastInput.dwTime);
+                    }
+                }
+"@
         }
-        
-        # Check for running applications that indicate workstation use
-        $workstationApps = @("chrome", "firefox", "code", "devenv", "steam", "discord", "spotify")
-        $runningProcesses = Get-Process | Where-Object { $_.MainWindowTitle -ne "" }
-        
-        foreach ($app in $workstationApps) {
-            if ($runningProcesses | Where-Object { $_.ProcessName -like "*$app*" }) {
-                return $true
-            }
+        return [IdleTime]::GetIdleTime()
+    } catch {
+        # Fallback: return a large idle time if API call fails
+        Write-Log "Warning: Could not get idle time via API, using fallback" "WARN"
+        return [TimeSpan]::FromHours(24)
+    }
+}
+
+function Test-UserActive {
+    # First check: Actual user idle time (keyboard/mouse activity)
+    $idleTime = Get-IdleTime
+    if ($idleTime.TotalMinutes -lt $IdleThreshold) {
+        return $true
+    }
+    
+    # Second check: Running applications that indicate workstation use
+    # This includes both regular apps and GPU-intensive apps
+    $workstationApps = @(
+        # Browsers and IDEs
+        "chrome", "firefox", "msedge", "code", "cursor", "devenv", "rider", "pycharm",
+        # Communication
+        "discord", "slack", "teams", "zoom",
+        # Media
+        "spotify", "vlc", "potplayer",
+        # Gaming platforms
+        "steam", "epicgameslauncher", "battlenet", "origin", "uplay",
+        # Games (common GPU-intensive processes)
+        "msfs", "xplane", "flight", "dota", "csgo", "valorant", "apex", "fortnite",
+        # Content creation
+        "obs64", "obs32", "streamlabs", "premiere", "afterfx", "davinci", "blender",
+        # Other GPU-intensive apps
+        "unity", "unreal", "houdini", "maya", "3dsmax"
+    )
+    
+    $runningProcesses = Get-Process -ErrorAction SilentlyContinue
+    
+    foreach ($app in $workstationApps) {
+        if ($runningProcesses | Where-Object { $_.ProcessName -like "*$app*" }) {
+            return $true
         }
     }
     
@@ -133,7 +169,26 @@ function Test-UserActive {
 }
 
 function Test-GPUInUse {
-    # Check if GPU is being used by non-Docker processes
+    # Lazy GPU check: Only check GPU if we're in LLM mode and want to verify nothing else is using it
+    # This avoids waking the GPU unnecessarily when user activity is already detected
+    
+    # First, check for known GPU-intensive processes (no GPU wake-up needed)
+    $gpuIntensiveProcesses = @(
+        "msfs", "xplane", "flight", "dota", "csgo", "valorant", "apex", "fortnite",
+        "obs64", "obs32", "streamlabs", "premiere", "afterfx", "davinci", "blender",
+        "unity", "unreal", "houdini", "maya", "3dsmax", "substance", "zbrush"
+    )
+    
+    $runningProcesses = Get-Process -ErrorAction SilentlyContinue
+    foreach ($proc in $gpuIntensiveProcesses) {
+        if ($runningProcesses | Where-Object { $_.ProcessName -like "*$proc*" }) {
+            return $true
+        }
+    }
+    
+    # Only check GPU via nvidia-smi if we're in LLM mode and need to verify
+    # This is a fallback check that should rarely be needed
+    # Note: This will wake the GPU, so we only do it when necessary
     $nvidiaSmi = "${env:ProgramFiles}\NVIDIA Corporation\NVSMI\nvidia-smi.exe"
     
     if (-not (Test-Path $nvidiaSmi)) {
@@ -141,6 +196,7 @@ function Test-GPUInUse {
     }
     
     try {
+        # Use a lighter query that's less likely to wake GPU aggressively
         $gpuInfo = & $nvidiaSmi --query-compute-apps=pid,process_name --format=csv,noheader 2>&1
         if ($LASTEXITCODE -eq 0 -and $gpuInfo) {
             # Check if any non-Docker processes are using GPU
@@ -238,10 +294,18 @@ function Main {
     }
     
     # Auto mode detection
+    # Check user activity first (lightweight, no GPU wake-up)
     $userActive = Test-UserActive
-    $gpuInUse = Test-GPUInUse
     $vllmRunning = Test-VLLMContainerRunning
     $currentMode = Get-CurrentMode
+    
+    # Only check GPU if user appears inactive AND we're in LLM mode
+    # This avoids unnecessary GPU wake-ups when user is clearly active
+    $gpuInUse = $false
+    if (-not $userActive -and $currentMode -eq "llm") {
+        # User appears idle, but we're in LLM mode - verify GPU isn't being used by something else
+        $gpuInUse = Test-GPUInUse
+    }
     
     Write-Log "Status check - UserActive: $userActive, GPUInUse: $gpuInUse, VLLMRunning: $vllmRunning, CurrentMode: $currentMode"
     

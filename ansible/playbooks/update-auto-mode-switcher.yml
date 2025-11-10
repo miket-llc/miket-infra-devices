@@ -1,0 +1,141 @@
+---
+# Surgical playbook: Update Auto-ModeSwitcher script
+# Purpose: Deploy improved Auto-ModeSwitcher.ps1 that avoids GPU wake-ups
+# Scope: Only updates the Auto-ModeSwitcher script, leaves everything else untouched
+# Idempotent: Yes - win_copy checks file checksums and only updates if changed
+# Observable: Shows what file is being updated and whether it changed
+#
+# Usage:
+#   # Update both machines
+#   ansible-playbook -i inventory/hosts.yml playbooks/update-auto-mode-switcher.yml --ask-vault-pass
+#
+#   # Update specific machine
+#   ansible-playbook -i inventory/hosts.yml playbooks/update-auto-mode-switcher.yml --limit wintermute --ask-vault-pass
+#
+#   # Dry run (check mode)
+#   ansible-playbook -i inventory/hosts.yml playbooks/update-auto-mode-switcher.yml --check --ask-vault-pass
+
+- name: Update Auto-ModeSwitcher Script (Surgical Update)
+  hosts: windows
+  gather_facts: yes
+  
+  tasks:
+    - name: Set device-specific script paths
+      set_fact:
+        script_source: "{{ playbook_dir }}/../devices/{{ inventory_hostname }}/scripts/Auto-ModeSwitcher.ps1"
+        script_dest: "C:\\Users\\{{ ansible_user }}\\dev\\{{ inventory_hostname }}\\scripts\\Auto-ModeSwitcher.ps1"
+        mode_path: "{{ inventory_hostname | capitalize }}Mode"
+      tags: [always]
+    
+    - name: Display update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  Surgical Update: Auto-ModeSwitcher Script"
+          - "================================================================"
+          - "Target: {{ inventory_hostname }}"
+          - "Source: {{ script_source }}"
+          - "Destination: {{ script_dest }}"
+          - ""
+          - "Purpose: Update script to avoid GPU wake-ups during idle checks"
+          - ""
+          - "Changes:"
+          - "  - Uses Windows API for idle time detection (no GPU wake-up)"
+          - "  - Process-based GPU detection (no nvidia-smi unless needed)"
+          - "  - Lazy GPU checking (only when in LLM mode)"
+          - "  - Expanded app detection list"
+          - ""
+          - "This update is:"
+          - "  ✓ Idempotent (safe to run multiple times)"
+          - "  ✓ Surgical (only updates this script)"
+          - "  ✓ Observable (shows if file changed)"
+          - "================================================================"
+      tags: [always]
+    
+    - name: Verify source script exists
+      stat:
+        path: "{{ script_source }}"
+      register: source_script
+      failed_when: not source_script.stat.exists
+      tags: [always]
+    
+    - name: Verify scripts directory exists
+      win_stat:
+        path: "{{ script_dest | dirname }}"
+      register: scripts_dir
+      tags: [always]
+    
+    - name: Create scripts directory if missing
+      win_file:
+        path: "{{ script_dest | dirname }}"
+        state: directory
+      when: not scripts_dir.stat.exists
+      tags: [scripts]
+    
+    - name: Check current script version (if exists)
+      win_stat:
+        path: "{{ script_dest }}"
+      register: current_script
+      tags: [always]
+    
+    - name: Display current script status
+      debug:
+        msg:
+          - "Current script status:"
+          - "  Exists: {{ current_script.stat.exists | default(false) }}"
+          - "  Size: {{ current_script.stat.size | default('N/A') }} bytes"
+          - "  Modified: {{ current_script.stat.mtime | default('N/A') }}"
+      when: current_script.stat.exists | default(false)
+      tags: [always]
+    
+    - name: Deploy updated Auto-ModeSwitcher script
+      win_copy:
+        src: "{{ script_source }}"
+        dest: "{{ script_dest }}"
+        backup: yes
+      register: script_update
+      tags: [scripts]
+    
+    - name: Display update result
+      debug:
+        msg:
+          - "================================================================"
+          - "  Update Result: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Status: {{ 'UPDATED' if script_update.changed else 'NO CHANGE (already up to date)' }}"
+          - "File: {{ script_dest }}"
+          - "Backup created: {{ script_update.backup_file | default('N/A') }}"
+          - ""
+          - "Next steps:"
+          - "  - Script will be used by scheduled task on next run"
+          - "  - No restart required - changes take effect immediately"
+          - "  - Monitor logs at: $env:LOCALAPPDATA\\{{ mode_path }}\\auto_mode_switcher.log"
+          - "================================================================"
+      tags: [always]
+    
+    - name: Verify script syntax (PowerShell)
+      win_shell: |
+        $scriptPath = "{{ script_dest }}"
+        $errors = $null
+        $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content $scriptPath -Raw), [ref]$errors)
+        if ($errors.Count -gt 0) {
+          Write-Host "Syntax errors found:" -ForegroundColor Red
+          $errors | ForEach-Object { Write-Host "  Line $($_.Token.StartLine): $($_.Message)" -ForegroundColor Red }
+          exit 1
+        } else {
+          Write-Host "Script syntax is valid" -ForegroundColor Green
+          exit 0
+        }
+      register: syntax_check
+      changed_when: false
+      failed_when: syntax_check.rc != 0
+      tags: [scripts, verify]
+    
+    - name: Display verification result
+      debug:
+        msg:
+          - "Syntax verification: PASSED"
+          - "Script is ready to use"
+      when: syntax_check.rc == 0
+      tags: [always]
+
