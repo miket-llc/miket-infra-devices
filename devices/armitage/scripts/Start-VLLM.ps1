@@ -35,8 +35,10 @@ $Config = @{
     GpuCount = 1
     MaxModelLen = 8192
     MaxNumSeqs = 2
-    GpuMemoryUtilization = 0.9
-    Dtype = "bf16"
+    GpuMemoryUtilization = 0.85
+    Dtype = $null
+    KvCacheDtype = $null
+    Quantization = $null
     ServedModelName = "qwen2.5-7b-armitage"
     TensorParallelSize = 1
 }
@@ -44,26 +46,32 @@ $Config = @{
 if (Test-Path $ConfigPath) {
     try {
         $yamlContent = Get-Content $ConfigPath -Raw
-        # Simple YAML parsing (basic)
-        if ($yamlContent -match 'vllm:\s*\n\s*model:\s*"([^"]+)"') {
+        # Simple YAML parsing (basic) - matches within vllm section
+        if ($yamlContent -match 'model:\s*"([^"]+)"') {
             $Config.Model = $matches[1].Trim()
         }
-        if ($yamlContent -match 'vllm:\s*\n\s*port:\s*(\d+)') {
+        if ($yamlContent -match 'port:\s*(\d+)') {
             $Config.Port = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*max_model_len:\s*(\d+)') {
+        if ($yamlContent -match 'max_model_len:\s*(\d+)') {
             $Config.MaxModelLen = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*max_num_seqs:\s*(\d+)') {
+        if ($yamlContent -match 'max_num_seqs:\s*(\d+)') {
             $Config.MaxNumSeqs = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*gpu_memory_utilization:\s*([\d.]+)') {
+        if ($yamlContent -match 'gpu_memory_utilization:\s*([\d.]+)') {
             $Config.GpuMemoryUtilization = [double]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*dtype:\s*"([^"]+)"') {
+        if ($yamlContent -match 'dtype:\s*"([^"]+)"') {
             $Config.Dtype = $matches[1].Trim()
         }
-        if ($yamlContent -match 'vllm:\s*\n[^#]*served_model_name:\s*"([^"]+)"') {
+        if ($yamlContent -match 'kv_cache_dtype:\s*"([^"]+)"') {
+            $Config.KvCacheDtype = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'quantization:\s*"([^"]+)"') {
+            $Config.Quantization = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'served_model_name:\s*"([^"]+)"') {
             $Config.ServedModelName = $matches[1].Trim()
         }
     } catch {
@@ -155,7 +163,8 @@ function Start-VLLM {
     }
     
     # Build docker run command
-    # Note: vllm/vllm-openai image has entrypoint pre-configured
+    # Note: vllm/vllm-openai image has entrypoint pre-configured, just pass model args
+    # vLLM 0.11.0+ requires V1 engine, so we don't disable it
     $dockerArgs = @(
         "run",
         "-d",
@@ -163,10 +172,9 @@ function Start-VLLM {
         "--gpus", "all",
         "-p", "$($Config.Port):8000",
         "--restart", "unless-stopped",
+        "--shm-size", "4g",
         $Config.Image,
-        "python", "-m", "vllm.entrypoints.openai.api_server",
         "--model", $Config.Model,
-        "--dtype", $Config.Dtype,
         "--max-model-len", $Config.MaxModelLen.ToString(),
         "--max-num-seqs", $Config.MaxNumSeqs.ToString(),
         "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString(),
@@ -175,6 +183,24 @@ function Start-VLLM {
         "--host", "0.0.0.0",
         "--tensor-parallel-size", $Config.TensorParallelSize.ToString()
     )
+    
+    # Add dtype if specified
+    if ($Config.Dtype) {
+        $dockerArgs += "--dtype"
+        $dockerArgs += $Config.Dtype
+    }
+    
+    # Add KV cache dtype if specified (for memory optimization with long contexts)
+    if ($Config.KvCacheDtype) {
+        $dockerArgs += "--kv-cache-dtype"
+        $dockerArgs += $Config.KvCacheDtype
+    }
+    
+    # Add quantization parameter if specified
+    if ($Config.Quantization) {
+        $dockerArgs += "--quantization"
+        $dockerArgs += $Config.Quantization
+    }
     
     try {
         & docker $dockerArgs
