@@ -34,21 +34,32 @@ $Config = @{
     Image = "vllm/vllm-openai:latest"
     GpuCount = 1
     MaxModelLen = 4096
+    GpuMemoryUtilization = 0.85
     TensorParallelSize = 1
+    Quantization = $null
 }
 
 if (Test-Path $ConfigPath) {
     try {
         $yamlContent = Get-Content $ConfigPath -Raw
-        # Simple YAML parsing (basic)
-        if ($yamlContent -match 'vllm:\s*\n\s*model:\s*(.+)') {
-            $Config.Model = $matches[1].Trim().Trim('"')
+        # Simple YAML parsing (basic) - matches within vllm section
+        if ($yamlContent -match 'model:\s*"([^"]+)"') {
+            $Config.Model = $matches[1].Trim()
         }
-        if ($yamlContent -match 'vllm:\s*\n\s*port:\s*(\d+)') {
+        if ($yamlContent -match 'port:\s*(\d+)') {
             $Config.Port = [int]$matches[1]
         }
-        if ($yamlContent -match 'vllm:\s*\n\s*container_name:\s*(.+)') {
-            $Config.ContainerName = $matches[1].Trim().Trim('"')
+        if ($yamlContent -match 'container_name:\s*"([^"]+)"') {
+            $Config.ContainerName = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'max_model_len:\s*(\d+)') {
+            $Config.MaxModelLen = [int]$matches[1]
+        }
+        if ($yamlContent -match 'gpu_memory_utilization:\s*([\d.]+)') {
+            $Config.GpuMemoryUtilization = [double]$matches[1]
+        }
+        if ($yamlContent -match 'quantization:\s*"([^"]+)"') {
+            $Config.Quantization = $matches[1].Trim()
         }
     } catch {
         Write-Warning "Could not parse config file: $_"
@@ -134,6 +145,8 @@ function Start-VLLM {
     }
     
     # Build docker run command
+    # Note: vllm/vllm-openai image has entrypoint pre-configured, just pass model args
+    # vLLM 0.11.0+ requires V1 engine, so we don't disable it
     $dockerArgs = @(
         "run",
         "-d",
@@ -141,16 +154,21 @@ function Start-VLLM {
         "--gpus", "all",
         "-p", "$($Config.Port):8000",
         "--restart", "unless-stopped",
-        "-e", "MODEL_NAME=$($Config.Model)",
-        "-e", "MAX_MODEL_LEN=$($Config.MaxModelLen)",
-        "-e", "TENSOR_PARALLEL_SIZE=$($Config.TensorParallelSize)",
+        "--shm-size", "4g",
         $Config.Image,
-        "python", "-m", "vllm.entrypoints.openai.api_server",
         "--model", $Config.Model,
         "--port", "8000",
         "--host", "0.0.0.0",
-        "--tensor-parallel-size", $Config.TensorParallelSize.ToString()
+        "--tensor-parallel-size", $Config.TensorParallelSize.ToString(),
+        "--max-model-len", $Config.MaxModelLen.ToString(),
+        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString()
     )
+    
+    # Add quantization parameter if specified
+    if ($Config.Quantization) {
+        $dockerArgs += "--quantization"
+        $dockerArgs += $Config.Quantization
+    }
     
     try {
         & docker $dockerArgs

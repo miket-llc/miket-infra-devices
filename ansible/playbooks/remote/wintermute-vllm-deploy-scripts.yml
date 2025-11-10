@@ -6,10 +6,10 @@
 - name: Deploy vLLM scripts to Wintermute
   hosts: wintermute
   gather_facts: no
-  # vars_files:
-  #   - ../group_vars/windows/vault.yml
+  vars_files:
+    - ../../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_wintermute_password | default('REPLACE_ME') }}"
+    ansible_password: "{{ vault_wintermute_password }}"
     vllm_model: "{{ vllm_model_name | default('casperhansen/llama-3-8b-instruct-awq') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-wintermute"

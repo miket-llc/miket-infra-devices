@@ -48,10 +48,13 @@ use_cases:
 
 vllm:
   enabled: true
-  model: "mistralai/Mistral-7B-Instruct-v0.2"
+  model: "casperhansen/llama-3-8b-instruct-awq"
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
+  max_model_len: 8192
+  gpu_memory_utilization: 0.85
+  quantization: "awq"
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
