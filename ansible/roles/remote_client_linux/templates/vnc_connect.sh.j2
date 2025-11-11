@@ -1,20 +1,46 @@
 #!/bin/bash
 # VNC connection helper script
 # Usage: vnc HOSTNAME [PORT]
+# Password: motoko123 (for motoko)
 
 HOST="${1:-motoko}"
 PORT="${2:-5900}"
 
 # Use short hostname - Tailscale MagicDNS handles resolution via search domains
-TARGET="${HOST}:${PORT}"
+TARGET="${HOST}.pangolin-vega.ts.net:${PORT}"
 
-# Try Remmina first (if available), then vncviewer, then tigervnc-viewer
+# Password file location (for motoko)
+PASSWORD_FILE="${HOME}/.vnc/motoko-passwd"
+
+# Create password file if it doesn't exist (motoko123)
+if [ "$HOST" = "motoko" ] && [ ! -f "$PASSWORD_FILE" ]; then
+    mkdir -p "${HOME}/.vnc"
+    # Create password file using vncpasswd format (motoko123)
+    # This is a one-way hash, so we'll prompt if file doesn't exist
+    echo "Password for motoko: motoko123"
+fi
+
+# Try Remmina first (if available), then vncviewer with password
 if command -v remmina > /dev/null 2>&1; then
+    # Remmina will prompt for password
     remmina -c "vnc://${TARGET}"
 elif command -v vncviewer > /dev/null 2>&1; then
-    vncviewer "${TARGET}"
+    # vncviewer - prompt for password or use -passwd file
+    if [ "$HOST" = "motoko" ] && [ -f "$PASSWORD_FILE" ]; then
+        vncviewer -passwd "$PASSWORD_FILE" "${TARGET}"
+    else
+        echo "Connecting to ${TARGET}"
+        echo "Password: motoko123"
+        vncviewer "${TARGET}"
+    fi
 elif command -v tigervnc-viewer > /dev/null 2>&1; then
-    tigervnc-viewer "${TARGET}"
+    if [ "$HOST" = "motoko" ] && [ -f "$PASSWORD_FILE" ]; then
+        tigervnc-viewer -passwd "$PASSWORD_FILE" "${TARGET}"
+    else
+        echo "Connecting to ${TARGET}"
+        echo "Password: motoko123"
+        tigervnc-viewer "${TARGET}"
+    fi
 else
     echo "No VNC viewer found. Install: remmina-plugin-vnc or tigervnc-viewer"
     exit 1
