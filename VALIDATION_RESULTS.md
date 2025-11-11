@@ -6,7 +6,7 @@ You were right to question my statement! The failure was **NOT expected**. Here'
 
 ### Problem 1: Self-Management Connection ✅ FIXED
 
-**Issue:** When running Ansible **on Motoko to manage Motoko itself**, the inventory tries to SSH to `motoko.tail2e55fe.ts.net`, which requires SSH keys configured for localhost.
+**Issue:** When running Ansible **on Motoko to manage Motoko itself**, the inventory tries to SSH to `motoko.pangolin-vega.ts.net`, which requires SSH keys configured for localhost.
 
 **Solution:** Use `--connection=local` flag for self-management playbooks.
 

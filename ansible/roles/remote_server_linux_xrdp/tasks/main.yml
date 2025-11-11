@@ -89,5 +89,5 @@
   ansible.builtin.debug:
     msg:
       - "✅ xrdp is installed and running"
-      - "Connect via RDP to: {{ inventory_hostname }}.tail2e55fe.ts.net:3389"
+      - "Connect via RDP to: {{ inventory_hostname }}.pangolin-vega.ts.net:3389"
 

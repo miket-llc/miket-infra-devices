@@ -25,7 +25,7 @@ fi
 if [ "$DEPLOY_FROM_MOTOKO" = false ]; then
     # SSH to Motoko and run deployment
     echo "Connecting to Motoko..."
-    ssh mdt@motoko.tail2e55fe.ts.net << 'EOF'
+    ssh mdt@motoko.pangolin-vega.ts.net << 'EOF'
         cd ~/miket-infra-devices/ansible
         
         echo "================================================================"

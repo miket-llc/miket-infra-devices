@@ -95,7 +95,7 @@ cd C:\Users\mdt_\dev\armitage\scripts
 From motoko (Linux control node), test the API:
 
 ```bash
-curl http://armitage.tail2e55fe.ts.net:8000/health
+curl http://armitage.pangolin-vega.ts.net:8000/health
 ```
 
 ## What the Ansible Playbook Does

@@ -77,6 +77,6 @@
   ansible.builtin.debug:
     msg:
       - "✅ RDP is enabled with Network Level Authentication"
-      - "Connect via RDP to: {{ inventory_hostname }}.tail2e55fe.ts.net:3389"
+      - "Connect via RDP to: {{ inventory_hostname }}.pangolin-vega.ts.net:3389"
       - "Firewall rule created for Tailscale subnet (100.64.0.0/10)"
 

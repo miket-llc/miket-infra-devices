@@ -9,14 +9,14 @@
 4. ✅ Created firewall rule for Tailscale subnet (100.64.0.0/10)
 
 **Connection Details:**
-- Hostname: `armitage.tail2e55fe.ts.net:3389`
+- Hostname: `armitage.pangolin-vega.ts.net:3389`
 - Protocol: RDP
 - Authentication: Network Level Authentication (NLA) enabled
 - Firewall: Restricted to Tailscale subnet only
 
 **To Connect:**
-- From Linux: `rdp armitage` or `xfreerdp /v:armitage.tail2e55fe.ts.net:3389`
-- From Windows: `mstsc /v:armitage.tail2e55fe.ts.net:3389`
+- From Linux: `rdp armitage` or `xfreerdp /v:armitage.pangolin-vega.ts.net:3389`
+- From Windows: `mstsc /v:armitage.pangolin-vega.ts.net:3389`
 - From macOS: Use Microsoft Remote Desktop app
 
 **Note:** Since you upgraded to Windows Pro, RDP should now work properly. The configuration has been applied via Ansible.

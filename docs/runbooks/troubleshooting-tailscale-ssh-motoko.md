@@ -22,8 +22,8 @@ Motoko's actual Tailscale IP is `100.92.23.71`, but SSH wasn't listening on that
    - Verified SSH capability is present in Tailscale status
 
 3. **Verified MagicDNS**
-   - MagicDNS suffix: `tail2e55fe.ts.net`
-   - DNS name: `motoko.tail2e55fe.ts.net`
+   - MagicDNS suffix: `pangolin-vega.ts.net`
+   - DNS name: `motoko.pangolin-vega.ts.net`
    - Resolves to: `100.92.23.71`
 
 ## Current Status
@@ -39,10 +39,10 @@ From other nodes, test connectivity:
 
 ```bash
 # Test Tailscale SSH (uses Tailscale's built-in SSH):
-tailscale ssh mdt@motoko.tail2e55fe.ts.net
+tailscale ssh mdt@motoko.pangolin-vega.ts.net
 
 # Test regular SSH via MagicDNS:
-ssh mdt@motoko.tail2e55fe.ts.net
+ssh mdt@motoko.pangolin-vega.ts.net
 
 # Test via Tailscale IP directly:
 ssh mdt@100.92.23.71
@@ -60,7 +60,7 @@ ListenAddress 0.0.0.0  # Listen on all interfaces
 
 **Tailscale Status**:
 - Hostname: `motoko`
-- DNS Name: `motoko.tail2e55fe.ts.net`
+- DNS Name: `motoko.pangolin-vega.ts.net`
 - Tailscale IP: `100.92.23.71`
 - SSH Enabled: `true`
 

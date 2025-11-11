@@ -63,7 +63,7 @@
     msg:
       - "✅ Remote desktop clients installed"
       - "VNC: Use 'vnc HOSTNAME' or 'remmina' (for GUI)"
-      - "RDP: Use 'rdp HOSTNAME' or 'xfreerdp /v:HOSTNAME.tail2e55fe.ts.net:3389'"
+      - "RDP: Use 'rdp HOSTNAME' or 'xfreerdp /v:HOSTNAME.pangolin-vega.ts.net:3389'"
       - "Examples:"
       - "  vnc motoko    # Connect to Motoko via VNC (session sharing)"
       - "  rdp wintermute # Connect to Wintermute via RDP"

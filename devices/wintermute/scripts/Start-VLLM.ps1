@@ -175,7 +175,7 @@ function Start-VLLM {
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ vLLM container started successfully"
             Write-Host "API available at: http://localhost:$($Config.Port)"
-            Write-Host "Tailnet: http://wintermute.tail2e55fe.ts.net:$($Config.Port)"
+            Write-Host "Tailnet: http://wintermute.pangolin-vega.ts.net:$($Config.Port)"
             return $true
         } else {
             Write-Error "Failed to start container"
@@ -247,7 +247,7 @@ function Show-Status {
         docker ps --filter "name=$($Config.ContainerName)" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         
         Write-Host "`nAPI Endpoint: http://localhost:$($Config.Port)" -ForegroundColor Green
-        Write-Host "Tailnet: http://wintermute.tail2e55fe.ts.net:$($Config.Port)" -ForegroundColor Green
+        Write-Host "Tailnet: http://wintermute.pangolin-vega.ts.net:$($Config.Port)" -ForegroundColor Green
         Write-Host "Health Check: http://localhost:$($Config.Port)/health" -ForegroundColor Green
     }
 }

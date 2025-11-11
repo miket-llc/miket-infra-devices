@@ -265,7 +265,7 @@ Configure Trailblazer to use:
 The proxy binds to `0.0.0.0:8000` by default, making it accessible on the local network. Consider:
 
 1. **Tailscale**: Access via Tailscale VPN (recommended)
-   - Use `motoko.tail2e55fe.ts.net:8000` instead of local IP
+   - Use `motoko.pangolin-vega.ts.net:8000` instead of local IP
    - Already configured in your Tailnet
 
 2. **Cloudflare Access**: Gate behind Cloudflare Access for web-based clients

@@ -65,6 +65,6 @@
       debug:
         msg:
           - "✅ RDP is enabled with Network Level Authentication"
-          - "Connect via RDP to: armitage.tail2e55fe.ts.net:3389"
+          - "Connect via RDP to: armitage.pangolin-vega.ts.net:3389"
           - "Firewall rule created for Tailscale subnet (100.64.0.0/10)"
 

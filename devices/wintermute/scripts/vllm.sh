@@ -73,7 +73,7 @@ function status_vllm() {
         echo "API Endpoints:"
         echo "  Local:    http://localhost:${PORT}/v1"
         echo "  Health:   http://localhost:${PORT}/health"
-        echo "  Tailscale: http://wintermute.tail2e55fe.ts.net:${PORT}/v1"
+        echo "  Tailscale: http://wintermute.pangolin-vega.ts.net:${PORT}/v1"
     else
         echo "Status: Stopped"
     fi

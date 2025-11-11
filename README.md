@@ -690,7 +690,7 @@ The cheatsheet will be generated at `docs/remote-desktop-cheatsheet.md`.
 **GUI (Remmina)**:
 ```bash
 remmina
-# Then add VNC connection: motoko.tail2e55fe.ts.net:5900
+# Then add VNC connection: motoko.pangolin-vega.ts.net:5900
 # Protocol: VNC
 ```
 
@@ -700,10 +700,10 @@ remmina
 vnc motoko
 
 # Or directly with vncviewer
-vncviewer motoko.tail2e55fe.ts.net:5900
+vncviewer motoko.pangolin-vega.ts.net:5900
 
 # Or with Remmina CLI
-remmina -c vnc://motoko.tail2e55fe.ts.net:5900
+remmina -c vnc://motoko.pangolin-vega.ts.net:5900
 ```
 
 #### Windows Clients
@@ -714,7 +714,7 @@ remmina -c vnc://motoko.tail2e55fe.ts.net:5900
 mstsc
 
 # Or via command line
-mstsc /v:motoko.tail2e55fe.ts.net:3389
+mstsc /v:motoko.pangolin-vega.ts.net:3389
 ```
 
 **CLI Helper**:
@@ -730,7 +730,7 @@ rdp motoko
 rdp motoko
 
 # Or open directly
-open -a "Microsoft Remote Desktop" "rdp://full%20address=s:motoko.tail2e55fe.ts.net:3389"
+open -a "Microsoft Remote Desktop" "rdp://full%20address=s:motoko.pangolin-vega.ts.net:3389"
 ```
 
 **VNC (Screen Sharing - built-in)**:
@@ -738,17 +738,17 @@ open -a "Microsoft Remote Desktop" "rdp://full%20address=s:motoko.tail2e55fe.ts.
 vnc motoko
 
 # Or directly
-open vnc://motoko.tail2e55fe.ts.net:5900
+open vnc://motoko.pangolin-vega.ts.net:5900
 ```
 
 ### Protocols and Ports
 
 | Host | Protocol | Port | MagicDNS Hostname | Notes |
 |------|----------|------|-------------------|-------|
-| motoko | VNC | 5900 | `motoko.tail2e55fe.ts.net:5900` | Shares existing kiosk session |
-| wintermute | RDP | 3389 | `wintermute.tail2e55fe.ts.net:3389` | Windows RDP |
-| armitage | RDP | 3389 | `armitage.tail2e55fe.ts.net:3389` | Windows RDP |
-| count-zero | VNC | 5900 | `count-zero.tail2e55fe.ts.net:5900` | macOS Screen Sharing |
+| motoko | VNC | 5900 | `motoko.pangolin-vega.ts.net:5900` | Shares existing kiosk session |
+| wintermute | RDP | 3389 | `wintermute.pangolin-vega.ts.net:3389` | Windows RDP |
+| armitage | RDP | 3389 | `armitage.pangolin-vega.ts.net:3389` | Windows RDP |
+| count-zero | VNC | 5900 | `count-zero.pangolin-vega.ts.net:5900` | macOS Screen Sharing |
 
 ### Why VNC for Linux (Session Sharing)
 
@@ -767,7 +767,7 @@ Linux servers use VNC (x11vnc) instead of RDP because:
 
 **Verify Tailscale connectivity**:
 ```bash
-ping motoko.tail2e55fe.ts.net
+ping motoko.pangolin-vega.ts.net
 tailscale status
 ```
 
@@ -880,7 +880,7 @@ display_server: "Xorg"  # Linux only
 ### Security Notes
 
 - **No Public Exposure**: All firewall rules restrict access to Tailscale subnet (100.64.0.0/10)
-- **MagicDNS**: Use `.tail2e55fe.ts.net` hostnames for automatic resolution
+- **MagicDNS**: Use `.pangolin-vega.ts.net` hostnames for automatic resolution
 - **NLA Enabled**: Windows RDP requires Network Level Authentication
 - **SSL Certificates**: xrdp uses self-signed certificates (ignore warnings in clients)
 

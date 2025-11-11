@@ -58,7 +58,7 @@ Wintermute was configured to run **Llama 3.1 8B Instruct AWQ** (as the reasoner 
 
 4. **Verify** the model is correct:
    ```bash
-   curl http://wintermute.tail2e55fe.ts.net:8000/v1/models
+   curl http://wintermute.pangolin-vega.ts.net:8000/v1/models
    ```
 
 ## Why This Matters

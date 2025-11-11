@@ -252,6 +252,6 @@
           - "Duration: {{ ((ansible_date_time.epoch | int) - (playbook_start_time | int)) // 60 }}m {{ ((ansible_date_time.epoch | int) - (playbook_start_time | int)) % 60 }}s"
           - "Model: {{ vllm_model }}"
           - "Port: {{ vllm_port }}"
-          - "API: http://armitage.tail2e55fe.ts.net:{{ vllm_port }}"
+          - "API: http://armitage.pangolin-vega.ts.net:{{ vllm_port }}"
           - ""
       tags: [always]

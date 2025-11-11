@@ -30,7 +30,7 @@ ansible-playbook -i inventory/hosts.yml \
   --connection=local
 
 # 4. Verify
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/models | jq '.data[].id'
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/models | jq '.data[].id'
 ```
 
 See `docs/WINTERMUTE_DEPLOYMENT_STEPS.md` for detailed instructions.

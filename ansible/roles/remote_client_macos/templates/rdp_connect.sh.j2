@@ -5,12 +5,8 @@
 HOST="${1:-motoko}"
 PORT="3389"
 
-# Use Tailscale MagicDNS
-if host "${HOST}.tail2e55fe.ts.net" > /dev/null 2>&1; then
-    TARGET="${HOST}.tail2e55fe.ts.net:${PORT}"
-else
-    TARGET="${HOST}:${PORT}"
-fi
+# Use short hostname - Tailscale MagicDNS handles resolution via search domains
+TARGET="${HOST}:${PORT}"
 
 # Try Microsoft Remote Desktop first, fall back to open command
 if [ -d "/Applications/Microsoft Remote Desktop.app" ]; then

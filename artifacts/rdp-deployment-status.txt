@@ -25,7 +25,7 @@ New-NetFirewallRule -DisplayName 'Remote Desktop (RDP) - Tailscale' -Name 'RDP-T
 ```
 
 **Connection:**
-- Hostname: `armitage.tail2e55fe.ts.net:3389`
+- Hostname: `armitage.pangolin-vega.ts.net:3389`
 - Protocol: RDP
 - Use your Windows credentials
 

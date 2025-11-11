@@ -6,7 +6,7 @@ Motoko is configured as the Ansible control node for managing all infrastructure
 
 ## Prerequisites
 
-1. **Tailscale Network**: Devices must be connected to the tailnet (`tail2e55fe.ts.net`)
+1. **Tailscale Network**: Devices must be connected to the tailnet (`pangolin-vega.ts.net`)
 2. **ACL Configuration**: Tailscale ACLs must be deployed from `miket-infra` repository
 3. **Device Tags**: Motoko must have `tag:ansible` tag applied
 
@@ -41,7 +41,7 @@ From motoko, test SSH access to other devices:
 
 ```bash
 # Test SSH to Linux/Mac devices (uses Tailscale SSH)
-tailscale ssh mdt@count-zero.tail2e55fe.ts.net "hostname"
+tailscale ssh mdt@count-zero.pangolin-vega.ts.net "hostname"
 
 # Test WinRM to Windows devices (uses regular network ACL)
 # Note: Windows devices use WinRM, not SSH
@@ -128,7 +128,7 @@ ansible all -i ansible/inventory/hosts.yml -m shell -a "tailscale status"
 
 3. **Test Tailscale SSH directly**:
    ```bash
-   tailscale ssh mdt@count-zero.tail2e55fe.ts.net
+   tailscale ssh mdt@count-zero.pangolin-vega.ts.net
    ```
 
 ### Cannot Connect to Windows Devices
@@ -143,15 +143,15 @@ ansible all -i ansible/inventory/hosts.yml -m shell -a "tailscale status"
 
 ### Ansible Cannot Resolve Hostnames
 
-Ensure MagicDNS is enabled in Tailscale. The inventory uses `.tail2e55fe.ts.net` hostnames which require MagicDNS.
+Ensure MagicDNS is enabled in Tailscale. The inventory uses `.pangolin-vega.ts.net` hostnames which require MagicDNS.
 
 ## Inventory Configuration
 
 The Ansible inventory (`ansible/inventory/hosts.yml`) uses Tailscale hostnames:
 
-- Linux: `motoko.tail2e55fe.ts.net`
-- macOS: `count-zero.tail2e55fe.ts.net`
-- Windows: `armitage.tail2e55fe.ts.net`, `wintermute.tail2e55fe.ts.net`
+- Linux: `motoko.pangolin-vega.ts.net`
+- macOS: `count-zero.pangolin-vega.ts.net`
+- Windows: `armitage.pangolin-vega.ts.net`, `wintermute.pangolin-vega.ts.net`
 
 All devices use the `mdt` user for Ansible connections.
 

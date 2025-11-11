@@ -105,7 +105,7 @@ ansible -i inventory/hosts.yml armitage -m win_shell \
   -a "docker rm -f vllm-armitage; powershell -ExecutionPolicy Bypass -File C:\Users\mdt\dev\armitage\scripts\Start-VLLM.ps1 -Action Start"
 
 # 4. Wait 2-3 minutes for model load, then test
-curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+curl http://armitage.pangolin-vega.ts.net:8000/v1/models
 ```
 
 ### Then Update LiteLLM Proxy:
@@ -128,13 +128,13 @@ docker restart litellm
 ### Wintermute (Available Now)
 ```bash
 # Health
-curl http://wintermute.tail2e55fe.ts.net:8000/health
+curl http://wintermute.pangolin-vega.ts.net:8000/health
 
 # Models
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/models
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/models
 
 # Test completion
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/completions \
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "casperhansen/llama-3-8b-instruct-awq", "prompt": "Explain quantum computing in one sentence.", "max_tokens": 100}'
 ```
@@ -142,15 +142,15 @@ curl http://wintermute.tail2e55fe.ts.net:8000/v1/completions \
 ### Full Stack (After Armitage Deployment)
 ```bash
 # Via LiteLLM proxy
-curl http://motoko.tail2e55fe.ts.net:8000/v1/models
+curl http://motoko.pangolin-vega.ts.net:8000/v1/models
 
 # Test wintermute reasoner
-curl http://motoko.tail2e55fe.ts.net:8000/v1/chat/completions \
+curl http://motoko.pangolin-vega.ts.net:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "local/reasoner", "messages": [{"role": "user", "content": "Think through this step by step: What is 15% of 240?"}]}'
 
 # Test armitage chat
-curl http://motoko.tail2e55fe.ts.net:8000/v1/chat/completions \
+curl http://motoko.pangolin-vega.ts.net:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "local/chat", "messages": [{"role": "user", "content": "What is the capital of France?"}]}'
 ```
@@ -162,7 +162,7 @@ curl http://motoko.tail2e55fe.ts.net:8000/v1/chat/completions \
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     LiteLLM Proxy                          │
-│                  (motoko.tail2e55fe.ts.net:8000)          │
+│                  (motoko.pangolin-vega.ts.net:8000)          │
 │                  Status: Unhealthy (waiting for armitage)  │
 └────────────────────┬────────────────────────────────────────┘
                      │

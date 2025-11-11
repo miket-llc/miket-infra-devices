@@ -270,6 +270,6 @@
           - "To start vLLM:"
           - "  powershell -File C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1 -Action Start"
           - ""
-          - "API will be available at: http://armitage.tail2e55fe.ts.net:{{ vllm_port }}"
+          - "API will be available at: http://armitage.pangolin-vega.ts.net:{{ vllm_port }}"
           - ""
 

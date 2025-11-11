@@ -6,12 +6,8 @@ HOST="${1:-motoko}"
 PROTOCOL="rdp"
 PORT="3389"
 
-# Use Tailscale MagicDNS
-if host "${HOST}.tail2e55fe.ts.net" > /dev/null 2>&1; then
-    TARGET="${HOST}.tail2e55fe.ts.net:${PORT}"
-else
-    TARGET="${HOST}:${PORT}"
-fi
+# Use short hostname - Tailscale MagicDNS handles resolution via search domains
+TARGET="${HOST}:${PORT}"
 
 # Shift to get remaining arguments
 shift 2>/dev/null || true

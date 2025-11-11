@@ -66,9 +66,9 @@
       if "%HOST%"=="" set HOST=motoko
       
       REM Use Tailscale MagicDNS
-      ping -n 1 %HOST%.tail2e55fe.ts.net >nul 2>&1
+      ping -n 1 %HOST%.pangolin-vega.ts.net >nul 2>&1
       if %errorlevel%==0 (
-          set TARGET=%HOST%.tail2e55fe.ts.net:3389
+          set TARGET=%HOST%.pangolin-vega.ts.net:3389
       ) else (
           set TARGET=%HOST%:3389
       )
@@ -92,9 +92,9 @@
       if "%PORT%"=="" set PORT=5900
       
       REM Use Tailscale MagicDNS
-      ping -n 1 %HOST%.tail2e55fe.ts.net >nul 2>&1
+      ping -n 1 %HOST%.pangolin-vega.ts.net >nul 2>&1
       if %errorlevel%==0 (
-          set TARGET=%HOST%.tail2e55fe.ts.net:%PORT%
+          set TARGET=%HOST%.pangolin-vega.ts.net:%PORT%
       ) else (
           set TARGET=%HOST%:%PORT%
       )
@@ -156,7 +156,7 @@
   ansible.builtin.debug:
     msg:
       - "✅ Remote desktop clients installed"
-      - "RDP: Use 'rdp HOSTNAME' or 'mstsc /v:HOSTNAME.tail2e55fe.ts.net:3389'"
+      - "RDP: Use 'rdp HOSTNAME' or 'mstsc /v:HOSTNAME.pangolin-vega.ts.net:3389'"
       - "VNC: Use 'vnc HOSTNAME' or launch TigerVNC viewer manually"
       - "TigerVNC viewer location: {{ tigervnc_path.stdout | default('Check C:\\Program Files\\TigerVNC\\') }}"
       - "Examples:"

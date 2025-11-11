@@ -76,17 +76,17 @@ ansible wintermute -i inventory/hosts.yml -m win_shell \
 
 **Check LiteLLM models:**
 ```bash
-curl http://motoko.tail2e55fe.ts.net:8000/v1/models \
+curl http://motoko.pangolin-vega.ts.net:8000/v1/models \
   -H "Authorization: Bearer YOUR_TOKEN" | jq '.data[] | select(.id | contains("reasoner"))'
 ```
 
 **Test Wintermute API directly:**
 ```bash
 # Health check
-curl http://wintermute.tail2e55fe.ts.net:8000/health
+curl http://wintermute.pangolin-vega.ts.net:8000/health
 
 # List models (should show Llama 3.1 8B)
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/models | jq '.data[].id'
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/models | jq '.data[].id'
 ```
 
 ## Expected Results

@@ -168,6 +168,7 @@ server:
   host: "{{ litellm_bind_host }}"
   port: {{ litellm_port }}
   enable_cors: true
+  allowed_origins: ["*"]  # Allow all origins (for Obsidian and other clients)
   # Enable health checks
   health_check: true
   # Enable metrics endpoint

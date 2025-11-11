@@ -11,7 +11,7 @@ cd ~/miket-infra-devices
 
 ### Check Model via API
 ```bash
-curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+curl http://armitage.pangolin-vega.ts.net:8000/v1/models
 ```
 
 ### Check LiteLLM Proxy
@@ -40,7 +40,7 @@ ansible-playbook -i ansible/inventory/hosts.yml \
 
 ### LiteLLM Route
 - Model Name: `qwen2.5-7b-armitage`
-- API Base: `http://armitage.tail2e55fe.ts.net:8000/v1`
+- API Base: `http://armitage.pangolin-vega.ts.net:8000/v1`
 - Max Input Tokens: `7000`
 - Max Output Tokens: `768`
 - TPM: `80000`
@@ -68,7 +68,7 @@ vllm:
 ```bash
 # Test connectivity
 ansible armitage -i ansible/inventory/hosts.yml -m win_ping
-ping armitage.tail2e55fe.ts.net
+ping armitage.pangolin-vega.ts.net
 ```
 
 ### LiteLLM Not Routing

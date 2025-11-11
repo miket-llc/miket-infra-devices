@@ -70,7 +70,7 @@ This document clarifies the separation of concerns between `miket-infra` and `mi
 2. **Moved device runbooks** from `miket-infra/docs/runbooks/` to `miket-infra-devices/docs/runbooks/`:
    - `ssh-user-mapping.md`
    - `tailscale-ssh-setup.md`
-3. **Updated Ansible inventory** with correct tailnet domain (`tail2e55fe.ts.net`)
+3. **Updated Ansible inventory** with correct tailnet domain (`pangolin-vega.ts.net`)
 4. **Removed empty directories** from miket-infra
 5. **Created motoko setup documentation** (`docs/runbooks/motoko-ansible-setup.md`)
 

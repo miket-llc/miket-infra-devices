@@ -18,7 +18,7 @@ This works immediately - no SSH keys needed, uses Tailscale authentication.
 
 ### Option 2: Use MagicDNS
 ```bash
-ssh mdt@motoko.tail2e55fe.ts.net
+ssh mdt@motoko.pangolin-vega.ts.net
 ```
 This resolves to the Tailscale IP automatically.
 
@@ -36,8 +36,8 @@ Host motoko
 
 Or use MagicDNS:
 ```ssh
-Host motoko motoko.tail2e55fe.ts.net
-    Hostname motoko.tail2e55fe.ts.net
+Host motoko motoko.pangolin-vega.ts.net
+    Hostname motoko.pangolin-vega.ts.net
     User mdt
 ```
 

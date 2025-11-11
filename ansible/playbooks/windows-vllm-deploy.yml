@@ -44,6 +44,6 @@
           - "Auto-switcher: {{ 'Enabled' if auto_switch_enabled else 'Disabled' }}"
           - "  Scheduled task runs every {{ check_interval_minutes }} minutes"
           - ""
-          - "API will be available at: http://{{ inventory_hostname }}.tail2e55fe.ts.net:{{ vllm_port }}/v1"
+          - "API will be available at: http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ vllm_port }}/v1"
           - ""
 

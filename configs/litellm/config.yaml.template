@@ -1,14 +1,14 @@
 # LiteLLM Proxy Configuration
 # Location: /etc/litellm/config.yaml (or ~/litellm/config.yaml)
 # This file configures LiteLLM to proxy requests to vLLM instances
-# Tailnet: tail2e55fe.ts.net
+# Tailnet: pangolin-vega.ts.net
 
 model_list:
   # Armitage - Qwen2.5-7B-Instruct (8GB VRAM)
   - model_name: qwen2.5-7b-armitage
     litellm_params:
       model: openai/Qwen-Qwen2.5-7B-Instruct
-      api_base: http://armitage.tail2e55fe.ts.net:8000/v1
+      api_base: http://armitage.pangolin-vega.ts.net:8000/v1
       api_key: dummy  # vLLM doesn't require auth, but LiteLLM needs a key
     model_info:
       mode: "completion"
@@ -26,7 +26,7 @@ model_list:
   - model_name: llama-3.1-8b-wintermute
     litellm_params:
       model: openai/meta-llama/Llama-3.1-8B-Instruct-AWQ
-      api_base: http://wintermute.tail2e55fe.ts.net:8000/v1
+      api_base: http://wintermute.pangolin-vega.ts.net:8000/v1
       api_key: dummy
     model_info:
       mode: "completion"

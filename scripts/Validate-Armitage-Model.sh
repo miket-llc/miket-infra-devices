@@ -21,7 +21,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-ARMITAGE_HOST="armitage.tail2e55fe.ts.net"
+ARMITAGE_HOST="armitage.pangolin-vega.ts.net"
 ARMITAGE_VLLM_PORT=8000
 MOTOKO_LITELLM_PORT=4000
 EXPECTED_MODEL="Qwen/Qwen2.5-7B-Instruct"

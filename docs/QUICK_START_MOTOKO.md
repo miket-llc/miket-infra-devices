@@ -55,7 +55,7 @@ cd ~/miket-infra-devices
 tailscale status --json | jq '.Self.Tags'
 
 # Test SSH to other devices
-tailscale ssh mdt@count-zero.tail2e55fe.ts.net "hostname"
+tailscale ssh mdt@count-zero.pangolin-vega.ts.net "hostname"
 
 # Test Ansible connectivity
 ansible all -i ansible/inventory/hosts.yml -m ping

@@ -80,7 +80,7 @@ echo
 
 # Test SSH to Linux/Mac devices
 echo -e "${BLUE}Testing SSH to Linux/Mac devices...${NC}"
-if tailscale ssh mdt@count-zero.tail2e55fe.ts.net "hostname" &> /dev/null; then
+if tailscale ssh mdt@count-zero.pangolin-vega.ts.net "hostname" &> /dev/null; then
     echo -e "${GREEN}✅ Can SSH to count-zero${NC}"
 else
     echo -e "${YELLOW}⚠️  Cannot SSH to count-zero (may be offline or not configured)${NC}"

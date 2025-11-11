@@ -21,7 +21,7 @@ curl http://localhost:8000/health
 curl http://localhost:8000/v1/models
 
 # Test from another Tailnet node
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/models
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/models
 ```
 
 ## Monitor Logs

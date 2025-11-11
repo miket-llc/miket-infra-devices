@@ -263,6 +263,6 @@
           - "     powershell -ExecutionPolicy Bypass -File C:\\Users\\{{ ansible_user }}\\dev\\wintermute\\scripts\\Start-VLLM.ps1 -Action Status"
           - ""
           - "  4. API will be available at:"
-          - "     http://wintermute.tail2e55fe.ts.net:{{ vllm_port }}"
+          - "     http://wintermute.pangolin-vega.ts.net:{{ vllm_port }}"
           - ""
 

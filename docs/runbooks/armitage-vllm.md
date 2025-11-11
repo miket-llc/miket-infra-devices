@@ -34,7 +34,7 @@ The auto-switcher monitors:
 **LLM Serving Mode** (when idle):
 - Starts vLLM container with GPU acceleration
 - Applies development mode optimizations
-- Makes LLM API available at `http://armitage.tail2e55fe.ts.net:8000`
+- Makes LLM API available at `http://armitage.pangolin-vega.ts.net:8000`
 
 ## Setup
 
@@ -128,15 +128,15 @@ cd C:\Users\mdt\dev\armitage\scripts
 
 When vLLM is running, the API is available at:
 - **Local**: `http://localhost:8000`
-- **Tailnet**: `http://armitage.tail2e55fe.ts.net:8000`
+- **Tailnet**: `http://armitage.pangolin-vega.ts.net:8000`
 
 Test the API:
 ```bash
 # Health check
-curl http://armitage.tail2e55fe.ts.net:8000/health
+curl http://armitage.pangolin-vega.ts.net:8000/health
 
 # Chat completion
-curl http://armitage.tail2e55fe.ts.net:8000/v1/chat/completions \
+curl http://armitage.pangolin-vega.ts.net:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "mistralai/Mistral-7B-Instruct-v0.2",
@@ -242,7 +242,7 @@ ansible armitage -i ansible/inventory/hosts.yml -m debug -a "var=ansible_winrm_r
 2. Verify Tailscale connectivity:
    ```bash
    # From motoko
-   ping armitage.tail2e55fe.ts.net
+   ping armitage.pangolin-vega.ts.net
    ```
 
 3. Test WinRM connection:

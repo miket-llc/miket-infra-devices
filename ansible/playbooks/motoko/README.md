@@ -6,7 +6,7 @@ When running Ansible playbooks **on Motoko to manage Motoko itself**, you must u
 
 ### Why?
 
-The inventory is configured to use SSH (`ansible_host: motoko.tail2e55fe.ts.net`), which works great for remote management. However, when running on Motoko itself, SSH to localhost requires special key setup that may not be configured.
+The inventory is configured to use SSH (`ansible_host: motoko.pangolin-vega.ts.net`), which works great for remote management. However, when running on Motoko itself, SSH to localhost requires special key setup that may not be configured.
 
 ### Solution
 

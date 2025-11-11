@@ -9,7 +9,7 @@ Successfully deployed improved autoswitching functionality and correct model con
 
 ## Deployment Status
 
-### ✅ Wintermute (wintermute.tail2e55fe.ts.net) - DEPLOYED
+### ✅ Wintermute (wintermute.pangolin-vega.ts.net) - DEPLOYED
 
 **Model**: Llama-3.1-8B-Instruct-AWQ (`casperhansen/llama-3-8b-instruct-awq`)  
 **Context**: 8192 tokens (native max for this model)  
@@ -30,7 +30,7 @@ Successfully deployed improved autoswitching functionality and correct model con
 - Lazy GPU checking - only queries nvidia-smi when necessary
 - Checks user activity first (lightweight) before GPU status
 
-### ⏳ Armitage (armitage.tail2e55fe.ts.net) - PENDING (OFFLINE)
+### ⏳ Armitage (armitage.pangolin-vega.ts.net) - PENDING (OFFLINE)
 
 **Model**: Qwen2.5-7B-Instruct (`Qwen/Qwen2.5-7B-Instruct`)  
 **Context**: 32768 tokens (native max 32k, configured for low concurrency)  
@@ -114,7 +114,7 @@ ansible -i inventory/hosts.yml armitage -m win_shell \
   -a "docker rm -f vllm-armitage; powershell -ExecutionPolicy Bypass -File C:\Users\mdt\dev\armitage\scripts\Start-VLLM.ps1 -Action Start"
 
 # Wait 2-3 minutes for model to load, then test
-curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+curl http://armitage.pangolin-vega.ts.net:8000/v1/models
 ```
 
 ### Or use the full playbook:
@@ -165,13 +165,13 @@ ansible-playbook -i inventory/hosts.yml playbooks/deploy-litellm-config.yml
 
 ```bash
 # Health check
-curl http://wintermute.tail2e55fe.ts.net:8000/health
+curl http://wintermute.pangolin-vega.ts.net:8000/health
 
 # List models
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/models
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/models
 
 # Simple completion test
-curl http://wintermute.tail2e55fe.ts.net:8000/v1/completions \
+curl http://wintermute.pangolin-vega.ts.net:8000/v1/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "casperhansen/llama-3-8b-instruct-awq", "prompt": "Hello", "max_tokens": 50}'
 ```
@@ -180,13 +180,13 @@ curl http://wintermute.tail2e55fe.ts.net:8000/v1/completions \
 
 ```bash
 # Health check
-curl http://armitage.tail2e55fe.ts.net:8000/health
+curl http://armitage.pangolin-vega.ts.net:8000/health
 
 # List models
-curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+curl http://armitage.pangolin-vega.ts.net:8000/v1/models
 
 # Simple completion test
-curl http://armitage.tail2e55fe.ts.net:8000/v1/completions \
+curl http://armitage.pangolin-vega.ts.net:8000/v1/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "Qwen/Qwen2.5-7B-Instruct", "prompt": "Hello", "max_tokens": 50}'
 ```
@@ -195,15 +195,15 @@ curl http://armitage.tail2e55fe.ts.net:8000/v1/completions \
 
 ```bash
 # Via proxy (after armitage is online and LiteLLM config updated)
-curl http://motoko.tail2e55fe.ts.net:8000/v1/models
+curl http://motoko.pangolin-vega.ts.net:8000/v1/models
 
 # Test wintermute via proxy
-curl http://motoko.tail2e55fe.ts.net:8000/v1/chat/completions \
+curl http://motoko.pangolin-vega.ts.net:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "local/reasoner", "messages": [{"role": "user", "content": "Test"}]}'
 
 # Test armitage via proxy  
-curl http://motoko.tail2e55fe.ts.net:8000/v1/chat/completions \
+curl http://motoko.pangolin-vega.ts.net:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "local/chat", "messages": [{"role": "user", "content": "Test"}]}'
 ```

@@ -68,12 +68,12 @@ echo ""
 
 for i in {1..30}; do
     echo "Health check $i/30..."
-    if curl -s --max-time 3 http://armitage.tail2e55fe.ts.net:8000/health > /dev/null 2>&1; then
+    if curl -s --max-time 3 http://armitage.pangolin-vega.ts.net:8000/health > /dev/null 2>&1; then
         echo ""
         echo "✅ Armitage vLLM is healthy!"
         echo ""
         echo "Testing models endpoint..."
-        curl -s http://armitage.tail2e55fe.ts.net:8000/v1/models | python3 -m json.tool
+        curl -s http://armitage.pangolin-vega.ts.net:8000/v1/models | python3 -m json.tool
         echo ""
         echo "================================================"
         echo "  ✅ DEPLOYMENT COMPLETE!"
@@ -83,7 +83,7 @@ for i in {1..30}; do
         echo "  docker restart litellm"
         echo ""
         echo "Then test end-to-end:"
-        echo "  curl http://motoko.tail2e55fe.ts.net:8000/health"
+        echo "  curl http://motoko.pangolin-vega.ts.net:8000/health"
         echo ""
         exit 0
     fi

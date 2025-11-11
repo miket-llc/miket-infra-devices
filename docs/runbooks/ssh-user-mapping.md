@@ -32,7 +32,7 @@ Add to `~/.ssh/config`:
 
 ```ssh
 # Linux servers - use mdt
-Host *.tail2e55fe.ts.net motoko armitage wintermute
+Host *.pangolin-vega.ts.net motoko armitage wintermute
     User mdt
     IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
     ForwardAgent yes
@@ -55,7 +55,7 @@ Host 100.*
 With the above config:
 ```bash
 # These all work without specifying username:
-ssh motoko.tail2e55fe.ts.net
+ssh motoko.pangolin-vega.ts.net
 ssh 100.92.23.71
 
 # Or use the aliases we created:

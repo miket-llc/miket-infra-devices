@@ -24,7 +24,7 @@ If you have access to another user account with sudo privileges:
 
 ```bash
 # SSH to the device using another account
-ssh otheruser@motoko.tail2e55fe.ts.net
+ssh otheruser@motoko.pangolin-vega.ts.net
 
 # Reset mdt password
 sudo passwd mdt
@@ -191,7 +191,7 @@ After resetting a password, verify access:
 ### Linux/macOS
 ```bash
 # Test SSH with password
-ssh mdt@motoko.tail2e55fe.ts.net
+ssh mdt@motoko.pangolin-vega.ts.net
 # Enter password when prompted
 
 # Test sudo

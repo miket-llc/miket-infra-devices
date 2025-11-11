@@ -10,12 +10,12 @@ This cheatsheet provides quick connection information for all hosts in the tailn
 
 ### Linux Clients
 - **GUI**: `remmina` (Remmina Remote Desktop Client)
-- **CLI**: `rdp HOSTNAME` or `xfreerdp /v:HOSTNAME.tail2e55fe.ts.net:3389`
+- **CLI**: `rdp HOSTNAME` or `xfreerdp /v:HOSTNAME.pangolin-vega.ts.net:3389`
 - **Example**: `rdp motoko`
 
 ### Windows Clients
 - **GUI**: `mstsc` (Remote Desktop Connection)
-- **CLI**: `rdp HOSTNAME` or `mstsc /v:HOSTNAME.tail2e55fe.ts.net:3389`
+- **CLI**: `rdp HOSTNAME` or `mstsc /v:HOSTNAME.pangolin-vega.ts.net:3389`
 - **Example**: `rdp motoko`
 
 ### macOS Clients
@@ -27,34 +27,34 @@ This cheatsheet provides quick connection information for all hosts in the tailn
 
 ### MOTOKO
 
-- **Hostname**: `motoko.tail2e55fe.ts.net` (MagicDNS)
+- **Hostname**: `motoko.pangolin-vega.ts.net` (MagicDNS)
 - **Protocol**: RDP
 - **Port**: 3389
-- **Connection**: `rdp://motoko.tail2e55fe.ts.net:3389`
+- **Connection**: `rdp://motoko.pangolin-vega.ts.net:3389`
 - **Quick Connect**: `rdp motoko`
 
 ### WINTERMUTE
 
-- **Hostname**: `wintermute.tail2e55fe.ts.net` (MagicDNS)
+- **Hostname**: `wintermute.pangolin-vega.ts.net` (MagicDNS)
 - **Protocol**: RDP
 - **Port**: 3389
-- **Connection**: `rdp://wintermute.tail2e55fe.ts.net:3389`
+- **Connection**: `rdp://wintermute.pangolin-vega.ts.net:3389`
 - **Quick Connect**: `rdp wintermute`
 
 ### ARMITAGE
 
-- **Hostname**: `armitage.tail2e55fe.ts.net` (MagicDNS)
+- **Hostname**: `armitage.pangolin-vega.ts.net` (MagicDNS)
 - **Protocol**: RDP
 - **Port**: 3389
-- **Connection**: `rdp://armitage.tail2e55fe.ts.net:3389`
+- **Connection**: `rdp://armitage.pangolin-vega.ts.net:3389`
 - **Quick Connect**: `rdp armitage`
 
 ### COUNT-ZERO
 
-- **Hostname**: `count-zero.tail2e55fe.ts.net` (MagicDNS)
+- **Hostname**: `count-zero.pangolin-vega.ts.net` (MagicDNS)
 - **Protocol**: RDP
 - **Port**: 3389
-- **Connection**: `rdp://count-zero.tail2e55fe.ts.net:3389`
+- **Connection**: `rdp://count-zero.pangolin-vega.ts.net:3389`
 - **Quick Connect**: `rdp count-zero`
 
 
@@ -64,7 +64,7 @@ This cheatsheet provides quick connection information for all hosts in the tailn
 
 1. **Verify Tailscale connectivity**:
    ```bash
-   ping HOSTNAME.tail2e55fe.ts.net
+   ping HOSTNAME.pangolin-vega.ts.net
    ```
 
 2. **Check firewall rules**:
@@ -97,7 +97,7 @@ If you're on Wayland and RDP doesn't work:
 
 - All connections are restricted to Tailscale network (100.64.0.0/10)
 - No public ports are exposed
-- **MagicDNS**: Use `.tail2e55fe.ts.net` hostnames for automatic resolution
+- **MagicDNS**: Use `.pangolin-vega.ts.net` hostnames for automatic resolution
 - Network Level Authentication (NLA) enabled on Windows hosts
 
 ## Quick Reference

@@ -232,11 +232,11 @@ Tags must be approved in Tailscale admin console if not pre-authorized. Check:
 
 ### Ansible Can't Resolve Hostname
 
-Ensure MagicDNS is enabled in Tailscale. The inventory uses `.tail2e55fe.ts.net` hostnames which require MagicDNS.
+Ensure MagicDNS is enabled in Tailscale. The inventory uses `.pangolin-vega.ts.net` hostnames which require MagicDNS.
 
 ```bash
 # From motoko, test DNS resolution
-ping armitage.tail2e55fe.ts.net
+ping armitage.pangolin-vega.ts.net
 ```
 
 ## Security Notes

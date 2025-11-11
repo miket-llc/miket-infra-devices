@@ -23,11 +23,11 @@
       - ""
       - "For VNC connections (built-in):"
       - "  1. Use 'Screen Sharing' app (built-in)"
-      - "  2. Or use: open vnc://HOSTNAME.tail2e55fe.ts.net"
+      - "  2. Or use: open vnc://HOSTNAME.pangolin-vega.ts.net"
       - ""
       - "Connection examples:"
-      - "  RDP: Connect to motoko.tail2e55fe.ts.net:3389"
-      - "  VNC: vnc://motoko.tail2e55fe.ts.net:5900"
+      - "  RDP: Connect to motoko.pangolin-vega.ts.net:3389"
+      - "  VNC: vnc://motoko.pangolin-vega.ts.net:5900"
 
 - name: Create RDP connection helper script
   ansible.builtin.template:

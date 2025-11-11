@@ -36,7 +36,7 @@ ansible armitage -i ansible/inventory/hosts.yml \
 
 **Query model API:**
 ```bash
-curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+curl http://armitage.pangolin-vega.ts.net:8000/v1/models
 ```
 
 Expected response should show `Qwen/Qwen2.5-7B-Instruct` or `qwen2.5-7b-armitage`.
@@ -102,7 +102,7 @@ model_list:
   - model_name: qwen2.5-7b-armitage
     litellm_params:
       model: openai/Qwen-Qwen2.5-7B-Instruct
-      api_base: http://armitage.tail2e55fe.ts.net:8000/v1
+      api_base: http://armitage.pangolin-vega.ts.net:8000/v1
       api_key: dummy
     model_info:
       max_input_tokens: 7000
@@ -139,10 +139,10 @@ docker ps --filter name=litellm
 ansible armitage -i ansible/inventory/hosts.yml -m win_ping
 
 # Test vLLM health endpoint
-curl http://armitage.tail2e55fe.ts.net:8000/health
+curl http://armitage.pangolin-vega.ts.net:8000/health
 
 # Test vLLM models endpoint
-curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+curl http://armitage.pangolin-vega.ts.net:8000/v1/models
 
 # Test LiteLLM health endpoint
 curl http://localhost:4000/health
@@ -157,7 +157,7 @@ Expected: All endpoints should respond successfully.
 
 **Test direct vLLM API:**
 ```bash
-curl -X POST http://armitage.tail2e55fe.ts.net:8000/v1/completions \
+curl -X POST http://armitage.pangolin-vega.ts.net:8000/v1/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "Qwen/Qwen2.5-7B-Instruct",
@@ -214,8 +214,8 @@ Get-NetFirewallRule | Where-Object {$_.DisplayName -like "*8000*"}
 **Check Tailnet connectivity:**
 ```bash
 # From Motoko
-ping armitage.tail2e55fe.ts.net
-tailscale ping armitage.tail2e55fe.ts.net
+ping armitage.pangolin-vega.ts.net
+tailscale ping armitage.pangolin-vega.ts.net
 ```
 
 **Check port conflicts:**
@@ -231,7 +231,7 @@ If the wrong model is running:
 2. Verify `config.yml` has correct model
 3. Start the container: `.\Start-VLLM.ps1 -Action Start`
 4. Wait for model to load (can take 2-5 minutes)
-5. Verify: `curl http://armitage.tail2e55fe.ts.net:8000/v1/models`
+5. Verify: `curl http://armitage.pangolin-vega.ts.net:8000/v1/models`
 
 #### LiteLLM Not Routing Correctly
 
@@ -244,8 +244,8 @@ docker logs litellm
 ```
 
 **Verify API base URL:**
-- Ensure `armitage.tail2e55fe.ts.net` resolves correctly
-- Test direct connection: `curl http://armitage.tail2e55fe.ts.net:8000/v1/models`
+- Ensure `armitage.pangolin-vega.ts.net` resolves correctly
+- Test direct connection: `curl http://armitage.pangolin-vega.ts.net:8000/v1/models`
 
 **Restart LiteLLM:**
 ```bash
@@ -289,7 +289,7 @@ The report includes:
 ## Acceptance Criteria
 
 ✅ **Model Verification:**
-- `curl http://armitage.tail2e55fe.ts.net:8000/v1/models` returns only Qwen2.5-7B-Instruct
+- `curl http://armitage.pangolin-vega.ts.net:8000/v1/models` returns only Qwen2.5-7B-Instruct
 - Container args include `--model Qwen/Qwen2.5-7B-Instruct`
 - Container args include `--dtype bf16`
 - Container args include `--max-model-len 8192`

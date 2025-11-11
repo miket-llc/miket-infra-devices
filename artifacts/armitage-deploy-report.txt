@@ -25,10 +25,10 @@ Generated: 2025-11-09
 ### LiteLLM Proxy Configuration (`ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2`)
 - ✅ Model reference: Changed from `openai/Qwen/Qwen2.5-7B-Instruct-AWQ` to `openai/Qwen/Qwen2.5-7B-Instruct`
 - ✅ Concurrency: Updated `max_concurrent_requests` from `1` to `2`
-- ✅ Base URL: Updated to use correct Tailnet domain (`armitage.tail2e55fe.ts.net`)
+- ✅ Base URL: Updated to use correct Tailnet domain (`armitage.pangolin-vega.ts.net`)
 
 ### Ansible Variables (`ansible/group_vars/motoko.yml`)
-- ✅ Base URLs updated to use `tail2e55fe.ts.net` domain (MagicDNS)
+- ✅ Base URLs updated to use `pangolin-vega.ts.net` domain (MagicDNS)
 
 ## 2. Deployment Status
 
@@ -109,14 +109,14 @@ Expected output should show:
 
 3. **Check network connectivity**:
    ```bash
-   curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+   curl http://armitage.pangolin-vega.ts.net:8000/v1/models
    ```
 
 ### If LiteLLM Cannot Connect
 
 1. **Verify Tailnet connectivity**:
    ```bash
-   ping armitage.tail2e55fe.ts.net
+   ping armitage.pangolin-vega.ts.net
    ```
 
 2. **Check LiteLLM logs**:
@@ -143,7 +143,7 @@ Expected output should show:
 
 2. **Verify model name** once loaded:
    ```bash
-   curl http://armitage.tail2e55fe.ts.net:8000/v1/models
+   curl http://armitage.pangolin-vega.ts.net:8000/v1/models
    ```
    Should return model ID containing "qwen" (not "awq")
 

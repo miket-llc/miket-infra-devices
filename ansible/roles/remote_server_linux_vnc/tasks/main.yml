@@ -130,6 +130,6 @@
     msg:
       - "✅ VNC server configured to share existing session"
       - "Server: {{ 'TigerVNC' if (tigervnc_check.status.ActiveState == 'active') else 'x11vnc' }}"
-      - "Connect via VNC to: {{ inventory_hostname }}.tail2e55fe.ts.net:5900"
+      - "Connect via VNC to: {{ inventory_hostname }}.pangolin-vega.ts.net:5900"
       - "This shares the existing mdt desktop session (kiosk mode)"
 

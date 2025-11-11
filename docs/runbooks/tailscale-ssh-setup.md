@@ -2,7 +2,7 @@
 
 **Goal:** SSH from any machine to any machine on the tailnet for remote administration
 
-**Current Tailnet:** tail2e55fe.ts.net  
+**Current Tailnet:** pangolin-vega.ts.net  
 **Working:** motoko (SSH enabled)  
 **Needs Setup:** armitage, wintermute, count-zero
 
@@ -68,7 +68,7 @@ New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server (sshd)' -Enabled Tru
 # From count-zero or motoko:
 ssh Administrator@100.72.64.90  # Use Tailscale IP
 # Or if you set up a hostname:
-ssh Administrator@armitage.tail2e55fe.ts.net
+ssh Administrator@armitage.pangolin-vega.ts.net
 ```
 
 ### On wintermute (Windows) - Currently Offline
@@ -92,7 +92,7 @@ tailscale ssh mdt@motoko
 # Windows doesn't support Tailscale SSH server - use regular SSH with Tailscale IP
 ssh Administrator@100.72.64.90
 # Or if hostname resolves:
-ssh Administrator@armitage.tail2e55fe.ts.net
+ssh Administrator@armitage.pangolin-vega.ts.net
 ```
 
 ### From count-zero to wintermute (after online)
@@ -100,7 +100,7 @@ ssh Administrator@armitage.tail2e55fe.ts.net
 # Same as armitage - use regular SSH with Tailscale IP
 ssh Administrator@100.89.63.123
 # Or if hostname resolves:
-ssh Administrator@wintermute.tail2e55fe.ts.net
+ssh Administrator@wintermute.pangolin-vega.ts.net
 ```
 
 ### From motoko to count-zero (after setup)
