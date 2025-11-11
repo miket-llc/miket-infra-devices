@@ -31,16 +31,16 @@ model_list:
     rpm_limit: 60
     max_concurrent_requests: 2
 
-  # Local reasoner model - Wintermute (Llama-3.1-8B-AWQ, 8k context, deliberate reasoning)
+  # Local reasoner model - Wintermute (Llama-3-8B-AWQ, 9k context, deliberate reasoning)
   - model_name: {{ wintermute_model_name }}
     litellm_params:
       model: {{ wintermute_model_display }}
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 7000
-      max_output_tokens: 1024
-      max_tokens: 8192
+      max_input_tokens: 8000
+      max_output_tokens: 1000
+      max_tokens: 9000
     tpm_limit: 80000
     rpm_limit: 40
     max_concurrent_requests: 2
@@ -52,9 +52,9 @@ model_list:
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 7000
-      max_output_tokens: 1024
-      max_tokens: 8192
+      max_input_tokens: 8000
+      max_output_tokens: 1000
+      max_tokens: 9000
     tpm_limit: 80000
     rpm_limit: 40
     max_concurrent_requests: 2
@@ -66,9 +66,9 @@ model_list:
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 7500
-      max_output_tokens: 512
-      max_tokens: 8192
+      max_input_tokens: 8500
+      max_output_tokens: 500
+      max_tokens: 9000
     tpm_limit: 100000
     rpm_limit: 50
     max_concurrent_requests: 2

@@ -155,6 +155,7 @@ function Start-VLLM {
         "-p", "$($Config.Port):8000",
         "--restart", "unless-stopped",
         "--shm-size", "4g",
+        "-e", "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1",
         $Config.Image,
         "--model", $Config.Model,
         "--port", "8000",

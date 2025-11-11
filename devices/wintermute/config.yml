@@ -52,8 +52,8 @@ vllm:
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
-  max_model_len: 8192
-  gpu_memory_utilization: 0.85
+  max_model_len: 9000
+  gpu_memory_utilization: 0.88
   quantization: "awq"
   auto_switch: true
   check_interval_minutes: 5
