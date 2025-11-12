@@ -50,7 +50,7 @@ TESTS = [
     {
         "name": "armitage-direct",
         "base_url": f"http://{ARMITAGE_HOST}:{VLLM_PORT}",
-        "model": "Qwen/Qwen2.5-7B-Instruct-AWQ",
+        "model": "qwen2.5-7b-armitage",
         "max_input_tokens": 7000,
         "test_input_ratio": 0.75,
         "max_output_tokens": 100,

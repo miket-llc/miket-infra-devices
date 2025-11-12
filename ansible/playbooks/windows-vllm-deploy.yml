@@ -5,7 +5,7 @@
 # Works for: armitage, wintermute, and any future Windows workstation
 
 - name: Deploy vLLM scripts to Windows workstation
-  hosts: "{{ target_hosts | default('windows') }}"
+  hosts: "{{ target_hosts | default('windows_workstations') }}"
   gather_facts: no
   vars_files:
     - ../group_vars/windows/vault.yml
@@ -29,7 +29,7 @@
           - ""
           - "✅ vLLM scripts deployed successfully to {{ inventory_hostname | capitalize }}"
           - ""
-          - "Current container status: {{ 'Running' if 'EXISTS_RUNNING' in container_check.stdout else 'Not running' }}"
+          - "Current container status: {{ 'Running' if (container_check is defined and container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout) else 'Unknown (check with docker ps)' }}"
           - ""
           - "To manage vLLM (PowerShell):"
           - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Start"

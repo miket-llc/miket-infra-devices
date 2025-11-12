@@ -5,10 +5,10 @@
 - name: Deploy vLLM scripts to Armitage
   hosts: armitage
   gather_facts: no
-  # vars_files:
-  #   - ../group_vars/windows/vault.yml
+  vars_files:
+    - ../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_armitage_password | default('MonkeyB0y') }}"
+    ansible_password: "{{ vault_armitage_password }}"
     vllm_model: "{{ vllm_model_name | default('Qwen/Qwen2.5-7B-Instruct') }}"
     vllm_port: "{{ vllm_api_port | default(8000) }}"
     vllm_container_name: "vllm-armitage"

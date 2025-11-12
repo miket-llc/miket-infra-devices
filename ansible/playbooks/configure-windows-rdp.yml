@@ -1,0 +1,27 @@
+---
+# Playbook: configure-windows-rdp.yml
+# Configures RDP on all Windows devices with Group Policy settings
+# This ensures RDP stays enabled and prevents the toggle from reverting
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/configure-windows-rdp.yml
+
+- name: Configure RDP on all Windows devices
+  hosts: windows_workstations
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_become: no  # Windows doesn't use become like Linux
+    # Ensure password is resolved from vault
+    ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
+  tasks:
+    - name: Enable and configure RDP with Group Policy
+      ansible.builtin.include_role:
+        name: remote_server_windows_rdp
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ RDP configuration deployed to {{ inventory_hostname }}"
+          - "Group Policy settings configured to prevent toggle from reverting"
+          - "Connect via: {{ inventory_hostname }}.pangolin-vega.ts.net:3389"
+

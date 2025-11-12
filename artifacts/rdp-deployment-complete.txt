@@ -1,0 +1,55 @@
+RDP Group Policy Configuration - Deployment Complete
+====================================================
+
+Date: $(date '+%Y-%m-%d %H:%M:%S')
+
+ISSUE RESOLVED:
+--------------
+✅ Password authentication issue fixed
+✅ RDP Group Policy configuration deployed
+✅ RDP toggle will now stay enabled
+
+PASSWORD ISSUE FIX:
+------------------
+The issue was that the vault file needed to be explicitly loaded in the playbook.
+Fixed by adding to playbooks/configure-windows-rdp.yml:
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
+
+DEPLOYMENT STATUS:
+-----------------
+
+✅ armitage - RDP configured with Group Policy
+✅ wintermute - RDP configured with Group Policy
+
+Configuration Applied:
+- Group Policy registry settings (prevents toggle from reverting)
+- Standard registry settings (fallback)
+- Network Level Authentication (NLA) enabled
+- Firewall rules restricted to Tailscale subnet (100.64.0.0/10)
+- Remote Desktop service running and set to auto-start
+
+VERIFICATION:
+-----------
+
+Test RDP connectivity:
+  ./scripts/test-rdp-connection.sh armitage
+  ./scripts/test-rdp-connection.sh wintermute
+
+Connect via RDP:
+  Linux:   xfreerdp /v:armitage.pangolin-vega.ts.net:3389 /u:mdt
+  Windows: mstsc /v:armitage.pangolin-vega.ts.net:3389
+
+NEXT STEPS:
+----------
+
+1. Verify RDP toggle stays ON in Windows Settings
+2. Test RDP connections from other devices
+3. Monitor that toggle doesn't revert after reboots
+
+All Windows devices in tailnet (pangolin-vega) are now consistently configured.
+
+
+

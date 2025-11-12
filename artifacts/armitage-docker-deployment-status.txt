@@ -1,0 +1,88 @@
+Armitage Docker Configuration Deployment Status
+==============================================
+
+Date: $(date '+%Y-%m-%d %H:%M:%S')
+Status: WAITING - Armitage is offline
+
+MONITORING RESULTS:
+------------------
+- Armitage connectivity: OFFLINE
+- Ping test: FAILED (100% packet loss)
+- WinRM test: FAILED (connection timeout)
+- Monitoring duration: 5 minutes (30 attempts)
+- Retry interval: 10 seconds
+
+DEPLOYMENT READINESS:
+--------------------
+✅ Playbook configured: ansible/playbooks/armitage-vllm-deploy-scripts.yml
+✅ Vault password loading: Fixed (vars_files added)
+✅ User account: Updated to use 'mdt' (removed mdt_@msn.com)
+✅ Monitoring script: Created at scripts/deploy-armitage-docker-monitor.sh
+
+WHAT WILL BE DEPLOYED:
+---------------------
+1. vLLM PowerShell Scripts:
+   - Start-VLLM.ps1 → C:\Users\mdt\dev\armitage\scripts\
+   - Auto-ModeSwitcher.ps1 → C:\Users\mdt\dev\armitage\scripts\
+   - Set-WorkstationMode.ps1 → C:\Users\mdt\dev\armitage\scripts\
+
+2. Configuration Files:
+   - config.yml → C:\Users\mdt\dev\armitage\config.yml
+   - vllm_config.json → C:\ProgramData\ArmitageMode\vllm_config.json
+
+3. Docker Configuration:
+   - Docker config.json for mdt user
+   - NVIDIA Container Toolkit (if not installed)
+   - Docker service management
+
+4. Scheduled Tasks:
+   - Armitage Auto Mode Switcher (runs every 5 minutes)
+
+5. Container Management:
+   - Will restart vLLM container if already running
+   - Will pull vLLM Docker image if needed
+
+NEXT STEPS:
+----------
+When armitage comes back online:
+
+Option 1: Use the monitoring script (recommended)
+  ./scripts/deploy-armitage-docker-monitor.sh
+
+Option 2: Manual deployment
+  cd ansible
+  ansible-playbook -i inventory/hosts.yml playbooks/armitage-vllm-deploy-scripts.yml --limit armitage
+
+TROUBLESHOOTING:
+---------------
+If deployment fails, check:
+
+1. Connectivity:
+   ping armitage.pangolin-vega.ts.net
+   ansible armitage -i inventory/hosts.yml -m win_ping
+
+2. Docker Service:
+   ansible armitage -i inventory/hosts.yml -m win_shell -a 'Get-Service com.docker.service'
+
+3. Scripts Deployment:
+   ansible armitage -i inventory/hosts.yml -m win_shell -a 'Test-Path "C:\Users\mdt\dev\armitage\scripts\Start-VLLM.ps1"'
+
+4. Container Status:
+   ansible armitage -i inventory/hosts.yml -m win_shell -a 'docker ps -a --filter name=vllm-armitage'
+
+CONFIGURATION DETAILS:
+---------------------
+- Model: Qwen/Qwen2.5-7B-Instruct (from config.yml)
+- Port: 8000
+- Container: vllm-armitage
+- Image: vllm/vllm-openai:latest
+- Auto-switch: Enabled (checks every 5 minutes)
+
+The deployment will automatically:
+- Use the mdt user account (no longer mdt_@msn.com)
+- Deploy to C:\Users\mdt\dev\armitage\
+- Configure Docker for the mdt user
+- Set up scheduled tasks
+
+
+

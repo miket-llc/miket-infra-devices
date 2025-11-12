@@ -45,6 +45,22 @@ remote_protocol: rdp
 remote_port: 3389
 restrict_to_tailscale: true
 
+# vLLM Configuration
+vllm:
+  enabled: true
+  model: "casperhansen/llama-3-8b-instruct-awq"
+  served_model_name: "llama31-8b-wintermute"
+  port: 8000
+  container_name: "vllm-wintermute"
+  image: "vllm/vllm-openai:latest"
+  max_model_len: 9000
+  gpu_memory_utilization: 0.88
+  quantization: "awq"
+  tensor_parallel_size: 1
+  auto_switch: true
+  check_interval_minutes: 5
+  idle_threshold_minutes: 5
+
 # Note: Windows hosts don't use become/sudo
 # If Wintermute were Linux, these settings would enable passwordless sudo via 1Password
 # ansible_become: true

@@ -19,12 +19,13 @@ This guide documents the vLLM and LiteLLM configuration updates for increased co
   - RPM: 60
   - Concurrency: 2
 
-### Armitage (8GB VRAM)
-- **Model**: Qwen2.5-7B-Instruct (AWQ)
-- **Max Context**: 8,192 tokens
+### Armitage (8GB VRAM) - VALIDATED ✅
+- **Model**: Qwen2.5-7B-Instruct-AWQ
+- **Max Context**: 8,192 tokens (validated)
 - **Max Concurrent Sequences**: 1
 - **GPU Memory Utilization**: 0.90
-- **KV Cache Dtype**: fp8 (fallback to fp16 if unstable)
+- **KV Cache Dtype**: fp8 (memory optimization)
+- **Quantization**: AWQ (4-bit)
 - **LiteLLM Limits**:
   - max_input_tokens: 7,000
   - max_output_tokens: 768

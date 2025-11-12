@@ -1,0 +1,94 @@
+RDP Group Policy Configuration Fix - Summary
+============================================
+
+Date: $(date '+%Y-%m-%d %H:%M:%S')
+Issue: RDP toggle reverts to "Off" after manual enable
+Solution: Configure Group Policy settings to prevent toggle from reverting
+
+CHANGES MADE:
+-------------
+
+1. Updated RDP Ansible Role
+   - File: ansible/roles/remote_server_windows_rdp/tasks/main.yml
+   - Added Group Policy registry configuration
+   - Added gpupdate /force to apply changes immediately
+   - Enhanced verification to check both GP and registry settings
+
+2. Created New Playbook
+   - File: ansible/playbooks/configure-windows-rdp.yml
+   - Dedicated playbook for RDP configuration on all Windows devices
+
+3. Created PowerShell Script
+   - File: scripts/Configure-RDP-GroupPolicy.ps1
+   - Standalone script for direct deployment on Windows devices
+   - Can be run when Ansible connectivity is unavailable
+
+4. Created Deployment Scripts
+   - File: scripts/deploy-rdp-windows.sh
+   - File: scripts/test-rdp-connection.sh
+
+5. Documentation
+   - File: docs/RDP_GROUP_POLICY_FIX.md
+   - Comprehensive guide with deployment methods and troubleshooting
+
+KEY REGISTRY SETTINGS:
+----------------------
+
+Group Policy (Takes Precedence):
+  HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\fDenyTSConnections = 0
+  HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\WinStations\RDP-Tcp\UserAuthentication = 1
+
+Registry (Fallback):
+  HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\fDenyTSConnections = 0
+  HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp\UserAuthentication = 1
+
+DEPLOYMENT STATUS:
+-----------------
+
+✅ Code changes completed
+✅ Ansible role updated with Group Policy configuration
+✅ Playbook created for all Windows devices
+✅ PowerShell script created for direct deployment
+✅ Deployment scripts created
+✅ Documentation created
+
+⚠️  Ansible deployment pending (requires WinRM password from vault)
+   - Alternative: Run PowerShell script directly on armitage
+
+NEXT STEPS:
+----------
+
+1. Deploy via Ansible (when WinRM password is available):
+   ./scripts/deploy-rdp-windows.sh armitage
+
+2. OR Deploy directly on armitage:
+   - Copy scripts/Configure-RDP-GroupPolicy.ps1 to armitage
+   - Run as Administrator: .\Configure-RDP-GroupPolicy.ps1
+
+3. Verify RDP is enabled:
+   - Check Windows Settings > System > Remote Desktop (should stay ON)
+   - Test connection: ./scripts/test-rdp-connection.sh armitage
+
+4. Apply to all Windows devices:
+   ./scripts/deploy-rdp-windows.sh  # (all Windows devices)
+
+CONNECTION INFO:
+---------------
+
+Hostname: armitage.pangolin-vega.ts.net
+Port: 3389
+Protocol: RDP with NLA
+Firewall: Restricted to Tailscale subnet (100.64.0.0/10)
+
+TESTING:
+-------
+
+Test connectivity:
+  ./scripts/test-rdp-connection.sh armitage
+
+Connect via RDP:
+  Linux:   xfreerdp /v:armitage.pangolin-vega.ts.net:3389 /u:mdt
+  Windows: mstsc /v:armitage.pangolin-vega.ts.net:3389
+
+
+

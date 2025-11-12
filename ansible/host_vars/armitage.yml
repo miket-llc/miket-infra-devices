@@ -44,3 +44,21 @@ roles:
 remote_protocol: rdp
 remote_port: 3389
 restrict_to_tailscale: true
+
+# vLLM Configuration
+vllm:
+  enabled: true
+  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
+  served_model_name: "qwen2.5-7b-armitage"
+  port: 8000
+  container_name: "vllm-armitage"
+  image: "vllm/vllm-openai:latest"
+  quantization: "awq"
+  max_model_len: 8192
+  max_num_seqs: 1
+  gpu_memory_utilization: 0.90
+  kv_cache_dtype: "fp8"
+  tensor_parallel_size: 1
+  auto_switch: true
+  check_interval_minutes: 5
+  idle_threshold_minutes: 5

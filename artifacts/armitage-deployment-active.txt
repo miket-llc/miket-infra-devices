@@ -1,0 +1,61 @@
+Armitage Docker Deployment - Active Monitoring
+==============================================
+
+Status: MONITORING ACTIVE
+Started: $(date '+%Y-%m-%d %H:%M:%S')
+
+DEPLOYMENT PROCESS:
+------------------
+✅ Monitoring script running in background
+✅ Will automatically deploy when armitage comes online
+✅ Checks connectivity every 10 seconds
+✅ Maximum 30 retry attempts (5 minutes total)
+
+MONITORING LOG:
+--------------
+Location: /tmp/armitage-deploy-monitor.log
+View live: tail -f /tmp/armitage-deploy-monitor.log
+
+DEPLOYMENT LOG:
+--------------
+Location: /tmp/armitage-docker-deploy-YYYYMMDD_HHMMSS.log
+(Will be created when deployment starts)
+
+WHAT WILL HAPPEN:
+----------------
+1. Script monitors armitage.pangolin-vega.ts.net connectivity
+2. When ping succeeds, checks WinRM accessibility
+3. When both succeed, runs deployment playbook
+4. Verifies deployment success
+5. Reports completion status
+
+TO CHECK STATUS:
+---------------
+# View monitoring progress
+tail -f /tmp/armitage-deploy-monitor.log
+
+# Check if process is running
+ps aux | grep deploy-armitage-docker-monitor
+
+# Check connectivity manually
+ping armitage.pangolin-vega.ts.net
+ansible armitage -i inventory/hosts.yml -m win_ping
+
+TO STOP MONITORING:
+------------------
+# Find the process
+ps aux | grep deploy-armitage-docker-monitor
+
+# Kill it (replace PID with actual process ID)
+kill <PID>
+
+DEPLOYMENT WILL INCLUDE:
+-----------------------
+- vLLM scripts to C:\Users\mdt\dev\armitage\scripts\
+- Configuration files
+- Docker setup for mdt user
+- Scheduled tasks
+- Container management
+
+
+

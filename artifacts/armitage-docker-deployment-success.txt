@@ -1,0 +1,70 @@
+Armitage Docker Configuration Deployment - SUCCESS
+==================================================
+
+Date: $(date '+%Y-%m-%d %H:%M:%S')
+Status: ✅ DEPLOYMENT COMPLETE
+
+DEPLOYMENT SUMMARY:
+-------------------
+✅ Playbook: windows-vllm-deploy.yml (role-based architecture)
+✅ Role: windows-vllm-deploy
+✅ Scripts deployed to: C:\Users\mdt\dev\armitage\scripts\
+✅ Configuration deployed to: C:\ProgramData\ArmitageMode\
+✅ Scheduled task created: Armitage Auto Mode Switcher
+✅ Docker service: Running
+✅ vLLM container: STARTED and loading model
+
+CONTAINER STATUS:
+----------------
+Container Name: vllm-armitage
+Status: Running (model loading in progress)
+Model: Qwen/Qwen2.5-7B-Instruct-AWQ
+Port: 8000
+API Endpoint: http://armitage.pangolin-vega.ts.net:8000/v1
+
+MODEL LOADING:
+-------------
+The model is currently loading. This typically takes 2-5 minutes.
+You can monitor progress with:
+  docker logs vllm-armitage -f
+
+Once loaded, the API will be available at:
+  http://armitage.pangolin-vega.ts.net:8000/v1/models
+
+DEPLOYED FILES:
+--------------
+- Start-VLLM.ps1 → C:\Users\mdt\dev\armitage\scripts\
+- Auto-ModeSwitcher.ps1 → C:\Users\mdt\dev\armitage\scripts\
+- Set-WorkstationMode.ps1 → C:\Users\mdt\dev\armitage\scripts\
+- config.yml → C:\Users\mdt\dev\armitage\config.yml
+- vllm_config.json → C:\ProgramData\ArmitageMode\vllm_config.json
+
+CONFIGURATION:
+-------------
+- Model: Qwen/Qwen2.5-7B-Instruct-AWQ
+- Max Model Length: 16384
+- Max Num Seqs: 1
+- GPU Memory Utilization: 0.85
+- Served Model Name: qwen2.5-7b-armitage
+- Auto-switch: Enabled (checks every 5 minutes)
+
+NEXT STEPS:
+----------
+1. Wait for model to finish loading (2-5 minutes)
+2. Verify API: curl http://armitage.pangolin-vega.ts.net:8000/v1/models
+3. Container will auto-restart on reboot (--restart unless-stopped)
+
+TROUBLESHOOTING:
+---------------
+If container stops:
+  cd C:\Users\mdt\dev\armitage\scripts
+  .\Start-VLLM.ps1 -Action Start
+
+Check logs:
+  docker logs vllm-armitage --tail 50
+
+Check status:
+  docker ps --filter name=vllm-armitage
+
+
+

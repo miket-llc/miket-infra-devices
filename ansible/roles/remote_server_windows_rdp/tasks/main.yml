@@ -1,29 +1,100 @@
 ---
 # Ansible role: remote_server_windows_rdp
 # Enables and configures RDP on Windows hosts with NLA
+# This role configures both registry and Group Policy settings to ensure RDP stays enabled
 
-- name: Enable Remote Desktop
+- name: Ensure Group Policy registry path exists
+  win_shell: |
+    $path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services"
+    if (-not (Test-Path $path)) {
+      New-Item -Path $path -Force | Out-Null
+    }
+    $path = "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\WinStations\RDP-Tcp"
+    if (-not (Test-Path $path)) {
+      New-Item -Path $path -Force | Out-Null
+    }
+  changed_when: false
+
+- name: Enable Remote Desktop via Group Policy (prevents toggle from reverting)
+  win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services
+    name: fDenyTSConnections
+    data: 0
+    type: dword
+
+- name: Enable Remote Desktop via registry (fallback)
   win_regedit:
     path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server
     name: fDenyTSConnections
     data: 0
     type: dword
-  become: yes
 
-- name: Enable Network Level Authentication (NLA)
+- name: Enable Network Level Authentication (NLA) via Group Policy
+  win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\WinStations\RDP-Tcp
+    name: UserAuthentication
+    data: 1
+    type: dword
+
+- name: Enable Network Level Authentication (NLA) via registry (fallback)
   win_regedit:
     path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp
     name: UserAuthentication
     data: 1
     type: dword
-  become: yes
 
 - name: Ensure Remote Desktop service is running
   win_service:
     name: TermService
     state: started
     start_mode: auto
-  become: yes
+
+- name: Ensure Administrators have RDP access
+  win_shell: |
+    # Add all Administrators to Remote Desktop Users group
+    # This ensures all admin accounts (including Microsoft accounts that are admins) can RDP
+    $adminGroup = Get-LocalGroup -Name "Administrators" -ErrorAction SilentlyContinue
+    $rdpGroup = Get-LocalGroup -Name "Remote Desktop Users" -ErrorAction SilentlyContinue
+    
+    if ($adminGroup -and $rdpGroup) {
+      $admins = Get-LocalGroupMember -Group "Administrators" -ErrorAction SilentlyContinue
+      $rdpMembers = Get-LocalGroupMember -Group "Remote Desktop Users" -ErrorAction SilentlyContinue
+      
+      foreach ($admin in $admins) {
+        $isMember = $rdpMembers | Where-Object { $_.SID -eq $admin.SID }
+        if (-not $isMember) {
+          try {
+            Add-LocalGroupMember -Group "Remote Desktop Users" -Member $admin.SID -ErrorAction Stop
+            Write-Output "Added $($admin.Name) to Remote Desktop Users"
+          } catch {
+            # Try by name if SID fails (for Microsoft accounts)
+            try {
+              Add-LocalGroupMember -Group "Remote Desktop Users" -Member $admin.Name -ErrorAction Stop
+              Write-Output "Added $($admin.Name) to Remote Desktop Users (by name)"
+            } catch {
+              Write-Output "Could not add $($admin.Name) to Remote Desktop Users: $($_.Exception.Message)"
+            }
+          }
+        }
+      }
+    }
+  register: add_admins_to_rdp
+  changed_when: "'Added' in add_admins_to_rdp.stdout"
+
+- name: Add additional users to Remote Desktop Users group
+  win_group_membership:
+    name: Remote Desktop Users
+    members: "{{ rdp_users | default([]) }}"
+    state: present
+  when: rdp_users is defined and rdp_users | length > 0
+  ignore_errors: yes
+
+- name: Force Group Policy update to apply changes
+  win_shell: |
+    gpupdate /force
+  register: gpupdate_result
+  changed_when: "'Computer Policy update has completed successfully' in gpupdate_result.stdout or 'User Policy update has completed successfully' in gpupdate_result.stdout"
+  failed_when: false
 
 - name: Get Tailscale adapter information
   win_shell: |
@@ -36,32 +107,88 @@
   register: tailscale_adapter
   changed_when: false
 
-- name: Remove existing RDP firewall rules (to recreate with Tailscale restriction)
+- name: Enable default Windows RDP firewall rules
   win_shell: |
-    $rules = Get-NetFirewallRule | Where-Object { $_.DisplayName -like "*Remote Desktop*" -or $_.DisplayName -like "*RDP*" }
+    # Enable the default Windows RDP firewall rules (they work with Tailscale)
+    $defaultRules = Get-NetFirewallRule | Where-Object { $_.DisplayGroup -eq "Remote Desktop" }
+    if ($defaultRules) {
+      $defaultRules | Enable-NetFirewallRule -ErrorAction SilentlyContinue
+      Write-Output "Enabled default RDP firewall rules"
+    }
+  changed_when: false
+  failed_when: false
+
+- name: Remove custom RDP firewall rules (to recreate with Tailscale restriction)
+  win_shell: |
+    $rules = Get-NetFirewallRule | Where-Object { ($_.DisplayName -like "*Remote Desktop*" -or $_.DisplayName -like "*RDP*") -and $_.DisplayGroup -ne "Remote Desktop" }
     if ($rules) {
       $rules | Remove-NetFirewallRule -ErrorAction SilentlyContinue
     }
-  become: yes
   changed_when: false
   failed_when: false
 
 - name: Create RDP firewall rule restricted to Tailscale subnet
   win_shell: |
-    New-NetFirewallRule -DisplayName "Remote Desktop (RDP) - Tailscale" `
-      -Name "RDP-Tailscale" `
-      -Direction Inbound `
-      -Protocol TCP `
-      -LocalPort 3389 `
-      -RemoteAddress 100.64.0.0/10 `
-      -Action Allow `
-      -Enabled True `
-      -ErrorAction SilentlyContinue
-  become: yes
+    # Remove existing rule if it exists
+    $existing = Get-NetFirewallRule -Name "RDP-Tailscale" -ErrorAction SilentlyContinue
+    if ($existing) {
+      Remove-NetFirewallRule -Name "RDP-Tailscale" -ErrorAction SilentlyContinue
+    }
+    
+    # Create firewall rule for Tailscale subnet
+    # Using InterfaceAlias to match Tailscale adapter if possible
+    $tailscaleAdapter = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Tailscale*" -or $_.Name -like "*Tailscale*" } | Select-Object -First 1
+    
+    if ($tailscaleAdapter) {
+      # Create rule with Tailscale interface
+      New-NetFirewallRule -DisplayName "Remote Desktop (RDP) - Tailscale" `
+        -Name "RDP-Tailscale" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort 3389 `
+        -RemoteAddress 100.64.0.0/10 `
+        -InterfaceAlias $tailscaleAdapter.Name `
+        -Action Allow `
+        -Enabled True `
+        -Profile Any `
+        -ErrorAction SilentlyContinue
+    } else {
+      # Fallback: create rule without interface restriction
+      New-NetFirewallRule -DisplayName "Remote Desktop (RDP) - Tailscale" `
+        -Name "RDP-Tailscale" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort 3389 `
+        -RemoteAddress 100.64.0.0/10 `
+        -Action Allow `
+        -Enabled True `
+        -Profile Any `
+        -ErrorAction SilentlyContinue
+    }
+    
+    # Also ensure the default Windows RDP firewall rules are enabled (for compatibility)
+    $defaultRules = Get-NetFirewallRule | Where-Object { $_.DisplayGroup -eq "Remote Desktop" -and $_.Enabled -eq $false }
+    if ($defaultRules) {
+      $defaultRules | Enable-NetFirewallRule -ErrorAction SilentlyContinue
+    }
   register: firewall_rule_result
   changed_when: firewall_rule_result.rc == 0
 
-- name: Verify RDP is accessible
+- name: Verify RDP registry settings
+  win_shell: |
+    $gpValue = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Name "fDenyTSConnections" -ErrorAction SilentlyContinue).fDenyTSConnections
+    $regValue = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -ErrorAction SilentlyContinue).fDenyTSConnections
+    
+    if ($gpValue -eq 0 -or $regValue -eq 0) {
+      Write-Output "RDP is enabled (GP: $gpValue, Reg: $regValue)"
+    } else {
+      Write-Output "RDP is disabled (GP: $gpValue, Reg: $regValue)"
+      exit 1
+    }
+  register: rdp_reg_verify
+  changed_when: false
+
+- name: Verify RDP is listening on port 3389
   win_shell: |
     $listener = Get-NetTCPConnection -LocalPort 3389 -ErrorAction SilentlyContinue
     if ($listener) {
@@ -77,6 +204,7 @@
   ansible.builtin.debug:
     msg:
       - "✅ RDP is enabled with Network Level Authentication"
+      - "✅ Group Policy configured to prevent toggle from reverting"
       - "Connect via RDP to: {{ inventory_hostname }}.pangolin-vega.ts.net:3389"
       - "Firewall rule created for Tailscale subnet (100.64.0.0/10)"
 

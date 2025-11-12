@@ -1,0 +1,50 @@
+# {{ ansible_managed }}
+# vLLM Configuration for {{ inventory_hostname }}
+# Deployed via Ansible - DO NOT EDIT MANUALLY
+# Source: ansible/host_vars/{{ inventory_hostname }}.yml
+
+device:
+  hostname: {{ inventory_hostname }}
+  type: {{ hardware.model | default('workstation') }}
+  location: {{ 'mobile' if inventory_hostname == 'armitage' else 'fixed' }}
+  primary_user: mdt
+
+hardware:
+  manufacturer: {{ hardware.vendor | default('Unknown') }}
+  model: {{ hardware.model | default('Unknown') }}
+  gpu: {{ hardware.gpu.vendor }} {{ hardware.gpu.model }} ({{ hardware.gpu.vram_gb }}GB VRAM)
+  memory: {{ hardware.memory_gb }}GB {{ 'DDR5' if hardware.memory_gb >= 32 else 'DDR4' }}
+
+vllm:
+  enabled: {{ vllm.enabled | default(true) | lower }}
+  model: "{{ vllm_model }}"
+{% if vllm_served_model_name %}
+  served_model_name: "{{ vllm_served_model_name }}"
+{% endif %}
+  port: {{ vllm_port }}
+  container_name: "{{ vllm_container_name }}"
+  image: "{{ vllm_image }}"
+  max_model_len: {{ vllm_max_model_len }}
+{% if vllm_max_num_seqs is defined %}
+  max_num_seqs: {{ vllm_max_num_seqs }}
+{% endif %}
+  gpu_memory_utilization: {{ vllm_gpu_memory_utilization }}
+{% if vllm_quantization %}
+  quantization: "{{ vllm_quantization }}"
+{% endif %}
+{% if vllm_kv_cache_dtype %}
+  kv_cache_dtype: "{{ vllm_kv_cache_dtype }}"
+{% endif %}
+  tensor_parallel_size: {{ vllm_tensor_parallel_size }}
+{% if vllm_dtype %}
+  dtype: "{{ vllm_dtype }}"
+{% endif %}
+  auto_switch: {{ auto_switch_enabled | lower }}
+  check_interval_minutes: {{ check_interval_minutes }}
+  idle_threshold_minutes: {{ idle_threshold_minutes }}
+
+notes:
+  - Configuration managed by Ansible
+  - To modify: Edit ansible/host_vars/{{ inventory_hostname }}.yml
+  - Redeploy with: ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-deploy.yml --limit {{ inventory_hostname }}
+

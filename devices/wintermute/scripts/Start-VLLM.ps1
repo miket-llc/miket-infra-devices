@@ -37,6 +37,7 @@ $Config = @{
     GpuMemoryUtilization = 0.85
     TensorParallelSize = 1
     Quantization = $null
+    ServedModelName = $null
 }
 
 if (Test-Path $ConfigPath) {
@@ -60,6 +61,9 @@ if (Test-Path $ConfigPath) {
         }
         if ($yamlContent -match 'quantization:\s*"([^"]+)"') {
             $Config.Quantization = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'served_model_name:\s*"([^"]+)"') {
+            $Config.ServedModelName = $matches[1].Trim()
         }
     } catch {
         Write-Warning "Could not parse config file: $_"
@@ -137,6 +141,9 @@ function Start-VLLM {
     Write-Host "  Model: $($Config.Model)"
     Write-Host "  Port: $($Config.Port)"
     Write-Host "  Container: $($Config.ContainerName)"
+    if ($Config.ServedModelName) {
+        Write-Host "  Served Model Name: $($Config.ServedModelName)"
+    }
     
     # Check if container exists and remove if stopped
     if ($status -eq "stopped") {
@@ -165,10 +172,16 @@ function Start-VLLM {
         "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString()
     )
     
-    # Add quantization parameter if specified
+    # Add quantization parameter if specified (must come before other vLLM args)
     if ($Config.Quantization) {
         $dockerArgs += "--quantization"
         $dockerArgs += $Config.Quantization
+    }
+    
+    # Add served-model-name if specified (required for LiteLLM routing)
+    if ($Config.ServedModelName) {
+        $dockerArgs += "--served-model-name"
+        $dockerArgs += $Config.ServedModelName
     }
     
     try {

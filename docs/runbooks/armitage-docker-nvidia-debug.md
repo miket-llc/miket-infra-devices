@@ -12,7 +12,7 @@ You're trying to run vLLM on Armitage (Windows 11) using Docker Desktop with NVI
 Run the debugging script locally on Armitage:
 
 ```powershell
-cd C:\Users\mdt_\dev\miket-infra-devices\devices\armitage\scripts
+cd C:\Users\mdt\dev\armitage\scripts
 .\Debug-DockerNvidia.ps1
 ```
 
@@ -84,7 +84,7 @@ Should show GPU information. If it fails, NVIDIA Container Toolkit isn't working
 ### 2. Test vLLM Container
 
 ```powershell
-cd C:\Users\mdt_\dev\armitage\scripts
+cd C:\Users\mdt\dev\armitage\scripts
 .\Start-VLLM.ps1 -Action Start
 .\Start-VLLM.ps1 -Action Status
 .\Start-VLLM.ps1 -Action Logs
@@ -135,7 +135,7 @@ If you're debugging from motoko, you can:
 ssh armitage
 
 # Run the debug script
-cd C:\Users\mdt_\dev\miket-infra-devices\devices\armitage\scripts
+cd C:\Users\mdt\dev\armitage\scripts
 powershell -ExecutionPolicy Bypass -File .\Debug-DockerNvidia.ps1
 
 # Check Docker status

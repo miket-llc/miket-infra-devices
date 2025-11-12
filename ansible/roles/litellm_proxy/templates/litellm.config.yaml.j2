@@ -3,19 +3,19 @@
 # Routes requests to local models (Armitage, Wintermute) and OpenAI fallback
 
 model_list:
-  # Local chat model - Armitage (Qwen2.5-7B-AWQ, 16k context, fast default)
+  # Local chat model - Armitage (Qwen2.5-7B-AWQ, 8k context, fast default)
   - model_name: local/chat
     litellm_params:
       model: openai/qwen2.5-7b-armitage
       api_base: "{{ armitage_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 15000
-      max_output_tokens: 1024
-      max_tokens: 16384
-    tpm_limit: 120000
-    rpm_limit: 60
-    max_concurrent_requests: 2
+      max_input_tokens: 7000
+      max_output_tokens: 768
+      max_tokens: 8192
+    tpm_limit: 80000
+    rpm_limit: 40
+    max_concurrent_requests: 1
 
   # Armitage model alias (explicit)
   - model_name: qwen2.5-7b-armitage
@@ -24,12 +24,12 @@ model_list:
       api_base: "{{ armitage_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 15000
-      max_output_tokens: 1024
-      max_tokens: 16384
-    tpm_limit: 120000
-    rpm_limit: 60
-    max_concurrent_requests: 2
+      max_input_tokens: 7000
+      max_output_tokens: 768
+      max_tokens: 8192
+    tpm_limit: 80000
+    rpm_limit: 40
+    max_concurrent_requests: 1
 
   # Local reasoner model - Wintermute (Llama-3-8B-AWQ, 9k context, deliberate reasoning)
   - model_name: {{ wintermute_model_name }}

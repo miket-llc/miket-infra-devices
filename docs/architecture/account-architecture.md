@@ -12,7 +12,7 @@ User accounts are used for daily interactive use and are context-specific:
 
 | Context | Account Type | Example | Usage |
 |---------|-------------|---------|-------|
-| **Personal** | Microsoft Account | `mdt_@msn.com` | Personal use, gaming, personal projects |
+| **Personal** | Local Account | `mdt` | Personal use, gaming, personal projects (simplified to local account only) |
 | **Day Job** | Employer Account | (varies) | Work tasks, employer-managed resources |
 | **Business** | Entra ID | `mike@miket.io` | Business infrastructure, miket.io services |
 
@@ -60,8 +60,8 @@ Service accounts for specific applications and services (to be implemented when 
 | Device | OS | User Accounts | Automation Account |
 |--------|----|--------------|-------------------|
 | motoko | Linux | (varies) | `mdt` (local) |
-| armitage | Windows | `mdt_@msn.com`, `mike@miket.io` | `mdt` (local) |
-| wintermute | Windows | `mdt_@msn.com`, `mike@miket.io` | `mdt` (local) |
+| armitage | Windows | `mdt` (local) | `mdt` (local, automation) |
+| wintermute | Windows | `mdt` (local) | `mdt` (local, automation) |
 | count-zero | macOS | `miket` (local) | `mdt` (local) |
 
 ## Implementation Details
@@ -69,7 +69,7 @@ Service accounts for specific applications and services (to be implemented when 
 ### Windows Devices
 
 **User Accounts:**
-- Microsoft accounts (`mdt_@msn.com`) for personal use
+- Local account (`mdt`) for personal use and automation (simplified approach)
 - Entra ID account (`mike@miket.io`) for business use
 - Day job account (varies by employer)
 

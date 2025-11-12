@@ -45,25 +45,40 @@
     path: "{{ scripts_dest }}"
     state: directory
 
-- name: Deploy vLLM PowerShell scripts
+- name: Deploy vLLM PowerShell scripts (from devices repo - generic)
   win_copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
   loop: "{{ vllm_powershell_scripts }}"
+  when: vllm_powershell_scripts is defined
 
-- name: Create vLLM configuration directory
+- name: Create device config directory
+  win_file:
+    path: "C:\\Users\\mdt\\dev\\{{ inventory_hostname }}"
+    state: directory
+
+- name: Deploy vLLM config.yml (IaC-managed, templated from host_vars)
+  win_template:
+    src: vllm_config.yml.j2
+    dest: "C:\\Users\\mdt\\dev\\{{ inventory_hostname }}\\config.yml"
+  notify: Restart vLLM container
+
+- name: Create vLLM configuration directory (ProgramData)
   win_file:
     path: "{{ vllm_config_dir }}"
     state: directory
 
-- name: Write vLLM config file
+- name: Write vLLM runtime config file (legacy JSON format)
   win_copy:
     content: |
       {
         "model": "{{ vllm_model }}",
+        "served_model_name": "{{ vllm_served_model_name }}",
         "port": {{ vllm_port }},
         "container_name": "{{ vllm_container_name }}",
         "image": "{{ vllm_image }}",
+        "max_model_len": {{ vllm_max_model_len }},
+        "gpu_memory_utilization": {{ vllm_gpu_memory_utilization }},
         "auto_switch": {{ auto_switch_enabled | lower }}
       }
     dest: "{{ vllm_config_dir }}\\vllm_config.json"
