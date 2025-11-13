@@ -49,6 +49,7 @@ scheduled_task_run_level: highest
 wsl2:
   enabled: true
   default_distro: Ubuntu
+  version: "24.04"  # Use Ubuntu 24.04 (remove 22.04 if present)
   nvidia_toolkit_required: true
 
 # Common Windows roles
@@ -58,6 +59,7 @@ wsl2:
 #   - gaming-mode
 #   - cuda-development
 #   - docker-desktop
+
 
 
 

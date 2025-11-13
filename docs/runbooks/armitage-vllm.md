@@ -222,14 +222,17 @@ If you encounter WinRM timeouts during deployment:
 
 **Solution:**
 
-WinRM timeout settings are now configured in `ansible/group_vars/windows/main.yml`:
-- `ansible_winrm_read_timeout: 600` (10 minutes)
-- `ansible_winrm_operation_timeout: 600` (10 minutes)
+WinRM timeout settings are configured in `ansible/ansible.cfg` under the `[winrm]` section:
+- `read_timeout = 600` (10 minutes)
+- `operation_timeout = 600` (10 minutes)
+- `connection_timeout = 60` (1 minute)
+
+**Note:** These settings must be in `ansible.cfg`, not as inventory variables (`ansible_winrm_*`), because pywinrm doesn't support those inventory variable names.
 
 **Verify configuration:**
 ```bash
-# Check that timeout settings are loaded
-ansible armitage -i ansible/inventory/hosts.yml -m debug -a "var=ansible_winrm_read_timeout"
+# Check WinRM timeout settings in ansible.cfg
+grep -A 5 "^\[winrm\]" ansible/ansible.cfg
 ```
 
 **If timeouts persist:**

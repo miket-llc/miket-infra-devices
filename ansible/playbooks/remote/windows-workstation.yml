@@ -1,10 +1,14 @@
 ---
 # Ansible playbook for managing Windows workstations (Armitage, Wintermute)
-# Run from Linux control node (motoko) with: ansible-playbook -i inventory/hosts.yml playbooks/windows-workstation.yml --limit armitage
+# Run from Linux control node (motoko) with: ansible-playbook -i inventory/hosts.yml playbooks/remote/windows-workstation.yml --limit windows_workstations --ask-vault-pass
 
 - name: Configure Windows Workstations
   hosts: windows
   gather_facts: yes
+  vars_files:
+    - ../../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
   
   tasks:
     - name: Ensure WinRM is configured
@@ -34,6 +38,14 @@
         - nodejs
         - tailscale
       tags: [packages]
+    
+    - name: Ensure automation user is in docker-users group
+      win_group_membership:
+        name: docker-users
+        members: "{{ ansible_user }}"
+        state: present
+      when: docker_desktop.enabled | default(true)
+      tags: [docker, groups]
 
     - name: Enable WSL2 feature
       win_feature:

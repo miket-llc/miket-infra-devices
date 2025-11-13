@@ -96,83 +96,37 @@
   changed_when: "'Computer Policy update has completed successfully' in gpupdate_result.stdout or 'User Policy update has completed successfully' in gpupdate_result.stdout"
   failed_when: false
 
-- name: Get Tailscale adapter information
+- name: Ensure default Windows RDP firewall rules are enabled
   win_shell: |
-    $adapter = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Tailscale*" -or $_.Name -like "*Tailscale*" }
-    if ($adapter) {
-      $adapter | Select-Object -First 1 | Select-Object -ExpandProperty Name
-    } else {
-      Write-Output "Tailscale"
-    }
-  register: tailscale_adapter
-  changed_when: false
-
-- name: Enable default Windows RDP firewall rules
-  win_shell: |
-    # Enable the default Windows RDP firewall rules (they work with Tailscale)
+    # Enable the default Windows RDP firewall rules - these work correctly with Tailscale
+    # The default rules don't have RemoteAddress restrictions, which can cause issues
     $defaultRules = Get-NetFirewallRule | Where-Object { $_.DisplayGroup -eq "Remote Desktop" }
     if ($defaultRules) {
       $defaultRules | Enable-NetFirewallRule -ErrorAction SilentlyContinue
       Write-Output "Enabled default RDP firewall rules"
-    }
-  changed_when: false
-  failed_when: false
-
-- name: Remove custom RDP firewall rules (to recreate with Tailscale restriction)
-  win_shell: |
-    $rules = Get-NetFirewallRule | Where-Object { ($_.DisplayName -like "*Remote Desktop*" -or $_.DisplayName -like "*RDP*") -and $_.DisplayGroup -ne "Remote Desktop" }
-    if ($rules) {
-      $rules | Remove-NetFirewallRule -ErrorAction SilentlyContinue
-    }
-  changed_when: false
-  failed_when: false
-
-- name: Create RDP firewall rule restricted to Tailscale subnet
-  win_shell: |
-    # Remove existing rule if it exists
-    $existing = Get-NetFirewallRule -Name "RDP-Tailscale" -ErrorAction SilentlyContinue
-    if ($existing) {
-      Remove-NetFirewallRule -Name "RDP-Tailscale" -ErrorAction SilentlyContinue
-    }
-    
-    # Create firewall rule for Tailscale subnet
-    # Using InterfaceAlias to match Tailscale adapter if possible
-    $tailscaleAdapter = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like "*Tailscale*" -or $_.Name -like "*Tailscale*" } | Select-Object -First 1
-    
-    if ($tailscaleAdapter) {
-      # Create rule with Tailscale interface
-      New-NetFirewallRule -DisplayName "Remote Desktop (RDP) - Tailscale" `
-        -Name "RDP-Tailscale" `
-        -Direction Inbound `
-        -Protocol TCP `
-        -LocalPort 3389 `
-        -RemoteAddress 100.64.0.0/10 `
-        -InterfaceAlias $tailscaleAdapter.Name `
-        -Action Allow `
-        -Enabled True `
-        -Profile Any `
-        -ErrorAction SilentlyContinue
     } else {
-      # Fallback: create rule without interface restriction
-      New-NetFirewallRule -DisplayName "Remote Desktop (RDP) - Tailscale" `
-        -Name "RDP-Tailscale" `
-        -Direction Inbound `
-        -Protocol TCP `
-        -LocalPort 3389 `
-        -RemoteAddress 100.64.0.0/10 `
-        -Action Allow `
-        -Enabled True `
-        -Profile Any `
-        -ErrorAction SilentlyContinue
+      Write-Output "No default RDP firewall rules found"
     }
-    
-    # Also ensure the default Windows RDP firewall rules are enabled (for compatibility)
-    $defaultRules = Get-NetFirewallRule | Where-Object { $_.DisplayGroup -eq "Remote Desktop" -and $_.Enabled -eq $false }
-    if ($defaultRules) {
-      $defaultRules | Enable-NetFirewallRule -ErrorAction SilentlyContinue
+  register: enable_default_rules
+  changed_when: "'Enabled' in enable_default_rules.stdout"
+  failed_when: false
+
+- name: Remove custom RDP firewall rules that might conflict
+  win_shell: |
+    # Remove any custom RDP rules that might have RemoteAddress restrictions causing issues
+    $customRules = Get-NetFirewallRule | Where-Object { 
+      ($_.DisplayName -like "*Remote Desktop*" -or $_.DisplayName -like "*RDP*") -and 
+      $_.DisplayGroup -ne "Remote Desktop" 
     }
-  register: firewall_rule_result
-  changed_when: firewall_rule_result.rc == 0
+    if ($customRules) {
+      $customRules | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+      Write-Output "Removed custom RDP firewall rules"
+    } else {
+      Write-Output "No custom RDP firewall rules to remove"
+    }
+  register: remove_custom_rules
+  changed_when: "'Removed' in remove_custom_rules.stdout"
+  failed_when: false
 
 - name: Verify RDP registry settings
   win_shell: |

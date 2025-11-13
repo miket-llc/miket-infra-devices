@@ -14,7 +14,7 @@
   vars:
     ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
     wsl_distro: "{{ wsl2.default_distro | default('Ubuntu') }}"
-    wsl_version: "{{ wsl2.version | default('22.04') }}"
+    wsl_version: "{{ wsl2.version | default('24.04') }}"
   
   tasks:
     - name: Check current WSL status
@@ -76,20 +76,42 @@
         - "'NOT_INSTALLED' in wsl_current_status.stdout"
         - wsl_feature.changed or vm_feature.changed or wsl_feature.stdout is not defined
     
-    - name: Check if Ubuntu distribution is installed
+    - name: Check WSL distributions
       win_shell: |
-        $distros = wsl --list --quiet 2>&1
-        if ($distros -match 'Ubuntu') {
-          Write-Output "INSTALLED"
+        $distros = wsl --list --verbose 2>&1
+        $hasUbuntu2404 = $distros -match "Ubuntu-24\.04"
+        $hasUbuntu2204 = $distros -match "Ubuntu-22\.04"
+        
+        if ($hasUbuntu2404) {
+          Write-Output "UBUNTU_24_04_INSTALLED"
+        } elseif ($hasUbuntu2204) {
+          Write-Output "UBUNTU_22_04_INSTALLED"
+        } elseif ($distros -match "Ubuntu") {
+          Write-Output "UBUNTU_OTHER_INSTALLED"
         } else {
-          Write-Output "NOT_INSTALLED"
+          Write-Output "NO_UBUNTU"
         }
+        $distros
       register: ubuntu_status
       changed_when: false
       failed_when: false
       when: "'INSTALLED' in wsl_current_status.stdout"
     
-    - name: Install Ubuntu distribution
+    - name: Remove Ubuntu 22.04 if present
+      win_shell: |
+        Write-Host "Removing Ubuntu 22.04..." -ForegroundColor Yellow
+        wsl --shutdown 2>&1 | Out-Null
+        Start-Sleep -Seconds 2
+        wsl --unregister Ubuntu-22.04 2>&1
+        Write-Output "REMOVED"
+      register: ubuntu22_remove
+      changed_when: "'REMOVED' in ubuntu22_remove.stdout"
+      failed_when: false
+      when: 
+        - "'INSTALLED' in wsl_current_status.stdout"
+        - "'UBUNTU_22_04_INSTALLED' in ubuntu_status.stdout"
+    
+    - name: Install Ubuntu 24.04
       win_shell: |
         Write-Host "Installing Ubuntu {{ wsl_version }}..." -ForegroundColor Yellow
         wsl --install -d Ubuntu-{{ wsl_version }} --no-launch 2>&1
@@ -97,7 +119,47 @@
       changed_when: "'is already installed' not in ubuntu_install.stdout"
       failed_when: false
       when: 
-        - "'NOT_INSTALLED' in ubuntu_status.stdout or 'NOT_INSTALLED' in wsl_current_status.stdout"
+        - "'NO_UBUNTU' in ubuntu_status.stdout or 'UBUNTU_22_04_INSTALLED' in ubuntu_status.stdout or 'UBUNTU_OTHER_INSTALLED' in ubuntu_status.stdout or 'NOT_INSTALLED' in wsl_current_status.stdout"
+    
+    - name: Check if Ubuntu 24.04 requires first-run setup
+      win_shell: |
+        $testOutput = wsl -d Ubuntu-{{ wsl_version }} -- echo "test" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "CONFIGURED"
+        } else {
+          Write-Output "NEEDS_SETUP"
+        }
+      register: ubuntu_setup_status
+      changed_when: false
+      failed_when: false
+      when: "'UBUNTU_24_04_INSTALLED' in ubuntu_status.stdout or ubuntu_install.changed"
+    
+    - name: Warn about Ubuntu first-run setup requirement
+      debug:
+        msg:
+          - "⚠️  Ubuntu {{ wsl_version }} requires interactive first-run setup"
+          - "Run manually: wsl -d Ubuntu-{{ wsl_version }}"
+          - "When prompted, create username 'mdt' and set password"
+          - "This is a one-time setup requirement"
+      when: 
+        - "'NEEDS_SETUP' in ubuntu_setup_status.stdout"
+        - ubuntu_setup_status.stdout is defined
+    
+    - name: Ensure Ubuntu 24.04 is WSL2
+      win_shell: |
+        wsl --set-version Ubuntu-{{ wsl_version }} 2 2>&1
+      register: wsl2_version
+      changed_when: "'is already version 2' not in wsl2_version.stdout"
+      failed_when: false
+      when: "'UBUNTU_24_04_INSTALLED' in ubuntu_status.stdout or ubuntu_install.changed"
+    
+    - name: Set Ubuntu 24.04 as default
+      win_shell: |
+        wsl --set-default Ubuntu-{{ wsl_version }} 2>&1
+      register: wsl_default
+      changed_when: true
+      failed_when: false
+      when: "'UBUNTU_24_04_INSTALLED' in ubuntu_status.stdout or ubuntu_install.changed"
     
     - name: Wait for WSL to be ready
       win_shell: |
@@ -122,21 +184,36 @@
           New-Item -ItemType Directory -Path $dockerConfigDir -Force | Out-Null
         }
         
+        # Backup existing config
+        if (Test-Path $dockerConfigPath) {
+          $backupPath = "$dockerConfigPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+          Copy-Item $dockerConfigPath $backupPath -ErrorAction SilentlyContinue
+        }
+        
         # Read existing config or create new
         if (Test-Path $dockerConfigPath) {
-          $config = Get-Content $dockerConfigPath | ConvertFrom-Json
+          try {
+            $config = Get-Content $dockerConfigPath | ConvertFrom-Json
+          } catch {
+            $config = @{}
+          }
         } else {
           $config = @{}
         }
         
         # Set WSL2 backend
+        $needsUpdate = (-not $config.wslEngineEnabled)
         $config.wslEngineEnabled = $true
         
         # Save config
         $config | ConvertTo-Json -Depth 10 | Set-Content $dockerConfigPath -Encoding UTF8
-        Write-Output "Docker Desktop configured to use WSL2 backend"
+        if ($needsUpdate) {
+          Write-Output "Docker Desktop configured to use WSL2 backend"
+        } else {
+          Write-Output "Docker Desktop already configured for WSL2"
+        }
       register: docker_config
-      changed_when: true
+      changed_when: "'configured' in docker_config.stdout"
     
     - name: Display configuration summary
       debug:
@@ -151,5 +228,8 @@
           - ""
           - "{{ '⚠️  REBOOT REQUIRED' if (wsl_feature.changed | default(false) or vm_feature.changed | default(false)) else '✅ No reboot required' }}"
           - "{{ 'Please reboot ' + inventory_hostname + ' to complete WSL2 installation' if (wsl_feature.changed | default(false) or vm_feature.changed | default(false)) else '' }}"
+          - ""
+          - "{{ '⚠️  MANUAL STEP REQUIRED: Ubuntu first-run setup' if (ubuntu_setup_status.stdout is defined and 'NEEDS_SETUP' in ubuntu_setup_status.stdout) else '' }}"
+          - "{{ 'Run: wsl -d Ubuntu-' + wsl_version + ' and create mdt user' if (ubuntu_setup_status.stdout is defined and 'NEEDS_SETUP' in ubuntu_setup_status.stdout) else '' }}"
           - "================================================================"
 

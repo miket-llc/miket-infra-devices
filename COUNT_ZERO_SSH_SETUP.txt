@@ -1,0 +1,22 @@
+=================================================================================
+COUNT-ZERO SSH SETUP - RUN THIS ON COUNT-ZERO
+=================================================================================
+
+Run these commands in Terminal on count-zero:
+
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDz3izMDijshZeztWcFPw0P83v2BlKy4MOurTXcfDLfy ansible-vault-motoko" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+
+Then from motoko, test:
+  ssh mdt@count-zero.pangolin-vega.ts.net hostname
+
+=================================================================================
+NOTES:
+- SSH key is stored on motoko (control node) at ~/.ssh/id_ed25519
+- This follows Ansible best practices for infrastructure automation
+- Keys are NOT in 1Password - they're infrastructure keys, not user keys
+- Future updates will be deployed via Ansible playbooks automatically
+=================================================================================
+

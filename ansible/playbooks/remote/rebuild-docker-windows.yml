@@ -1,0 +1,338 @@
+---
+# Rebuild Docker Desktop on Windows Workstation
+# Uninstalls, cleans up old account references, ensures proper group membership, reinstalls
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/remote/rebuild-docker-windows.yml --limit wintermute --ask-vault-pass
+
+- name: Rebuild Docker Desktop on Windows Workstation
+  hosts: "{{ target_hosts | default('windows_workstations') }}"
+  gather_facts: no
+  vars_files:
+    - ../../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+  
+  tasks:
+    - name: Check for old Microsoft account references in Docker config
+      win_shell: |
+        $oldAccounts = @('mdt_@msn.com', 'mdt_')
+        $found = @()
+        
+        # Check Docker config directory
+        $dockerConfigPath = "$env:USERPROFILE\.docker"
+        if (Test-Path $dockerConfigPath) {
+          Get-ChildItem -Path $dockerConfigPath -Recurse -File | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+            foreach ($account in $oldAccounts) {
+              if ($content -match [regex]::Escape($account)) {
+                $found += "$($_.FullName): Contains $account"
+              }
+            }
+          }
+        }
+        
+        # Check registry for Docker Desktop settings
+        $regPaths = @(
+          "HKCU:\Software\Docker Inc.",
+          "HKLM:\SOFTWARE\Docker Inc."
+        )
+        foreach ($regPath in $regPaths) {
+          if (Test-Path $regPath) {
+            Get-ChildItem -Path $regPath -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              $props = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+              $props.PSObject.Properties | ForEach-Object {
+                if ($_.Value -is [string]) {
+                  foreach ($account in $oldAccounts) {
+                    if ($_.Value -match [regex]::Escape($account)) {
+                      $found += "$($_.PSPath): $($_.Name) = $($_.Value)"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        if ($found.Count -gt 0) {
+          Write-Output "FOUND_OLD_ACCOUNTS"
+          $found | ForEach-Object { Write-Output $_ }
+        } else {
+          Write-Output "NO_OLD_ACCOUNTS"
+        }
+      register: old_account_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Display old account references found
+      debug:
+        msg: "{{ old_account_check.stdout_lines }}"
+      when: 
+        - old_account_check.stdout is defined
+        - "'FOUND_OLD_ACCOUNTS' in old_account_check.stdout"
+    
+    - name: Stop Docker Desktop processes
+      win_shell: |
+        Get-Process "*docker*" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 3
+        Write-Output "DOCKER_STOPPED"
+      register: docker_stop
+      changed_when: "'DOCKER_STOPPED' in docker_stop.stdout"
+      failed_when: false
+    
+    - name: Stop Docker Desktop service if exists
+      win_service:
+        name: com.docker.service
+        state: stopped
+      ignore_errors: yes
+    
+    - name: Uninstall Docker Desktop via Chocolatey
+      win_chocolatey:
+        name: docker-desktop
+        state: absent
+      register: docker_uninstall
+      ignore_errors: yes
+    
+    - name: Remove Docker Desktop directories
+      win_file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "C:\\Users\\{{ ansible_user }}\\.docker"
+        - "C:\\ProgramData\\Docker"
+        - "C:\\ProgramData\\DockerDesktop"
+      register: docker_cleanup
+      failed_when: false
+    
+    - name: Clean up Docker registry entries
+      win_shell: |
+        $regPaths = @(
+          "HKCU:\Software\Docker Inc.",
+          "HKLM:\SOFTWARE\Docker Inc."
+        )
+        $removed = @()
+        foreach ($regPath in $regPaths) {
+          if (Test-Path $regPath) {
+            Remove-Item -Path $regPath -Recurse -Force -ErrorAction SilentlyContinue
+            $removed += $regPath
+          }
+        }
+        if ($removed.Count -gt 0) {
+          Write-Output "REMOVED_REGISTRY"
+          $removed | ForEach-Object { Write-Output $_ }
+        } else {
+          Write-Output "NO_REGISTRY_FOUND"
+        }
+      register: registry_cleanup
+      changed_when: "'REMOVED_REGISTRY' in registry_cleanup.stdout"
+      failed_when: false
+    
+    - name: Check current docker-users group membership
+      win_shell: |
+        $user = Get-LocalGroupMember -Group "docker-users" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*{{ ansible_user }}" }
+        if ($user) {
+          Write-Output "ALREADY_MEMBER"
+        } else {
+          Write-Output "NOT_MEMBER"
+        }
+      register: group_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Ensure automation user is in docker-users group
+      win_group_membership:
+        name: docker-users
+        members: "{{ ansible_user }}"
+        state: present
+      register: docker_group_add
+      when: group_check.stdout is defined and "'NOT_MEMBER' in group_check.stdout"
+    
+    - name: Warn that logout/login required for group membership
+      debug:
+        msg:
+          - "⚠️  IMPORTANT: User '{{ ansible_user }}' was added to docker-users group"
+          - "Group membership changes require logout/login or reboot to take effect"
+          - "Docker Desktop will not start properly until this is done"
+          - ""
+          - "Options:"
+          - "  1. Logout and login as {{ ansible_user }}"
+          - "  2. Reboot {{ inventory_hostname }}"
+          - ""
+          - "After logout/login, run this playbook again or manually start Docker Desktop"
+      when: docker_group_add.changed | default(false)
+    
+    - name: Fail if group membership was just added
+      fail:
+        msg: "User was added to docker-users group. Please logout/login or reboot, then run this playbook again."
+      when: docker_group_add.changed | default(false)
+    
+    - name: Install Docker Desktop via Chocolatey
+      win_chocolatey:
+        name: docker-desktop
+        state: present
+      register: docker_install
+      when: group_check.stdout is not defined or "'ALREADY_MEMBER' in group_check.stdout"
+    
+    - name: Wait for Docker Desktop installation to complete
+      win_shell: |
+        $timeout = 60
+        $elapsed = 0
+        while ($elapsed -lt $timeout) {
+          if (Test-Path "C:\Program Files\Docker\Docker\Docker Desktop.exe") {
+            Write-Output "INSTALLED"
+            exit 0
+          }
+          Start-Sleep -Seconds 5
+          $elapsed += 5
+        }
+        Write-Output "TIMEOUT"
+      register: install_wait
+      until: "'INSTALLED' in install_wait.stdout"
+      retries: 12
+      delay: 5
+    
+    - name: Start Docker Desktop service
+      win_service:
+        name: com.docker.service
+        state: started
+        start_mode: auto
+    
+    - name: Start Docker Desktop GUI
+      win_shell: |
+        # Check if Docker Desktop is already running
+        $process = Get-Process "Docker Desktop" -ErrorAction SilentlyContinue
+        if (-not $process) {
+          Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe" -WindowStyle Hidden
+          Start-Sleep -Seconds 5
+          Write-Output "DOCKER_STARTED"
+        } else {
+          Write-Output "DOCKER_ALREADY_RUNNING"
+        }
+      register: docker_start
+      when: group_check.stdout is not defined or "'ALREADY_MEMBER' in group_check.stdout"
+    
+    - name: Configure Docker Desktop for WSL2 backend
+      win_shell: |
+        $dockerConfigPath = "$env:USERPROFILE\.docker\settings.json"
+        $dockerConfigDir = Split-Path $dockerConfigPath -Parent
+        
+        if (-not (Test-Path $dockerConfigDir)) {
+          New-Item -ItemType Directory -Path $dockerConfigDir -Force | Out-Null
+        }
+        
+        # Read existing config or create new
+        if (Test-Path $dockerConfigPath) {
+          try {
+            $config = Get-Content $dockerConfigPath | ConvertFrom-Json
+          } catch {
+            $config = @{}
+          }
+        } else {
+          $config = @{}
+        }
+        
+        # Enable WSL2 engine
+        $config.wslEngineEnabled = $true
+        
+        # Enable WSL integration for Ubuntu-24.04
+        if (-not $config.wslDistroNames) {
+          $config.wslDistroNames = @()
+        }
+        if ($config.wslDistroNames -notcontains "Ubuntu-24.04") {
+          $config.wslDistroNames += "Ubuntu-24.04"
+        }
+        
+        # Set default WSL distro
+        $config.defaultDistro = "Ubuntu-24.04"
+        
+        $config | ConvertTo-Json -Depth 10 | Set-Content $dockerConfigPath -Encoding UTF8
+        Write-Output "DOCKER_CONFIGURED"
+      register: docker_config
+    
+    - name: Check if Ubuntu 24.04 needs first-run setup
+      win_shell: |
+        $testOutput = wsl -d Ubuntu-24.04 -- echo "test" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+          Write-Output "CONFIGURED"
+        } else {
+          Write-Output "NEEDS_SETUP"
+        }
+      register: ubuntu_setup_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Warn about Ubuntu first-run setup requirement
+      debug:
+        msg:
+          - "⚠️  Ubuntu 24.04 requires interactive first-run setup before Docker can use WSL2 backend"
+          - "Run manually on wintermute: wsl -d Ubuntu-24.04"
+          - "When prompted, create username 'mdt' and set password"
+          - "After setup, restart Docker Desktop"
+      when: 
+        - ubuntu_setup_check.stdout is defined
+        - "'NEEDS_SETUP' in ubuntu_setup_check.stdout"
+    
+    - name: Check if group membership is active in current session
+      win_shell: |
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object System.Security.Principal.WindowsPrincipal($currentUser)
+        $isMember = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::User)
+        $groups = $currentUser.Groups | ForEach-Object { $_.Translate([System.Security.Principal.NTAccount]).Value }
+        if ($groups -match "docker-users") {
+          Write-Output "GROUP_ACTIVE"
+        } else {
+          Write-Output "GROUP_NOT_ACTIVE"
+        }
+      register: group_active_check
+      changed_when: false
+      failed_when: false
+      when: docker_group_add.changed | default(false)
+    
+    - name: Wait for Docker to be ready (skip if group membership not active)
+      win_shell: |
+        $timeout = 300
+        $elapsed = 0
+        $dockerExe = "C:\Program Files\Docker\Docker\resources\bin\docker.exe"
+        while ($elapsed -lt $timeout) {
+          try {
+            if (Test-Path $dockerExe) {
+              $result = & $dockerExe version 2>&1
+              if ($LASTEXITCODE -eq 0 -and $result -match 'Server:') {
+                Write-Output "DOCKER_READY"
+                exit 0
+              }
+            }
+          } catch {}
+          Start-Sleep -Seconds 10
+          $elapsed += 10
+        }
+        Write-Output "DOCKER_TIMEOUT"
+      register: docker_ready
+      until: "'DOCKER_READY' in docker_ready.stdout"
+      retries: 30
+      delay: 10
+      async: 320
+      poll: 10
+      when: 
+        - ubuntu_setup_check.stdout is defined
+        - "'CONFIGURED' in ubuntu_setup_check.stdout"
+        - group_active_check.stdout is not defined or "'GROUP_ACTIVE' in group_active_check.stdout"
+      failed_when: false
+    
+    - name: Display rebuild summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Docker Desktop Rebuild Complete for {{ inventory_hostname }}"
+          - "================================================================"
+          - "{{ 'Old account references found and cleaned' if (old_account_check.stdout is defined and 'FOUND_OLD_ACCOUNTS' in old_account_check.stdout) else 'No old account references found' }}"
+          - "Docker Desktop: {{ 'Installed' if docker_install.changed else 'Already installed' }}"
+          - "docker-users group: {{ 'User already member' if ('ALREADY_MEMBER' in group_check.stdout) else 'Check required' }}"
+          - "{{ '⚠️  Ubuntu 24.04 needs first-run setup' if (ubuntu_setup_check.stdout is defined and 'NEEDS_SETUP' in ubuntu_setup_check.stdout) else '' }}"
+          - "Docker status: {{ 'Ready' if (docker_ready.stdout is defined and 'DOCKER_READY' in docker_ready.stdout) else 'Check status' }}"
+          - ""
+          - "Next steps:"
+          - "{{ '  1. Logout/login or reboot for group membership' if (docker_group_add.changed | default(false)) else '' }}"
+          - "{{ '  2. Run: wsl -d Ubuntu-24.04 (create mdt user)' if (ubuntu_setup_check.stdout is defined and 'NEEDS_SETUP' in ubuntu_setup_check.stdout) else '' }}"
+          - "  3. Verify Docker: docker version"
+          - "  4. Start vLLM container"
+          - "================================================================"
+

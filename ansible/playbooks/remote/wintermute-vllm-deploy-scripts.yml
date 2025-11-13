@@ -23,6 +23,47 @@
     wsl_scripts_dest: "/home/{{ ansible_user }}/dev/wintermute/scripts"
   
   tasks:
+    - name: Reconfigure Docker Desktop for WSL2 backend
+      win_shell: |
+        $dockerConfigPath = "$env:USERPROFILE\.docker\settings.json"
+        $dockerConfigDir = Split-Path $dockerConfigPath -Parent
+        
+        if (-not (Test-Path $dockerConfigDir)) {
+          New-Item -ItemType Directory -Path $dockerConfigDir -Force | Out-Null
+        }
+        
+        # Backup existing config
+        if (Test-Path $dockerConfigPath) {
+          $backupPath = "$dockerConfigPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+          Copy-Item $dockerConfigPath $backupPath -ErrorAction SilentlyContinue
+        }
+        
+        # Read existing or create new
+        if (Test-Path $dockerConfigPath) {
+          try {
+            $config = Get-Content $dockerConfigPath | ConvertFrom-Json
+          } catch {
+            $config = @{}
+          }
+        } else {
+          $config = @{}
+        }
+        
+        # Ensure WSL2 backend is enabled
+        $needsUpdate = (-not $config.wslEngineEnabled)
+        $config.wslEngineEnabled = $true
+        
+        # Save config
+        $config | ConvertTo-Json -Depth 10 | Set-Content $dockerConfigPath -Encoding UTF8
+        if ($needsUpdate) {
+          Write-Output "DOCKER_RECONFIGURED"
+        } else {
+          Write-Output "DOCKER_ALREADY_CONFIGURED"
+        }
+      register: docker_reconfig
+      changed_when: "'RECONFIGURED' in docker_reconfig.stdout"
+      failed_when: false
+    
     - name: Check if vLLM container is already running
       win_shell: |
         $containerStatus = docker ps --filter name={{ vllm_container_name }} --format '{{ "{{" }}.Names{{ "}}" }}' 2>&1

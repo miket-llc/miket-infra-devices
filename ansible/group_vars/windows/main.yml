@@ -1,20 +1,14 @@
 ---
 # Windows group variables for Ansible WinRM configuration
 # These settings prevent timeouts during long-running operations
-
-# WinRM timeout settings (in seconds)
-# These are critical for async tasks that run longer than default WinRM timeouts
-ansible_winrm_read_timeout: 600          # Timeout for reading from WinRM (10 minutes)
-ansible_winrm_operation_timeout: 600    # Timeout for WinRM operations (10 minutes)
-ansible_winrm_send_timeout: 300         # Timeout for sending data to WinRM (5 minutes)
+#
+# NOTE: WinRM timeout settings (read_timeout, operation_timeout, connection_timeout)
+# are configured in ansible.cfg under [winrm] section, not here as inventory variables.
+# The pywinrm library doesn't support these as ansible_winrm_* inventory variables.
 
 # Connection retry settings
-ansible_winrm_connection_timeout: 60    # Initial connection timeout (1 minute)
-ansible_winrm_max_connections: 5        # Max concurrent connections per host
-
-# Keep-alive settings to prevent connection drops
-ansible_winrm_keepalive: true
-ansible_winrm_keepalive_interval: 30   # Send keepalive every 30 seconds
+# Note: ansible_winrm_connection_timeout is supported and can be set here if needed
+# but it's already configured in ansible.cfg [winrm] section
 
 # Performance optimizations
 ansible_winrm_scheme: http              # Use HTTP (port 5985) over Tailscale

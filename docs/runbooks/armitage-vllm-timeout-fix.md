@@ -8,11 +8,12 @@ WinRM timeouts were occurring during the Armitage vLLM deployment, particularly 
 All changes follow Infrastructure as Code (IaC) and Configuration as Code (CaC) principles:
 
 ### 1. WinRM Timeout Configuration
-**File:** `ansible/group_vars/windows/main.yml` (NEW)
-- Added WinRM timeout settings for all Windows hosts
-- `ansible_winrm_read_timeout: 600` (10 minutes)
-- `ansible_winrm_operation_timeout: 600` (10 minutes)
-- `ansible_winrm_keepalive: true` to prevent connection drops
+**File:** `ansible/ansible.cfg` (NEW)
+- WinRM timeout settings configured in `[winrm]` section (not as inventory variables)
+- `read_timeout = 600` (10 minutes)
+- `operation_timeout = 600` (10 minutes)
+- `connection_timeout = 60` (1 minute)
+- Note: These settings must be in `ansible.cfg`, not in inventory variables, as pywinrm doesn't support `ansible_winrm_*` inventory variables
 
 ### 2. Enhanced Playbook Observability
 **File:** `ansible/playbooks/armitage-vllm-setup.yml`
@@ -65,8 +66,9 @@ ansible-playbook -i inventory/hosts.yml \
 
 ### Check WinRM Timeout Settings
 ```bash
-ansible armitage -i ansible/inventory/hosts.yml \
-  -m debug -a "var=ansible_winrm_read_timeout"
+# WinRM timeout settings are configured in ansible.cfg [winrm] section
+# Verify by checking ansible.cfg:
+grep -A 5 "^\[winrm\]" ansible/ansible.cfg
 ```
 
 ### Test WinRM Connection
@@ -91,9 +93,9 @@ ansible armitage -i ansible/inventory/hosts.yml -m win_ping -vvv
 
 ## Files Modified/Created
 
-- ✅ `ansible/group_vars/windows/main.yml` (NEW)
+- ✅ `ansible/ansible.cfg` (NEW) - WinRM timeout settings configured here
+- ✅ `ansible/group_vars/windows/main.yml` (MODIFIED) - Removed unsupported WinRM timeout variables
 - ✅ `ansible/playbooks/armitage-vllm-setup.yml` (MODIFIED)
-- ✅ `ansible/ansible.cfg` (NEW)
 - ✅ `scripts/deploy-armitage-vllm.sh` (NEW)
 - ✅ `docs/runbooks/armitage-vllm.md` (MODIFIED)
 
