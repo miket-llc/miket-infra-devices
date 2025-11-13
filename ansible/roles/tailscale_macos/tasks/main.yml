@@ -1,0 +1,96 @@
+---
+# Ansible role: tailscale_macos
+# Ensures Tailscale is properly configured on macOS with MagicDNS support
+# CRITICAL: Homebrew Tailscale requires manual /etc/resolver configuration
+
+- name: Check if Tailscale is installed
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/tailscale
+  register: tailscale_homebrew_arm
+  
+- name: Check if Tailscale is installed (Intel Mac)
+  ansible.builtin.stat:
+    path: /usr/local/bin/tailscale
+  register: tailscale_homebrew_intel
+  when: not tailscale_homebrew_arm.stat.exists
+
+- name: Fail if Tailscale not installed
+  ansible.builtin.fail:
+    msg: |
+      Tailscale is not installed. Run bootstrap script first:
+      curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-macos.sh | bash
+  when:
+    - not tailscale_homebrew_arm.stat.exists
+    - not (tailscale_homebrew_intel.stat.exists | default(false))
+
+- name: Get Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
+  when: tailscale_status_raw.rc == 0
+
+- name: Get MagicDNS suffix
+  ansible.builtin.set_fact:
+    magicdns_suffix: "{{ tailscale_status.MagicDNSSuffix | default('pangolin-vega.ts.net') }}"
+  when: tailscale_status is defined
+
+- name: Ensure /etc/resolver directory exists
+  ansible.builtin.file:
+    path: /etc/resolver
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure MagicDNS resolver (CRITICAL for Homebrew Tailscale)
+  ansible.builtin.copy:
+    content: |
+      # Tailscale MagicDNS Resolver
+      # Managed by Ansible - miket-infra-devices
+      # Route all DNS queries for *.{{ magicdns_suffix }} to Tailscale DNS
+      nameserver 100.100.100.100
+    dest: "/etc/resolver/{{ magicdns_suffix }}"
+    mode: '0644'
+  become: true
+  notify: flush dns cache
+  when: magicdns_suffix is defined
+
+- name: Verify Tailscale is running
+  ansible.builtin.command: tailscale status
+  register: tailscale_verify
+  changed_when: false
+  failed_when: tailscale_verify.rc != 0
+
+- name: Check if --accept-dns is configured
+  ansible.builtin.shell: |
+    tailscale status --json | jq -r '.Self.DNSName // empty' | grep -q '.'
+  register: dns_configured
+  changed_when: false
+  failed_when: false
+
+- name: Warn if MagicDNS not accepted
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  MagicDNS may not be fully configured.
+      Run manually on {{ inventory_hostname }}: sudo tailscale up --accept-dns --ssh
+  when: dns_configured.rc != 0
+
+- name: Enable Remote Login (SSH)
+  ansible.builtin.command: systemsetup -setremotelogin on
+  become: true
+  register: remote_login
+  changed_when: "'enabled' in remote_login.stdout.lower()"
+  failed_when: false
+
+- name: Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale configured on {{ inventory_hostname }}"
+      - "MagicDNS suffix: {{ magicdns_suffix | default('unknown') }}"
+      - "Resolver file: /etc/resolver/{{ magicdns_suffix | default('N/A') }}"
+      - "SSH: {{ 'Enabled' if remote_login.changed else 'Already enabled' }}"
+

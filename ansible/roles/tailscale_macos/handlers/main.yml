@@ -1,0 +1,10 @@
+---
+# Handlers for tailscale_macos role
+
+- name: flush dns cache
+  ansible.builtin.shell: |
+    dscacheutil -flushcache
+    killall -HUP mDNSResponder 2>/dev/null || true
+  become: true
+  listen: "flush dns cache"
+

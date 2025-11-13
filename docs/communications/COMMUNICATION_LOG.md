@@ -4,6 +4,101 @@ Chronological log of all significant actions, decisions, and outcomes for the mi
 
 ---
 
+## 2025-11-13 – macOS Best Practices: Tailscale MagicDNS Automation {#2025-11-13-macos-automation}
+
+### Context
+CEO identified that count-zero could not connect to Windows machines via RDP due to MagicDNS not being configured. Error 0x104 "PC can't be found" indicated DNS resolution failure.
+
+### Root Cause Analysis
+**Problem:** Homebrew Tailscale installation doesn't automatically configure macOS DNS resolvers
+- `tailscale up --accept-dns` enables MagicDNS at Tailscale level
+- But macOS still queries local DNS (192.168.1.1) instead of Tailscale DNS
+- Requires manual /etc/resolver configuration
+
+**Why This Happens:**
+- Tailscale GUI app: Automatically configures system DNS
+- Homebrew install: Doesn't touch system DNS configuration
+- Result: MagicDNS "enabled" but not actually used by macOS
+
+### Best Practices Implementation
+
+**Codex-DEVOPS-004 (DevOps Engineer):**
+- ✅ Created `scripts/bootstrap-macos.sh` - Comprehensive bootstrap script
+  - Installs Tailscale via Homebrew
+  - Configures `tailscale up --accept-dns --ssh`
+  - Auto-detects tailnet domain from Tailscale JSON
+  - Creates `/etc/resolver/pangolin-vega.ts.net` file
+  - Flushes DNS cache
+  - Validates DNS resolution
+- ✅ Created Ansible role `tailscale_macos` for ongoing management
+  - Ensures /etc/resolver file exists (idempotent)
+  - Validates Tailscale configuration
+  - Detects and reports drift
+- ✅ Created playbook `setup-macos-tailscale.yml` for post-bootstrap management
+
+**Codex-INFRA-003 (Infrastructure Lead):**
+- ✅ Validated RDP port accessibility from count-zero (ports 3389 open on both Windows machines)
+- ✅ Identified MagicDNS not configured (DNS queries going to 192.168.1.1, not Tailscale)
+- ✅ Documented Microsoft Remote Desktop "Local Network Access" requirement (macOS Ventura+)
+- ✅ Provided workaround: Use Tailscale IPs directly (100.89.63.123, 100.72.64.90)
+
+**Codex-DOC-005 (Documentation Architect):**
+- ✅ Created `docs/runbooks/macos-tailscale-setup.md` - Comprehensive best practices
+  - Two-stage setup (bootstrap + Ansible)
+  - What can vs cannot be automated
+  - Credentials requirements
+  - Troubleshooting guide
+- ✅ Updated README.md with macOS setup instructions
+- ✅ Documented separation of concerns (miket-infra vs miket-infra-devices)
+
+### Architecture Decision: Bootstrap + Ansible Pattern
+
+**Bootstrap (Manual, Run Once):**
+- Handles interactive requirements (Tailscale auth, sudo password)
+- Installs dependencies (Homebrew, Tailscale)
+- Performs initial configuration
+- User must be present
+
+**Ansible (Automated, Ongoing):**
+- Configuration management and drift detection
+- Idempotent reconciliation
+- No user interaction required
+- Fully automated with vault passwords
+
+**Why This Pattern:**
+- Tailscale authentication cannot be scripted (requires browser SSO)
+- Initial sudo setup requires interactive password
+- Ongoing management can be fully automated
+- Follows industry best practices (Puppet, Chef, Salt all use this pattern)
+
+### Outcomes
+
+**Immediate Fix for count-zero:**
+1. Run: `sudo tailscale up --accept-dns --ssh`
+2. Create resolver: `sudo bash -c "echo 'nameserver 100.100.100.100' > /etc/resolver/pangolin-vega.ts.net"`
+3. Flush cache: `sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder`
+4. Verify: `ping wintermute.pangolin-vega.ts.net`
+
+**Long-term Solution:**
+- New macOS devices run `bootstrap-macos.sh` once
+- Ansible manages ongoing configuration
+- /etc/resolver persistence via Ansible role
+- Documented in runbooks
+
+**Limitations Documented:**
+- Tailscale GUI app vs Homebrew differences
+- What requires manual action vs automation
+- macOS-specific security requirements (Local Network Access)
+
+### Lessons Learned
+- Test actual application connectivity, not just port accessibility
+- macOS DNS resolution doesn't use /etc/resolv.conf
+- Homebrew packages don't modify system configuration like GUI apps
+- Some security features (Local Network Access) cannot be automated without MDM
+- Document what CAN'T be automated as clearly as what can
+
+---
+
 ## 2025-11-13 – IaC/CaC Compliance: RDP Configuration Refactoring {#2025-11-13-rdp-refactoring}
 
 ### Context

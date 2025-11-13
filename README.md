@@ -115,6 +115,37 @@ This will:
 
 See [Armitage Setup Runbook](docs/runbooks/armitage-setup.md) for detailed instructions.
 
+### Setting Up macOS Devices (count-zero, etc.)
+
+**One-command setup (from macOS device):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-macos.sh | bash
+```
+
+Or manually:
+```bash
+git clone https://github.com/miket-llc/miket-infra-devices.git ~/miket-infra-devices
+cd ~/miket-infra-devices
+./scripts/bootstrap-macos.sh
+```
+
+This will:
+- Install Tailscale via Homebrew
+- Configure MagicDNS with /etc/resolver (CRITICAL for Homebrew Tailscale)
+- Enable Tailscale SSH
+- Enable Remote Login
+- Configure user permissions
+
+**Post-Bootstrap: Run Ansible from motoko:**
+```bash
+cd /home/mdt/miket-infra-devices/ansible
+ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml -l count-zero
+```
+
+**For RDP client:** Install Microsoft Remote Desktop from Mac App Store and enable Local Network Access in Privacy settings.
+
+See [macOS Tailscale Setup Runbook](docs/runbooks/macos-tailscale-setup.md) for detailed instructions.
+
 ### Prerequisites
 - Git
 - PowerShell 5.1+ (Windows) or Bash (Linux/MacOS)
