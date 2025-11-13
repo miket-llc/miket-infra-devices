@@ -1,0 +1,12 @@
+[Unit]
+Description={{ update_timer_description }}
+Requires={{ update_timer_name }}.service
+
+[Timer]
+OnCalendar={{ update_schedule_day | lower }},{{ update_schedule_time }}
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+

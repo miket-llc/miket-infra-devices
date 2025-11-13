@@ -1,0 +1,136 @@
+---
+# Master Update Orchestrator Playbook
+# Purpose: Coordinate all system updates across Linux, Windows, Docker, and applications
+# Scope: Orchestrates linux-updates, windows-updates, docker-updates, and app-updates
+# Idempotent: Yes - delegates to individual update playbooks
+# Observable: Comprehensive summary report with notifications
+#
+# Usage:
+#   # Check what would be updated (dry run)
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --check
+#
+#   # Run all updates
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --ask-vault-pass
+#
+#   # Update only Linux systems
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --tags linux
+#
+#   # Update only security patches
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --tags security
+#
+#   # Update specific host
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --limit motoko --ask-vault-pass
+#
+# Tags:
+#   - linux: Linux system updates only
+#   - windows: Windows system updates only
+#   - docker: Docker image updates only
+#   - apps: Application code updates only
+#   - security: Security updates only
+#   - pre-check: Pre-flight checks only
+#   - notify: Send notifications
+
+- name: Pre-flight checks
+  hosts: all
+  gather_facts: yes
+  tasks:
+    - name: Display master update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  Master System Update Orchestrator"
+          - "================================================================"
+          - "Update Strategy: Weekly Automated Updates"
+          - "Scope: Security + Critical Updates Only"
+          - "Auto Reboot: Disabled (notify only)"
+          - "Start Time: {{ ansible_date_time.iso8601 }}"
+          - "================================================================"
+      tags: [always]
+
+    - name: Check connectivity to all hosts
+      ping:
+      register: connectivity_check
+      tags: [pre-check, always]
+
+    - name: Verify Ansible version
+      debug:
+        msg: "Ansible version: {{ ansible_version.string }}"
+      tags: [pre-check, always]
+
+- name: Update Linux Systems
+  import_playbook: linux-updates.yml
+  tags: [linux, security]
+
+- name: Update Windows Systems
+  import_playbook: windows-updates.yml
+  tags: [windows, security]
+
+- name: Update Docker Services
+  import_playbook: docker-updates.yml
+  tags: [docker]
+
+- name: Update Application Code
+  import_playbook: app-updates.yml
+  tags: [apps]
+
+- name: Generate Master Update Summary
+  hosts: localhost
+  gather_facts: yes
+  tasks:
+    - name: Generate comprehensive update summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  MASTER UPDATE SUMMARY"
+          - "================================================================"
+          - "End Time: {{ ansible_date_time.iso8601 }}"
+          - ""
+          - "All update playbooks have completed."
+          - "Check individual playbook outputs above for details."
+          - ""
+          - "Next Steps:"
+          - "  - Review update results for each host"
+          - "  - Schedule reboots for Windows hosts if required"
+          - "  - Verify services are running correctly"
+          - "================================================================"
+      tags: [always, notify]
+
+    - name: Send notification email (if configured)
+      mail:
+        to: "{{ update_notification_email }}"
+        subject: "System Update Report - {{ ansible_date_time.date }}"
+        body: |
+          System Update Report
+          ===================
+          
+          End Time: {{ ansible_date_time.iso8601 }}
+          
+          All update playbooks have completed. Please review the results and schedule reboots for Windows hosts if required.
+      when: 
+        - update_notification_email is defined
+        - update_notification_email != ""
+        - not ansible_check_mode
+      tags: [notify]
+
+    - name: Send notification webhook (if configured)
+      uri:
+        url: "{{ update_notification_webhook }}"
+        method: POST
+        body_format: json
+        body:
+          text: "System Update Report - {{ ansible_date_time.date }}"
+          attachments:
+            - color: "good"
+              fields:
+                - title: "Status"
+                  value: "All update playbooks completed"
+                  short: false
+                - title: "End Time"
+                  value: "{{ ansible_date_time.iso8601 }}"
+                  short: false
+      when: 
+        - update_notification_webhook is defined
+        - update_notification_webhook != ""
+        - not ansible_check_mode
+      failed_when: false
+      tags: [notify]

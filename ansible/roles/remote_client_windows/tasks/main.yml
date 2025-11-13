@@ -17,6 +17,7 @@
     name: chocolatey
     state: present
   when: not chocolatey_check.stat.exists
+  tags: [updates, packages]
 
 - name: Check if TigerVNC viewer is installed
   win_stat:
@@ -28,6 +29,7 @@
     name: tigervnc
     state: present
   when: not tigervnc_check.stat.exists
+  tags: [updates, packages]
 
 - name: Find TigerVNC viewer executable (after install)
   win_shell: |

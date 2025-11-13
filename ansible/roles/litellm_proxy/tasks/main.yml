@@ -53,6 +53,7 @@
   when:
     - ansible_os_family == "Debian"
     - docker_check.rc != 0
+  tags: [updates, packages]
 
 - name: Ensure Docker service is running
   systemd:

@@ -1,0 +1,23 @@
+---
+# Default variables for system-updates role
+# Controls automated update scheduling
+
+# Update playbook path (relative to ansible directory)
+update_playbook_path: "playbooks/updates/all-updates.yml"
+update_inventory_path: "inventory/hosts.yml"
+
+# Linux scheduling (systemd timer)
+update_timer_enabled: true
+update_timer_name: "system-updates"
+update_timer_description: "Weekly system updates via Ansible"
+
+# Windows scheduling (scheduled task)
+update_task_enabled: true
+update_task_name: "System Updates"
+update_task_description: "Weekly system updates via Ansible"
+
+# Ansible control node settings
+ansible_control_node: "motoko"  # Hostname of the Ansible control node
+ansible_user: "mdt"  # User to run Ansible playbooks as
+ansible_playbook_dir: "/home/{{ ansible_user }}/miket-infra-devices/ansible"  # Path to ansible directory on control node
+

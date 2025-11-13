@@ -1,0 +1,116 @@
+---
+# Application Code Updates Playbook
+# Purpose: Update application scripts, configs, and Ansible roles
+# Scope: PowerShell scripts, configuration files, role updates
+# Idempotent: Yes - only updates when files have changed
+# Observable: Reports what files were updated
+#
+# Usage:
+#   # Check what would be updated (dry run)
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/app-updates.yml --check
+#
+#   # Update all application code
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/app-updates.yml --ask-vault-pass
+#
+#   # Update specific host
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/app-updates.yml --limit wintermute --ask-vault-pass
+#
+# Tags:
+#   - scripts: Update application scripts
+#   - configs: Update configuration files
+#   - roles: Update Ansible roles (if applicable)
+
+- name: Update Application Code
+  hosts: all
+  gather_facts: yes
+  
+  vars:
+    app_update_report: []
+  
+  tasks:
+    - name: Display update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  Application Code Updates: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Scope: Scripts, configs, and application files"
+          - "Idempotent: Yes (only updates changed files)"
+          - "================================================================"
+      tags: [always]
+
+    - name: Update PowerShell scripts (Windows)
+      win_copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        backup: yes
+      register: script_updates
+      loop: "{{ app_update_scripts | default([]) }}"
+      when: 
+        - ansible_os_family == "Windows"
+        - app_update_scripts is defined
+        - app_update_scripts | length > 0
+      tags: [scripts]
+
+    - name: Update shell scripts (Linux)
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode | default('0755') }}"
+        backup: yes
+      register: script_updates_linux
+      loop: "{{ app_update_scripts | default([]) }}"
+      when: 
+        - ansible_os_family != "Windows"
+        - app_update_scripts is defined
+        - app_update_scripts | length > 0
+      tags: [scripts]
+
+    - name: Update configuration files (Windows)
+      win_template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        backup: yes
+      register: config_updates
+      loop: "{{ app_update_configs | default([]) }}"
+      when: 
+        - ansible_os_family == "Windows"
+        - app_update_configs is defined
+        - app_update_configs | length > 0
+      tags: [configs]
+
+    - name: Update configuration files (Linux)
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "{{ item.mode | default('0644') }}"
+        backup: yes
+      register: config_updates_linux
+      loop: "{{ app_update_configs | default([]) }}"
+      when: 
+        - ansible_os_family != "Windows"
+        - app_update_configs is defined
+        - app_update_configs | length > 0
+      tags: [configs]
+
+    - name: Record script update results
+      set_fact:
+        app_update_report: "{{ app_update_report + [{'host': inventory_hostname, 'scripts_updated': script_updates.changed | default(script_updates_linux.changed | default(false))}] }}"
+      tags: [scripts, always]
+
+    - name: Record config update results
+      set_fact:
+        app_update_report: "{{ app_update_report + [{'host': inventory_hostname, 'configs_updated': config_updates.changed | default(config_updates_linux.changed | default(false))}] }}"
+      tags: [configs, always]
+
+    - name: Generate update summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Application Code Update Summary: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Scripts Updated: {{ 'Yes' if (script_updates.changed | default(false)) or (script_updates_linux.changed | default(false)) else 'No (already up to date)' }}"
+          - "Configs Updated: {{ 'Yes' if (config_updates.changed | default(false)) or (config_updates_linux.changed | default(false)) else 'No (already up to date)' }}"
+          - "================================================================"
+      tags: [always]
+

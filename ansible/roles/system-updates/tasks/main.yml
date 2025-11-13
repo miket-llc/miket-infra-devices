@@ -1,0 +1,120 @@
+---
+# System Updates Role - Scheduling Infrastructure
+# Purpose: Set up automated weekly update scheduling
+# Linux: Creates systemd timer/service
+# Windows: Creates scheduled task
+
+- name: Configure Linux update scheduling
+  block:
+    - name: Check if running on control node
+      set_fact:
+        is_control_node: "{{ inventory_hostname == ansible_control_node }}"
+    
+    - name: Create systemd timer unit for updates
+      template:
+        src: update-timer.timer.j2
+        dest: "/etc/systemd/system/{{ update_timer_name }}.timer"
+        owner: root
+        group: root
+        mode: "0644"
+      when: 
+        - update_timer_enabled | bool
+        - is_control_node | bool
+      notify: reload systemd
+    
+    - name: Create systemd service unit for updates
+      template:
+        src: update-timer.service.j2
+        dest: "/etc/systemd/system/{{ update_timer_name }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+      when: 
+        - update_timer_enabled | bool
+        - is_control_node | bool
+      notify: reload systemd
+    
+    - name: Enable and start update timer
+      systemd:
+        name: "{{ update_timer_name }}.timer"
+        enabled: "{{ update_timer_enabled | bool }}"
+        state: started
+        daemon_reload: yes
+      when: 
+        - update_timer_enabled | bool
+        - is_control_node | bool
+    
+    - name: Display timer status
+      command: systemctl status {{ update_timer_name }}.timer --no-pager
+      register: timer_status
+      changed_when: false
+      failed_when: false
+      when: 
+        - update_timer_enabled | bool
+        - is_control_node | bool
+    
+    - name: Show next run time
+      debug:
+        msg: "{{ timer_status.stdout_lines }}"
+      when: 
+        - update_timer_enabled | bool
+        - is_control_node | bool
+        - timer_status.stdout_lines is defined
+  
+  when: ansible_os_family == "Debian"
+  tags: [scheduling, linux]
+
+- name: Configure Windows update scheduling
+  block:
+    - name: Create PowerShell script for running updates
+      win_template:
+        src: run-updates.ps1.j2
+        dest: "C:\\ProgramData\\SystemUpdates\\run-updates.ps1"
+        backup: yes
+    
+    - name: Create scheduled task for updates
+      win_scheduled_task:
+        name: "{{ update_task_name }}"
+        description: "{{ update_task_description }}"
+        actions:
+          - path: powershell.exe
+            arguments: >
+              -ExecutionPolicy Bypass -NoProfile -File
+              "C:\\ProgramData\\SystemUpdates\\run-updates.ps1"
+        triggers:
+          - type: weekly
+            days_of_week:
+              - "{{ update_schedule_day | lower }}"
+            start_time: "{{ update_schedule_time }}"
+        state: "{{ 'present' if update_task_enabled | bool else 'absent' }}"
+        enabled: "{{ update_task_enabled | bool }}"
+        run_level: highest
+        username: SYSTEM
+    
+    - name: Display scheduled task info
+      win_shell: |
+        $task = Get-ScheduledTask -TaskName "{{ update_task_name }}" -ErrorAction SilentlyContinue
+        if ($task) {
+          Write-Output "Task Name: $($task.TaskName)"
+          Write-Output "State: $($task.State)"
+          Write-Output "Enabled: $($task.Settings.Enabled)"
+          $trigger = $task.Triggers[0]
+          if ($trigger) {
+            Write-Output "Schedule: $($trigger.DaysOfWeek) at $($trigger.StartBoundary)"
+          }
+        }
+      register: task_info
+      changed_when: false
+      failed_when: false
+      when: update_task_enabled | bool
+    
+    - name: Show scheduled task details
+      debug:
+        msg: "{{ task_info.stdout_lines }}"
+      when: 
+        - update_task_enabled | bool
+        - task_info.stdout_lines is defined
+  
+  when: ansible_os_family == "Windows"
+  tags: [scheduling, windows]
+

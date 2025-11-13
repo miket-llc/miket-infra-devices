@@ -10,6 +10,7 @@
     state: present
     update_cache: yes
   become: yes
+  tags: [updates, packages]
 
 - name: Add user to ssl-cert group (required for xrdp)
   ansible.builtin.user:

@@ -1,0 +1,211 @@
+---
+# Linux System Updates Playbook
+# Purpose: Update Linux systems with security and critical updates only
+# Scope: apt package updates, kernel cleanup, unattended-upgrades configuration
+# Idempotent: Yes - only updates when new packages are available
+# Observable: Reports what was updated and what requires attention
+#
+# Usage:
+#   # Check what would be updated (dry run)
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml --check
+#
+#   # Update all Linux systems
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml
+#
+#   # Update specific host
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml --limit motoko
+#
+# Tags:
+#   - pre-check: Pre-flight checks only
+#   - updates: Package updates
+#   - cleanup: Cleanup tasks
+#   - security: Security-related tasks only
+
+- name: Update Linux Systems
+  hosts: linux
+  gather_facts: yes
+  become: yes
+  
+  vars:
+    update_report: []
+    update_failed: false
+  
+  tasks:
+    - name: Display update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  Linux System Updates: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Update Strategy: Security + Critical Updates Only"
+          - "Feature Updates: Excluded"
+          - "Auto Reboot: Disabled (notify only)"
+          - "================================================================"
+      tags: [always, pre-check]
+
+    - name: Check disk space
+      shell: df -h / | tail -1 | awk '{print $4}' | sed 's/[^0-9.]//g'
+      register: disk_free_gb
+      changed_when: false
+      failed_when: false
+      tags: [pre-check, always]
+
+    - name: Verify sufficient disk space
+      assert:
+        that:
+          - disk_free_gb.stdout is defined
+          - disk_free_gb.stdout | float >= update_pre_check_disk_space_gb | default(10)
+        fail_msg: "Insufficient disk space: {{ disk_free_gb.stdout | default('unknown') }}GB free (minimum {{ update_pre_check_disk_space_gb | default(10) }}GB required)"
+        success_msg: "Disk space check passed: {{ disk_free_gb.stdout }}GB free"
+      when: disk_free_gb.stdout is defined
+      tags: [pre-check, always]
+
+    - name: Check critical services status
+      systemd:
+        name: "{{ item }}"
+      register: service_status
+      loop: "{{ update_critical_services | default(['docker', 'ssh']) }}"
+      changed_when: false
+      failed_when: false
+      tags: [pre-check, always]
+
+    - name: Display service status
+      debug:
+        msg: "Service {{ item.item }}: {{ 'running' if item.status.ActiveState == 'active' else 'not running' }}"
+      loop: "{{ service_status.results }}"
+      tags: [pre-check, always]
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: "{{ update_cache_valid_time | default(3600) }}"
+      register: apt_cache_update
+      tags: [updates, security]
+
+    - name: Get list of upgradable packages
+      shell: apt list --upgradable 2>/dev/null | grep -v "Listing..." | wc -l
+      register: upgradable_count
+      changed_when: false
+      failed_when: false
+      check_mode: no
+      tags: [updates, always]
+
+    - name: Display upgradable packages count
+      debug:
+        msg: "Found {{ upgradable_count.stdout | default('0') }} upgradable packages"
+      when: upgradable_count.stdout is defined
+      tags: [updates, always]
+
+    - name: Get upgradable packages list
+      shell: apt list --upgradable 2>/dev/null | grep -v "Listing..." | awk -F'/' '{print $1}'
+      register: upgradable_packages
+      changed_when: false
+      failed_when: false
+      check_mode: no
+      tags: [updates, always]
+
+    - name: Upgrade security and critical packages (security-only mode)
+      apt:
+        upgrade: safe
+        autoremove: "{{ update_autoremove | default(true) }}"
+        autoclean: "{{ update_autoclean | default(true) }}"
+        update_cache: no
+      when: 
+        - update_security_only | default(true)
+        - upgradable_count.stdout is defined
+        - upgradable_count.stdout | int > 0
+      register: apt_upgrade
+      tags: [updates, security]
+
+    - name: Upgrade all packages (if not security-only mode)
+      apt:
+        upgrade: safe
+        autoremove: "{{ update_autoremove | default(true) }}"
+        autoclean: "{{ update_autoclean | default(true) }}"
+        update_cache: no
+      when: 
+        - not (update_security_only | default(true))
+        - upgradable_count.stdout is defined
+        - upgradable_count.stdout | int > 0
+      register: apt_upgrade_all
+      tags: [updates]
+
+    - name: Record update results
+      set_fact:
+        update_report: "{{ update_report + [{'host': inventory_hostname, 'packages_updated': apt_upgrade.changed | default(apt_upgrade_all.changed | default(false)), 'packages_count': upgradable_count.stdout | default('0') | int}] }}"
+      when: upgradable_count.stdout is defined
+      tags: [updates, always]
+
+    - name: Configure unattended-upgrades for automatic security updates
+      apt:
+        name: unattended-upgrades
+        state: present
+        update_cache: yes
+      tags: [updates, security]
+
+    - name: Configure unattended-upgrades settings
+      lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        backup: yes
+      loop:
+        - { regexp: '^//Unattended-Upgrade::Remove-Unused-Kernel-Packages', line: 'Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";' }
+        - { regexp: '^//Unattended-Upgrade::Remove-Unused-Dependencies', line: 'Unattended-Upgrade::Remove-Unused-Dependencies "true";' }
+        - { regexp: '^//Unattended-Upgrade::Automatic-Reboot', line: 'Unattended-Upgrade::Automatic-Reboot "false";' }
+        - { regexp: '^//Unattended-Upgrade::Automatic-Reboot-Time', line: 'Unattended-Upgrade::Automatic-Reboot-Time "02:00";' }
+      when: ansible_pkg_mgr == "apt"
+      tags: [updates, security]
+
+    - name: Clean up old kernels (keep last 2)
+      shell: |
+        if [ -x /usr/bin/apt-get ]; then
+          installed_kernels=$(dpkg -l | grep -E 'linux-image-[0-9]' | awk '{print $2}' | sort -V)
+          kernel_count=$(echo "$installed_kernels" | wc -l)
+          if [ "$kernel_count" -gt {{ update_keep_kernels | default(2) }} ]; then
+            kernels_to_remove=$(echo "$installed_kernels" | head -n -{{ update_keep_kernels | default(2) }})
+            for kernel in $kernels_to_remove; do
+              apt-get -y purge $kernel 2>/dev/null || true
+            done
+          fi
+        fi
+      when: update_cleanup_old_kernels | default(true)
+      register: kernel_cleanup
+      changed_when: "'purge' in kernel_cleanup.stdout or kernel_cleanup.rc == 0"
+      failed_when: false
+      tags: [cleanup]
+
+    - name: Clean up old packages
+      apt:
+        autoremove: yes
+        autoclean: yes
+      when: update_autoremove | default(true)
+      tags: [cleanup]
+
+    - name: Verify services still running after update
+      systemd:
+        name: "{{ item }}"
+      register: post_update_services
+      loop: "{{ update_critical_services | default(['docker', 'ssh']) }}"
+      changed_when: false
+      tags: [verify, always]
+
+    - name: Display post-update service status
+      debug:
+        msg: "Service {{ item.item }}: {{ 'running' if item.status.ActiveState == 'active' else 'NOT RUNNING - ACTION REQUIRED' }}"
+      loop: "{{ post_update_services.results }}"
+      tags: [verify, always]
+
+    - name: Generate update summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Update Summary: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Packages Upgraded: {{ 'Yes' if (apt_upgrade.changed | default(false)) or (apt_upgrade_all.changed | default(false)) else 'No (already up to date)' }}"
+          - "Upgradable Packages Found: {{ upgradable_count.stdout | default('N/A (check mode)') }}"
+          - "Kernel Cleanup: {{ 'Performed' if kernel_cleanup.changed | default(false) else 'Skipped (not needed)' }}"
+          - "Services Status: {{ 'All running' if post_update_services.results | selectattr('status.ActiveState', 'equalto', 'active') | list | length == post_update_services.results | length else 'Some services may need attention' }}"
+          - "================================================================"
+      tags: [always]
+

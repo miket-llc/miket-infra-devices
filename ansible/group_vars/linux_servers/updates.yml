@@ -1,0 +1,8 @@
+---
+# Linux Server Update Configuration
+# Overrides group_vars/all/updates.yml for Linux servers
+
+update_critical_services:
+  - docker
+  - ssh
+

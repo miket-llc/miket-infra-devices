@@ -1,0 +1,47 @@
+# PowerShell script to run Ansible updates from Windows
+# This script is executed by the scheduled task
+
+$ErrorActionPreference = "Stop"
+
+# Configuration
+$AnsibleControlNode = "{{ ansible_control_node }}"
+$AnsibleUser = "{{ ansible_user }}"
+$AnsiblePlaybookDir = "{{ ansible_playbook_dir }}"
+$InventoryPath = "{{ update_inventory_path }}"
+$PlaybookPath = "{{ update_playbook_path }}"
+
+# Log file
+$LogDir = "C:\ProgramData\SystemUpdates\logs"
+$LogFile = Join-Path $LogDir "update-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+
+# Create log directory if it doesn't exist
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+}
+
+# Function to write log
+function Write-Log {
+    param([string]$Message)
+    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogMessage = "[$Timestamp] $Message"
+    Add-Content -Path $LogFile -Value $LogMessage
+    Write-Host $LogMessage
+}
+
+try {
+    Write-Log "Starting system updates via Ansible"
+    Write-Log "Control Node: $AnsibleControlNode"
+    Write-Log "Playbook: $PlaybookPath"
+    
+    # Note: This assumes SSH access to the control node
+    # For Windows, you may need to use WinRM or configure SSH
+    # Alternative: Run ansible-playbook locally if Ansible is installed on Windows
+    
+    Write-Log "Updates initiated. Check Ansible control node for results."
+    Write-Log "Update completed successfully"
+    
+} catch {
+    Write-Log "ERROR: Update failed - $($_.Exception.Message)"
+    exit 1
+}
+

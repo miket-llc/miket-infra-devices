@@ -1,0 +1,196 @@
+---
+# Windows System Updates Playbook
+# Purpose: Update Windows systems with security and critical updates only
+# Scope: Windows Update, Chocolatey packages, reboot detection
+# Idempotent: Yes - only updates when new updates are available
+# Observable: Reports what was updated and reboot requirements
+#
+# Usage:
+#   # Check what would be updated (dry run)
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/windows-updates.yml --check
+#
+#   # Update all Windows systems
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/windows-updates.yml --ask-vault-pass
+#
+#   # Update specific host
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/windows-updates.yml --limit wintermute --ask-vault-pass
+#
+#   # Check reboot requirements only
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/windows-updates.yml --tags reboot-check --ask-vault-pass
+#
+# Tags:
+#   - pre-check: Pre-flight checks only
+#   - updates: Windows Update tasks
+#   - chocolatey: Chocolatey package updates
+#   - reboot-check: Reboot requirement checks only
+#   - security: Security-related tasks only
+
+- name: Update Windows Systems
+  hosts: windows
+  gather_facts: yes
+  
+  vars:
+    update_report: []
+    reboot_required: false
+    pending_reboot_updates: []
+  
+  tasks:
+    - name: Display update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  Windows System Updates: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Update Strategy: Security + Critical Updates Only"
+          - "Feature Updates: Excluded"
+          - "Auto Reboot: Disabled (notify only)"
+          - "================================================================"
+      tags: [always, pre-check]
+
+    - name: Check disk space
+      win_shell: |
+        $drive = Get-PSDrive C
+        $freeGB = [math]::Round($drive.Free / 1GB, 2)
+        Write-Output $freeGB
+      register: disk_free_gb
+      changed_when: false
+      tags: [pre-check, always]
+
+    - name: Verify sufficient disk space
+      assert:
+        that:
+          - disk_free_gb.stdout | float >= update_pre_check_disk_space_gb | default(10)
+        fail_msg: "Insufficient disk space: {{ disk_free_gb.stdout }}GB free (minimum {{ update_pre_check_disk_space_gb | default(10) }}GB required)"
+        success_msg: "Disk space check passed: {{ disk_free_gb.stdout }}GB free"
+      tags: [pre-check, always]
+
+    - name: Check critical services status
+      win_service:
+        name: "{{ item }}"
+      register: service_status
+      loop: "{{ update_critical_services | default(['WinRM', 'Docker Desktop Service']) }}"
+      changed_when: false
+      failed_when: false
+      tags: [pre-check, always]
+
+    - name: Display service status
+      debug:
+        msg: "Service {{ item.item }}: {{ 'running' if item.status == 'running' else 'not running' }}"
+      loop: "{{ service_status.results }}"
+      tags: [pre-check, always]
+
+    - name: Check for pending Windows Updates
+      win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+          - UpdateRollups
+        state: searched
+      register: windows_updates_search
+      changed_when: false
+      tags: [updates, reboot-check, always]
+
+    - name: Display available updates
+      debug:
+        msg:
+          - "Available Windows Updates:"
+          - "  Security Updates: {{ windows_updates_search.updates | selectattr('categories', 'equalto', ['SecurityUpdates']) | list | length }}"
+          - "  Critical Updates: {{ windows_updates_search.updates | selectattr('categories', 'equalto', ['CriticalUpdates']) | list | length }}"
+          - "  Update Rollups: {{ windows_updates_search.updates | selectattr('categories', 'equalto', ['UpdateRollups']) | list | length }}"
+          - "  Total: {{ windows_updates_search.updates | length }}"
+      when: windows_updates_search.updates | length > 0
+      tags: [updates, reboot-check, always]
+
+    - name: Install Windows Updates
+      win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+          - UpdateRollups
+        state: installed
+        reboot: no
+      register: windows_updates_install
+      when: not ansible_check_mode
+      tags: [updates, security]
+
+    - name: Check if reboot is required
+      win_shell: |
+        $rebootRequired = $false
+        $pendingReboot = Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
+        if ($pendingReboot) {
+          $rebootRequired = $true
+        }
+        $pendingFileRename = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name PendingFileRenameOperations -ErrorAction SilentlyContinue
+        if ($pendingFileRename -and $pendingFileRename.PendingFileRenameOperations) {
+          $rebootRequired = $true
+        }
+        if ($rebootRequired) {
+          Write-Output "REBOOT_REQUIRED"
+        } else {
+          Write-Output "NO_REBOOT"
+        }
+      register: reboot_check
+      changed_when: false
+      tags: [reboot-check, updates, always]
+
+    - name: Set reboot required fact
+      set_fact:
+        reboot_required: "{{ 'REBOOT_REQUIRED' in reboot_check.stdout }}"
+        pending_reboot_updates: "{{ windows_updates_install.updates | default([]) | selectattr('installed', 'equalto', true) | list }}"
+      tags: [reboot-check, updates, always]
+
+    - name: Display reboot requirement
+      debug:
+        msg:
+          - "================================================================"
+          - "  Reboot Requirement: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Status: {{ 'REBOOT REQUIRED' if reboot_required else 'No reboot needed' }}"
+          - "{{ 'Updates installed that require reboot:' if reboot_required else '' }}"
+          - "{{ pending_reboot_updates | map(attribute='title') | list | join('\n  - ') if reboot_required else '' }}"
+          - "================================================================"
+          - "Action: Schedule reboot manually when convenient"
+          - "================================================================"
+      tags: [reboot-check, updates, always]
+
+    - name: Check Chocolatey packages for updates
+      win_chocolatey:
+        name: "{{ item }}"
+        state: latest
+      register: chocolatey_updates
+      loop: "{{ update_chocolatey_packages | default([]) }}"
+      when: update_chocolatey_packages is defined and update_chocolatey_packages | length > 0
+      tags: [chocolatey]
+
+    - name: Record update results
+      set_fact:
+        update_report: "{{ update_report + [{'host': inventory_hostname, 'windows_updates_installed': windows_updates_install.changed | default(false), 'updates_count': windows_updates_search.updates | length, 'reboot_required': reboot_required}] }}"
+      tags: [updates, always]
+
+    - name: Verify services still running after update
+      win_service:
+        name: "{{ item }}"
+      register: post_update_services
+      loop: "{{ update_critical_services | default(['WinRM', 'Docker Desktop Service']) }}"
+      changed_when: false
+      tags: [verify, always]
+
+    - name: Display post-update service status
+      debug:
+        msg: "Service {{ item.item }}: {{ 'running' if item.status == 'running' else 'NOT RUNNING - ACTION REQUIRED' }}"
+      loop: "{{ post_update_services.results }}"
+      tags: [verify, always]
+
+    - name: Generate update summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Update Summary: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Windows Updates Installed: {{ 'Yes' if windows_updates_install.changed | default(false) else 'No (already up to date)' }}"
+          - "Available Updates Found: {{ windows_updates_search.updates | length }}"
+          - "Reboot Required: {{ 'YES - Schedule manually' if reboot_required else 'No' }}"
+          - "Services Status: {{ 'All running' if post_update_services.results | selectattr('status', 'equalto', 'running') | list | length == post_update_services.results | length else 'Some services may need attention' }}"
+          - "================================================================"
+      tags: [always]
+

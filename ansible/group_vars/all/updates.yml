@@ -1,0 +1,70 @@
+---
+# Update Management Configuration
+# Controls how system updates are performed across all hosts
+# Override in host_vars/ or group_vars/ for host-specific policies
+
+# Update Frequency and Schedule
+update_frequency: weekly
+update_schedule_day: Sunday
+update_schedule_time: "02:00"  # 2 AM local time
+
+# Update Strategy
+update_security_only: true  # Only security + critical updates
+update_include_critical: true  # Include critical updates
+update_exclude_feature: true  # Exclude feature updates
+
+# Reboot Handling
+auto_reboot: false  # Notify only, manual scheduling required
+
+# Pre-flight Checks
+update_pre_check_disk_space_gb: 10  # Minimum free disk space in GB
+update_critical_services: []  # Services to check before/after updates (override per group/host)
+
+# Linux-specific Settings
+update_cache_valid_time: 3600  # Cache validity in seconds (1 hour)
+update_autoremove: true  # Remove unused packages
+update_autoclean: true  # Clean package cache
+update_cleanup_old_kernels: true  # Clean up old kernels
+update_keep_kernels: 2  # Number of kernels to keep
+
+# Windows-specific Settings
+update_chocolatey_packages: []  # List of Chocolatey packages to update
+  # Example: ['git', 'vscode', 'docker-desktop']
+
+# Docker-specific Settings
+docker_update_images: []  # List of Docker images to pull/update
+  # Example: ['vllm/vllm-openai:latest', 'nginx:latest']
+docker_update_compose_files: []  # List of docker-compose.yml files to update
+  # Example: ['/opt/vllm-motoko/docker-compose.yml', '/opt/litellm/docker-compose.yml']
+docker_health_checks: []  # List of health check URLs
+  # Example:
+  #   - url: "http://localhost:8001/health"
+  #     status_code: 200
+  #   - url: "http://localhost:8200/health"
+  #     status_code: 200
+
+# Application Code Updates
+app_update_scripts: []  # List of scripts to update
+  # Example (Windows):
+  #   - src: "scripts/Auto-ModeSwitcher.ps1"
+  #     dest: "C:\\Users\\mdt\\dev\\{{ inventory_hostname }}\\scripts\\Auto-ModeSwitcher.ps1"
+  # Example (Linux):
+  #   - src: "scripts/update-service.sh"
+  #     dest: "/usr/local/bin/update-service.sh"
+  #     mode: "0755"
+app_update_configs: []  # List of config files to update
+  # Example:
+  #   - src: "templates/config.yml.j2"
+  #     dest: "/etc/app/config.yml"
+  #     mode: "0644"
+
+# Notifications
+update_notification_email: ""  # Email address for update notifications
+  # Example: "admin@example.com"
+update_notification_webhook: ""  # Webhook URL for notifications (Slack, etc.)
+  # Example: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# Package Exclusions
+update_exclude_packages: []  # List of packages to never update
+  # Example: ['kernel', 'kernel-headers']  # Pin kernel versions
+

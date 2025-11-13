@@ -1,0 +1,14 @@
+---
+# Windows Workstation Update Configuration
+# Overrides group_vars/all/updates.yml for Windows workstations
+
+update_critical_services:
+  - WinRM
+  - "Docker Desktop Service"
+
+# Chocolatey packages to update (security-critical only)
+update_chocolatey_packages:
+  - git
+  - docker-desktop
+  # Add other security-critical packages as needed
+

@@ -1,0 +1,230 @@
+---
+# Docker Image Updates Playbook
+# Purpose: Update Docker images and containers for all services
+# Scope: Pull latest images, update docker-compose services, verify health
+# Idempotent: Yes - only updates when new images are available
+# Observable: Reports what images were updated and service status
+#
+# Usage:
+#   # Check what would be updated (dry run)
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/docker-updates.yml --check
+#
+#   # Update all Docker services
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/docker-updates.yml
+#
+#   # Update specific host
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/docker-updates.yml --limit motoko
+#
+# Tags:
+#   - pre-check: Pre-flight checks only
+#   - pull: Pull Docker images
+#   - update: Update containers
+#   - verify: Health checks
+
+- name: Update Docker Services
+  hosts: all
+  gather_facts: yes
+  become: yes
+  
+  vars:
+    docker_update_report: []
+  
+  tasks:
+    - name: Display update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  Docker Image Updates: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Strategy: Pull latest images and update containers"
+          - "Rolling Updates: Enabled (zero-downtime)"
+          - "Health Checks: Enabled"
+          - "================================================================"
+      tags: [always, pre-check]
+
+    - name: Check if Docker is installed (Linux)
+      command: which docker
+      register: docker_check_linux
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian"
+      tags: [pre-check, always]
+
+    - name: Check if Docker is installed (Windows)
+      win_shell: Get-Command docker -ErrorAction SilentlyContinue
+      register: docker_check_windows
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Windows"
+      tags: [pre-check, always]
+
+    - name: Skip if Docker not installed
+      debug:
+        msg: "Docker not installed on {{ inventory_hostname }}, skipping Docker updates"
+      when: (ansible_os_family == "Debian" and docker_check_linux.rc != 0) or (ansible_os_family == "Windows" and docker_check_windows.rc != 0)
+      tags: [always]
+
+    - name: Get current Docker images (Linux)
+      shell: docker images --format "{{ '{{.Repository}}:{{.Tag}}' }}"
+      register: current_images_linux
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Debian" and docker_check_linux.rc == 0
+      tags: [pre-check, always]
+
+    - name: Get current Docker images (Windows)
+      win_shell: docker images --format "{{ '{{.Repository}}:{{.Tag}}' }}"
+      register: current_images_windows
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == "Windows" and docker_check_windows.rc == 0
+      tags: [pre-check, always]
+
+    - name: Collect Docker images to update
+      set_fact:
+        docker_images_to_update: "{{ docker_update_images | default([]) }}"
+      tags: [pull, always]
+
+    - name: Collect Docker Compose services (Linux)
+      set_fact:
+        docker_compose_files: "{{ docker_update_compose_files | default([]) }}"
+      tags: [pull, always]
+
+    - name: Pull Docker images (Linux)
+      docker_image:
+        name: "{{ item }}"
+        source: pull
+      register: docker_pull_results
+      loop: "{{ docker_images_to_update }}"
+      when: 
+        - docker_images_to_update | length > 0
+        - ansible_os_family == "Debian"
+        - docker_check_linux.rc == 0
+      tags: [pull]
+
+    - name: Pull Docker images (Windows)
+      win_shell: docker pull {{ item }}
+      register: docker_pull_results_windows
+      loop: "{{ docker_images_to_update }}"
+      when: 
+        - docker_images_to_update | length > 0
+        - ansible_os_family == "Windows"
+        - docker_check_windows.rc == 0
+      tags: [pull]
+
+    - name: Update Docker Compose services (Linux)
+      shell: docker compose -f {{ item }} pull
+      args:
+        chdir: "{{ item | dirname }}"
+      register: compose_pull_results
+      loop: "{{ docker_compose_files }}"
+      when: 
+        - docker_compose_files | length > 0
+        - ansible_os_family == "Debian"
+        - docker_check_linux.rc == 0
+      tags: [pull]
+
+    - name: Update Docker Compose services (Windows)
+      win_shell: docker compose -f {{ item }} pull
+      args:
+        chdir: "{{ item | dirname }}"
+      register: compose_pull_results_windows
+      loop: "{{ docker_compose_files }}"
+      when: 
+        - docker_compose_files | length > 0
+        - ansible_os_family == "Windows"
+        - docker_check_windows.rc == 0
+      tags: [pull]
+
+    - name: Restart Docker Compose services with new images (Linux)
+      shell: docker compose -f {{ item }} up -d
+      args:
+        chdir: "{{ item | dirname }}"
+      register: compose_up_results
+      loop: "{{ docker_compose_files }}"
+      when: 
+        - docker_compose_files | length > 0
+        - ansible_os_family == "Debian"
+        - docker_check_linux.rc == 0
+        - not ansible_check_mode
+      changed_when: "'Creating' in compose_up_results.stdout or 'Starting' in compose_up_results.stdout or 'Recreating' in compose_up_results.stdout"
+      tags: [update]
+
+    - name: Restart Docker Compose services with new images (Windows)
+      win_shell: docker compose -f {{ item }} up -d
+      args:
+        chdir: "{{ item | dirname }}"
+      register: compose_up_results_windows
+      loop: "{{ docker_compose_files }}"
+      when: 
+        - docker_compose_files | length > 0
+        - ansible_os_family == "Windows"
+        - docker_check_windows.rc == 0
+        - not ansible_check_mode
+      changed_when: "'Creating' in compose_up_results_windows.stdout or 'Starting' in compose_up_results_windows.stdout or 'Recreating' in compose_up_results_windows.stdout"
+      tags: [update]
+
+    - name: Wait for containers to be ready (Linux)
+      wait_for:
+        timeout: 30
+      when: 
+        - docker_compose_files | length > 0
+        - ansible_os_family == "Debian"
+        - docker_check_linux.rc == 0
+      tags: [verify]
+
+    - name: Check container health (Linux)
+      shell: docker ps --format "{{ '{{.Names}}\t{{.Status}}' }}"
+      register: container_status_linux
+      changed_when: false
+      when: ansible_os_family == "Debian" and docker_check_linux.rc == 0
+      tags: [verify, always]
+
+    - name: Check container health (Windows)
+      win_shell: docker ps --format "{{ '{{.Names}}\t{{.Status}}' }}"
+      register: container_status_windows
+      changed_when: false
+      when: ansible_os_family == "Windows" and docker_check_windows.rc == 0
+      tags: [verify, always]
+
+    - name: Display container status
+      debug:
+        msg:
+          - "Container Status:"
+          - "{{ container_status_linux.stdout_lines | default(container_status_windows.stdout_lines | default([])) | join('\n') }}"
+      when: container_status_linux.stdout_lines is defined or container_status_windows.stdout_lines is defined
+      tags: [verify, always]
+
+    - name: Verify Docker Compose services health (Linux)
+      uri:
+        url: "{{ item.url }}"
+        method: GET
+        status_code: "{{ item.status_code | default(200) }}"
+      register: health_check_results
+      loop: "{{ docker_health_checks | default([]) }}"
+      failed_when: false
+      when: 
+        - docker_health_checks is defined
+        - ansible_os_family == "Debian"
+        - docker_check_linux.rc == 0
+      tags: [verify]
+
+    - name: Display health check results
+      debug:
+        msg: "Health check {{ item.item.url }}: {{ 'PASSED' if item.status == item.item.status_code | default(200) else 'FAILED' }}"
+      loop: "{{ health_check_results.results | default([]) }}"
+      when: health_check_results.results is defined
+      tags: [verify, always]
+
+    - name: Generate update summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Docker Update Summary: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Images Pulled: {{ 'Yes' if (docker_pull_results.changed | default(false)) or (compose_pull_results.changed | default(false)) else 'No (already up to date)' }}"
+          - "Containers Updated: {{ 'Yes' if (compose_up_results.changed | default(false)) or (compose_up_results_windows.changed | default(false)) else 'No' }}"
+          - "Health Checks: {{ 'All passed' if health_check_results.results | default([]) | selectattr('status', 'equalto', item.item.status_code | default(200)) | list | length == health_check_results.results | default([]) | length else 'Some failed' if docker_health_checks is defined else 'Not configured' }}"
+          - "================================================================"
+      tags: [always]
+

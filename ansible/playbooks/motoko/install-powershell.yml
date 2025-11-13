@@ -26,6 +26,7 @@
         state: present
         update_cache: yes
       when: pwsh_check.rc != 0
+      tags: [updates, packages]
 
     - name: Download Microsoft GPG key
       get_url:
@@ -57,6 +58,7 @@
         name: powershell
         state: present
       when: pwsh_check.rc != 0
+      tags: [updates, packages]
 
     - name: Verify PowerShell installation
       command: pwsh --version

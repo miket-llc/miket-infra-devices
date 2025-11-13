@@ -1,0 +1,16 @@
+[Unit]
+Description={{ update_timer_description }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ ansible_user }}
+WorkingDirectory={{ ansible_playbook_dir }}
+ExecStart=/usr/bin/ansible-playbook -i {{ update_inventory_path }} {{ update_playbook_path }} --ask-vault-pass
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
