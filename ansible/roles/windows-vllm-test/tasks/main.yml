@@ -30,12 +30,26 @@
   changed_when: false
   failed_when: false
 
+- name: Check if WSL is installed
+  win_shell: |
+    $distros = wsl --list --quiet 2>&1
+    if ($LASTEXITCODE -eq 0 -and $distros -match '\S') {
+      Write-Output "INSTALLED"
+      wsl --list --verbose 2>&1
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
+  register: wsl_status
+  changed_when: false
+  failed_when: false
+
 - name: Test NVIDIA Container Toolkit in WSL2
   win_shell: |
     wsl -d {{ wsl_distro }} -- bash -c "dpkg -l | grep nvidia-container-toolkit && echo 'INSTALLED' || echo 'NOT_INSTALLED'" 2>&1
   register: nvidia_toolkit_status
   changed_when: false
   failed_when: false
+  when: "'INSTALLED' in wsl_status.stdout"
 
 - name: Test NVIDIA repository configuration in WSL2
   win_shell: |
@@ -57,6 +71,7 @@
   register: nvidia_repo_status
   changed_when: false
   failed_when: false
+  when: "'INSTALLED' in wsl_status.stdout"
 
 - name: Test GPU access from Docker container
   win_shell: |
@@ -134,12 +149,16 @@
       - "  {{ container_status.stdout_lines | default(['Not found']) | join('\n') }}"
       - "  Running: {{ container_running_check.stdout | default('Unknown') }}"
       - ""
-      - "Port {{ vllm_port }} Status: {{ port_status.stdout_lines[0] | default('N/A') }}"
-      - ""
-      - "NVIDIA Container Toolkit:"
-      - "  Status: {{ nvidia_toolkit_status.stdout | default('N/A') }}"
-      - "  Repository: {{ nvidia_repo_status.stdout_lines[0] | default('N/A') if nvidia_repo_status.stdout_lines is defined else 'N/A' }}"
-      - "  {{ nvidia_repo_status.stdout_lines[1:] | default([]) | join('\n') if (nvidia_repo_status.stdout_lines is defined and nvidia_repo_status.stdout_lines | length > 1) else '' }}"
+          - "Port {{ vllm_port }} Status: {{ port_status.stdout_lines[0] | default('N/A') }}"
+          - ""
+          - "WSL Status:"
+          - "  {{ wsl_status.stdout_lines[0] | default('N/A') if wsl_status.stdout_lines is defined else 'N/A' }}"
+          - "  {{ wsl_status.stdout_lines[1:] | default([]) | join('\n') if (wsl_status.stdout_lines is defined and wsl_status.stdout_lines | length > 1) else '' }}"
+          - ""
+          - "NVIDIA Container Toolkit:"
+          - "  Status: {{ nvidia_toolkit_status.stdout | default('WSL not installed - Docker may use different backend') if nvidia_toolkit_status.stdout is not defined else nvidia_toolkit_status.stdout }}"
+          - "  Repository: {{ nvidia_repo_status.stdout_lines[0] | default('WSL not installed') if nvidia_repo_status.stdout_lines is not defined else (nvidia_repo_status.stdout_lines[0] if nvidia_repo_status.stdout_lines is defined else 'N/A') }}"
+          - "  {{ nvidia_repo_status.stdout_lines[1:] | default([]) | join('\n') if (nvidia_repo_status.stdout_lines is defined and nvidia_repo_status.stdout_lines | length > 1) else '' }}"
       - ""
       - "GPU Access Test:"
       - "  {{ gpu_test.stdout_lines | default(['N/A']) | join('\n') }}"
