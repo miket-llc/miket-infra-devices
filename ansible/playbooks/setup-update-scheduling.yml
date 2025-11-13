@@ -1,0 +1,38 @@
+---
+# Setup Automated Update Scheduling
+# Purpose: Configure systemd timers (Linux) and scheduled tasks (Windows) for weekly automated updates
+# Scope: Sets up scheduling infrastructure on control node and Windows hosts
+# Idempotent: Yes - safe to run multiple times
+#
+# Usage:
+#   # Set up scheduling on all hosts
+#   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml
+#
+#   # Set up scheduling only on Linux control node
+#   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit motoko
+#
+#   # Set up scheduling only on Windows hosts
+#   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit windows --ask-vault-pass
+
+- name: Setup Automated Update Scheduling
+  hosts: all
+  gather_facts: yes
+  become: yes
+  
+  roles:
+    - system-updates
+  
+  tasks:
+    - name: Display scheduling setup summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Update Scheduling Setup Complete"
+          - "================================================================"
+          - "Host: {{ inventory_hostname }}"
+          - "OS: {{ ansible_os_family }}"
+          - "Schedule: {{ update_schedule_day }} at {{ update_schedule_time }}"
+          - "Frequency: {{ update_frequency }}"
+          - "================================================================"
+      tags: [always]
+

@@ -35,9 +35,11 @@ update_chocolatey_packages: []  # List of Chocolatey packages to update
 docker_update_images: []  # List of Docker images to pull/update
   # Example: ['vllm/vllm-openai:latest', 'nginx:latest']
 docker_update_compose_files: []  # List of docker-compose.yml files to update
-  # Example: ['/opt/vllm-motoko/docker-compose.yml', '/opt/litellm/docker-compose.yml']
+  # Override per host/group:
+  #   - /opt/vllm-motoko/docker-compose.yml
+  #   - /opt/litellm/docker-compose.yml
 docker_health_checks: []  # List of health check URLs
-  # Example:
+  # Override per host/group:
   #   - url: "http://localhost:8001/health"
   #     status_code: 200
   #   - url: "http://localhost:8200/health"

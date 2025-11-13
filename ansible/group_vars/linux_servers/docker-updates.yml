@@ -1,0 +1,16 @@
+---
+# Docker Update Configuration for Linux Servers
+# Overrides group_vars/all/updates.yml for Linux servers
+
+# Docker Compose files to update (configure per host if needed)
+docker_update_compose_files:
+  - /opt/vllm-motoko/docker-compose.yml
+  - /opt/litellm/docker-compose.yml
+
+# Health checks for Docker services
+docker_health_checks:
+  - url: "http://localhost:8001/health"
+    status_code: 200
+  - url: "http://localhost:8200/health"
+    status_code: 200
+
