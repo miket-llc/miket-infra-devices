@@ -27,12 +27,36 @@ echo "[3/5] Adding NVIDIA Container Toolkit repository..."
 # Use the generic deb repository (works for Ubuntu 24.04)
 echo "Using generic deb repository for Ubuntu 24.04..."
 
+# Add GPG key
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 
-# Use the stable generic deb repository instead of version-specific
-curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+# Detect architecture
+ARCH=$(dpkg --print-architecture)
+
+# Configure repository with proper error checking
+REPO_URL="https://nvidia.github.io/libnvidia-container/stable/deb/${ARCH}"
+REPO_LINE="deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] ${REPO_URL} /"
+
+# Verify the repository URL is accessible before writing
+if curl -fsSL --head "${REPO_URL}/Packages" > /dev/null 2>&1; then
+    echo "${REPO_LINE}" | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+    echo "Repository configured successfully for architecture: ${ARCH}"
+else
+    echo "WARNING: Repository URL not accessible: ${REPO_URL}"
+    echo "Falling back to generic repository..."
+    # Fallback to generic repository
+    REPO_URL="https://nvidia.github.io/libnvidia-container/stable/deb"
+    REPO_LINE="deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] ${REPO_URL}/${ARCH} /"
+    echo "${REPO_LINE}" | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+fi
+
+# Verify the file doesn't contain HTML (404 error page)
+if grep -q "<!doctype\|<html\|404" /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+    echo "ERROR: Repository file contains HTML (404 error page)"
+    echo "Removing invalid file..."
+    sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    exit 1
+fi
 
 echo ""
 echo "[4/5] Installing NVIDIA Container Toolkit..."

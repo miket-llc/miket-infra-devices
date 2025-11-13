@@ -1,0 +1,107 @@
+---
+# Fix NVIDIA Container Toolkit Repository on Armitage
+# This playbook fixes the broken repository configuration that contains HTML instead of APT source format
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/fix-nvidia-repo-armitage.yml --limit armitage --ask-vault-pass
+
+- name: Fix NVIDIA Container Toolkit Repository on Armitage
+  hosts: armitage
+  gather_facts: no
+  
+  tasks:
+    - name: Check current repository file status
+      win_shell: |
+        $repoFile = "/etc/apt/sources.list.d/nvidia-container-toolkit.list"
+        if (Test-Path $repoFile) {
+          $content = Get-Content $repoFile -Raw
+          if ($content -match "<!doctype|<html|404") {
+            Write-Output "BROKEN_HTML"
+          } else {
+            Write-Output "VALID"
+          }
+        } else {
+          Write-Output "NOT_FOUND"
+        }
+      register: repo_status
+      changed_when: false
+    
+    - name: Display repository status
+      debug:
+        msg:
+          - "Repository file status: {{ repo_status.stdout }}"
+          - "{{ 'File contains HTML (404 error) - will be fixed' if repo_status.stdout == 'BROKEN_HTML' else 'File is valid or not found' }}"
+    
+    - name: Remove broken repository file
+      win_shell: |
+        $repoFile = "/etc/apt/sources.list.d/nvidia-container-toolkit.list"
+        if (Test-Path $repoFile) {
+          Remove-Item $repoFile -Force
+          Write-Output "Removed broken repository file"
+        }
+      when: repo_status.stdout == "BROKEN_HTML"
+      register: file_removed
+    
+    - name: Copy fixed installation script to Armitage
+      win_copy:
+        src: /home/mdt/miket-infra-devices/devices/armitage/scripts/Install-NvidiaContainerToolkit.sh
+        dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Install-NvidiaContainerToolkit.sh
+        backup: yes
+      when: repo_status.stdout == "BROKEN_HTML"
+    
+    - name: Reconfigure NVIDIA Container Toolkit repository in WSL2
+      win_shell: |
+        Write-Host "Reconfiguring NVIDIA Container Toolkit repository..." -ForegroundColor Yellow
+        wsl -d Ubuntu -- bash -c "
+          set -e
+          # Remove old broken file if it exists
+          sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+          
+          # Install prerequisites
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates gnupg lsb-release
+          
+          # Add GPG key
+          curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+          
+          # Detect architecture
+          ARCH=\$(dpkg --print-architecture)
+          
+          # Configure repository with proper error checking
+          REPO_URL=\"https://nvidia.github.io/libnvidia-container/stable/deb/\${ARCH}\"
+          REPO_LINE=\"deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] \${REPO_URL} /\"
+          
+          # Verify the repository URL is accessible before writing
+          if curl -fsSL --head \"\${REPO_URL}/Packages\" > /dev/null 2>&1; then
+            echo \"\${REPO_LINE}\" | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+            echo \"Repository configured successfully for architecture: \${ARCH}\"
+          else
+            echo \"WARNING: Repository URL not accessible: \${REPO_URL}\"
+            echo \"Falling back to generic repository...\"
+            REPO_URL=\"https://nvidia.github.io/libnvidia-container/stable/deb\"
+            REPO_LINE=\"deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] \${REPO_URL}/\${ARCH} /\"
+            echo \"\${REPO_LINE}\" | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+          fi
+          
+          # Verify the file doesn't contain HTML
+          if grep -q '<!doctype\|<html\|404' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+            echo \"ERROR: Repository file still contains HTML\"
+            sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            exit 1
+          fi
+          
+          # Test apt update
+          sudo apt-get update -qq
+          echo \"Repository configuration verified successfully\"
+        "
+      register: reconfigure_result
+      when: repo_status.stdout == "BROKEN_HTML"
+    
+    - name: Display reconfiguration result
+      debug:
+        msg:
+          - "================================================================"
+          - "  NVIDIA Repository Fix Complete"
+          - "================================================================"
+          - "{{ reconfigure_result.stdout_lines | default(['No output']) | join('\n') }}"
+          - "================================================================"
+      when: reconfigure_result.stdout is defined
+
