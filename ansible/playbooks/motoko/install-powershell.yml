@@ -1,0 +1,74 @@
+---
+# Install PowerShell Core on Motoko (Linux)
+# Run from motoko with: ansible-playbook -i inventory/hosts.yml playbooks/motoko/install-powershell.yml --limit motoko --connection=local
+
+- name: Install PowerShell Core on Motoko
+  hosts: motoko
+  gather_facts: yes
+  become: yes
+  
+  tasks:
+    - name: Check if PowerShell is already installed
+      command: pwsh --version
+      register: pwsh_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install prerequisites
+      apt:
+        name:
+          - wget
+          - apt-transport-https
+          - software-properties-common
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+      when: pwsh_check.rc != 0
+
+    - name: Download Microsoft GPG key
+      get_url:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        dest: /tmp/microsoft.asc
+        mode: '0644'
+      when: pwsh_check.rc != 0
+
+    - name: Import Microsoft GPG key
+      shell: |
+        gpg --dearmor < /tmp/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null
+        chmod 644 /etc/apt/trusted.gpg.d/microsoft.gpg
+      when: pwsh_check.rc != 0
+
+    - name: Add Microsoft repository for PowerShell
+      apt_repository:
+        repo: "deb [arch=amd64,arm64,armhf] https://packages.microsoft.com/repos/microsoft-ubuntu-{{ ansible_distribution_release }}-prod {{ ansible_distribution_release }} main"
+        state: present
+        filename: microsoft-prod
+      when: pwsh_check.rc != 0
+
+    - name: Update apt cache after adding repository
+      apt:
+        update_cache: yes
+      when: pwsh_check.rc != 0
+
+    - name: Install PowerShell
+      apt:
+        name: powershell
+        state: present
+      when: pwsh_check.rc != 0
+
+    - name: Verify PowerShell installation
+      command: pwsh --version
+      register: pwsh_version
+      changed_when: false
+
+    - name: Display PowerShell installation info
+      debug:
+        msg:
+          - "✅ PowerShell Core installed successfully"
+          - "Version: {{ pwsh_version.stdout }}"
+          - "Launch with: pwsh"
+          - "Or: pwsh -Command 'Write-Host \"Hello from PowerShell!\"'"
+      when: pwsh_version.rc == 0
+
