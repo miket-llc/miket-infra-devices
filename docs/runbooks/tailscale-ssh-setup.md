@@ -30,8 +30,8 @@ tailscale ssh mdt@motoko
 
 ### On count-zero (macOS) - Your Current Machine
 ```bash
-# Enable Tailscale SSH
-sudo tailscale up --ssh
+# Enable Tailscale SSH with MagicDNS (REQUIRED for hostname resolution)
+sudo tailscale up --ssh --accept-dns
 
 # Verify
 tailscale status
@@ -117,7 +117,7 @@ tailscale ssh miket@count-zero
 | Device | IP | OS | SSH Status | Tags | Action Needed |
 |--------|----|----|------------|------|---------------|
 | **motoko** | 100.92.23.71 | Linux | ✅ Tailscale SSH | tag:server | None |
-| **count-zero** | 100.111.7.19 | macOS | ⏳ Unknown | None | Run `sudo tailscale up --ssh` |
+| **count-zero** | 100.111.7.19 | macOS | ⏳ Unknown | None | Run `sudo tailscale up --ssh --accept-dns` |
 | **armitage** | 100.72.64.90 | Windows | ❌ Not configured | None | Install OpenSSH Server (Tailscale SSH not supported on Windows) |
 | **wintermute** | 100.89.63.123 | Windows | ❌ Offline | None | Bring online, install OpenSSH Server |
 | **iOS devices** | Various | iOS | N/A | None | No SSH needed |
@@ -177,7 +177,7 @@ On each machine, run:
 
 **count-zero (macOS):**
 ```bash
-sudo tailscale up --ssh
+sudo tailscale up --ssh --accept-dns
 ```
 
 **armitage (Windows):**
@@ -226,5 +226,5 @@ done
 
 ---
 
-**Current Status:** motoko SSH working, other devices need `tailscale up --ssh` enabled on each machine.
+**Current Status:** motoko SSH working, other devices need `tailscale up --ssh --accept-dns` enabled on each machine.
 

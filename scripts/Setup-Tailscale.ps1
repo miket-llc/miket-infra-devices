@@ -93,6 +93,7 @@ Write-Host "Tags: $($config.Tags)"
 $tailscaleArgs = @("up")
 $tailscaleArgs += "--advertise-tags=$($config.Tags)"
 $tailscaleArgs += "--accept-routes"
+$tailscaleArgs += "--accept-dns"  # REQUIRED for MagicDNS - without this, hostname resolution fails
 
 if ($config.ExitNode) {
     $tailscaleArgs += "--advertise-exit-node"

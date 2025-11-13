@@ -93,8 +93,11 @@ echo "SSH: $([ -n "$SSH_ENABLED" ] && echo "Enabled" || echo "Disabled")"
 echo "Routes: ${ADVERTISE_ROUTES:-none}"
 
 # Build tailscale up command
+# CRITICAL: --accept-dns is required for MagicDNS to work
+# Without this flag, devices won't resolve hostnames even if MagicDNS is enabled in Terraform
 TAILSCALE_CMD="sudo tailscale up"
 TAILSCALE_CMD="$TAILSCALE_CMD --advertise-tags=$TAGS"
+TAILSCALE_CMD="$TAILSCALE_CMD --accept-dns"  # REQUIRED for MagicDNS
 [ -n "$SSH_ENABLED" ] && TAILSCALE_CMD="$TAILSCALE_CMD $SSH_ENABLED"
 [ -n "$ADVERTISE_ROUTES" ] && TAILSCALE_CMD="$TAILSCALE_CMD $ADVERTISE_ROUTES"
 
