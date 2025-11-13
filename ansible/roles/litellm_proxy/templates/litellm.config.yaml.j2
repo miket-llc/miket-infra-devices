@@ -4,46 +4,48 @@
 
 model_list:
   # Local chat model - Armitage (Qwen2.5-7B-AWQ, 8k context, fast default)
+  # Capabilities sourced from ansible/host_vars/armitage.yml
   - model_name: local/chat
     litellm_params:
-      model: openai/qwen2.5-7b-armitage
+      model: openai/{{ armitage_model_name }}
       api_base: "{{ armitage_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 7000
-      max_output_tokens: 768
-      max_tokens: 8192
+      max_input_tokens: {{ armitage_max_input_tokens }}
+      max_output_tokens: {{ armitage_max_output_tokens }}
+      max_tokens: {{ armitage_max_model_len }}
     tpm_limit: 80000
     rpm_limit: 40
-    max_concurrent_requests: 1
+    max_concurrent_requests: {{ armitage_max_concurrent_requests }}
 
   # Armitage model alias (explicit)
-  - model_name: qwen2.5-7b-armitage
+  - model_name: {{ armitage_model_name }}
     litellm_params:
-      model: openai/qwen2.5-7b-armitage
+      model: openai/{{ armitage_model_name }}
       api_base: "{{ armitage_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 7000
-      max_output_tokens: 768
-      max_tokens: 8192
+      max_input_tokens: {{ armitage_max_input_tokens }}
+      max_output_tokens: {{ armitage_max_output_tokens }}
+      max_tokens: {{ armitage_max_model_len }}
     tpm_limit: 80000
     rpm_limit: 40
-    max_concurrent_requests: 1
+    max_concurrent_requests: {{ armitage_max_concurrent_requests }}
 
   # Local reasoner model - Wintermute (Llama-3-8B-AWQ, 9k context, deliberate reasoning)
+  # Capabilities sourced from ansible/host_vars/wintermute.yml
   - model_name: {{ wintermute_model_name }}
     litellm_params:
       model: {{ wintermute_model_display }}
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 8000
-      max_output_tokens: 1000
-      max_tokens: 9000
+      max_input_tokens: {{ wintermute_max_input_tokens }}
+      max_output_tokens: {{ wintermute_max_output_tokens }}
+      max_tokens: {{ wintermute_max_model_len }}
     tpm_limit: 80000
     rpm_limit: 40
-    max_concurrent_requests: 2
+    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
 
   # Wintermute model alias (explicit)
   - model_name: llama31-8b-wintermute
@@ -52,12 +54,12 @@ model_list:
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 8000
-      max_output_tokens: 1000
-      max_tokens: 9000
+      max_input_tokens: {{ wintermute_max_input_tokens }}
+      max_output_tokens: {{ wintermute_max_output_tokens }}
+      max_tokens: {{ wintermute_max_model_len }}
     tpm_limit: 80000
     rpm_limit: 40
-    max_concurrent_requests: 2
+    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
 
   # Wintermute burst profile (higher limits for heavy workloads)
   - model_name: llama31-8b-wintermute-burst
@@ -66,12 +68,12 @@ model_list:
       api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: 8500
-      max_output_tokens: 500
-      max_tokens: 9000
+      max_input_tokens: {{ (wintermute_max_input_tokens | int) + 500 }}
+      max_output_tokens: {{ (wintermute_max_output_tokens | int) - 500 }}
+      max_tokens: {{ wintermute_max_model_len }}
     tpm_limit: 100000
     rpm_limit: 50
-    max_concurrent_requests: 2
+    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
 
   # Local reasoning model - Motoko (Mistral-7B-Instruct-AWQ)
   - model_name: local/reasoning
@@ -135,7 +137,7 @@ policies:
         - "local/reasoning"
         - "{{ wintermute_model_name }}"
         - "local/embed"
-        - "qwen2.5-7b-armitage"
+        - "{{ armitage_model_name }}"
         - "llama31-8b-wintermute"
         - "llama31-8b-wintermute-burst"
     on_trigger: "route:openai/strong"

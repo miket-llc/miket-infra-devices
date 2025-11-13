@@ -15,7 +15,8 @@ docker_desktop:
   credential_store: ""  # Disable credential helper (prevents auth issues)
   config_path: "{{ automation_user_home }}\\.docker"
   
-# vLLM configuration defaults
+# vLLM configuration defaults (shared by wintermute and armitage)
+# Device-specific overrides in host_vars take precedence
 vllm_defaults:
   image: "vllm/vllm-openai:latest"
   port: 8000
@@ -27,6 +28,11 @@ vllm_defaults:
   idle_threshold_minutes: 5
   restart_policy: "unless-stopped"
   shm_size: "4g"
+  tensor_parallel_size: 1
+  # Shared Docker settings
+  docker_env:
+    - "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1"
+  docker_shm_size: "4g"
 
 # PowerShell script deployment
 powershell_scripts_dest: "{{ automation_user_home }}\\dev\\{{ inventory_hostname }}\\scripts"

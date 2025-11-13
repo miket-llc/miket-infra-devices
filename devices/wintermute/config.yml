@@ -49,12 +49,15 @@ use_cases:
 vllm:
   enabled: true
   model: "casperhansen/llama-3-8b-instruct-awq"
+  served_model_name: "llama31-8b-wintermute"
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
   max_model_len: 9000
+  max_num_seqs: 2
   gpu_memory_utilization: 0.88
   quantization: "awq"
+  tensor_parallel_size: 1
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
