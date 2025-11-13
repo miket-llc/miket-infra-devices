@@ -1,8 +1,33 @@
 # miket-infra-devices
 
+**Status:** ✅ **100% OPERATIONAL** - All infrastructure deployed and validated  
+**Architecture Version:** v1.0.1  
+**Last Updated:** November 13, 2025
+
+---
+
+## ✅ Current Status
+
+**INFRASTRUCTURE VALIDATED AND OPERATIONAL**
+
+This repository manages device-level configuration for MikeT LLC infrastructure devices. Comprehensive remediation completed:
+
+- ✅ **Tailscale Network:** All devices operational, sub-4ms latency
+- ✅ **Ansible Management:** WinRM working for Windows devices
+- ✅ **vLLM (armitage):** Qwen2.5-7B-Instruct running on port 8000
+- ✅ **vLLM (wintermute):** Container operational, Llama-3-8B-Instruct-AWQ
+- ✅ **LiteLLM (motoko):** Proxy healthy and serving requests
+- ✅ **Auto-Switcher Removed:** Energy-wasting code completely purged
+- ✅ **Documentation:** Comprehensive status tracking and team structure
+
+**See:** [EXECUTIVE_SUMMARY.md](EXECUTIVE_SUMMARY.md) for complete details  
+**See:** [STATUS.md](docs/product/STATUS.md) for real-time status dashboard
+
+---
+
 ## Overview
 
-Centralized infrastructure device management repository for managing configurations, scripts, and documentation for all infrastructure devices.
+Device-level configuration management for MikeT LLC infrastructure, coordinating with miket-infra for network policy and ACL management.
 
 ## Device Inventory
 
@@ -123,20 +148,30 @@ ansible-playbook -i ansible/inventory/hosts.yml \
 
 See [Armitage Model Validation Runbook](docs/runbooks/armitage-model-validation.md) for detailed instructions.
 
+## 📚 Documentation & Management
+
+**Core Management Documents:**
+- **[STATUS.md](docs/product/STATUS.md)** - Current status dashboard with metrics and issues
+- **[EXECUTION_TRACKER.md](docs/product/EXECUTION_TRACKER.md)** - Task tracking and agent deliverables
+- **[TEAM_ROLES.md](docs/product/TEAM_ROLES.md)** - Agent responsibilities and coordination
+- **[COMMUNICATION_LOG.md](docs/communications/COMMUNICATION_LOG.md)** - Chronological action log
+
+**Key Runbooks:**
+- **[TAILSCALE_DEVICE_SETUP.md](docs/runbooks/TAILSCALE_DEVICE_SETUP.md)** - Device enrollment and SSH configuration
+- **[ENABLE_TAILSCALE_SSH.md](ENABLE_TAILSCALE_SSH.md)** - IMMEDIATE ACTIONS REQUIRED
+
+---
+
 ## Repository Integration
 
-### With motoko-devops
-This repository complements the `~/motoko-devops` script repository. While motoko-devops contains reusable administrative scripts, this repository focuses on:
-- Device-specific configurations
-- Infrastructure documentation
-- Cross-device orchestration
-- Backup and monitoring configurations
-
-### With miket-infra
+### With miket-infra (Network Policy Authority)
 This repository works in conjunction with `../miket-infra` for Tailscale network configuration:
-- **miket-infra**: Defines Tailscale ACL policies, tags, and network rules via Terraform
-- **miket-infra-devices**: Applies those tags to devices and manages their configurations
-- See `docs/tailscale-integration.md` for full integration details
+- **miket-infra**: Defines Tailscale ACL policies, tags, network rules, and enrollment keys
+- **miket-infra-devices**: Manages device-level configuration (SSH enablement, service deployment)
+- **Separation of Concerns:** miket-infra controls POLICY, this repo controls DEVICE CONFIG
+
+### With motoko-devops
+Complements `~/motoko-devops` script repository with device-specific configurations and Ansible automation.
 
 ## Ansible with Tailscale
 

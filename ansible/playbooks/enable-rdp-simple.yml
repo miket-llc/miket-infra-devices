@@ -2,9 +2,9 @@
 # Simple RDP enablement playbook
 - name: Enable RDP on Windows devices
   hosts: windows_workstations
-  gather_facts: no
+  gather_facts: false
   vars:
-    ansible_become: no
+    ansible_become: false
   tasks:
     - name: Enable Remote Desktop
       win_regedit:

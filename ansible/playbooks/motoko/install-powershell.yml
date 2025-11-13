@@ -4,8 +4,8 @@
 
 - name: Install PowerShell Core on Motoko
   hosts: motoko
-  gather_facts: yes
-  become: yes
+  gather_facts: true
+  become: true
   
   tasks:
     - name: Check if PowerShell is already installed

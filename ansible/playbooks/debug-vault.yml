@@ -2,7 +2,7 @@
 # Debug playbook to test vault variable loading
 - name: Debug Vault Variables
   hosts: windows
-  gather_facts: no
+  gather_facts: false
   
   tasks:
     - name: Display vault variables

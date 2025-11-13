@@ -4,7 +4,7 @@
 
 - name: Configure Windows Workstations
   hosts: windows
-  gather_facts: yes
+  gather_facts: true
   vars_files:
     - ../../group_vars/windows/vault.yml
   vars:
@@ -162,11 +162,11 @@
 # Separate playbook section for mode switching
 - name: Switch Workstation Mode
   hosts: "{{ target_host | default('armitage') }}"
-  gather_facts: no
+  gather_facts: false
   vars_prompt:
     - name: target_mode
       prompt: "Enter mode (gaming/productivity/development)"
-      private: no
+      private: false
       default: productivity
   
   tasks:

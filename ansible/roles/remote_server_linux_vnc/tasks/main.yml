@@ -7,7 +7,7 @@
     name: tigervnc-standalone-server
     state: present
     update_cache: yes
-  become: yes
+  become: true
   tags: [updates, packages]
 
 - name: Get active X11 display from running processes (GNOME session)
@@ -34,7 +34,7 @@
     mode: '0755'
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  become: yes
+  become: true
   become_user: "{{ ansible_user }}"
 
 - name: Create TigerVNC password file with simple password
@@ -43,7 +43,7 @@
     chmod 600 /home/{{ ansible_user }}/.vnc/tigervnc-passwd
   args:
     creates: /home/{{ ansible_user }}/.vnc/tigervnc-passwd
-  become: yes
+  become: true
   become_user: "{{ ansible_user }}"
   no_log: true
 
@@ -67,7 +67,7 @@
     src: tigervnc.service.j2
     dest: /etc/systemd/system/tigervnc.service
     mode: '0644'
-  become: yes
+  become: true
   vars:
     vnc_display: "{{ vnc_display }}"
     xauth_path: "{{ xauth_path.stdout | default('/run/user/1000/gdm/Xauthority') }}"
@@ -75,10 +75,10 @@
 - name: Enable and start TigerVNC service
   ansible.builtin.systemd:
     name: tigervnc.service
-    enabled: yes
+    enabled: true
     state: restarted
     daemon_reload: yes
-  become: yes
+  become: true
 
 - name: Wait for TigerVNC to be accessible
   ansible.builtin.wait_for:

@@ -24,7 +24,7 @@
   changed_when: false
   failed_when: false
   ignore_errors: true
-  check_mode: no
+  check_mode: false
 
 - name: Install Docker + Compose plugin if not present
   apt:
@@ -62,7 +62,7 @@
     chdir: "{{ vllm_compose_dir }}"
   register: docker_compose_result
   changed_when: "'Creating' in docker_compose_result.stdout or 'Starting' in docker_compose_result.stdout or docker_compose_result.stdout is not defined"
-  check_mode: no
+  check_mode: false
 
 - name: Wait for reasoning service to be ready
   wait_for:

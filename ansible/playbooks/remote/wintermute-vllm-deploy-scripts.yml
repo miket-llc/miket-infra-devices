@@ -5,7 +5,7 @@
 
 - name: Deploy vLLM scripts to Wintermute
   hosts: wintermute
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../../group_vars/windows/vault.yml
   vars:
@@ -113,7 +113,6 @@
         dest: "{{ item.dest }}"
       loop:
         - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/Start-VLLM.ps1", dest: "{{ scripts_dest }}\\Start-VLLM.ps1" }
-        - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/Auto-ModeSwitcher.ps1", dest: "{{ scripts_dest }}\\Auto-ModeSwitcher.ps1" }
         - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/Set-WorkstationMode.ps1", dest: "{{ scripts_dest }}\\Set-WorkstationMode.ps1" }
         - { src: "{{ playbook_dir }}/../../../devices/wintermute/scripts/vllm.sh", dest: "{{ scripts_dest }}\\vllm.sh" }
     
@@ -154,46 +153,23 @@
           }
         dest: C:\ProgramData\WintermuteMode\vllm_config.json
     
-    - name: Create scheduled task
-      win_scheduled_task:
-        name: Wintermute Auto Mode Switcher
-        description: Automatically switches between workstation and LLM serving modes
-        actions:
-          - path: powershell.exe
-            arguments: >
-              -ExecutionPolicy Bypass -NoProfile -File
-              "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
-        triggers:
-          - type: boot
-          - type: logon
-          - type: daily
-            start_boundary: "2025-01-01T00:00:00"
-            repetition:
-              interval: "PT{{ check_interval_minutes }}M"
-              duration: "P1D"
-        state: present
-        enabled: "{{ auto_switch_enabled }}"
-        run_level: highest
-        username: SYSTEM
+    # Auto-switcher scheduled task removed per CEO directive - energy wasting code
     
     - name: Verify deployment
       win_shell: |
         $scriptsOk = Test-Path "{{ scripts_dest }}\Start-VLLM.ps1"
-        $autoSwitcherOk = Test-Path "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
         $modeSwitcherOk = Test-Path "{{ scripts_dest }}\Set-WorkstationMode.ps1"
         $configOk = Test-Path "C:\ProgramData\WintermuteMode\vllm_config.json"
         
-        if ($scriptsOk -and $autoSwitcherOk -and $modeSwitcherOk -and $configOk) {
+        if ($scriptsOk -and $modeSwitcherOk -and $configOk) {
           Write-Host "✅ Deployment successful" -ForegroundColor Green
           Write-Host "  PowerShell scripts: $scriptsOk"
-          Write-Host "  Auto-switcher: $autoSwitcherOk"
           Write-Host "  Mode switcher: $modeSwitcherOk"
           Write-Host "  Config file: $configOk"
           exit 0
         } else {
           Write-Host "❌ Deployment verification failed" -ForegroundColor Red
           Write-Host "  Start-VLLM.ps1 exists: $scriptsOk"
-          Write-Host "  Auto-ModeSwitcher.ps1 exists: $autoSwitcherOk"
           Write-Host "  Set-WorkstationMode.ps1 exists: $modeSwitcherOk"
           Write-Host "  Config exists: $configOk"
           exit 1
@@ -245,9 +221,6 @@
           - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Gaming"
           - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Productivity"
           - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Development"
-          - ""
-          - "Auto-switcher: {{ 'Enabled' if auto_switch_enabled else 'Disabled' }}"
-          - "  Scheduled task runs every {{ check_interval_minutes }} minutes"
           - ""
           - "API will be available at: http://wintermute.pangolin-vega.ts.net:{{ vllm_port }}/v1"
           - ""

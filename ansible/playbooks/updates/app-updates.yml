@@ -22,7 +22,7 @@
 
 - name: Update Application Code
   hosts: all
-  gather_facts: yes
+  gather_facts: true
   
   vars:
     app_update_report: []

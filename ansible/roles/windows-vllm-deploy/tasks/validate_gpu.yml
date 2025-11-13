@@ -1,0 +1,78 @@
+---
+# GPU Validation Task for Windows vLLM Deployment
+# Checks Docker Desktop GPU passthrough before attempting container deployment
+# CRITICAL: Prevents deployment failures and provides clear error messages
+
+- name: "[PRE-FLIGHT] Check Docker Desktop WSL2 engine is enabled"
+  win_shell: |
+    $settingsPath = "$env:USERPROFILE\.docker\settings.json"
+    if (-not (Test-Path $settingsPath)) {
+      Write-Host "ERROR: Docker Desktop settings file not found"
+      exit 1
+    }
+    $settings = Get-Content $settingsPath | ConvertFrom-Json
+    if ($settings.wslEngineEnabled -eq $true) {
+      Write-Host "OK: WSL2 engine enabled"
+      exit 0
+    } else {
+      Write-Host "ERROR: WSL2 engine NOT enabled"
+      exit 1
+    }
+  register: wsl_engine_check
+  failed_when: false
+  changed_when: false
+
+- name: "[PRE-FLIGHT] Test Docker GPU access with test container"
+  win_shell: |
+    # Pull a small CUDA image if not present (non-blocking)
+    docker pull nvidia/cuda:12.0.0-base-ubuntu22.04 2>&1 | Out-Null
+    
+    # Test GPU access
+    $gpuTest = docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi --query-gpu=name --format=csv,noheader 2>&1
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "OK: GPU accessible - $gpuTest"
+      exit 0
+    } else {
+      Write-Host "ERROR: GPU not accessible"
+      Write-Host "Error: $gpuTest"
+      exit 1
+    }
+  register: gpu_test
+  failed_when: false
+  changed_when: false
+  when: wsl_engine_check.rc == 0
+
+- name: "[PRE-FLIGHT] Fail if GPU passthrough is not working"
+  fail:
+    msg: |
+      ❌ CRITICAL: Docker Desktop GPU passthrough is NOT configured on {{ inventory_hostname }}
+      
+      ERROR DETAILS:
+      {{ gpu_test.stdout if gpu_test.stdout is defined else 'GPU test did not run' }}
+      
+      REQUIRED MANUAL ACTION (5 minutes):
+      1. Open Docker Desktop on {{ inventory_hostname }}
+      2. Go to Settings → Resources → WSL Integration
+      3. Ensure "Use WSL 2 based engine" is enabled
+      4. Verify GPU support is enabled in Docker Desktop
+      5. Restart Docker Desktop completely
+      6. Verify with: docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi
+      
+      AUTOMATION LIMITATION:
+      Docker Desktop GPU settings cannot be modified programmatically via PowerShell/WinRM.
+      The settings.json file doesn't contain GPU-specific flags - they're managed by Docker Desktop GUI.
+      
+      After manual configuration, re-run this playbook.
+      
+      REFERENCE: docs/runbooks/wintermute-setup.md section "Docker Desktop GPU Configuration"
+  when: 
+    - gpu_test.rc is defined
+    - gpu_test.rc != 0
+
+- name: "[PRE-FLIGHT] Success - GPU passthrough is working"
+  debug:
+    msg: "✅ GPU passthrough validated: {{ gpu_test.stdout | trim }}"
+  when:
+    - gpu_test.rc is defined  
+    - gpu_test.rc == 0
+

@@ -6,11 +6,11 @@
 
 - name: Configure RDP on all Windows devices
   hosts: windows_workstations
-  gather_facts: yes
+  gather_facts: true
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
-    ansible_become: no  # Windows doesn't use become like Linux
+    ansible_become: false  # Windows doesn't use become like Linux
     # Ensure password is resolved from vault
     ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
   tasks:

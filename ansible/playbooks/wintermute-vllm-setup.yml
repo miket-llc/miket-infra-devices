@@ -7,7 +7,7 @@
 
 - name: Setup vLLM on Wintermute
   hosts: wintermute
-  gather_facts: yes
+  gather_facts: true
   
   vars:
     vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
@@ -173,13 +173,9 @@
         dest: C:\Users\{{ ansible_user }}\dev\wintermute\scripts\Start-VLLM.ps1
       tags: [scripts]
     
-    - name: "[9/12] Deploy auto mode switcher script"
-      win_copy:
-        src: "{{ playbook_dir }}/../devices/wintermute/scripts/Auto-ModeSwitcher.ps1"
-        dest: C:\Users\{{ ansible_user }}\dev\wintermute\scripts\Auto-ModeSwitcher.ps1
-      tags: [scripts]
+    # Auto-switcher removed per CEO directive
     
-    - name: "[10/12] Deploy mode switcher script"
+    - name: "[9/12] Deploy mode switcher script"
       win_copy:
         src: "{{ playbook_dir }}/../devices/wintermute/scripts/Set-WorkstationMode.ps1"
         dest: C:\Users\{{ ansible_user }}\dev\wintermute\scripts\Set-WorkstationMode.ps1
@@ -204,29 +200,7 @@
         dest: C:\ProgramData\WintermuteMode\vllm_config.json
       tags: [config]
     
-    - name: "[12/12] Create scheduled task for auto mode switching"
-      win_scheduled_task:
-        name: Wintermute Auto Mode Switcher
-        description: Automatically switches between workstation and LLM serving modes
-        actions:
-          - path: powershell.exe
-            arguments: >
-              -ExecutionPolicy Bypass -NoProfile -File
-              "C:\Users\{{ ansible_user }}\dev\wintermute\scripts\Auto-ModeSwitcher.ps1"
-        triggers:
-          - type: boot
-          - type: logon
-          - type: daily
-            start_time: "00:00"
-          - type: time
-            minutes_interval: "{{ check_interval_minutes }}"
-            repetition_interval: "PT{{ check_interval_minutes }}M"
-            repetition_duration: "PT24H"
-        state: present
-        enabled: "{{ auto_switch_enabled }}"
-        run_level: highest
-        username: SYSTEM
-      tags: [scheduled_task]
+    # Auto-switcher scheduled task removed per CEO directive - energy wasting code
     
     - name: Test vLLM script availability
       win_shell: |

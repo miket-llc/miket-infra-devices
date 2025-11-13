@@ -23,8 +23,8 @@
 
 - name: Update Linux Systems
   hosts: linux
-  gather_facts: yes
-  become: yes
+  gather_facts: true
+  become: true
   
   vars:
     update_report: []
@@ -87,7 +87,7 @@
       register: upgradable_count
       changed_when: false
       failed_when: false
-      check_mode: no
+      check_mode: false
       tags: [updates, always]
 
     - name: Display upgradable packages count
@@ -101,7 +101,7 @@
       register: upgradable_packages
       changed_when: false
       failed_when: false
-      check_mode: no
+      check_mode: false
       tags: [updates, always]
 
     - name: Upgrade security and critical packages (security-only mode)
@@ -109,7 +109,7 @@
         upgrade: safe
         autoremove: "{{ update_autoremove | default(true) }}"
         autoclean: "{{ update_autoclean | default(true) }}"
-        update_cache: no
+        update_cache: false
       when: 
         - update_security_only | default(true)
         - upgradable_count.stdout is defined
@@ -122,7 +122,7 @@
         upgrade: safe
         autoremove: "{{ update_autoremove | default(true) }}"
         autoclean: "{{ update_autoclean | default(true) }}"
-        update_cache: no
+        update_cache: false
       when: 
         - not (update_security_only | default(true))
         - upgradable_count.stdout is defined

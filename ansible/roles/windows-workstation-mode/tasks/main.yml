@@ -17,7 +17,7 @@
     state: stopped
     start_mode: disabled
   loop: "{{ mode_config.services_to_stop | default([]) }}"
-  ignore_errors: yes
+  ignore_errors: true
 
 # Start services for the selected mode
 - name: Start services for {{ workstation_mode }} mode
@@ -26,7 +26,7 @@
     state: started
     start_mode: auto
   loop: "{{ mode_config.services_to_start | default([]) }}"
-  ignore_errors: yes
+  ignore_errors: true
 
 # Apply power plan
 - name: Set power plan to {{ mode_config.power_plan }}
@@ -50,7 +50,7 @@
       & $nvidiaSmi -pm {{ mode_config.gpu_persistence | default('0') }}
     }
   when: "'NVIDIA' in gpu.model"
-  ignore_errors: yes
+  ignore_errors: true
 
 # Apply network optimizations
 - name: Configure network settings for {{ workstation_mode }}

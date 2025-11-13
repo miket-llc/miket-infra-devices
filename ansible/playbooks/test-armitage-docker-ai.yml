@@ -5,7 +5,7 @@
 
 - name: Test Armitage Docker and AI Configuration
   hosts: armitage
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -161,7 +161,7 @@
 - name: Test AI Model via LiteLLM Proxy
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: false
   
   tasks:
     - name: Test Armitage model via LiteLLM

@@ -4,7 +4,7 @@
 
 - name: Deploy vLLM scripts to Armitage
   hosts: armitage
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -168,7 +168,6 @@
         dest: "{{ item.dest }}"
       loop:
         - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Start-VLLM.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Start-VLLM.ps1" }
-        - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Auto-ModeSwitcher.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Auto-ModeSwitcher.ps1" }
         - { src: "/home/mdt/miket-infra-devices/devices/armitage/scripts/Set-WorkstationMode.ps1", dest: "C:\\Users\\{{ ansible_user }}\\dev\\armitage\\scripts\\Set-WorkstationMode.ps1" }
     
     - name: Deploy vLLM config.yml
@@ -193,27 +192,7 @@
           }
         dest: C:\ProgramData\ArmitageMode\vllm_config.json
     
-    - name: Create scheduled task
-      win_scheduled_task:
-        name: Armitage Auto Mode Switcher
-        description: Automatically switches between workstation and LLM serving modes
-        actions:
-          - path: powershell.exe
-            arguments: >
-              -ExecutionPolicy Bypass -NoProfile -File
-              "C:\Users\{{ ansible_user }}\dev\armitage\scripts\Auto-ModeSwitcher.ps1"
-        triggers:
-          - type: boot
-          - type: logon
-          - type: daily
-            start_boundary: "2025-01-01T00:00:00"
-            repetition:
-              interval: "PT{{ check_interval_minutes }}M"
-              duration: "P1D"
-        state: present
-        enabled: "{{ auto_switch_enabled }}"
-        run_level: highest
-        username: SYSTEM
+    # Auto-switcher scheduled task removed per CEO directive - energy wasting code
     
     - name: Verify deployment
       win_shell: |

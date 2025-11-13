@@ -2,7 +2,7 @@
 # Simple test playbook for Windows connectivity
 - name: Test Windows Connectivity
   hosts: windows
-  gather_facts: yes
+  gather_facts: true
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:

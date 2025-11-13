@@ -8,7 +8,7 @@
 
 - name: Deploy vLLM to Windows workstations
   hosts: windows_workstations
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -17,8 +17,6 @@
     vllm_powershell_scripts:
       - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Start-VLLM.ps1"
         dest: "{{ vllm_defaults.scripts_path }}\\Start-VLLM.ps1"
-      - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Auto-ModeSwitcher.ps1"
-        dest: "{{ vllm_defaults.scripts_path }}\\Auto-ModeSwitcher.ps1"
       - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Set-WorkstationMode.ps1"
         dest: "{{ vllm_defaults.scripts_path }}\\Set-WorkstationMode.ps1"
     # Include WSL2 bash script for wintermute (deployed conditionally in role)

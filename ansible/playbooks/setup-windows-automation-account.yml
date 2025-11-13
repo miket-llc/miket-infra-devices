@@ -6,7 +6,7 @@
 
 - name: Setup local automation account (mdt) on Windows devices
   hosts: windows
-  gather_facts: yes
+  gather_facts: true
   vars:
     automation_account_name: "mdt"
     automation_account_description: "MDT - Infrastructure automation account"

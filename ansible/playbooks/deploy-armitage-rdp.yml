@@ -2,9 +2,9 @@
 # Deploy RDP to Armitage
 - name: Configure RDP on Armitage
   hosts: armitage
-  gather_facts: yes
+  gather_facts: true
   vars:
-    ansible_become: no  # Windows doesn't use become like Linux
+    ansible_become: false  # Windows doesn't use become like Linux
   tasks:
     - name: Enable Remote Desktop
       win_regedit:

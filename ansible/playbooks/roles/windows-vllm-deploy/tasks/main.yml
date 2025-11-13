@@ -93,21 +93,18 @@
 - name: Verify deployment
   win_shell: |
     $scriptsOk = Test-Path "{{ scripts_dest }}\Start-VLLM.ps1"
-    $autoSwitcherOk = Test-Path "{{ scripts_dest }}\Auto-ModeSwitcher.ps1"
     $modeSwitcherOk = Test-Path "{{ scripts_dest }}\Set-WorkstationMode.ps1"
     $configOk = Test-Path "{{ vllm_config_dir }}\vllm_config.json"
     
-    if ($scriptsOk -and $autoSwitcherOk -and $modeSwitcherOk -and $configOk) {
+    if ($scriptsOk -and $modeSwitcherOk -and $configOk) {
       Write-Host "✅ Deployment successful" -ForegroundColor Green
       Write-Host "  PowerShell scripts: $scriptsOk"
-      Write-Host "  Auto-switcher: $autoSwitcherOk"
       Write-Host "  Mode switcher: $modeSwitcherOk"
       Write-Host "  Config file: $configOk"
       exit 0
     } else {
       Write-Host "❌ Deployment verification failed" -ForegroundColor Red
       Write-Host "  Start-VLLM.ps1 exists: $scriptsOk"
-      Write-Host "  Auto-ModeSwitcher.ps1 exists: $autoSwitcherOk"
       Write-Host "  Set-WorkstationMode.ps1 exists: $modeSwitcherOk"
       Write-Host "  Config exists: $configOk"
       exit 1

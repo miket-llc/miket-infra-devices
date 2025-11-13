@@ -5,7 +5,7 @@
 
 - name: Rebuild Docker Desktop on Windows Workstation
   hosts: "{{ target_hosts | default('windows_workstations') }}"
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../../group_vars/windows/vault.yml
   vars:
@@ -82,14 +82,14 @@
       win_service:
         name: com.docker.service
         state: stopped
-      ignore_errors: yes
+      ignore_errors: true
     
     - name: Uninstall Docker Desktop via Chocolatey
       win_chocolatey:
         name: docker-desktop
         state: absent
       register: docker_uninstall
-      ignore_errors: yes
+      ignore_errors: true
     
     - name: Remove Docker Desktop directories
       win_file:

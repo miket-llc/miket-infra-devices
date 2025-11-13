@@ -4,7 +4,7 @@
 
 - name: Configure Windows Firewall for vLLM
   hosts: windows_workstations
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -19,5 +19,5 @@
         direction: in
         action: allow
         state: present
-        enabled: yes
+        enabled: true
 

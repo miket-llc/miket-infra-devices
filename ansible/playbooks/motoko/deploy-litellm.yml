@@ -6,7 +6,7 @@
 - name: Deploy LiteLLM proxy on motoko
   hosts: motoko
   become: true
-  gather_facts: yes
+  gather_facts: true
   vars_files:
     - ../../group_vars/motoko.yml
   roles:

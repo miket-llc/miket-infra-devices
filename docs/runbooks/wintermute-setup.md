@@ -220,19 +220,13 @@ Wintermute hardware profile is defined in `devices/wintermute/config.yml`:
 
 ### Auto Mode Switching
 
-The auto mode switcher monitors system activity and automatically:
+Manual mode switching only (auto-switcher removed per CEO directive):
 - **Stops vLLM** when workstation is in use (gaming, streaming, etc.)
 - **Starts vLLM** when system is idle
 
 ```powershell
-# Force workstation mode (stops vLLM)
-.\devices\wintermute\scripts\Auto-ModeSwitcher.ps1 -ForceMode workstation
-
-# Force LLM mode (starts vLLM)
-.\devices\wintermute\scripts\Auto-ModeSwitcher.ps1 -ForceMode llm
-
-# Enable auto mode (default)
-.\devices\wintermute\scripts\Auto-ModeSwitcher.ps1 -ForceMode auto
+# Use Start-VLLM.ps1 for manual container control
+# Use Set-WorkstationMode.ps1 for mode switching
 ```
 
 ## Troubleshooting

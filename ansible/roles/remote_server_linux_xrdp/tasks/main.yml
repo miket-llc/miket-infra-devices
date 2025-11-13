@@ -9,7 +9,7 @@
       - xorgxrdp
     state: present
     update_cache: yes
-  become: yes
+  become: true
   tags: [updates, packages]
 
 - name: Add user to ssl-cert group (required for xrdp)
@@ -17,15 +17,15 @@
     name: "{{ ansible_user }}"
     groups: ssl-cert
     append: yes
-  become: yes
+  become: true
 
 - name: Ensure xrdp user exists
   ansible.builtin.user:
     name: xrdp
     system: yes
     shell: /bin/false
-    create_home: no
-  become: yes
+    create_home: false
+  become: true
 
 - name: Configure xrdp to use Xorg session
   ansible.builtin.lineinfile:
@@ -33,7 +33,7 @@
     regexp: '^new_cursors='
     line: 'new_cursors=true'
     backup: yes
-  become: yes
+  become: true
 
 - name: Ensure Xorg session is available
   ansible.builtin.stat:
@@ -51,7 +51,7 @@
       Type=Application
       DesktopNames=Xorg
     mode: '0644'
-  become: yes
+  become: true
   when: xsessions_dir.stat.exists
 
 - name: Configure xrdp to start Xorg session
@@ -60,23 +60,23 @@
     regexp: '^\. /etc/X11/Xsession'
     line: '. /etc/X11/Xsession'
     backup: yes
-  become: yes
+  become: true
 
 - name: Enable and start xrdp service
   ansible.builtin.systemd:
     name: xrdp
-    enabled: yes
+    enabled: true
     state: started
     daemon_reload: yes
-  become: yes
+  become: true
 
 - name: Enable and start xrdp-sesman service
   ansible.builtin.systemd:
     name: xrdp-sesman
-    enabled: yes
+    enabled: true
     state: started
     daemon_reload: yes
-  become: yes
+  become: true
 
 - name: Verify xrdp is listening on port 3389
   ansible.builtin.wait_for:

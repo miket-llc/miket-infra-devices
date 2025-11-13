@@ -23,7 +23,7 @@
 
 - name: Update Docker Services
   hosts: all
-  gather_facts: yes
+  gather_facts: true
   become: yes
   
   vars:

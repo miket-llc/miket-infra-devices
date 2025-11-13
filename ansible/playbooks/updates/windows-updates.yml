@@ -27,7 +27,7 @@
 
 - name: Update Windows Systems
   hosts: windows
-  gather_facts: yes
+  gather_facts: true
   
   vars:
     update_report: []
@@ -108,7 +108,7 @@
           - CriticalUpdates
           - UpdateRollups
         state: installed
-        reboot: no
+        reboot: false
       register: windows_updates_install
       when: not ansible_check_mode
       tags: [updates, security]

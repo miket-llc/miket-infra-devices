@@ -8,7 +8,7 @@
 
 - name: Fix NVIDIA Container Toolkit Repository on Windows Workstations
   hosts: "{{ target_hosts | default('windows_workstations') }}"
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -60,7 +60,7 @@
       win_copy:
         src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Install-NvidiaContainerToolkit.sh"
         dest: "{{ nvidia_script_path }}"
-        backup: yes
+        backup: true
       when: 
         - "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
         - inventory_hostname in ['armitage', 'wintermute']
@@ -70,7 +70,7 @@
       win_copy:
         src: "{{ playbook_dir }}/../../scripts/shared/Install-NvidiaContainerToolkit.sh"
         dest: "{{ nvidia_script_path }}"
-        backup: yes
+        backup: true
       when: 
         - "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
         - inventory_hostname not in ['armitage', 'wintermute']

@@ -87,7 +87,7 @@
     members: "{{ rdp_users | default([]) }}"
     state: present
   when: rdp_users is defined and rdp_users | length > 0
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Force Group Policy update to apply changes
   win_shell: |

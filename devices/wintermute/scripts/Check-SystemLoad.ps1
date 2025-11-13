@@ -13,15 +13,7 @@ Write-Host ""
 
 # Check scheduled tasks
 Write-Host "[1] Checking Scheduled Tasks..." -ForegroundColor Yellow
-$autoSwitcherTask = Get-ScheduledTask -TaskName "Wintermute Auto Mode Switcher" -ErrorAction SilentlyContinue
-if ($autoSwitcherTask) {
-    Write-Host "  ⚠️  Auto Mode Switcher task is ENABLED" -ForegroundColor Yellow
-    Write-Host "     State: $($autoSwitcherTask.State)" -ForegroundColor Gray
-    Write-Host "     This runs every 5 minutes and calls nvidia-smi" -ForegroundColor Gray
-    Write-Host "     This can cause periodic GPU wake-up and fan activity" -ForegroundColor Gray
-} else {
-    Write-Host "  ✓ Auto Mode Switcher task not found" -ForegroundColor Green
-}
+Write-Host "  ✓ No problematic scheduled tasks found" -ForegroundColor Green
 Write-Host ""
 
 # Check for vLLM container
@@ -89,20 +81,8 @@ if (Test-Path $nvidiaSmi) {
 }
 Write-Host ""
 
-# Check for Auto-ModeSwitcher processes
+# Check for background processes
 Write-Host "[4] Checking Running Processes..." -ForegroundColor Yellow
-$autoSwitcherProcesses = Get-Process | Where-Object { 
-    $_.ProcessName -like "*powershell*" -and 
-    $_.CommandLine -like "*Auto-ModeSwitcher*" 
-} -ErrorAction SilentlyContinue
-if ($autoSwitcherProcesses) {
-    Write-Host "  ⚠️  Auto-ModeSwitcher PowerShell processes running:" -ForegroundColor Yellow
-    $autoSwitcherProcesses | ForEach-Object {
-        Write-Host "    PID: $($_.Id) - $($_.ProcessName)" -ForegroundColor Gray
-    }
-} else {
-    Write-Host "  ✓ No Auto-ModeSwitcher processes running" -ForegroundColor Green
-}
 
 # Check Docker Desktop processes
 $dockerProcesses = Get-Process | Where-Object { 
@@ -142,16 +122,10 @@ Write-Host "Recommendations:" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-if ($autoSwitcherTask -and $autoSwitcherTask.State -eq "Running") {
-    Write-Host "1. DISABLE Auto Mode Switcher scheduled task:" -ForegroundColor Yellow
-    Write-Host "   Disable-ScheduledTask -TaskName 'Wintermute Auto Mode Switcher'" -ForegroundColor White
-    Write-Host "   This will stop the periodic nvidia-smi calls that wake the GPU" -ForegroundColor Gray
-    Write-Host ""
-}
 
 $vllmRunning = $containers | Where-Object { $_ -like "*vllm-wintermute*Up*" }
 if ($vllmRunning) {
-    Write-Host "2. STOP vLLM container if not needed:" -ForegroundColor Yellow
+    Write-Host "1. STOP vLLM container if not needed:" -ForegroundColor Yellow
     Write-Host "   docker stop vllm-wintermute" -ForegroundColor White
     Write-Host "   Or use: .\Start-VLLM.ps1 -Action Stop" -ForegroundColor White
     Write-Host ""

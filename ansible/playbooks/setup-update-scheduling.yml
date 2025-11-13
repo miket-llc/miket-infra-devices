@@ -16,8 +16,8 @@
 
 - name: Setup Automated Update Scheduling
   hosts: all
-  gather_facts: yes
-  become: yes
+  gather_facts: true
+  become: true
   
   roles:
     - system-updates

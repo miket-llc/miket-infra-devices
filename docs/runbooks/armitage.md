@@ -13,17 +13,6 @@ See [Armitage vLLM Setup](./armitage-vllm.md) for detailed vLLM configuration.
 
 ## Mode Switching Workflow
 
-### Automatic Mode Switching
-
-Armitage automatically switches between modes based on system activity:
-- **Workstation Mode**: When user is active or GPU is in use
-- **LLM Serving Mode**: When system is idle (starts vLLM container)
-
-The auto-switcher runs via scheduled task every 5 minutes and monitors:
-- User logon sessions and active applications
-- GPU usage by non-Docker processes
-- System idle time
-
 ### Manual Mode Switching
 
 The `devices/armitage/scripts/Set-WorkstationMode.ps1` script provides manual control:
@@ -45,17 +34,15 @@ The `devices/armitage/scripts/Set-WorkstationMode.ps1` script provides manual co
 
 ### vLLM Mode Management
 
-For vLLM-specific mode switching, use `Auto-ModeSwitcher.ps1`:
+For vLLM mode control, use `Start-VLLM.ps1`:
 
 ```powershell
-# Force workstation mode (stops vLLM)
-.\Auto-ModeSwitcher.ps1 -ForceMode workstation
+# Manual mode switching only - auto-switcher removed per CEO directive
+# Start vLLM container
+.\Start-VLLM.ps1 -Action Start
 
-# Force LLM mode (starts vLLM)
-.\Auto-ModeSwitcher.ps1 -ForceMode llm
-
-# Enable auto mode (default)
-.\Auto-ModeSwitcher.ps1 -ForceMode auto
+# Stop vLLM container
+.\Start-VLLM.ps1 -Action Stop
 ```
 
 See [Armitage vLLM Setup](./armitage-vllm.md) for complete vLLM documentation.

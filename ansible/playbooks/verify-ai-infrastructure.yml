@@ -1,0 +1,53 @@
+---
+- name: Verify AI Infrastructure Status
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check Docker containers on Windows
+      win_shell: |
+        docker ps -a | findstr vllm
+      register: docker_status_windows
+      when: ansible_os_family == "Windows"
+      ignore_errors: true
+      
+    - name: Check Docker containers on Linux
+      shell: docker ps -a | grep -E "(vllm|litellm)" || echo "No AI containers found"
+      register: docker_status_linux
+      when: ansible_os_family != "Windows"
+      ignore_errors: true
+      
+    - name: Display Windows container status
+      debug:
+        msg: "{{ docker_status_windows.stdout_lines }}"
+      when: ansible_os_family == "Windows" and docker_status_windows.stdout_lines is defined
+      
+    - name: Display Linux container status
+      debug:
+        msg: "{{ docker_status_linux.stdout_lines }}"
+      when: ansible_os_family != "Windows" and docker_status_linux.stdout_lines is defined
+      
+    - name: Test vLLM API endpoint (Windows)
+      win_uri:
+        url: "http://localhost:8000/health"
+        method: GET
+        timeout: 5
+      register: vllm_health_windows
+      when: ansible_os_family == "Windows"
+      ignore_errors: true
+      
+    - name: Test LiteLLM API endpoint (Linux)
+      uri:
+        url: "http://localhost:8000/health"
+        method: GET
+        timeout: 5
+      register: litellm_health_linux
+      when: ansible_os_family != "Windows" and inventory_hostname == "motoko"
+      ignore_errors: true
+      
+    - name: Display API health status
+      debug:
+        msg:
+          - "Device: {{ inventory_hostname }}"
+          - "OS: {{ ansible_os_family }}"
+          - "API Status: {{ vllm_health_windows.status_code | default('N/A') if ansible_os_family == 'Windows' else litellm_health_linux.status_code | default('N/A') }}"
+          

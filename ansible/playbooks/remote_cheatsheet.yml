@@ -4,7 +4,7 @@
 
 - name: Generate remote desktop cheatsheet
   hosts: localhost
-  gather_facts: yes
+  gather_facts: true
   connection: local
   tags:
     - remote

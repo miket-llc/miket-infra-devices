@@ -4,7 +4,7 @@
 
 - name: Configure Linux firewall rules
   hosts: linux_servers
-  gather_facts: yes
+  gather_facts: true
   become: yes
   tags:
     - remote
@@ -24,7 +24,7 @@
 
 - name: Verify Windows firewall rules
   hosts: windows_servers
-  gather_facts: yes
+  gather_facts: true
   tags:
     - remote
     - remote:firewall

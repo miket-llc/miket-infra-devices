@@ -9,7 +9,7 @@
 
 - name: Test Windows Workstation Docker and AI Configuration
   hosts: "{{ target_hosts | default('windows_workstations') }}"
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -24,7 +24,7 @@
 - name: Test AI Model via LiteLLM Proxy
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: false
   vars:
     litellm_proxy_url: "{{ litellm_proxy_url | default('http://motoko.pangolin-vega.ts.net:8000') }}"
   

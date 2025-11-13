@@ -2,11 +2,11 @@
 # Diagnostic playbook for RDP configuration
 - name: Diagnose RDP Configuration
   hosts: windows
-  gather_facts: yes
+  gather_facts: true
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
-    ansible_become: no
+    ansible_become: false
     ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
   tasks:
     - name: Check Group Policy fDenyTSConnections

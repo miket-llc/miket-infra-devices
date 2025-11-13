@@ -5,7 +5,7 @@
 
 - name: Fix NVIDIA Container Toolkit Repository on Armitage
   hosts: armitage
-  gather_facts: no
+  gather_facts: false
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
@@ -49,7 +49,7 @@
       win_copy:
         src: /home/mdt/miket-infra-devices/devices/armitage/scripts/Install-NvidiaContainerToolkit.sh
         dest: C:\Users\{{ ansible_user }}\dev\armitage\scripts\Install-NvidiaContainerToolkit.sh
-        backup: yes
+        backup: true
       when: "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
     
     - name: Reconfigure NVIDIA Container Toolkit repository in WSL2

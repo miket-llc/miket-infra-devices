@@ -4,34 +4,25 @@ This document describes how Armitage is configured as a vLLM inference node with
 
 ## Overview
 
-Armitage automatically switches between two modes:
+Armitage supports manual switching between two modes:
 - **Workstation Mode**: When the system is in use (user active, GPU in use by applications)
-- **LLM Serving Mode**: When the system is idle (automatically starts vLLM container)
+- **LLM Serving Mode**: When serving LLM requests via Docker container
 
 ## Architecture
 
 ### Components
 
-1. **Auto-ModeSwitcher.ps1**: Monitors system activity and switches modes automatically
-2. **Start-VLLM.ps1**: Manages vLLM Docker container lifecycle
-3. **Set-WorkstationMode.ps1**: Applies Windows optimizations for each mode
-4. **Scheduled Task**: Runs Auto-ModeSwitcher periodically
-
-### Mode Detection
-
-The auto-switcher monitors:
-- **User Activity**: Active logon sessions, running applications (Chrome, VS Code, Steam, etc.)
-- **GPU Usage**: Non-Docker processes using the GPU
-- **Idle Time**: System idle threshold (default: 5 minutes)
+1. **Start-VLLM.ps1**: Manages vLLM Docker container lifecycle
+2. **Set-WorkstationMode.ps1**: Applies Windows optimizations for each mode
 
 ### Mode Behavior
 
-**Workstation Mode** (when in use):
+**Workstation Mode** (manual):
 - Stops vLLM container to free GPU resources
 - Applies productivity/development optimizations
 - Ensures full GPU availability for user applications
 
-**LLM Serving Mode** (when idle):
+**LLM Serving Mode** (manual):
 - Starts vLLM container with GPU acceleration
 - Applies development mode optimizations
 - Makes LLM API available at `http://armitage.pangolin-vega.ts.net:8000`
@@ -70,7 +61,6 @@ This will:
 1. Ensure Docker Desktop is installed and running
 2. Deploy PowerShell scripts to Armitage
 3. Create configuration files
-4. Set up scheduled task for auto-switching
 
 ### Manual Setup (if needed)
 
@@ -85,9 +75,6 @@ cd C:\Users\mdt\dev\armitage\scripts
 
 # Start vLLM manually
 .\Start-VLLM.ps1 -Action Start
-
-# Check auto-switcher
-.\Auto-ModeSwitcher.ps1
 ```
 
 ## Usage
@@ -95,14 +82,11 @@ cd C:\Users\mdt\dev\armitage\scripts
 ### Manual Mode Control
 
 ```powershell
-# Force workstation mode (stops vLLM)
-.\Auto-ModeSwitcher.ps1 -ForceMode workstation
+# Set workstation mode (stops vLLM)
+.\Set-WorkstationMode.ps1 -Mode Gaming
 
-# Force LLM mode (starts vLLM)
-.\Auto-ModeSwitcher.ps1 -ForceMode llm
-
-# Enable auto mode (default)
-.\Auto-ModeSwitcher.ps1 -ForceMode auto
+# Set development mode
+.\Set-WorkstationMode.ps1 -Mode Development
 ```
 
 ### vLLM Container Management
@@ -162,9 +146,9 @@ Edit `C:\ProgramData\ArmitageMode\vllm_config.json`:
 
 Or update `devices/armitage/config.yml` and redeploy.
 
-### Auto-Switcher Settings
+### Manual Mode Switching
 
-Edit `Auto-ModeSwitcher.ps1` parameters:
+Use `Set-WorkstationMode.ps1` for manual mode control:
 - `$CheckInterval`: How often to check (default: 60 seconds)
 - `$IdleThreshold`: Minutes of inactivity before LLM mode (default: 5)
 
@@ -179,20 +163,14 @@ The scheduled task runs:
 View/modify:
 ```powershell
 # View task
-Get-ScheduledTask -TaskName "Armitage Auto Mode Switcher"
-
-# Disable auto-switching
-Disable-ScheduledTask -TaskName "Armitage Auto Mode Switcher"
-
-# Enable auto-switching
-Enable-ScheduledTask -TaskName "Armitage Auto Mode Switcher"
+# Manual mode switching only - auto-switcher removed per CEO directive
 ```
 
 ## Monitoring
 
 ### Logs
 
-Auto-switcher logs: `%LOCALAPPDATA%\ArmitageMode\auto_mode_switcher.log`
+Manual mode control only - auto-switcher removed
 
 Mode state: `%LOCALAPPDATA%\ArmitageMode\current_mode.json`
 
@@ -273,22 +251,6 @@ grep -A 5 "^\[winrm\]" ansible/ansible.cfg
    .\Start-VLLM.ps1 -Action Logs
    ```
 
-### Auto-Switcher Not Working
-
-1. **Check scheduled task**:
-   ```powershell
-   Get-ScheduledTask -TaskName "Armitage Auto Mode Switcher"
-   ```
-
-2. **Check logs**:
-   ```powershell
-   Get-Content "$env:LOCALAPPDATA\ArmitageMode\auto_mode_switcher.log" -Tail 50
-   ```
-
-3. **Run manually**:
-   ```powershell
-   .\Auto-ModeSwitcher.ps1
-   ```
 
 ### GPU Not Available to Docker
 
@@ -313,7 +275,7 @@ grep -A 5 "^\[winrm\]" ansible/ansible.cfg
 
 ### CPU/RAM
 
-- Auto-switcher runs every 60 seconds (low overhead)
+- Manual mode switching only (auto-switcher removed)
 - vLLM container uses GPU primarily, minimal CPU impact when idle
 
 ### Network
