@@ -6,6 +6,10 @@
 - name: Test Armitage Docker and AI Configuration
   hosts: armitage
   gather_facts: no
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password }}"
   
   tasks:
     - name: Test Docker Desktop Service
@@ -30,7 +34,7 @@
     
     - name: Test Docker container status
       win_shell: |
-        docker ps -a --filter "name=vllm-armitage" --format "{{{{.Names}}}}\t{{{{.Status}}}}\t{{{{.Ports}}}}" 2>&1
+        docker ps -a --filter "name=vllm-armitage" 2>&1
       register: container_status
       changed_when: false
       failed_when: false
@@ -48,6 +52,9 @@
           if [ -f /etc/apt/sources.list.d/nvidia-container-toolkit.list ]; then
             if grep -q '<!doctype\|<html\|404' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
               echo 'BROKEN_HTML'
+            elif grep -q '\$(ARCH)' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+              echo 'HAS_PLACEHOLDER'
+              cat /etc/apt/sources.list.d/nvidia-container-toolkit.list
             else
               echo 'VALID'
               cat /etc/apt/sources.list.d/nvidia-container-toolkit.list
@@ -67,29 +74,33 @@
       changed_when: false
       failed_when: false
     
-    - name: Test vLLM container health
+    - name: Check if vLLM container is running
       win_shell: |
-        $container = docker ps --filter "name=vllm-armitage" --format "{{{{.Names}}}}" 2>&1
-        if ($container -match "vllm-armitage") {
-          docker exec vllm-armitage curl -s http://localhost:8000/health 2>&1
+        $containers = docker ps --filter "name=vllm-armitage" --format "{{ '{{' }}.Names{{ '}}' }}" 2>&1
+        if ($containers -match "vllm-armitage") {
+          Write-Output "RUNNING"
         } else {
-          Write-Output "CONTAINER_NOT_RUNNING"
+          Write-Output "NOT_RUNNING"
         }
-      register: vllm_health
+      register: container_running_check
       changed_when: false
       failed_when: false
     
+    - name: Test vLLM container health
+      win_shell: |
+        docker exec vllm-armitage curl -s http://localhost:8000/health 2>&1
+      register: vllm_health
+      changed_when: false
+      failed_when: false
+      when: "'RUNNING' in container_running_check.stdout"
+    
     - name: Test vLLM API endpoint (from container)
       win_shell: |
-        $container = docker ps --filter "name=vllm-armitage" --format "{{{{.Names}}}}" 2>&1
-        if ($container -match "vllm-armitage") {
-          docker exec vllm-armitage curl -s http://localhost:8000/v1/models 2>&1
-        } else {
-          Write-Output "CONTAINER_NOT_RUNNING"
-        }
+        docker exec vllm-armitage curl -s http://localhost:8000/v1/models 2>&1
       register: vllm_models
       changed_when: false
       failed_when: false
+      when: "'RUNNING' in container_running_check.stdout"
     
     - name: Test port 8000 accessibility
       win_shell: |
@@ -123,23 +134,24 @@
           - "Docker Version: {{ docker_version.stdout | default('N/A') }}"
           - ""
           - "vLLM Container Status:"
-          - "  {{ container_status.stdout | default('Not found') }}"
+          - "  {{ container_status.stdout_lines | default(['Not found']) | join('\n') }}"
+          - "  Running: {{ container_running_check.stdout | default('Unknown') }}"
           - ""
           - "Port 8000 Status: {{ port_8000_status.stdout_lines[0] | default('N/A') }}"
           - ""
           - "NVIDIA Container Toolkit:"
           - "  Status: {{ nvidia_toolkit_status.stdout | default('N/A') }}"
-          - "  Repository: {{ nvidia_repo_status.stdout_lines[0] | default('N/A') }}"
-          - "  {{ nvidia_repo_status.stdout_lines[1:] | default([]) | join('\n') if nvidia_repo_status.stdout_lines | length > 1 else '' }}"
+          - "  Repository: {{ nvidia_repo_status.stdout_lines[0] | default('N/A') if nvidia_repo_status.stdout_lines is defined else 'N/A' }}"
+          - "  {{ nvidia_repo_status.stdout_lines[1:] | default([]) | join('\n') if (nvidia_repo_status.stdout_lines is defined and nvidia_repo_status.stdout_lines | length > 1) else '' }}"
           - ""
           - "GPU Access Test:"
           - "  {{ gpu_test.stdout_lines | default(['N/A']) | join('\n') }}"
           - ""
           - "vLLM Health Check:"
-          - "  {{ vllm_health.stdout_lines | default(['N/A']) | join('\n') }}"
+          - "  {{ vllm_health.stdout_lines | default(['Container not running or health check failed']) | join('\n') if vllm_health.stdout_lines is defined else 'Container not running' }}"
           - ""
           - "vLLM Models API:"
-          - "  {{ vllm_models.stdout_lines | default(['N/A']) | join('\n') }}"
+          - "  {{ vllm_models.stdout_lines | default(['Container not running or API check failed']) | join('\n') if vllm_models.stdout_lines is defined else 'Container not running' }}"
           - ""
           - "{{ 'Container Logs (last 30 lines):' if container_logs.stdout is defined else '' }}"
           - "{{ container_logs.stdout_lines | default([]) | join('\n') if container_logs.stdout_lines is defined else '' }}"
