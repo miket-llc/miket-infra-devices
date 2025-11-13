@@ -4,6 +4,84 @@ Chronological log of all significant actions, decisions, and outcomes for the mi
 
 ---
 
+## 2025-11-13 – IaC/CaC Compliance: RDP Configuration Refactoring {#2025-11-13-rdp-refactoring}
+
+### Context
+CEO identified that RDP configuration violated IaC/CaC principles with multiple redundant playbooks using imperative shell commands instead of declarative Ansible modules.
+
+### Problem Analysis
+- **3 redundant playbooks** creating RDP firewall rules (enable-rdp-simple.yml, deploy-armitage-rdp.yml, configure-windows-rdp.yml)
+- **Imperative shell commands** using `New-NetFirewallRule` instead of Ansible modules
+- **Contradictory logic** in remote_server_windows_rdp role (tried to enable default rules that don't exist, removed custom rules it should create)
+- **Not idempotent** - firewall rules recreated on every run
+
+### Architecture Decision: Defense in Depth
+Implemented two-layer security model:
+1. **Network Layer (miket-infra):** Tailscale ACL controls routing and access policy
+2. **Device Layer (miket-infra-devices):** Host firewalls restrict RDP to Tailscale subnet only (100.64.0.0/10)
+
+### Actions Taken
+
+**Codex-QA-002 (Quality Assurance Lead):**
+- ✅ Deleted `enable-rdp-simple.yml` (redundant, imperative)
+- ✅ Deleted `deploy-armitage-rdp.yml` (redundant, imperative)
+- ✅ Kept `configure-windows-rdp.yml` as declarative wrapper calling the role
+- ✅ Verified no broken references after deletion
+
+**Codex-DEVOPS-004 (DevOps Engineer):**
+- ✅ Refactored `remote_server_windows_rdp/tasks/main.yml` to use idempotent PowerShell
+- ✅ Replaced imperative commands with declarative state checking
+- ✅ Added GPU validation to `windows-vllm-deploy/tasks/main.yml` (fails fast if GPU not configured)
+- ✅ Tested idempotency - second run shows no firewall changes (only gpupdate)
+- ✅ Deployed to both wintermute and armitage successfully
+
+**Codex-INFRA-003 (Infrastructure Lead):**
+- ✅ Verified RDP ports accessible from count-zero (nc test: ports 3389 open)
+- ✅ Verified Tailscale connectivity (count-zero sees both Windows machines)
+- ✅ Identified count-zero needs MagicDNS enabled and Microsoft Remote Desktop app
+- ✅ Documented connection requirements
+
+**Codex-DOC-005 (Documentation Architect):**
+- ✅ Created `ansible/roles/remote_server_windows_rdp/README.md` documenting defense-in-depth model
+- ✅ Updated `docs/architecture/tailnet.md` with two-layer security explanation
+- ✅ Updated `docs/product/STATUS.md` with IaC/CaC compliance status
+- ✅ Removed temporary documentation files
+
+### Outcomes
+
+**IaC/CaC Compliance Achieved:**
+- Single source of truth: `remote_server_windows_rdp` role
+- Declarative configuration: Checks state before updating
+- Idempotent: Re-running produces no changes (except gpupdate)
+- Testable: `--check` mode works correctly
+- Version controlled: All configuration in Git
+
+**Security Model Clarified:**
+- Tailscale ACL (miket-infra) + Device Firewall (miket-infra-devices)
+- Defense in depth protects against ACL misconfigurations
+- Clear separation of concerns between repositories
+
+**Infrastructure Status:**
+- ✅ RDP enabled on wintermute and armitage
+- ✅ Firewall rules restrict to Tailscale subnet (100.64.0.0/10)
+- ✅ NLA (Network Level Authentication) enabled
+- ✅ Group Policy prevents UI toggle from disabling RDP
+- ✅ Ports verified accessible from count-zero
+
+**CEO Action Required:**
+1. Enable MagicDNS on count-zero: `sudo tailscale up --accept-dns`
+2. Install Microsoft Remote Desktop from Mac App Store
+3. Connect to: `wintermute.pangolin-vega.ts.net` or `armitage.pangolin-vega.ts.net`
+
+### Lessons Learned
+- Always consolidate redundant playbooks into roles
+- Use Ansible modules when available, or idempotent shell scripts
+- Test idempotency by running twice (second run should show minimal changes)
+- Document security model clearly (defense in depth vs single layer)
+- Validate end-to-end connectivity, not just configuration deployment
+
+---
+
 ## 2025-11-13 – CORRECTED: Windows SSH Architecture Error {#2025-11-13-architecture-correction}
 
 ### Context

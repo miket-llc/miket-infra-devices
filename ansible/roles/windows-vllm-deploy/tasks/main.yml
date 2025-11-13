@@ -2,6 +2,9 @@
 # Shared tasks for Windows vLLM deployments
 # Used by both armitage and wintermute playbooks
 
+- name: Pre-flight GPU validation
+  include_tasks: validate_gpu.yml
+
 - name: Check if vLLM container is already running
   win_shell: |
     $containerStatus = docker ps --filter name={{ vllm_container_name }} --format '{{ "{{" }}.Names{{ "}}" }}' 2>&1

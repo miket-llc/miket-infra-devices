@@ -96,37 +96,55 @@
   changed_when: "'Computer Policy update has completed successfully' in gpupdate_result.stdout or 'User Policy update has completed successfully' in gpupdate_result.stdout"
   failed_when: false
 
-- name: Ensure default Windows RDP firewall rules are enabled
+- name: Configure RDP firewall rule for Tailscale subnet only (Defense in Depth)
   win_shell: |
-    # Enable the default Windows RDP firewall rules - these work correctly with Tailscale
-    # The default rules don't have RemoteAddress restrictions, which can cause issues
-    $defaultRules = Get-NetFirewallRule | Where-Object { $_.DisplayGroup -eq "Remote Desktop" }
-    if ($defaultRules) {
-      $defaultRules | Enable-NetFirewallRule -ErrorAction SilentlyContinue
-      Write-Output "Enabled default RDP firewall rules"
+    $ruleName = "RemoteDesktop-Tailscale"
+    $desiredRemoteAddress = "100.64.0.0/10"
+    $existingRule = Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
+    
+    if ($existingRule) {
+      # Check if update is needed
+      $filter = Get-NetFirewallAddressFilter -AssociatedNetFirewallRule $existingRule
+      $needsUpdate = $false
+      
+      if ($existingRule.Enabled -ne $true) { $needsUpdate = $true }
+      if ($existingRule.Direction -ne "Inbound") { $needsUpdate = $true }
+      if ($existingRule.Action -ne "Allow") { $needsUpdate = $true }
+      # Compare subnet - accept both CIDR and netmask format
+      if ($filter.RemoteAddress -ne $desiredRemoteAddress -and $filter.RemoteAddress -ne "100.64.0.0/255.192.0.0") { $needsUpdate = $true }
+      
+      if ($needsUpdate) {
+        Set-NetFirewallRule -Name $ruleName `
+          -DisplayName "Remote Desktop - Tailscale Only" `
+          -Direction Inbound `
+          -Protocol TCP `
+          -LocalPort 3389 `
+          -Action Allow `
+          -Enabled True
+        
+        $filter | Set-NetFirewallAddressFilter -RemoteAddress $desiredRemoteAddress
+        Write-Output "UPDATED"
+      } else {
+        Write-Output "UNCHANGED"
+      }
     } else {
-      Write-Output "No default RDP firewall rules found"
+      # Create new rule
+      New-NetFirewallRule `
+        -Name $ruleName `
+        -DisplayName "Remote Desktop - Tailscale Only" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort 3389 `
+        -RemoteAddress $desiredRemoteAddress `
+        -Action Allow `
+        -Enabled True `
+        -Description "Allow RDP only from Tailscale subnet (100.64.0.0/10) - Defense in depth with Tailscale ACL"
+      
+      Write-Output "CREATED"
     }
-  register: enable_default_rules
-  changed_when: "'Enabled' in enable_default_rules.stdout"
-  failed_when: false
-
-- name: Remove custom RDP firewall rules that might conflict
-  win_shell: |
-    # Remove any custom RDP rules that might have RemoteAddress restrictions causing issues
-    $customRules = Get-NetFirewallRule | Where-Object { 
-      ($_.DisplayName -like "*Remote Desktop*" -or $_.DisplayName -like "*RDP*") -and 
-      $_.DisplayGroup -ne "Remote Desktop" 
-    }
-    if ($customRules) {
-      $customRules | Remove-NetFirewallRule -ErrorAction SilentlyContinue
-      Write-Output "Removed custom RDP firewall rules"
-    } else {
-      Write-Output "No custom RDP firewall rules to remove"
-    }
-  register: remove_custom_rules
-  changed_when: "'Removed' in remove_custom_rules.stdout"
-  failed_when: false
+  register: rdp_firewall
+  changed_when: "'CREATED' in rdp_firewall.stdout or 'UPDATED' in rdp_firewall.stdout"
+  failed_when: rdp_firewall.rc != 0
 
 - name: Verify RDP registry settings
   win_shell: |
@@ -159,6 +177,6 @@
     msg:
       - "✅ RDP is enabled with Network Level Authentication"
       - "✅ Group Policy configured to prevent toggle from reverting"
+      - "✅ Firewall rule configured: Only Tailscale subnet (100.64.0.0/10)"
       - "Connect via RDP to: {{ inventory_hostname }}.pangolin-vega.ts.net:3389"
-      - "Firewall rule created for Tailscale subnet (100.64.0.0/10)"
 

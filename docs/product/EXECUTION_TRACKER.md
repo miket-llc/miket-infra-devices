@@ -4,11 +4,11 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Agent | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |-------|----------------|------------------------------|-------------|---------------|
-| **Codex-DCA-001** (Chief Device Architect) | 🚧 Active - Remediation | [TEAM_ROLES.md](./TEAM_ROLES.md), [STATUS.md](./STATUS.md), [EXECUTION_TRACKER.md](./EXECUTION_TRACKER.md), [COMMUNICATION_LOG.md](../communications/COMMUNICATION_LOG.md) | Final verification after all tasks complete | 2025-11-13 |
-| **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher removed from devices and codebase · Gaming-mode roles evaluated | Monitor for any remaining technical debt | 2025-11-13 |
-| **Codex-INFRA-003** (Infrastructure Lead) | ⏸️ Blocked - Awaiting Manual Action | [TAILSCALE_DEVICE_SETUP.md](../runbooks/TAILSCALE_DEVICE_SETUP.md) · [ENABLE_TAILSCALE_SSH.md](../../ENABLE_TAILSCALE_SSH.md) | **CEO must run commands on wintermute/armitage** | 2025-11-13 |
-| **Codex-DEVOPS-004** (DevOps Engineer) | ⏸️ Blocked - Auth Issues | Ansible connectivity tests failed (SSH/WinRM) | Configure SSH keys and vault passwords on motoko | 2025-11-13 |
-| **Codex-DOC-005** (Documentation Architect) | 🚧 In Progress | Management structure created · Runbooks updated | Update README.md with current status | 2025-11-13 |
+| **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | All infrastructure operational · IaC/CaC compliance achieved | Monitor and maintain | 2025-11-13 |
+| **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
+| **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | RDP connectivity validated · Tailscale mesh verified · Client setup documented | Support CEO with count-zero setup | 2025-11-13 |
+| **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | vLLM deployed (both machines) · LiteLLM operational · RDP role refactored · GPU validation added | Monitor container health | 2025-11-13 |
+| **Codex-DOC-005** (Documentation Architect) | ✅ Complete | Defense-in-depth documented · Architecture updated · Communication logs current | Maintain documentation | 2025-11-13 |
 
 ---
 

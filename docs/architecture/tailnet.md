@@ -10,7 +10,24 @@ The tailnet connects workstations, servers, and management tooling over the mana
 4. **User workflows** – Operators run CLI helpers from the `tools/cli` package or interact through the UI bundle in `tools/ui`, both of which assume tailnet reachability.
 
 ## Security model
-- **Zero-trust defaults** – ACLs limit lateral movement. Servers that expose dashboards or exporters require explicit `https` routes via Tailscale Funnel or a bastion node.
+
+### Defense in Depth: Network + Device Layers
+
+**Network Layer (Tailscale ACL):**
+- Managed in `miket-infra` repository
+- Controls routing and access policy at network level
+- Example: "Allow mike@miket.io to SSH/RDP to tagged devices"
+
+**Device Layer (Host Firewalls):**
+- Managed in `miket-infra-devices` repository
+- Windows: Firewall rules restrict RDP to Tailscale subnet (100.64.0.0/10)
+- Linux: UFW/firewalld rules restrict SSH/VNC to Tailscale subnet
+- Provides protection if network ACL is misconfigured or compromised
+
+**Zero-trust principle:** Both layers must allow traffic. Even if Tailscale ACL is bypassed, device firewalls block unauthorized access.
+
+### Additional Security Controls
+
 - **Device posture** – MFA-backed logins and device keys gate tailnet joins. Enforced auto-updates ensure the Tailscale daemon patches itself.
 - **Key rotation** – Ephemeral auth keys are used for unattended servers; they are renewed via the automation controller at least every 90 days.
 - **Auditability** – All administrative commands run through tailnet logged endpoints. Syslog and Prometheus remote-write events include the tailnet node key for attribution.
