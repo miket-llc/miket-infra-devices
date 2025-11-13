@@ -1,0 +1,185 @@
+---
+# Comprehensive Docker and AI Configuration Test for Armitage
+# Tests: Docker Desktop, NVIDIA Container Toolkit, vLLM container, and AI model functionality
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/test-armitage-docker-ai.yml --limit armitage
+
+- name: Test Armitage Docker and AI Configuration
+  hosts: armitage
+  gather_facts: no
+  
+  tasks:
+    - name: Test Docker Desktop Service
+      win_shell: |
+        $service = Get-Service -Name "com.docker.service" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq 'Running') {
+          Write-Output "RUNNING"
+          exit 0
+        } else {
+          Write-Output "STOPPED"
+          exit 1
+        }
+      register: docker_service
+      changed_when: false
+    
+    - name: Test Docker CLI availability
+      win_shell: |
+        docker --version 2>&1
+      register: docker_version
+      changed_when: false
+      failed_when: false
+    
+    - name: Test Docker container status
+      win_shell: |
+        docker ps -a --filter "name=vllm-armitage" --format "{{{{.Names}}}}\t{{{{.Status}}}}\t{{{{.Ports}}}}" 2>&1
+      register: container_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Test NVIDIA Container Toolkit in WSL2
+      win_shell: |
+        wsl -d Ubuntu -- bash -c "dpkg -l | grep nvidia-container-toolkit && echo 'INSTALLED' || echo 'NOT_INSTALLED'" 2>&1
+      register: nvidia_toolkit_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Test NVIDIA repository configuration in WSL2
+      win_shell: |
+        wsl -d Ubuntu -- bash -c "
+          if [ -f /etc/apt/sources.list.d/nvidia-container-toolkit.list ]; then
+            if grep -q '<!doctype\|<html\|404' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+              echo 'BROKEN_HTML'
+            else
+              echo 'VALID'
+              cat /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            fi
+          else
+            echo 'NOT_FOUND'
+          fi
+        " 2>&1
+      register: nvidia_repo_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Test GPU access from Docker container
+      win_shell: |
+        docker run --rm --gpus all nvidia/cuda:12.0.0-base-ubuntu22.04 nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>&1 | Select-Object -First 5
+      register: gpu_test
+      changed_when: false
+      failed_when: false
+    
+    - name: Test vLLM container health
+      win_shell: |
+        $container = docker ps --filter "name=vllm-armitage" --format "{{{{.Names}}}}" 2>&1
+        if ($container -match "vllm-armitage") {
+          docker exec vllm-armitage curl -s http://localhost:8000/health 2>&1
+        } else {
+          Write-Output "CONTAINER_NOT_RUNNING"
+        }
+      register: vllm_health
+      changed_when: false
+      failed_when: false
+    
+    - name: Test vLLM API endpoint (from container)
+      win_shell: |
+        $container = docker ps --filter "name=vllm-armitage" --format "{{{{.Names}}}}" 2>&1
+        if ($container -match "vllm-armitage") {
+          docker exec vllm-armitage curl -s http://localhost:8000/v1/models 2>&1
+        } else {
+          Write-Output "CONTAINER_NOT_RUNNING"
+        }
+      register: vllm_models
+      changed_when: false
+      failed_when: false
+    
+    - name: Test port 8000 accessibility
+      win_shell: |
+        $listening = netstat -an | Select-String ":8000" | Select-String "LISTENING"
+        if ($listening) {
+          Write-Output "LISTENING"
+          $listening
+        } else {
+          Write-Output "NOT_LISTENING"
+        }
+      register: port_8000_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Get container logs (last 30 lines)
+      win_shell: |
+        docker logs --tail 30 vllm-armitage 2>&1
+      register: container_logs
+      changed_when: false
+      failed_when: false
+      when: "'vllm-armitage' in container_status.stdout"
+    
+    - name: Display comprehensive test results
+      debug:
+        msg:
+          - "================================================================"
+          - "  Armitage Docker and AI Configuration Test Results"
+          - "================================================================"
+          - ""
+          - "Docker Desktop Service: {{ docker_service.stdout }}"
+          - "Docker Version: {{ docker_version.stdout | default('N/A') }}"
+          - ""
+          - "vLLM Container Status:"
+          - "  {{ container_status.stdout | default('Not found') }}"
+          - ""
+          - "Port 8000 Status: {{ port_8000_status.stdout_lines[0] | default('N/A') }}"
+          - ""
+          - "NVIDIA Container Toolkit:"
+          - "  Status: {{ nvidia_toolkit_status.stdout | default('N/A') }}"
+          - "  Repository: {{ nvidia_repo_status.stdout_lines[0] | default('N/A') }}"
+          - "  {{ nvidia_repo_status.stdout_lines[1:] | default([]) | join('\n') if nvidia_repo_status.stdout_lines | length > 1 else '' }}"
+          - ""
+          - "GPU Access Test:"
+          - "  {{ gpu_test.stdout_lines | default(['N/A']) | join('\n') }}"
+          - ""
+          - "vLLM Health Check:"
+          - "  {{ vllm_health.stdout_lines | default(['N/A']) | join('\n') }}"
+          - ""
+          - "vLLM Models API:"
+          - "  {{ vllm_models.stdout_lines | default(['N/A']) | join('\n') }}"
+          - ""
+          - "{{ 'Container Logs (last 30 lines):' if container_logs.stdout is defined else '' }}"
+          - "{{ container_logs.stdout_lines | default([]) | join('\n') if container_logs.stdout_lines is defined else '' }}"
+          - "================================================================"
+      tags: [always]
+
+- name: Test AI Model via LiteLLM Proxy
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  
+  tasks:
+    - name: Test Armitage model via LiteLLM
+      uri:
+        url: "http://motoko.pangolin-vega.ts.net:8000/v1/chat/completions"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer mkt-test"
+        body_format: json
+        body:
+          model: "qwen2.5-7b-armitage"
+          messages:
+            - role: "user"
+              content: "Say hello and confirm you are working"
+          max_tokens: 20
+        status_code: [200, 500, 503]
+        timeout: 15
+      register: ai_test
+      failed_when: false
+    
+    - name: Display AI model test results
+      debug:
+        msg:
+          - "================================================================"
+          - "  AI Model Test via LiteLLM Proxy"
+          - "================================================================"
+          - "Status Code: {{ ai_test.status | default('N/A') }}"
+          - "{{ 'Response:' if ai_test.json is defined else 'Error:' }}"
+          - "{{ ai_test.json.choices[0].message.content if (ai_test.json is defined and ai_test.json.choices is defined) else ai_test.msg | default('N/A') }}"
+          - "================================================================"
+      tags: [always]
+
