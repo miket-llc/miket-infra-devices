@@ -1,0 +1,90 @@
+---
+# Quick check playbook for Armitage vLLM status
+# Run without vault password - uses WinRM connection only
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/check-armitage-vllm.yml --limit armitage
+
+- name: Check Armitage vLLM Status
+  hosts: armitage
+  gather_facts: no
+  
+  tasks:
+    - name: Check Docker Desktop service
+      win_shell: |
+        $service = Get-Service -Name "com.docker.service" -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq 'Running') {
+          Write-Output "RUNNING"
+        } else {
+          Write-Output "STOPPED"
+        }
+      register: docker_service
+      changed_when: false
+    
+    - name: Check vLLM container status
+      win_shell: |
+        $container = docker ps -a --filter "name=vllm-armitage" --format "{{{{.Names}}}}\t{{{{.Status}}}}" 2>&1
+        if ($container -match "vllm-armitage") {
+          Write-Output $container
+        } else {
+          Write-Output "NOT_FOUND"
+        }
+      register: container_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Check if container is listening on port 8000
+      win_shell: |
+        $listening = netstat -an | Select-String ":8000" | Select-String "LISTENING"
+        if ($listening) {
+          Write-Output "LISTENING"
+        } else {
+          Write-Output "NOT_LISTENING"
+        }
+      register: port_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Get container logs (last 20 lines)
+      win_shell: |
+        docker logs --tail 20 vllm-armitage 2>&1
+      register: container_logs
+      changed_when: false
+      failed_when: false
+      when: "'vllm-armitage' in container_status.stdout"
+    
+    - name: Display status summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  Armitage vLLM Status Check"
+          - "================================================================"
+          - "Docker Service: {{ docker_service.stdout }}"
+          - "Container Status: {{ container_status.stdout }}"
+          - "Port 8000: {{ port_status.stdout }}"
+          - ""
+          - "{{ 'Container Logs (last 20 lines):' if container_logs.stdout is defined else '' }}"
+          - "{{ container_logs.stdout_lines | default([]) | join('\n') if container_logs.stdout_lines is defined else '' }}"
+          - "================================================================"
+      tags: [always]
+    
+    - name: Start vLLM container if stopped
+      win_shell: |
+        $scriptPath = "C:\Users\mdt\dev\armitage\scripts\Start-VLLM.ps1"
+        if (Test-Path $scriptPath) {
+          Write-Output "Starting vLLM container..."
+          & powershell.exe -ExecutionPolicy Bypass -File $scriptPath -Action Start
+          exit $LASTEXITCODE
+        } else {
+          Write-Output "Start-VLLM.ps1 not found at $scriptPath"
+          exit 1
+        }
+      register: start_result
+      when: 
+        - docker_service.stdout == "RUNNING"
+        - "'NOT_FOUND' in container_status.stdout or 'Exited' in container_status.stdout"
+      failed_when: false
+    
+    - name: Display start result
+      debug:
+        msg: "{{ start_result.stdout_lines | default(['No output']) | join('\n') }}"
+      when: start_result.stdout is defined
+
