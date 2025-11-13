@@ -60,9 +60,7 @@ tailscale status --json | jq '.Self.Tags'
 tailscale status --json | jq '.MagicDNSSuffix'
 
 # Test DNS resolution
-ping motoko.tail2e55fe.ts.net
-# or
-ping motoko.pangolin-vega.ts.net  # Check which tailnet you're on
+ping motoko.pangolin-vega.ts.net
 ```
 
 ### Step 4: Verify MagicDNS
@@ -75,10 +73,10 @@ After reconnecting, MagicDNS should work automatically if:
 Test MagicDNS:
 ```bash
 # Should resolve to Tailscale IP
-dig +short motoko.tail2e55fe.ts.net @100.100.100.100
+dig +short motoko.pangolin-vega.ts.net @100.100.100.100
 
 # Or using system resolver
-getent hosts motoko.tail2e55fe.ts.net
+getent hosts motoko.pangolin-vega.ts.net
 ```
 
 ## Quick Reconnection Script
@@ -118,10 +116,10 @@ A script is available at `/tmp/reconnect-motoko.sh` that automates the reconnect
 
 ### Wrong Tailnet
 
-If you see `pangolin-vega.ts.net` instead of `tail2e55fe.ts.net`:
-- You may have connected to a different tailnet
+If you see a different tailnet suffix:
+- Verify you're connected to the correct tailnet (`pangolin-vega.ts.net`)
 - Check which tailnet you're supposed to be on
-- Re-authenticate with the correct account
+- Re-authenticate with the correct account if needed
 
 ### Tags Not Applying
 
@@ -142,7 +140,7 @@ If you see `pangolin-vega.ts.net` instead of `tail2e55fe.ts.net`:
 - **wintermute** (Windows workstation) - `tag:workstation,tag:windows,tag:gaming`
 - **count-zero** (macOS workstation) - `tag:workstation,tag:macos`
 
-**Tailnet**: `tail2e55fe.ts.net` (or `pangolin-vega.ts.net` - verify which one)
+**Tailnet**: `pangolin-vega.ts.net`
 
 ## Related Documentation
 
