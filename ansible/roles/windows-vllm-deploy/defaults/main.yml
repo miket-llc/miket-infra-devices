@@ -21,8 +21,8 @@ auto_switch_enabled: "{{ vllm.auto_switch | default(true) }}"
 check_interval_minutes: "{{ vllm.check_interval_minutes | default(5) }}"
 idle_threshold_minutes: "{{ vllm.idle_threshold_minutes | default(5) }}"
 
-# Deployment paths
-scripts_dest: "C:\\Users\\mdt\\dev\\{{ inventory_hostname }}\\scripts"
-config_dest: "C:\\ProgramData\\{{ inventory_hostname | capitalize }}Mode"
+# Deployment paths (use group_vars defaults if available)
+scripts_dest: "{{ vllm_defaults.scripts_path | default('C:\\Users\\mdt\\dev\\' + inventory_hostname + '\\scripts') }}"
+config_dest: "{{ vllm_defaults.config_path | default('C:\\ProgramData\\' + (inventory_hostname | capitalize) + 'Mode') }}"
 vllm_config_dir: "{{ config_dest }}"
 

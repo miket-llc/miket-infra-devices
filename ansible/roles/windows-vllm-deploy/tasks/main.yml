@@ -44,13 +44,20 @@
   win_file:
     path: "{{ scripts_dest }}"
     state: directory
-
+  
 - name: Deploy vLLM PowerShell scripts (from devices repo - generic)
   win_copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
   loop: "{{ vllm_powershell_scripts }}"
   when: vllm_powershell_scripts is defined
+
+- name: Deploy WSL2 bash script (wintermute only)
+  win_copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop: "{{ vllm_bash_scripts | default([]) }}"
+  when: inventory_hostname == 'wintermute' and vllm_bash_scripts is defined
 
 - name: Create device config directory
   win_file:

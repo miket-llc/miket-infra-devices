@@ -27,7 +27,7 @@ TESTS = [
         "name": "llama31-8b-wintermute",
         "base_url": f"http://{MOTOKO_HOST}:{LITELLM_PORT}",
         "model": "llama31-8b-wintermute",
-        "max_input_tokens": 14000,
+        "max_input_tokens": 8000,  # Matches litellm config: wintermute_max_input_tokens
         "test_input_ratio": 0.75,  # Use 75% of max to avoid edge cases
         "max_output_tokens": 100,
     },
@@ -42,8 +42,8 @@ TESTS = [
     {
         "name": "wintermute-direct",
         "base_url": f"http://{WINTERMUTE_HOST}:{VLLM_PORT}",
-        "model": "casperhansen/llama-3-8b-instruct-awq",
-        "max_input_tokens": 14000,
+        "model": "llama31-8b-wintermute",  # Use served_model_name
+        "max_input_tokens": 8000,  # Matches vLLM max_model_len: 9000, but use 85% for safety
         "test_input_ratio": 0.75,
         "max_output_tokens": 100,
     },

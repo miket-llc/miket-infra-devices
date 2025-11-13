@@ -33,10 +33,13 @@ $Config = @{
     ContainerName = $ContainerName
     Image = "vllm/vllm-openai:latest"
     GpuCount = 1
-    MaxModelLen = 4096
-    GpuMemoryUtilization = 0.85
+    MaxModelLen = 9000
+    MaxNumSeqs = 2
+    GpuMemoryUtilization = 0.88
     TensorParallelSize = 1
     Quantization = $null
+    Dtype = $null
+    KvCacheDtype = $null
     ServedModelName = $null
 }
 
@@ -56,11 +59,20 @@ if (Test-Path $ConfigPath) {
         if ($yamlContent -match 'max_model_len:\s*(\d+)') {
             $Config.MaxModelLen = [int]$matches[1]
         }
+        if ($yamlContent -match 'max_num_seqs:\s*(\d+)') {
+            $Config.MaxNumSeqs = [int]$matches[1]
+        }
         if ($yamlContent -match 'gpu_memory_utilization:\s*([\d.]+)') {
             $Config.GpuMemoryUtilization = [double]$matches[1]
         }
         if ($yamlContent -match 'quantization:\s*"([^"]+)"') {
             $Config.Quantization = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'dtype:\s*"([^"]+)"') {
+            $Config.Dtype = $matches[1].Trim()
+        }
+        if ($yamlContent -match 'kv_cache_dtype:\s*"([^"]+)"') {
+            $Config.KvCacheDtype = $matches[1].Trim()
         }
         if ($yamlContent -match 'served_model_name:\s*"([^"]+)"') {
             $Config.ServedModelName = $matches[1].Trim()
@@ -141,8 +153,14 @@ function Start-VLLM {
     Write-Host "  Model: $($Config.Model)"
     Write-Host "  Port: $($Config.Port)"
     Write-Host "  Container: $($Config.ContainerName)"
+    Write-Host "  Max Model Length: $($Config.MaxModelLen)"
+    Write-Host "  Max Num Seqs: $($Config.MaxNumSeqs)"
+    Write-Host "  GPU Memory Utilization: $($Config.GpuMemoryUtilization)"
     if ($Config.ServedModelName) {
         Write-Host "  Served Model Name: $($Config.ServedModelName)"
+    }
+    if ($Config.KvCacheDtype) {
+        Write-Host "  KV Cache Dtype: $($Config.KvCacheDtype)"
     }
     
     # Check if container exists and remove if stopped
@@ -165,23 +183,36 @@ function Start-VLLM {
         "-e", "VLLM_ALLOW_LONG_MAX_MODEL_LEN=1",
         $Config.Image,
         "--model", $Config.Model,
+        "--max-model-len", $Config.MaxModelLen.ToString(),
+        "--max-num-seqs", $Config.MaxNumSeqs.ToString(),
+        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString(),
         "--port", "8000",
         "--host", "0.0.0.0",
-        "--tensor-parallel-size", $Config.TensorParallelSize.ToString(),
-        "--max-model-len", $Config.MaxModelLen.ToString(),
-        "--gpu-memory-utilization", $Config.GpuMemoryUtilization.ToString()
+        "--tensor-parallel-size", $Config.TensorParallelSize.ToString()
     )
-    
-    # Add quantization parameter if specified (must come before other vLLM args)
-    if ($Config.Quantization) {
-        $dockerArgs += "--quantization"
-        $dockerArgs += $Config.Quantization
-    }
     
     # Add served-model-name if specified (required for LiteLLM routing)
     if ($Config.ServedModelName) {
         $dockerArgs += "--served-model-name"
         $dockerArgs += $Config.ServedModelName
+    }
+    
+    # Add dtype if specified
+    if ($Config.Dtype) {
+        $dockerArgs += "--dtype"
+        $dockerArgs += $Config.Dtype
+    }
+    
+    # Add KV cache dtype if specified (for memory optimization with long contexts)
+    if ($Config.KvCacheDtype) {
+        $dockerArgs += "--kv-cache-dtype"
+        $dockerArgs += $Config.KvCacheDtype
+    }
+    
+    # Add quantization parameter if specified
+    if ($Config.Quantization) {
+        $dockerArgs += "--quantization"
+        $dockerArgs += $Config.Quantization
     }
     
     try {

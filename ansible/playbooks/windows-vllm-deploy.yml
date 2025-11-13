@@ -1,49 +1,54 @@
 ---
-# Unified vLLM deployment for Windows workstations
-# Prerequisites: Docker Desktop already installed and working
-# Non-destructive: Won't stop/restart containers if already running
-# Works for: armitage, wintermute, and any future Windows workstation
+# Unified vLLM deployment playbook for Windows workstations
+# Deploys vLLM configuration, scripts, and Docker containers to wintermute and armitage
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-deploy.yml --limit wintermute --ask-vault-pass
+#   ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-deploy.yml --limit armitage --ask-vault-pass
+#   ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-deploy.yml --limit windows_workstations --ask-vault-pass
 
-- name: Deploy vLLM scripts to Windows workstation
-  hosts: "{{ target_hosts | default('windows_workstations') }}"
+- name: Deploy vLLM to Windows workstations
+  hosts: windows_workstations
   gather_facts: no
   vars_files:
     - ../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
-    vllm_container_name: "vllm-{{ inventory_hostname }}"
-    vllm_config_dir: "C:\\ProgramData\\{{ inventory_hostname | capitalize }}Mode"
-    vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2' if inventory_hostname == 'armitage' else 'Qwen/Qwen2.5-14B-Instruct-AWQ') }}"
+    ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
+    # PowerShell scripts to deploy (device-specific)
     vllm_powershell_scripts:
-      - { src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Start-VLLM.ps1", dest: "{{ scripts_dest }}\\Start-VLLM.ps1" }
-      - { src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Auto-ModeSwitcher.ps1", dest: "{{ scripts_dest }}\\Auto-ModeSwitcher.ps1" }
-      - { src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Set-WorkstationMode.ps1", dest: "{{ scripts_dest }}\\Set-WorkstationMode.ps1" }
+      - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Start-VLLM.ps1"
+        dest: "{{ vllm_defaults.scripts_path }}\\Start-VLLM.ps1"
+      - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Auto-ModeSwitcher.ps1"
+        dest: "{{ vllm_defaults.scripts_path }}\\Auto-ModeSwitcher.ps1"
+      - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Set-WorkstationMode.ps1"
+        dest: "{{ vllm_defaults.scripts_path }}\\Set-WorkstationMode.ps1"
+    # Include WSL2 bash script for wintermute (deployed conditionally in role)
+    vllm_bash_scripts:
+      - src: "{{ playbook_dir }}/../../devices/wintermute/scripts/vllm.sh"
+        dest: "{{ vllm_defaults.scripts_path }}\\vllm.sh"
   
   roles:
     - windows-vllm-deploy
   
-  tasks:
+  post_tasks:
     - name: Display deployment summary
       debug:
         msg:
           - ""
-          - "✅ vLLM scripts deployed successfully to {{ inventory_hostname | capitalize }}"
+          - "✅ vLLM deployment complete for {{ inventory_hostname }}"
           - ""
-          - "Current container status: {{ 'Running' if (container_check is defined and container_check.stdout is defined and 'EXISTS_RUNNING' in container_check.stdout) else 'Unknown (check with docker ps)' }}"
+          - "Configuration:"
+          - "  Model: {{ vllm.model }}"
+          - "  Served Model Name: {{ vllm.served_model_name | default('N/A') }}"
+          - "  Max Model Length: {{ vllm.max_model_len }}"
+          - "  GPU Memory Utilization: {{ vllm.gpu_memory_utilization }}"
+          - "  Port: {{ vllm.port }}"
           - ""
-          - "To manage vLLM (PowerShell):"
-          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Start"
-          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Stop"
-          - "  powershell -File {{ scripts_dest }}\\Start-VLLM.ps1 -Action Status"
+          - "Scripts deployed to: {{ vllm_defaults.scripts_path }}"
+          - "Config deployed to: {{ vllm_defaults.config_path }}"
           - ""
-          - "To manage modes:"
-          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Gaming"
-          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Productivity"
-          - "  powershell -File {{ scripts_dest }}\\Set-WorkstationMode.ps1 -Mode Development"
+          - "To start vLLM manually:"
+          - "  powershell -File {{ vllm_defaults.scripts_path }}\\Start-VLLM.ps1 -Action Start"
           - ""
-          - "Auto-switcher: {{ 'Enabled' if auto_switch_enabled else 'Disabled' }}"
-          - "  Scheduled task runs every {{ check_interval_minutes }} minutes"
+          - "API will be available at:"
+          - "  http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ vllm.port }}/v1"
           - ""
-          - "API will be available at: http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ vllm_port }}/v1"
-          - ""
-
