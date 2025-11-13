@@ -49,7 +49,9 @@
   register: nvidia_toolkit_status
   changed_when: false
   failed_when: false
-  when: "'INSTALLED' in wsl_status.stdout"
+  when: 
+    - wsl_status.stdout is defined
+    - "'INSTALLED' in wsl_status.stdout"
 
 - name: Test NVIDIA repository configuration in WSL2
   win_shell: |
@@ -71,7 +73,9 @@
   register: nvidia_repo_status
   changed_when: false
   failed_when: false
-  when: "'INSTALLED' in wsl_status.stdout"
+  when:
+    - wsl_status.stdout is defined
+    - "'INSTALLED' in wsl_status.stdout"
 
 - name: Test GPU access from Docker container
   win_shell: |
@@ -156,8 +160,8 @@
       - "  {{ wsl_status.stdout_lines[1:] | default([]) | join('\n') if (wsl_status.stdout_lines is defined and wsl_status.stdout_lines | length > 1) else '' }}"
       - ""
       - "NVIDIA Container Toolkit:"
-      - "  Status: {{ nvidia_toolkit_status.stdout | default('WSL not installed - Docker may use different backend') if nvidia_toolkit_status.stdout is not defined else nvidia_toolkit_status.stdout }}"
-      - "  Repository: {{ nvidia_repo_status.stdout_lines[0] | default('WSL not installed') if nvidia_repo_status.stdout_lines is not defined else (nvidia_repo_status.stdout_lines[0] if nvidia_repo_status.stdout_lines is defined else 'N/A') }}"
+      - "  Status: {{ nvidia_toolkit_status.stdout | default('WSL not installed - Docker may use different backend') if (nvidia_toolkit_status.stdout is not defined or nvidia_toolkit_status.stdout == '') else nvidia_toolkit_status.stdout }}"
+      - "  Repository: {{ 'WSL not installed' if (nvidia_repo_status.stdout_lines is not defined or nvidia_repo_status.stdout_lines == []) else (nvidia_repo_status.stdout_lines[0] if nvidia_repo_status.stdout_lines is defined else 'N/A') }}"
       - "  {{ nvidia_repo_status.stdout_lines[1:] | default([]) | join('\n') if (nvidia_repo_status.stdout_lines is defined and nvidia_repo_status.stdout_lines | length > 1) else '' }}"
       - ""
       - "GPU Access Test:"
