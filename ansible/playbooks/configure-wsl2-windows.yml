@@ -1,0 +1,155 @@
+---
+# Configure WSL2 on Windows Workstations
+# Installs and configures WSL2 with Ubuntu for consistent Docker Desktop backend
+# Works for: armitage, wintermute, and any Windows workstation
+# Usage: 
+#   ansible-playbook -i inventory/hosts.yml playbooks/configure-wsl2-windows.yml --limit windows_workstations
+#   ansible-playbook -i inventory/hosts.yml playbooks/configure-wsl2-windows.yml --limit wintermute
+
+- name: Configure WSL2 on Windows Workstations
+  hosts: "{{ target_hosts | default('windows_workstations') }}"
+  gather_facts: no
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+    wsl_distro: "{{ wsl2.default_distro | default('Ubuntu') }}"
+    wsl_version: "{{ wsl2.version | default('22.04') }}"
+  
+  tasks:
+    - name: Check current WSL status
+      win_shell: |
+        $distros = wsl --list --verbose 2>&1
+        if ($LASTEXITCODE -eq 0 -and $distros -match '\S') {
+          Write-Output "INSTALLED"
+          $distros
+        } else {
+          Write-Output "NOT_INSTALLED"
+        }
+      register: wsl_current_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Display current WSL status
+      debug:
+        msg:
+          - "Current WSL status for {{ inventory_hostname }}:"
+          - "{{ wsl_current_status.stdout_lines | default(['Not installed']) | join('\n') }}"
+    
+    - name: Enable WSL feature
+      win_shell: |
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -ErrorAction SilentlyContinue
+        if ($feature.State -ne "Enabled") {
+          Write-Host "Enabling WSL feature..." -ForegroundColor Yellow
+          Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart -ErrorAction Stop | Out-Null
+          Write-Output "ENABLED"
+        } else {
+          Write-Output "ALREADY_ENABLED"
+        }
+      register: wsl_feature
+      changed_when: "'ENABLED' in wsl_feature.stdout"
+      failed_when: false
+      when: "'NOT_INSTALLED' in wsl_current_status.stdout"
+    
+    - name: Enable Virtual Machine Platform feature
+      win_shell: |
+        $feature = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -ErrorAction SilentlyContinue
+        if ($feature.State -ne "Enabled") {
+          Write-Host "Enabling Virtual Machine Platform..." -ForegroundColor Yellow
+          Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart -ErrorAction Stop | Out-Null
+          Write-Output "ENABLED"
+        } else {
+          Write-Output "ALREADY_ENABLED"
+        }
+      register: vm_feature
+      changed_when: "'ENABLED' in vm_feature.stdout"
+      failed_when: false
+      when: "'NOT_INSTALLED' in wsl_current_status.stdout"
+    
+    - name: Set WSL2 as default version
+      win_shell: |
+        wsl --set-default-version 2 2>&1
+      register: wsl_default_version
+      changed_when: "'is already set' not in wsl_default_version.stdout"
+      failed_when: false
+      when: 
+        - "'NOT_INSTALLED' in wsl_current_status.stdout"
+        - wsl_feature.changed or vm_feature.changed or wsl_feature.stdout is not defined
+    
+    - name: Check if Ubuntu distribution is installed
+      win_shell: |
+        $distros = wsl --list --quiet 2>&1
+        if ($distros -match 'Ubuntu') {
+          Write-Output "INSTALLED"
+        } else {
+          Write-Output "NOT_INSTALLED"
+        }
+      register: ubuntu_status
+      changed_when: false
+      failed_when: false
+      when: "'INSTALLED' in wsl_current_status.stdout"
+    
+    - name: Install Ubuntu distribution
+      win_shell: |
+        Write-Host "Installing Ubuntu {{ wsl_version }}..." -ForegroundColor Yellow
+        wsl --install -d Ubuntu-{{ wsl_version }} --no-launch 2>&1
+      register: ubuntu_install
+      changed_when: "'is already installed' not in ubuntu_install.stdout"
+      failed_when: false
+      when: 
+        - "'NOT_INSTALLED' in ubuntu_status.stdout or 'NOT_INSTALLED' in wsl_current_status.stdout"
+    
+    - name: Wait for WSL to be ready
+      win_shell: |
+        Start-Sleep -Seconds 10
+        Write-Output "WSL ready check complete"
+      when: ubuntu_install.changed
+    
+    - name: Verify WSL2 installation
+      win_shell: |
+        wsl --list --verbose 2>&1
+      register: wsl_final_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Configure Docker Desktop to use WSL2 backend
+      win_shell: |
+        $dockerConfigPath = "$env:USERPROFILE\.docker\settings.json"
+        $dockerConfigDir = Split-Path $dockerConfigPath -Parent
+        
+        # Ensure directory exists
+        if (-not (Test-Path $dockerConfigDir)) {
+          New-Item -ItemType Directory -Path $dockerConfigDir -Force | Out-Null
+        }
+        
+        # Read existing config or create new
+        if (Test-Path $dockerConfigPath) {
+          $config = Get-Content $dockerConfigPath | ConvertFrom-Json
+        } else {
+          $config = @{}
+        }
+        
+        # Set WSL2 backend
+        $config.wslEngineEnabled = $true
+        
+        # Save config
+        $config | ConvertTo-Json -Depth 10 | Set-Content $dockerConfigPath -Encoding UTF8
+        Write-Output "Docker Desktop configured to use WSL2 backend"
+      register: docker_config
+      changed_when: true
+    
+    - name: Display configuration summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  WSL2 Configuration Complete for {{ inventory_hostname }}"
+          - "================================================================"
+          - "WSL Status:"
+          - "{{ wsl_final_status.stdout_lines | default(['Not available']) | join('\n') }}"
+          - ""
+          - "Docker Desktop: Configured to use WSL2 backend"
+          - ""
+          - "{{ '⚠️  REBOOT REQUIRED' if (wsl_feature.changed | default(false) or vm_feature.changed | default(false)) else '✅ No reboot required' }}"
+          - "{{ 'Please reboot ' + inventory_hostname + ' to complete WSL2 installation' if (wsl_feature.changed | default(false) or vm_feature.changed | default(false)) else '' }}"
+          - "================================================================"
+
