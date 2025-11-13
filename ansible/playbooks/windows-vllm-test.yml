@@ -1,0 +1,80 @@
+---
+# Generic Docker and AI Configuration Test for Windows Workstations
+# Tests: Docker Desktop, NVIDIA Container Toolkit, vLLM container, and AI model functionality
+# Works for: armitage, wintermute, and any Windows host with WSL2/Docker/vLLM
+# Usage: 
+#   ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-test.yml --limit windows_workstations
+#   ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-test.yml --limit armitage
+#   ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-test.yml --limit wintermute
+
+- name: Test Windows Workstation Docker and AI Configuration
+  hosts: "{{ target_hosts | default('windows_workstations') }}"
+  gather_facts: no
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+    vllm_container_name: "{{ vllm.container_name | default('vllm-' + inventory_hostname) }}"
+    vllm_port: "{{ vllm.port | default(8000) }}"
+    test_model_name: "{{ vllm.served_model_name | default('local/chat') }}"
+  
+  roles:
+    - windows-vllm-test
+
+- name: Test AI Model via LiteLLM Proxy
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars:
+    litellm_proxy_url: "{{ litellm_proxy_url | default('http://motoko.pangolin-vega.ts.net:8000') }}"
+  
+  tasks:
+    - name: Test model availability via LiteLLM
+      uri:
+        url: "{{ litellm_proxy_url }}/v1/models"
+        method: GET
+        headers:
+          Authorization: "Bearer mkt-test"
+        status_code: [200, 500, 503]
+        timeout: 15
+      register: models_list
+      failed_when: false
+    
+    - name: Extract model names from LiteLLM response
+      set_fact:
+        available_models: "{{ models_list.json.data | default([]) | map(attribute='id') | list }}"
+      when: models_list.json is defined
+    
+    - name: Test chat completion for each Windows workstation model
+      uri:
+        url: "{{ litellm_proxy_url }}/v1/chat/completions"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Bearer mkt-test"
+        body_format: json
+        body:
+          model: "{{ item }}"
+          messages:
+            - role: "user"
+              content: "Say hello and confirm you are working"
+          max_tokens: 20
+        status_code: [200, 500, 503]
+        timeout: 15
+      register: ai_test_results
+      failed_when: false
+      loop: "{{ available_models | default([]) | select('match', '.*-(armitage|wintermute)$') | list }}"
+      when: available_models is defined
+    
+    - name: Display AI model test results
+      debug:
+        msg:
+          - "================================================================"
+          - "  AI Model Test via LiteLLM Proxy"
+          - "================================================================"
+          - "Available models: {{ available_models | default(['N/A']) | join(', ') }}"
+          - ""
+          - "{{ 'Test Results:' if ai_test_results.results is defined else 'No models found' }}"
+          - "{{ ai_test_results.results | default([]) | map('extract', item, ['item', 'status', 'json']) | list | to_nice_json if ai_test_results.results is defined else 'N/A' }}"
+          - "================================================================"
+      tags: [always]

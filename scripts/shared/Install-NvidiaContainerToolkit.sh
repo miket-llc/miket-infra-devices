@@ -1,8 +1,11 @@
 #!/bin/bash
-# Install NVIDIA Container Toolkit in WSL2 Ubuntu
-# This script is host-specific but uses the same logic as the shared script
-# For new hosts, use scripts/shared/Install-NvidiaContainerToolkit.sh instead
+# Shared NVIDIA Container Toolkit Installation Script
+# Works for any Linux/WSL2 system
+# Usage: Run from WSL2 Ubuntu or any Debian-based Linux distribution
+
 set -e
+
+echo "[$(date +%H:%M:%S)] Starting NVIDIA Container Toolkit installation..."
 
 # Check if already installed
 if dpkg -l | grep -q nvidia-container-toolkit; then
@@ -58,5 +61,8 @@ sudo apt-get install -y nvidia-container-toolkit
 echo "[$(date +%H:%M:%S)] Configuring Docker to use NVIDIA runtime..."
 sudo nvidia-ctk runtime configure --runtime=docker
 
-echo "[$(date +%H:%M:%S)] NVIDIA Container Toolkit installed successfully"
+echo "[$(date +%H:%M:%S)] Restarting Docker service..."
+sudo systemctl restart docker
+
+echo "[$(date +%H:%M:%S)] NVIDIA Container Toolkit installation complete!"
 

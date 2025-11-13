@@ -1,0 +1,141 @@
+---
+# Fix NVIDIA Container Toolkit Repository on Windows Workstations
+# This playbook fixes broken repository configurations (HTML errors or placeholders)
+# Works for: armitage, wintermute, and any Windows host with WSL2
+# Usage: 
+#   ansible-playbook -i inventory/hosts.yml playbooks/fix-nvidia-repo-windows.yml --limit windows_workstations
+#   ansible-playbook -i inventory/hosts.yml playbooks/fix-nvidia-repo-windows.yml --limit armitage
+
+- name: Fix NVIDIA Container Toolkit Repository on Windows Workstations
+  hosts: "{{ target_hosts | default('windows_workstations') }}"
+  gather_facts: no
+  vars_files:
+    - ../group_vars/windows/vault.yml
+  vars:
+    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+    wsl_distro: "{{ wsl2.default_distro | default('Ubuntu') }}"
+    nvidia_script_path: "{{ automation_user_home }}\\dev\\{{ inventory_hostname }}\\scripts\\Install-NvidiaContainerToolkit.sh"
+  
+  tasks:
+    - name: Check current repository file status
+      win_shell: |
+        $checkScript = @'
+        if [ -f /etc/apt/sources.list.d/nvidia-container-toolkit.list ]; then
+          if grep -q '<!doctype\|<html\|404' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+            echo 'BROKEN_HTML'
+          elif grep -q '$' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null && grep -q 'ARCH' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+            echo 'HAS_PLACEHOLDER'
+          else
+            echo 'VALID'
+          fi
+        else
+          echo 'NOT_FOUND'
+        fi
+        '@
+        wsl -d {{ wsl_distro }} -- bash -c $checkScript 2>&1
+      register: repo_status
+      changed_when: false
+      failed_when: false
+    
+    - name: Display repository status
+      debug:
+        msg:
+          - "Repository file status for {{ inventory_hostname }}: {{ repo_status.stdout }}"
+          - "{{ 'File contains HTML (404 error) - will be fixed' if 'BROKEN_HTML' in repo_status.stdout else ('File has placeholder - will be fixed' if 'HAS_PLACEHOLDER' in repo_status.stdout else 'File is valid or not found') }}"
+    
+    - name: Remove broken or invalid repository file
+      win_shell: |
+        wsl -d {{ wsl_distro }} -- bash -c "sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list && echo 'Removed repository file'" 2>&1
+      when: "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
+      register: file_removed
+      failed_when: "'Removed repository file' not in file_removed.stdout"
+    
+    - name: Ensure scripts directory exists
+      win_file:
+        path: "{{ automation_user_home }}\\dev\\{{ inventory_hostname }}\\scripts"
+        state: directory
+      when: "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
+    
+    - name: Copy fixed installation script
+      win_copy:
+        src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Install-NvidiaContainerToolkit.sh"
+        dest: "{{ nvidia_script_path }}"
+        backup: yes
+      when: 
+        - "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
+        - inventory_hostname in ['armitage', 'wintermute']
+      failed_when: false
+    
+    - name: Use shared NVIDIA installation script if host-specific doesn't exist
+      win_copy:
+        src: "{{ playbook_dir }}/../../scripts/shared/Install-NvidiaContainerToolkit.sh"
+        dest: "{{ nvidia_script_path }}"
+        backup: yes
+      when: 
+        - "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
+        - inventory_hostname not in ['armitage', 'wintermute']
+      failed_when: false
+    
+    - name: Reconfigure NVIDIA Container Toolkit repository in WSL2
+      win_shell: |
+        Write-Host "Reconfiguring NVIDIA Container Toolkit repository..." -ForegroundColor Yellow
+        wsl -d {{ wsl_distro }} -- bash -c "
+          set -e
+          # Remove old broken file if it exists
+          sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+          
+          # Install prerequisites
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq curl ca-certificates gnupg lsb-release
+          
+          # Add GPG key
+          curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+          
+          # Detect architecture
+          ARCH=\$(dpkg --print-architecture)
+          
+          # Configure repository with proper error checking
+          REPO_URL=\"https://nvidia.github.io/libnvidia-container/stable/deb/\${ARCH}\"
+          REPO_LINE=\"deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] \${REPO_URL} /\"
+          
+          # Verify the repository URL is accessible before writing
+          if curl -fsSL --head \"\${REPO_URL}/Packages\" > /dev/null 2>&1; then
+            echo \"\${REPO_LINE}\" | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+            echo \"Repository configured successfully for architecture: \${ARCH}\"
+          else
+            echo \"WARNING: Repository URL not accessible: \${REPO_URL}\"
+            echo \"Falling back to generic repository...\"
+            REPO_URL=\"https://nvidia.github.io/libnvidia-container/stable/deb\"
+            REPO_LINE=\"deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] \${REPO_URL}/\${ARCH} /\"
+            echo \"\${REPO_LINE}\" | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+          fi
+          
+          # Verify the file doesn't contain HTML or placeholders
+          if grep -q '<!doctype\|<html\|404' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+            echo \"ERROR: Repository file still contains HTML\"
+            sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            exit 1
+          fi
+          if grep -q '\$(ARCH)' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+            echo \"ERROR: Repository file still contains placeholder\"
+            sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+            exit 1
+          fi
+          
+          # Test apt update
+          sudo apt-get update -qq
+          echo \"Repository configuration verified successfully\"
+        "
+      register: reconfigure_result
+      when: "'BROKEN_HTML' in repo_status.stdout or 'HAS_PLACEHOLDER' in repo_status.stdout"
+    
+    - name: Display reconfiguration result
+      debug:
+        msg:
+          - "================================================================"
+          - "  NVIDIA Repository Fix Complete for {{ inventory_hostname }}"
+          - "================================================================"
+          - "{{ reconfigure_result.stdout_lines | default(['No output']) | join('\n') if reconfigure_result.stdout_lines is defined else 'No reconfiguration performed' }}"
+          - "================================================================"
+      when: reconfigure_result.stdout is defined
+

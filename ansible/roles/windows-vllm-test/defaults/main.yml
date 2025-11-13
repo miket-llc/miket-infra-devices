@@ -1,0 +1,19 @@
+---
+# Defaults for Windows vLLM Testing Role
+# These can be overridden by host_vars or group_vars
+
+# Container name pattern (defaults to vllm-{hostname})
+vllm_container_name: "vllm-{{ inventory_hostname }}"
+
+# vLLM port (defaults to 8000)
+vllm_port: 8000
+
+# WSL distribution name (defaults to Ubuntu)
+wsl_distro: Ubuntu
+
+# Test model name for LiteLLM proxy (defaults to host-specific model)
+test_model_name: "{{ vllm.served_model_name | default('local/chat') }}"
+
+# LiteLLM proxy URL (defaults to motoko)
+litellm_proxy_url: "http://motoko.pangolin-vega.ts.net:8000"
+
