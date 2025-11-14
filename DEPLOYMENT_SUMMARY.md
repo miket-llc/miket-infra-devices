@@ -115,7 +115,7 @@ The proxy is currently unhealthy because it can't reach armitage. Once armitage 
 ```bash
 # Update LiteLLM config with new context limits
 cd /home/mdt/miket-infra-devices/ansible
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-litellm-config.yml
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml
 
 # Or manually restart the container
 docker restart litellm

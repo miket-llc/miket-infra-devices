@@ -85,7 +85,7 @@ Max latency: 1.82s
 - devices/armitage/config.yml
 - devices/armitage/scripts/Start-VLLM.ps1
 - ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2
-- ansible/group_vars/motoko.yml
+- ansible/host_vars/motoko.yml
 - ansible/playbooks/armitage-vllm-deploy-scripts.yml
 - ansible/playbooks/remote/wintermute-vllm-deploy-scripts.yml
 

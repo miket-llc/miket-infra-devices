@@ -124,7 +124,7 @@ After deployment:
 
 ### If LiteLLM deployment fails:
 - **Make sure you're in the `ansible/` directory** - group_vars won't load from elsewhere
-- Check that `group_vars/motoko.yml` exists and has all required variables
+- Check that `host_vars/motoko.yml` exists and has all required variables
 - Verify with: `ansible motoko -i inventory/hosts.yml -m debug -a "var=wintermute_model_display" --connection=local`
 
 ### If wrong model is still running:

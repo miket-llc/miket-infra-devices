@@ -33,7 +33,7 @@ fi
 log ""
 log "Step 2: Checking model name configuration..."
 log "Current Wintermute model config:"
-grep -A1 "wintermute_model" ansible/group_vars/motoko.yml | head -3 | tee -a "$LOG_FILE"
+grep -A1 "wintermute_model" ansible/host_vars/motoko.yml | head -3 | tee -a "$LOG_FILE"
 log ""
 log "Note: Model name will be verified after vLLM deployment"
 log "If mismatch occurs, update LiteLLM config to match vLLM's reported model name"

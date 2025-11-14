@@ -7,8 +7,6 @@
   hosts: motoko
   become: true
   gather_facts: yes
-  vars_files:
-    - ../../group_vars/motoko.yml
   roles:
     - litellm_proxy
 

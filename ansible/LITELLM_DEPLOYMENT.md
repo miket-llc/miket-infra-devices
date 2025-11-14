@@ -33,7 +33,7 @@ Armitage runs Qwen-2.5-7B-Instruct-AWQ on port 8000. This is configured as the d
 
 ### Wintermute vLLM (Reasoner)
 
-Wintermute runs the reasoner model on port 8000. The default model is Llama-3.1-8B-Instruct-AWQ, but this can be switched to Gemma-2-9B-Instruct-AWQ by updating variables in `ansible/group_vars/motoko.yml`.
+Wintermute runs the reasoner model on port 8000. The default model is Llama-3.1-8B-Instruct-AWQ, but this can be switched to Gemma-2-9B-Instruct-AWQ by updating variables in `ansible/host_vars/motoko.yml`.
 
 #### Wintermute vLLM Launch (Default: Llama 3.1 8B Instruct AWQ)
 
@@ -48,10 +48,10 @@ python -m vllm.entrypoints.openai.api_server \
 
 #### Alternative: Gemma 2 9B Instruct AWQ
 
-To switch to Gemma, update `ansible/group_vars/motoko.yml` and restart vLLM on Wintermute:
+To switch to Gemma, update `ansible/host_vars/motoko.yml` and restart vLLM on Wintermute:
 
 ```bash
-# Uncomment Gemma options in group_vars/motoko.yml:
+# Uncomment Gemma options in host_vars/motoko.yml:
 # wintermute_model_display: "openai/gemma-2-9b-it-awq"
 # wintermute_model_hf_id: "google/gemma-2-9b-it-AWQ"
 
@@ -70,27 +70,28 @@ python -m vllm.entrypoints.openai.api_server \
 
 ### Setting Secrets
 
-**Option 1: Ansible Vault (Recommended)**
+Secrets are stored in `ansible/group_vars/linux/vault.yml` so they can be shared by any Linux host that needs them. Create or edit the vault file with:
 
 ```bash
-# Create/edit vault file
-ansible-vault create ansible/group_vars/motoko.yml
-
-# Or edit existing vault
-ansible-vault edit ansible/group_vars/motoko.yml
+ansible-vault create ansible/group_vars/linux/vault.yml
+# or, if it already exists
+ansible-vault edit ansible/group_vars/linux/vault.yml
 ```
 
-Add these variables:
+Define the following variables inside the vault:
+
 ```yaml
-openai_api_key: "sk-your-actual-openai-key"
-litellm_bearer_token: "mkt-your-super-long-bearer-token"
+vault_openai_api_key: "sk-your-actual-openai-key"
+vault_litellm_bearer_token: "mkt-your-super-long-bearer-token"
 ```
+
+These keys are referenced from `ansible/host_vars/motoko.yml` so playbooks automatically load them.
 
 **Option 2: Override at Runtime**
 
 ```bash
-ansible-playbook -i ansible/inventories/hosts.ini \
-  ansible/deploy-litellm.yml \
+ansible-playbook -i ansible/inventory/hosts.yml \
+  playbooks/motoko/deploy-litellm.yml \
   -e "openai_api_key=sk-xxx" \
   -e "litellm_bearer_token=mkt-xxx"
 ```
@@ -100,15 +101,15 @@ ansible-playbook -i ansible/inventories/hosts.ini \
 ```bash
 export OPENAI_API_KEY="sk-xxx"
 export LITELLM_TOKEN="mkt-xxx"
-ansible-playbook -i ansible/inventories/hosts.ini \
-  ansible/deploy-litellm.yml \
+ansible-playbook -i ansible/inventory/hosts.yml \
+  playbooks/motoko/deploy-litellm.yml \
   -e "openai_api_key=${OPENAI_API_KEY}" \
   -e "litellm_bearer_token=${LITELLM_TOKEN}"
 ```
 
 ### Customizing Configuration
 
-Edit `ansible/group_vars/motoko.yml` to override defaults:
+Edit `ansible/host_vars/motoko.yml` to override defaults:
 
 ```yaml
 # Change port
@@ -131,18 +132,18 @@ openai_cheap_model: "gpt-3.5-turbo"
 
 ```bash
 cd ansible
-ansible-playbook -i inventories/hosts.ini deploy-litellm.yml
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml
 ```
 
 ### With Vault Password
 
 ```bash
 # Using vault password file
-ansible-playbook -i inventories/hosts.ini deploy-litellm.yml \
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml \
   --vault-password-file ~/.ansible/vault_pass.txt
 
 # Or prompt for vault password
-ansible-playbook -i inventories/hosts.ini deploy-litellm.yml --ask-vault-pass
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml --ask-vault-pass
 ```
 
 ### Updating Configuration
@@ -150,7 +151,7 @@ ansible-playbook -i inventories/hosts.ini deploy-litellm.yml --ask-vault-pass
 Simply re-run the playbook - it's idempotent:
 
 ```bash
-ansible-playbook -i inventories/hosts.ini deploy-litellm.yml
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml
 ```
 
 The playbook will:
@@ -330,22 +331,22 @@ docker run --rm -v /opt/litellm/litellm.config.yaml:/config.yaml \
 
 When budget is exceeded, all requests route to `local/chat`. To reset:
 
-1. Update budget in `ansible/group_vars/motoko.yml`
-2. Redeploy: `ansible-playbook -i inventories/hosts.ini deploy-litellm.yml`
+1. Update budget in `ansible/host_vars/motoko.yml`
+2. Redeploy: `ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml`
 3. Or manually edit `/opt/litellm/litellm.config.yaml` and restart service
 
 ## Maintenance
 
 ### Updating LiteLLM Version
 
-Edit `ansible/group_vars/motoko.yml`:
+Edit `ansible/host_vars/motoko.yml`:
 ```yaml
 litellm_version: "v1.44.0"  # Update to latest
 ```
 
 Then redeploy:
 ```bash
-ansible-playbook -i inventories/hosts.ini deploy-litellm.yml
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml
 ```
 
 ### Viewing Logs
@@ -371,17 +372,17 @@ sudo systemctl restart litellm
 cd /opt/litellm && docker compose restart
 
 # Via Ansible
-ansible-playbook -i inventories/hosts.ini deploy-litellm.yml
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml
 ```
 
 ## File Structure
 
 ```
 ansible/
-├── inventories/
-│   └── hosts.ini              # Inventory file
-├── group_vars/
-│   └── motoko.yml             # Motoko-specific variables (secrets here)
+├── inventory/
+│   └── hosts.yml              # Authoritative inventory file
+├── host_vars/
+│   └── motoko.yml             # Motoko-specific configuration and vault references
 ├── roles/
 │   └── litellm_proxy/
 │       ├── defaults/
@@ -395,12 +396,12 @@ ansible/
 │           ├── docker-compose.yml.j2     # Docker Compose template
 │           ├── litellm.env.j2            # Environment variables template
 │           └── litellm.service.j2        # systemd unit template
-└── deploy-litellm.yml         # Main deployment playbook
+└── playbooks/motoko/deploy-litellm.yml   # Main deployment playbook
 ```
 
 ## Variables Reference
 
-See `ansible/group_vars/motoko.yml` for all configurable variables. Key variables:
+See `ansible/host_vars/motoko.yml` for all configurable variables. Key variables:
 
 - `litellm_version`: Docker image tag (default: `v1.43.0`)
 - `litellm_port`: Service port (default: `8000`)

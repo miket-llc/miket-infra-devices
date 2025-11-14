@@ -13,7 +13,7 @@ Wintermute was configured to run **Llama 3.1 8B Instruct AWQ** (as the reasoner 
 
 ## What Was Correct
 
-- **`ansible/group_vars/motoko.yml`**: Correctly configured `wintermute_model_hf_id: "meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ"` ✅
+- **`ansible/host_vars/motoko.yml`**: Correctly configured `wintermute_model_hf_id: "meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ"` ✅
 - **`ansible/playbooks/remote/wintermute-vllm-deploy-scripts.yml`**: Correctly defaults to `meta-llama/Meta-Llama-3.1-8B-Instruct-AWQ` ✅
 
 ## Fixes Applied

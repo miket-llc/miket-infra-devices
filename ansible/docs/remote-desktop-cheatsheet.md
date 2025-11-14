@@ -9,29 +9,31 @@ This cheatsheet provides quick connection information for all hosts in the tailn
 ## Connection Methods
 
 ### Linux Clients
-- **GUI**: `remmina` (Remmina Remote Desktop Client)
-- **CLI**: `rdp HOSTNAME` or `xfreerdp /v:HOSTNAME.tail2e55fe.ts.net:3389`
-- **Example**: `rdp motoko`
+- **RDP**: `remmina` GUI or `rdp HOSTNAME`
+- **VNC**: `remmina` GUI or `vnc HOSTNAME`
+- **Examples**: `rdp wintermute`, `vnc motoko`
 
 ### Windows Clients
-- **GUI**: `mstsc` (Remote Desktop Connection)
-- **CLI**: `rdp HOSTNAME` or `mstsc /v:HOSTNAME.tail2e55fe.ts.net:3389`
-- **Example**: `rdp motoko`
+- **RDP**: `mstsc /v:HOSTNAME.tail2e55fe.ts.net:3389`
+- **VNC**: RealVNC, TightVNC, or `vnc HOSTNAME`
+- **Examples**: `mstsc /v:wintermute.tail2e55fe.ts.net`, `vnc motoko`
 
 ### macOS Clients
-- **RDP**: Microsoft Remote Desktop (App Store) or `rdp HOSTNAME`
-- **VNC**: Screen Sharing (built-in) or `vnc HOSTNAME`
-- **Example**: `rdp motoko` or `vnc motoko`
+- **RDP**: Microsoft Remote Desktop or `rdp HOSTNAME`
+- **VNC**: Screen Sharing (`Cmd+K` → `vnc://HOSTNAME.tail2e55fe.ts.net`)
+- **Examples**: `rdp armitage`, `vnc count-zero`
 
 ## Host Connections
 
 ### MOTOKO
 
 - **Hostname**: `motoko.tail2e55fe.ts.net` (MagicDNS)
-- **Protocol**: RDP
-- **Port**: 3389
-- **Connection**: `rdp://motoko.tail2e55fe.ts.net:3389`
-- **Quick Connect**: `rdp motoko`
+- **Protocol**: VNC
+- **Port**: 5900
+- **Connection**: `vnc://motoko.tail2e55fe.ts.net:5900`
+- **Quick Connect**: `vnc motoko`
+- **Desktop Environment**: GNOME
+- **Display Server**: Xorg
 
 ### WINTERMUTE
 
@@ -52,10 +54,10 @@ This cheatsheet provides quick connection information for all hosts in the tailn
 ### COUNT-ZERO
 
 - **Hostname**: `count-zero.tail2e55fe.ts.net` (MagicDNS)
-- **Protocol**: RDP
-- **Port**: 3389
-- **Connection**: `rdp://count-zero.tail2e55fe.ts.net:3389`
-- **Quick Connect**: `rdp count-zero`
+- **Protocol**: VNC
+- **Port**: 5900
+- **Connection**: `vnc://count-zero.tail2e55fe.ts.net:5900`
+- **Quick Connect**: `vnc count-zero`
 
 
 ## Troubleshooting
@@ -104,8 +106,8 @@ If you're on Wayland and RDP doesn't work:
 
 | Host | Protocol | Port | Command |
 |------|----------|------|---------|
-| motoko | rdp | 3389 | `rdp motoko` |
+| motoko | vnc | 5900 | `vnc motoko` |
 | wintermute | rdp | 3389 | `rdp wintermute` |
 | armitage | rdp | 3389 | `rdp armitage` |
-| count-zero | rdp | 3389 | `rdp count-zero` |
+| count-zero | vnc | 5900 | `vnc count-zero` |
 

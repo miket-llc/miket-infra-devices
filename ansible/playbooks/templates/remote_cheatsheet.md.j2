@@ -9,35 +9,34 @@ This cheatsheet provides quick connection information for all hosts in the tailn
 ## Connection Methods
 
 ### Linux Clients
-- **GUI**: `remmina` (Remmina Remote Desktop Client)
-- **CLI**: `rdp HOSTNAME` or `xfreerdp /v:HOSTNAME.tail2e55fe.ts.net:3389`
-- **Example**: `rdp motoko`
+- **RDP**: `remmina` GUI or `rdp HOSTNAME`
+- **VNC**: `remmina` GUI or `vnc HOSTNAME`
+- **Examples**: `rdp wintermute`, `vnc motoko`
 
 ### Windows Clients
-- **GUI**: `mstsc` (Remote Desktop Connection)
-- **CLI**: `rdp HOSTNAME` or `mstsc /v:HOSTNAME.tail2e55fe.ts.net:3389`
-- **Example**: `rdp motoko`
+- **RDP**: `mstsc /v:HOSTNAME.tail2e55fe.ts.net:3389`
+- **VNC**: RealVNC, TightVNC, or `vnc HOSTNAME`
+- **Examples**: `mstsc /v:wintermute.tail2e55fe.ts.net`, `vnc motoko`
 
 ### macOS Clients
-- **RDP**: Microsoft Remote Desktop (App Store) or `rdp HOSTNAME`
-- **VNC**: Screen Sharing (built-in) or `vnc HOSTNAME`
-- **Example**: `rdp motoko` or `vnc motoko`
+- **RDP**: Microsoft Remote Desktop or `rdp HOSTNAME`
+- **VNC**: Screen Sharing (`Cmd+K` → `vnc://HOSTNAME.tail2e55fe.ts.net`)
+- **Examples**: `rdp wintermute`, `vnc count-zero`
 
 ## Host Connections
 
 {% for host in groups['all'] %}
 {% if host != 'localhost' %}
+{% set protocol = hostvars[host].remote_protocol | default('rdp') %}
+{% set port = hostvars[host].remote_port | default(3389) %}
+{% set quick = 'rdp' if protocol == 'rdp' else 'vnc' %}
 ### {{ host | upper }}
 
 - **Hostname**: `{{ host }}.tail2e55fe.ts.net` (MagicDNS)
-- **Protocol**: {{ hostvars[host].remote_protocol | default('rdp') | upper }}
-- **Port**: {{ hostvars[host].remote_port | default(3389) }}
-- **Connection**: `{{ hostvars[host].remote_protocol | default('rdp') }}://{{ host }}.tail2e55fe.ts.net:{{ hostvars[host].remote_port | default(3389) }}`
-{% if hostvars[host].remote_protocol | default('rdp') == 'rdp' %}
-- **Quick Connect**: `rdp {{ host }}`
-{% else %}
-- **Quick Connect**: `vnc {{ host }}`
-{% endif %}
+- **Protocol**: {{ protocol | upper }}
+- **Port**: {{ port }}
+- **Connection**: `{{ protocol }}://{{ host }}.tail2e55fe.ts.net:{{ port }}`
+- **Quick Connect**: `{{ quick }} {{ host }}`
 {% if hostvars[host].desktop_env is defined %}
 - **Desktop Environment**: {{ hostvars[host].desktop_env }}
 {% endif %}
@@ -96,7 +95,10 @@ If you're on Wayland and RDP doesn't work:
 |------|----------|------|---------|
 {% for host in groups['all'] %}
 {% if host != 'localhost' %}
-| {{ host }} | {{ hostvars[host].remote_protocol | default('rdp') }} | {{ hostvars[host].remote_port | default(3389) }} | `rdp {{ host }}` |
+{% set protocol = hostvars[host].remote_protocol | default('rdp') %}
+{% set port = hostvars[host].remote_port | default(3389) %}
+{% set quick = 'rdp' if protocol == 'rdp' else 'vnc' %}
+| {{ host }} | {{ protocol }} | {{ port }} | `{{ quick }} {{ host }}` |
 {% endif %}
 {% endfor %}
 

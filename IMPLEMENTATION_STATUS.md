@@ -8,7 +8,7 @@
 - Added README files to document each directory
 
 ### 2. File Consolidation ✅
-- Moved `deploy-litellm.yml` to `ansible/playbooks/motoko/`
+- Removed legacy `deploy-litellm.yml` wrapper (use `ansible/playbooks/motoko/deploy-litellm.yml`)
 - Created deprecation notices for old files
 - Documented inventory file status
 
@@ -29,13 +29,15 @@ ansible/
 ├── ansible.cfg                    # ✅ Enhanced with performance opts
 ├── inventory/
 │   └── hosts.yml                  # ✅ Primary inventory
-├── inventories/
-│   ├── hosts.ini                  # ⚠️  Deprecated (documented)
-│   └── README.md                  # ✅ Status documentation
+├── host_vars/                     # ✅ Device-specific overrides
+│   ├── motoko.yml
+│   ├── armitage.yml
+│   └── wintermute.yml
 ├── playbooks/
 │   ├── motoko/                    # ✅ NEW: Self-management
 │   │   ├── deploy-vllm.yml
-│   │   ├── deploy-litellm.yml
+│   │   ├── motoko/
+│   │   │   └── deploy-litellm.yml
 │   │   └── README.md
 │   ├── remote/                    # ✅ NEW: Remote management
 │   │   ├── armitage-vllm-setup.yml
@@ -72,9 +74,9 @@ devices/
    ```
 
 3. **Clean up deprecated files** (after verification):
-   - `ansible/deploy-litellm.yml` (moved to playbooks/motoko/)
+   - ✅ `ansible/playbooks/motoko/deploy-litellm.yml` (canonical)
    - `ansible/playbooks/deploy-motoko-embeddings.yml` (consolidated)
-   - `ansible/inventories/hosts.ini` (if not needed)
+   - ✅ `ansible/inventory/hosts.yml` (canonical)
 
 ## Status
 

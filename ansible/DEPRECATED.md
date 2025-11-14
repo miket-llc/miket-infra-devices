@@ -16,10 +16,10 @@ This playbook has been replaced by the `vllm-motoko` role which handles both rea
 
 ## deploy-litellm.yml (root)
 
-**Status:** Moved to `ansible/playbooks/motoko/deploy-litellm.yml`
+**Status:** Removed – use `ansible/playbooks/motoko/deploy-litellm.yml`
 
-This playbook has been moved to the proper location in the playbooks directory structure.
+The legacy wrapper playbook at the repository root has been deleted. The canonical playbook now lives under the `playbooks/motoko/` namespace alongside the rest of the Motoko automation.
 
 **Migration:**
-- Use `ansible/playbooks/motoko/deploy-litellm.yml` instead
+- Run `ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml`
 

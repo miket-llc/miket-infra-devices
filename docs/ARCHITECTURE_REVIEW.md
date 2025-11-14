@@ -12,7 +12,7 @@ This document provides a comprehensive review of the `miket-infra-devices` repos
 
 ### Key Findings
 
-1. **Repository Structure:** Well-organized with clear separation of concerns, but some duplication exists between `inventory/` and `inventories/`
+1. **Repository Structure:** Well-organized with clear separation of concerns; legacy `inventories/` directory has been removed in favor of a single YAML inventory
 2. **Ansible Configuration:** Good foundation with fact caching and smart gathering, but missing pipelining and SSH ControlPersist optimizations
 3. **Observability:** Prometheus/Grafana assets exist but ARA integration is missing; callback plugins are basic
 4. **vLLM Deployment:** Currently deployed on Armitage/Wintermute; Motoko needs similar setup for small reasoning/embedding models
@@ -29,12 +29,11 @@ miket-infra-devices/
 ├── ansible/
 │   ├── ansible.cfg              # ✅ Good: Fact caching, smart gathering
 │   ├── inventory/              # ✅ Primary inventory (hosts.yml)
-│   ├── inventories/            # ⚠️  Duplicate? Contains hosts.ini
 │   ├── group_vars/             # ✅ Well-organized by OS groups
 │   ├── host_vars/              # ✅ Device-specific overrides
 │   ├── playbooks/              # ✅ Organized by purpose
 │   ├── roles/                  # ✅ Reusable roles
-│   └── deploy-litellm.yml      # ✅ LiteLLM proxy deployment
+│   └── playbooks/motoko/deploy-litellm.yml      # ✅ LiteLLM proxy deployment
 ├── devices/                    # ✅ Device-specific configs
 │   ├── inventory.yaml          # ✅ Human-readable device inventory
 │   ├── motoko/                 # ⚠️  Minimal config (needs expansion)
@@ -72,12 +71,10 @@ miket-infra-devices/
 
 **Current State:**
 - `ansible/inventory/hosts.yml` - Primary YAML inventory (✅ Used)
-- `ansible/inventories/hosts.ini` - INI format (⚠️ Unused?)
 - `devices/inventory.yaml` - Human-readable device metadata (✅ Documentation)
 
 **Recommendation:**
 - **Keep:** `ansible/inventory/hosts.yml` (primary)
-- **Remove or Document:** `ansible/inventories/hosts.ini` (if unused, delete; if legacy, document)
 - **Keep:** `devices/inventory.yaml` (documentation only)
 
 ---
@@ -531,7 +528,7 @@ vllm_embeddings_gpu_util: 0.30
 
 ### 4.4 LiteLLM Integration
 
-**Update:** `ansible/group_vars/motoko.yml`
+**Update:** `ansible/host_vars/motoko.yml`
 
 ```yaml
 # Add Motoko reasoning model to LiteLLM config
@@ -609,12 +606,11 @@ miket-infra-devices/
 │   │   ├── all/
 │   │   │   └── vault.yml
 │   │   ├── linux/
-│   │   ├── windows/
-│   │   └── motoko.yml           # Motoko-specific vars
+│   │   └── windows/
 │   ├── host_vars/
-│   │   ├── motoko/
-│   │   ├── armitage/
-│   │   └── wintermute/
+│   │   ├── motoko.yml
+│   │   ├── armitage.yml
+│   │   └── wintermute.yml
 │   ├── playbooks/
 │   │   ├── motoko/              # Self-management
 │   │   │   ├── self-configure.yml
@@ -677,11 +673,10 @@ miket-infra-devices/
 ### 5.2 Files to Remove/Consolidate
 
 **Remove:**
-- `ansible/inventories/hosts.ini` (if unused)
 - Duplicate playbook files (consolidate into `motoko/` or `remote/`)
 
 **Consolidate:**
-- `ansible/deploy-litellm.yml` → `ansible/playbooks/motoko/deploy-litellm.yml`
+- Legacy liteLLM wrapper → `ansible/playbooks/motoko/deploy-litellm.yml`
 - `ansible/playbooks/deploy-motoko-embeddings.yml` → `ansible/playbooks/motoko/deploy-vllm.yml` (combine)
 
 ---

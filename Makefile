@@ -91,7 +91,7 @@ deploy-proxy: backup-configs $(LOGS_DIR)
 	@echo "Deploying LiteLLM proxy to Motoko..."
 	@if command -v ansible-playbook >/dev/null 2>&1; then \
 		echo "Running Ansible playbook..."; \
-		cd ansible && ansible-playbook -i inventory playbooks/deploy-litellm.yml -v; \
+cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml -v; \
 	else \
 		echo "Ansible not found. Manual deployment required:"; \
 		echo "  1. SSH to Motoko"; \

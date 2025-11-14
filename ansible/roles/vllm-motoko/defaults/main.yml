@@ -1,6 +1,6 @@
 ---
 # Default variables for vLLM deployment on Motoko
-# Override in group_vars/motoko.yml or host_vars/motoko/ as needed
+# Override in host_vars/motoko.yml (preferred) as needed
 
 # Reasoning model configuration
 vllm_reasoning_enabled: true

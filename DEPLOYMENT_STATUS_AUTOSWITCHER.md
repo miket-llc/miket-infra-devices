@@ -156,7 +156,7 @@ The LiteLLM proxy on motoko is running but shows unhealthy status because it can
 **To update LiteLLM config** (after armitage is online):
 ```bash
 cd /home/mdt/miket-infra-devices/ansible
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-litellm-config.yml
+ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-litellm.yml
 ```
 
 ## Testing

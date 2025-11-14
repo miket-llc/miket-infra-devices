@@ -60,7 +60,7 @@ ansible-playbook -i ansible/inventory/hosts.yml \
 ### 4. Updated LiteLLM Configuration ✅
 
 **Files Modified:**
-- `ansible/group_vars/motoko.yml` - Added `motoko_reasoning_base_url`
+- `ansible/host_vars/motoko.yml` - Added `motoko_reasoning_base_url`
 - `ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2` - Added reasoning model routing
 
 **Changes:**
@@ -103,7 +103,7 @@ docs/
 
 ### Files Modified:
 - `ansible/ansible.cfg` - Performance optimizations
-- `ansible/group_vars/motoko.yml` - Added reasoning URL
+- `ansible/host_vars/motoko.yml` - Added reasoning URL
 - `ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2` - Added reasoning model
 
 ---
@@ -167,7 +167,7 @@ docs/
 
 ## Configuration Reference
 
-### vLLM Variables (Override in `group_vars/motoko.yml`)
+### vLLM Variables (Override in `host_vars/motoko.yml`)
 
 ```yaml
 # Reasoning model
@@ -212,7 +212,7 @@ If issues occur:
 2. **Revert LiteLLM config:**
    ```bash
    git checkout HEAD -- ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2
-   ansible-playbook -i ansible/inventory/hosts.yml ansible/deploy-litellm.yml
+   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/deploy-litellm.yml
    ```
 
 3. **Revert Ansible config:**

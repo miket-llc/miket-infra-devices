@@ -123,7 +123,7 @@ Status: SUCCESS - Correct reasoning and answer
 ### Configuration Files
 - `devices/wintermute/config.yml` - Llama-3.1-8B-AWQ, 8k context
 - `devices/armitage/config.yml` - Qwen2.5-7B-AWQ, 16k context
-- `ansible/group_vars/motoko.yml` - Local network IPs for backends
+- `ansible/host_vars/motoko.yml` - Local network IPs for backends
 
 ### Scripts (Both Devices)
 - `Start-VLLM.ps1` - Enhanced config parsing, quantization support, shm-size
@@ -261,7 +261,7 @@ Get-Content $env:LOCALAPPDATA\{Wintermute,Armitage}Mode\auto_mode_switcher.log -
 ### Configurations
 - devices/wintermute/config.yml
 - devices/armitage/config.yml
-- ansible/group_vars/motoko.yml
+- ansible/host_vars/motoko.yml
 
 ### Scripts
 - devices/wintermute/scripts/Start-VLLM.ps1

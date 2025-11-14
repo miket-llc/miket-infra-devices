@@ -27,7 +27,7 @@ Generated: 2025-11-09
 - ✅ Concurrency: Updated `max_concurrent_requests` from `1` to `2`
 - ✅ Base URL: Updated to use correct Tailnet domain (`armitage.tail2e55fe.ts.net`)
 
-### Ansible Variables (`ansible/group_vars/motoko.yml`)
+### Ansible Variables (`ansible/host_vars/motoko.yml`)
 - ✅ Base URLs updated to use `tail2e55fe.ts.net` domain (MagicDNS)
 
 ## 2. Deployment Status
@@ -69,7 +69,7 @@ Generated: 2025-11-09
 - ✅ `devices/armitage/config.yml` - Uses non-quantized model
 - ✅ `devices/armitage/scripts/Start-VLLM.ps1` - Updated correctly
 - ✅ `ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2` - Updated correctly
-- ✅ `ansible/group_vars/motoko.yml` - Base URLs updated
+- ✅ `ansible/host_vars/motoko.yml` - Base URLs updated
 
 ### Connectivity Tests
 - ✅ Ansible connectivity: `ansible armitage -m win_ping` - SUCCESS
@@ -166,7 +166,7 @@ Expected output should show:
 2. `devices/armitage/scripts/Start-VLLM.ps1` - Default model and Docker command updated
 3. `ansible/playbooks/armitage-vllm-deploy-scripts.yml` - Default model variable updated
 4. `ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2` - Model references updated
-5. `ansible/group_vars/motoko.yml` - Base URLs updated
+5. `ansible/host_vars/motoko.yml` - Base URLs updated
 
 ## 9. Validation Script
 

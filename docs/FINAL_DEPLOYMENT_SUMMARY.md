@@ -24,7 +24,7 @@
 #### Issue 1: Wintermute Model Name Mismatch
 **Status**: ⚠️ Needs Fix
 **Problem**: LiteLLM config references `llama-3.1-8b-instruct-awq` but actual model is `casperhansen/llama-3-8b-instruct-awq`
-**Solution**: Update `ansible/group_vars/motoko.yml` or LiteLLM template to match actual model
+**Solution**: Update `ansible/host_vars/motoko.yml` or LiteLLM template to match actual model
 **Impact**: Wintermute model shows as unhealthy in LiteLLM health checks
 
 #### Issue 2: Services Not Deployed

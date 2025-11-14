@@ -11,7 +11,7 @@
 
 ### Modified Files
 - `ansible/ansible.cfg` - Added performance optimizations
-- `ansible/group_vars/motoko.yml` - Added reasoning URL
+- `ansible/host_vars/motoko.yml` - Added reasoning URL
 - `ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2` - Added reasoning model
 
 ---
@@ -59,14 +59,14 @@ docker exec vllm-reasoning-motoko nvidia-smi
 ## Configuration Overrides
 
 ### Change Reasoning Model
-Edit `ansible/group_vars/motoko.yml`:
+Edit `ansible/host_vars/motoko.yml`:
 ```yaml
 vllm_reasoning_model: "google/gemma-2-2b-it-AWQ"  # Smaller model
 vllm_reasoning_gpu_util: 0.30  # Lower GPU usage
 ```
 
 ### Adjust GPU Allocation
-Edit `ansible/group_vars/motoko.yml`:
+Edit `ansible/host_vars/motoko.yml`:
 ```yaml
 vllm_reasoning_gpu_util: 0.50  # Increase reasoning
 vllm_embeddings_gpu_util: 0.25  # Decrease embeddings
