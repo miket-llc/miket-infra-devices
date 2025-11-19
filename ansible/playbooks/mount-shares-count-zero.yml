@@ -1,7 +1,8 @@
 ---
 - name: Mount Network Shares on count-zero
   hosts: count-zero
-  gather_facts: true
+  gather_facts: false  # Disable fact gathering to avoid sudo requirement
+  become: false  # User-level tasks only (writing to ~/.scripts and ~/Library/LaunchAgents)
   
   roles:
     - mount_shares_macos

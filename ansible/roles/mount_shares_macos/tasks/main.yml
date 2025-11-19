@@ -1,7 +1,7 @@
 ---
 - name: Ensure Scripts directory exists
   file:
-    path: "{{ ansible_env.HOME }}/.scripts"
+    path: "~/.scripts"
     state: directory
     mode: '0755'
 
@@ -11,32 +11,28 @@
   ignore_errors: yes
   changed_when: false
 
-- name: Install Azure CLI via Homebrew (if missing)
-  community.general.homebrew:
-    name: azure-cli
-    state: present
-  when: az_check.rc != 0
+# Note: Skipping Homebrew install as it requires sudo/become
 
 - name: Deploy mount script
   template:
     src: mount_shares.sh.j2
-    dest: "{{ ansible_env.HOME }}/.scripts/mount_shares.sh"
+    dest: "~/.scripts/mount_shares.sh"
     mode: '0700'
 
 - name: Deploy LaunchAgent for persistence
   template:
     src: com.miket.mountshares.plist.j2
-    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.miket.mountshares.plist"
+    dest: "~/Library/LaunchAgents/com.miket.mountshares.plist"
     mode: '0644'
 
 - name: Unload existing LaunchAgent
-  command: launchctl unload -w "{{ ansible_env.HOME }}/Library/LaunchAgents/com.miket.mountshares.plist"
+  command: launchctl unload -w "~/Library/LaunchAgents/com.miket.mountshares.plist"
   ignore_errors: yes
   changed_when: false
 
 - name: Load LaunchAgent
-  command: launchctl load -w "{{ ansible_env.HOME }}/Library/LaunchAgents/com.miket.mountshares.plist"
+  command: launchctl load -w "~/Library/LaunchAgents/com.miket.mountshares.plist"
   
 - name: Run mount script immediately
-  command: "{{ ansible_env.HOME }}/.scripts/mount_shares.sh"
+  command: "~/.scripts/mount_shares.sh"
   ignore_errors: yes
