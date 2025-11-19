@@ -1,0 +1,11 @@
+---
+- name: Map Network Drives
+  win_mapped_drive:
+    letter: "{{ item.drive_letter }}"
+    path: "\\\\{{ smb_server }}{{ item.path }}"
+    state: present
+    persistent: yes
+  loop: "{{ smb_shares }}"
+  vars:
+    ansible_become: no # Mapped drives are user-specific
+

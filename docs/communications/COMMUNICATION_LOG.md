@@ -4,6 +4,126 @@ Chronological log of all significant actions, decisions, and outcomes for the mi
 
 ---
 
+## 2025-01-XX – USB 3.0 20TB Drive Integration {#2025-01-usb-storage}
+
+### Context
+CEO connected 20TB USB 3.0 hard drive to motoko in preparation for enterprise-class cloud file storage. Drive has two APFS partitions:
+- Time Machine partition (for count-zero backups)
+- "space" partition (for file cache storage)
+
+### Requirements
+- Maintain Time Machine partition for count-zero backups (APFS)
+- Configure space partition for Linux file cache (ext4)
+- Think ahead about potential issues and user experience
+- Focus on working hardware/configuration, not documentation
+- No additional ephemeral .md files
+
+### Architecture Decisions
+
+**APFS Support Strategy:**
+- **Time Machine partition**: Keep APFS, use read-only apfs-fuse driver
+  - Reason: Maintains compatibility with macOS Time Machine
+  - Read-only access prevents accidental corruption
+  - Manual mount via helper script (noauto in fstab)
+- **Space partition**: Reformat to ext4
+  - Reason: Optimal Linux performance and reliability
+  - Native filesystem support, no FUSE overhead
+  - Better for large file operations
+
+**Mount Configuration:**
+- Time Machine: `/mnt/usb-timemachine` (read-only, manual mount)
+- Space: `/mnt/usb-space` (read-write, auto-mount on boot)
+- File cache structure: `cache/`, `files/`, `temp/` directories
+
+### Implementation
+
+**Codex-DCA-001 (Chief Device Architect):**
+- ✅ Created comprehensive Ansible role `usb-storage` for storage management
+- ✅ Designed auto-detection of partitions by label
+- ✅ Configured APFS read-only support via apfs-fuse
+- ✅ Implemented ext4 reformatting with safety checks
+- ✅ Created persistent mount configuration via fstab
+- ✅ Set proper permissions and ownership
+- ✅ Created file cache directory structure
+- ✅ Updated motoko config.yml with new storage locations
+
+**Codex-DEVOPS-004 (DevOps Engineer):**
+- ✅ Created Ansible playbook `configure-usb-storage.yml` for motoko self-management
+- ✅ Implemented partition detection logic
+- ✅ Built APFS driver installation automation
+- ✅ Created mount helper script for Time Machine partition
+- ✅ Added detection script for pre-deployment verification
+
+**Codex-INFRA-003 (Infrastructure Lead):**
+- ✅ Validated APFS compatibility research (apfs-fuse for read-only)
+- ✅ Designed mount point structure and permissions
+- ✅ Configured fstab entries for persistence
+- ✅ Created helper scripts for manual Time Machine mounting
+
+### Technical Details
+
+**APFS Driver:**
+- Uses `apfs-fuse` (open-source, read-only)
+- Builds from source on first run
+- Installs to `/usr/local/bin/apfs-fuse`
+- Mount command: `apfs-fuse /dev/sdX1 /mnt/usb-timemachine -o allow_other,ro`
+
+**Space Partition:**
+- Auto-detected by label "space"
+- Reformatted to ext4 if not already ext4
+- Mounted at `/mnt/usb-space` with noatime option
+- Ownership: mdt:mdt, mode 0755
+
+**Safety Features:**
+- Backup fstab before modification
+- Optional data backup before reformatting (configurable)
+- Idempotent operations (safe to re-run)
+- Validation checks before destructive operations
+
+### Usage
+
+**Detection:**
+```bash
+~/miket-infra-devices/scripts/detect-usb-drive.sh
+```
+
+**Configuration:**
+```bash
+cd ~/miket-infra-devices/ansible
+ansible-playbook -i inventory/hosts.yml \
+  playbooks/motoko/configure-usb-storage.yml \
+  --limit motoko \
+  --connection=local
+```
+
+**Manual Time Machine Mount:**
+```bash
+sudo mount-timemachine.sh
+```
+
+### Outcomes
+
+**Deliverables:**
+- ✅ Ansible role: `ansible/roles/usb-storage/`
+- ✅ Playbook: `ansible/playbooks/motoko/configure-usb-storage.yml`
+- ✅ Detection script: `scripts/detect-usb-drive.sh`
+- ✅ Mount helper: `/usr/local/bin/mount-timemachine.sh` (created by playbook)
+- ✅ Updated config: `devices/motoko/config.yml`
+
+**Next Steps:**
+- Test Time Machine backup connectivity from count-zero
+- Verify file cache performance
+- Monitor APFS driver stability
+
+### Lessons Learned
+- APFS on Linux requires third-party drivers (no native kernel support)
+- Read-only access is safer for Time Machine partitions
+- ext4 is optimal for Linux file cache operations
+- Auto-detection by label is more reliable than device names
+- Helper scripts improve UX for manual operations
+
+---
+
 ## 2025-11-13 – macOS Best Practices: Tailscale MagicDNS Automation {#2025-11-13-macos-automation}
 
 ### Context

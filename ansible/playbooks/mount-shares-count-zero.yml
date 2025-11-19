@@ -1,0 +1,8 @@
+---
+- name: Mount Network Shares on count-zero
+  hosts: count-zero
+  gather_facts: true
+  
+  roles:
+    - mount_shares_macos
+

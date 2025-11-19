@@ -1,0 +1,20 @@
+---
+# Defaults for macOS mount shares role
+smb_server: "motoko.pangolin-vega.ts.net"
+
+# Azure Key Vault Configuration
+# The name of the Key Vault containing the SMB password
+akv_vault_name: "kv-miket-ops" 
+# The name of the secret inside the vault
+akv_secret_name: "motoko-smb-password"
+
+smb_shares:
+  - name: "time"
+    path: "/time"
+    mount_point: "{{ ansible_env.HOME }}/Mounts/time"
+  - name: "space"
+    path: "/space"
+    mount_point: "{{ ansible_env.HOME }}/Mounts/space"
+  - name: "flux"
+    path: "/flux"
+    mount_point: "{{ ansible_env.HOME }}/Mounts/flux"

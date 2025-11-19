@@ -1,0 +1,21 @@
+---
+- name: Ensure mount point exists for {{ share.name }}
+  file:
+    path: "{{ share.mount_point }}"
+    state: directory
+    mode: '0755'
+
+- name: Check if {{ share.name }} is already mounted
+  command: mount
+  register: mount_check
+  changed_when: false
+
+- name: Mount {{ share.name }}
+  command: >
+    mount_smbfs //{{ ansible_user }}@{{ smb_server }}{{ share.path }} {{ share.mount_point }}
+  when: share.mount_point not in mount_check.stdout
+  register: mount_result
+  failed_when: 
+    - mount_result.rc != 0
+    - "'File exists' not in mount_result.stderr"
+

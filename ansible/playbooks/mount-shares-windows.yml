@@ -1,0 +1,8 @@
+---
+- name: Mount Network Shares on Windows Workstations
+  hosts: windows_workstations
+  gather_facts: false
+  
+  roles:
+    - mount_shares_windows
+

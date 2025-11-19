@@ -4,10 +4,10 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Agent | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |-------|----------------|------------------------------|-------------|---------------|
-| **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | All infrastructure operational · IaC/CaC compliance achieved | Monitor and maintain | 2025-11-13 |
+| **Codex-DCA-001** (Chief Device Architect) | 🚧 In Progress | USB 20TB drive integration · Ansible role created · Configuration management ready | Test deployment on motoko | 2025-01-XX |
 | **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
-| **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | RDP connectivity validated · Tailscale mesh verified · Client setup documented | Support CEO with count-zero setup | 2025-11-13 |
-| **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | vLLM deployed (both machines) · LiteLLM operational · RDP role refactored · GPU validation added | Monitor container health | 2025-11-13 |
+| **Codex-INFRA-003** (Infrastructure Lead) | 🚧 In Progress | USB mount configuration designed · fstab entries configured · Helper scripts created | Verify Time Machine connectivity | 2025-01-XX |
+| **Codex-DEVOPS-004** (DevOps Engineer) | 🚧 In Progress | USB storage playbook created · APFS driver automation · Mount scripts implemented | Deploy and test on motoko | 2025-01-XX |
 | **Codex-DOC-005** (Documentation Architect) | ✅ Complete | Defense-in-depth documented · Architecture updated · Communication logs current | Maintain documentation | 2025-11-13 |
 
 ---
@@ -44,6 +44,10 @@ Use this tracker to record agent activation status and deliverable completion. U
 | Create management structure | Codex-DCA-001 | 2025-11-13 | docs/product/, docs/communications/ |
 | Define team roles | Codex-DCA-001 | 2025-11-13 | [TEAM_ROLES.md](./TEAM_ROLES.md) |
 | Create status dashboard | Codex-DCA-001 | 2025-11-13 | [STATUS.md](./STATUS.md) |
+| USB storage Ansible role | Codex-DCA-001 | 2025-01-XX | [ansible/roles/usb-storage/](../../ansible/roles/usb-storage/) |
+| USB storage playbook | Codex-DEVOPS-004 | 2025-01-XX | [ansible/playbooks/motoko/configure-usb-storage.yml](../../ansible/playbooks/motoko/configure-usb-storage.yml) |
+| USB drive detection script | Codex-DEVOPS-004 | 2025-01-XX | [scripts/detect-usb-drive.sh](../../scripts/detect-usb-drive.sh) |
+| Update motoko config with USB storage | Codex-DCA-001 | 2025-01-XX | [devices/motoko/config.yml](../../devices/motoko/config.yml) |
 
 ---
 
@@ -58,6 +62,9 @@ Use this tracker to record agent activation status and deliverable completion. U
 | Test Docker AI (armitage) | Codex-DEVOPS-004 | Ansible auth | 🟡 HIGH |
 | Test SSH connectivity | Codex-DEVOPS-004 | Tailscale SSH | 🟡 HIGH |
 | Test RDP connectivity | Codex-DEVOPS-004 | Tailscale SSH | 🟡 HIGH |
+| Deploy USB storage configuration | Codex-DEVOPS-004 | None | 🔴 CRITICAL |
+| Test Time Machine connectivity | Codex-INFRA-003 | USB storage deployed | 🟡 HIGH |
+| Verify file cache performance | Codex-DEVOPS-004 | USB storage deployed | 🟡 HIGH |
 | Update README.md | Codex-DOC-005 | None | 🟢 MEDIUM |
 
 ---

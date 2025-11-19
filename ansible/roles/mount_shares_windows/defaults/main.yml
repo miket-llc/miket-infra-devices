@@ -1,0 +1,11 @@
+---
+# Defaults for Windows mount shares role
+smb_server: "motoko.pangolin-vega.ts.net"
+smb_shares:
+  - name: "space"
+    path: "/space"
+    drive_letter: "S"
+  - name: "flux"
+    path: "/flux"
+    drive_letter: "F"
+
