@@ -1,0 +1,8 @@
+---
+- name: Configure Data Lifecycle Automation
+  hosts: motoko
+  gather_facts: true
+  become: true
+  
+  roles:
+    - data-lifecycle
