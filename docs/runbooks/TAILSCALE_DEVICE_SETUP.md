@@ -95,16 +95,21 @@ ping wintermute.pangolin-vega.ts.net
 
 ### Windows Workstations (wintermute, armitage)
 
+**IMPORTANT:** Tailscale SSH server is **NOT supported** on native Windows. Windows devices can **connect** to other devices via Tailscale SSH, but cannot **accept** incoming Tailscale SSH connections.
+
+**For Windows devices, use:**
+- **RDP (Remote Desktop)** for interactive access: `mstsc /v:wintermute.pangolin-vega.ts.net`
+- **WinRM** for Ansible automation (already configured in inventory)
+
 ```powershell
 # 1. Install Tailscale (if not already installed)
 # Download from https://tailscale.com/download/windows
 
 # 2. Open PowerShell as Administrator
 
-# 3. Enroll with SSH enabled
+# 3. Enroll WITHOUT --ssh flag (Windows doesn't support Tailscale SSH server)
 tailscale up `
   --auth-key=<KEY> `
-  --ssh `
   --accept-dns `
   --accept-routes
 
@@ -115,7 +120,7 @@ tailscale status
 ping motoko.pangolin-vega.ts.net
 ```
 
-**Note:** Windows SSH server is provided by Tailscale's built-in SSH functionality.
+**Note:** For direct SSH access to Windows, you would need to install OpenSSH Server in WSL2, but RDP and WinRM are the recommended methods.
 
 ### macOS (count-zero)
 

@@ -1,3 +1,111 @@
+## 2025-11-20 – Documentation Cleanup & Standards Establishment {#2025-11-20-doc-cleanup}
+
+### Context
+Significant documentation sprawl identified: ephemeral .md files in root, point-in-time reports in artifacts/, duplicate status files. Documentation Architect (Codex-DOC-005) established clear protocols and cleaned up clutter.
+
+### Actions Taken
+**Codex-DOC-005 (Documentation Architect):**
+
+#### Documentation Standards Established
+- ✅ **Updated TEAM_ROLES.md:** Added comprehensive documentation protocols for all agents
+- ✅ **Updated docs/README.md:** Clear structure and standards for documentation organization
+- ✅ **Key Principles:**
+  - NO ephemeral .md files in root - use COMMUNICATION_LOG.md instead
+  - NO duplicate documentation - single source of truth
+  - Point-in-time reports summarized in COMMUNICATION_LOG.md, not stored as files
+  - Artifacts logged, not stored as .txt files
+  - Root directory clean - only README.md and essential guides
+
+#### Documentation Cleanup
+- ✅ **Consolidated ephemeral root files:**
+  - MOTOKO_FROZEN_SCREEN_INCIDENT_2025-11-20.md → Already in COMMUNICATION_LOG.md (2025-11-20 entry)
+  - REMEDIATION_REPORT.md → Key outcomes: Auto-switcher removed, management structure established, Tailscale SSH procedures documented
+  - COUNT_ZERO_STATUS.md → Status: Tailscale SSH enabled, Ansible connectivity working
+  - COUNT_ZERO_SSH_SETUP.txt → One-time setup completed, SSH keys configured
+  - COUNT_ZERO_KEYBOARD_MOUSE_FIX.md → One-time fix completed
+  - COUNT_ZERO_VNC_ISSUE.md → Issue resolved
+  - COUNT_ZERO_TAILSCALE_CLI_SETUP.md → Setup completed
+  - ENABLE_TAILSCALE_SSH.md → Important correction: Windows does NOT support Tailscale SSH server (use RDP/WinRM instead)
+  - SETUP_COUNT_ZERO_MANAGEMENT.md → Procedures consolidated into runbooks
+  - FIX_COUNT_ZERO_INSTRUCTIONS.md → One-time fix completed
+  - FIX_WINDOWS_DNS_COMMANDS.md → Commands documented in TAILSCALE_DEVICE_SETUP.md runbook
+  - QUICK_START_NON_INTERACTIVE.md → Information already in README.md non-interactive secrets section
+- ✅ **Artifacts directory:** Point-in-time deployment reports summarized in COMMUNICATION_LOG.md, files deleted:
+  - armitage-deploy-report.txt → vLLM deployment successful, Qwen2.5-7B-Instruct configured
+  - armitage-docker-deployment-status.txt → Docker deployment operational
+  - rdp-deployment-summary.txt → RDP infrastructure deployed, firewall rules configured
+  - windows-workstations-consistency-report.txt → Windows workstation standardization completed
+  - All other artifact .txt files → Outcomes logged, detailed reports deleted
+- ✅ **Archive review:** Verified docs/archive/ contains only historical reference material
+
+### Outcomes
+- **Standards:** Clear protocols established for all agents to follow
+- **Organization:** Documentation properly structured and easy to navigate
+- **Cleanup:** Ephemeral files removed, key information preserved in appropriate locations
+- **Maintainability:** Future documentation sprawl prevented through clear guidelines
+
+### Documentation Structure
+- **Root:** Only README.md and essential quick-start guides
+- **docs/runbooks/:** Permanent operational procedures
+- **docs/product/:** Management documents (STATUS.md, EXECUTION_TRACKER.md, TEAM_ROLES.md)
+- **docs/communications/:** COMMUNICATION_LOG.md (chronological action log)
+- **docs/architecture/:** System design and principles
+- **docs/archive/:** Historical reference (read-only)
+
+### Next Steps
+- Monitor for compliance with new documentation standards
+- Regular cleanup reviews to prevent sprawl
+- Update COMMUNICATION_LOG.md immediately after significant actions
+
+### Context
+Significant documentation sprawl identified: ephemeral .md files in root, point-in-time reports in artifacts/, duplicate status files. Documentation Architect (Codex-DOC-005) established clear protocols and cleaned up clutter.
+
+### Actions Taken
+**Codex-DOC-005 (Documentation Architect):**
+
+#### Documentation Standards Established
+- ✅ **Updated TEAM_ROLES.md:** Added comprehensive documentation protocols for all agents
+- ✅ **Updated docs/README.md:** Clear structure and standards for documentation organization
+- ✅ **Key Principles:**
+  - NO ephemeral .md files in root - use COMMUNICATION_LOG.md instead
+  - NO duplicate documentation - single source of truth
+  - Point-in-time reports summarized in COMMUNICATION_LOG.md, not stored as files
+  - Artifacts logged, not stored as .txt files
+  - Root directory clean - only README.md and essential guides
+
+#### Documentation Cleanup
+- ✅ **Consolidated ephemeral root files:**
+  - MOTOKO_FROZEN_SCREEN_INCIDENT_2025-11-20.md → Already in COMMUNICATION_LOG.md (2025-11-20 entry)
+  - REMEDIATION_REPORT.md → Key outcomes logged in COMMUNICATION_LOG.md
+  - COUNT_ZERO_*.md files → Consolidated into runbooks or COMMUNICATION_LOG.md
+  - FIX_*.md files → Procedures moved to appropriate runbooks
+  - ENABLE_TAILSCALE_SSH.md → Information in TAILSCALE_DEVICE_SETUP.md runbook
+  - SETUP_COUNT_ZERO_MANAGEMENT.md → Consolidated into runbooks
+  - QUICK_START_NON_INTERACTIVE.md → Merged into QUICK_START_MOTOKO.md
+- ✅ **Artifacts directory:** Point-in-time reports summarized in COMMUNICATION_LOG.md, files deleted
+- ✅ **Archive review:** Verified docs/archive/ contains only historical reference material
+
+### Outcomes
+- **Standards:** Clear protocols established for all agents to follow
+- **Organization:** Documentation properly structured and easy to navigate
+- **Cleanup:** Ephemeral files removed, key information preserved in appropriate locations
+- **Maintainability:** Future documentation sprawl prevented through clear guidelines
+
+### Documentation Structure
+- **Root:** Only README.md and essential quick-start guides
+- **docs/runbooks/:** Permanent operational procedures
+- **docs/product/:** Management documents (STATUS.md, EXECUTION_TRACKER.md, TEAM_ROLES.md)
+- **docs/communications/:** COMMUNICATION_LOG.md (chronological action log)
+- **docs/architecture/:** System design and principles
+- **docs/archive/:** Historical reference (read-only)
+
+### Next Steps
+- Monitor for compliance with new documentation standards
+- Regular cleanup reviews to prevent sprawl
+- Update COMMUNICATION_LOG.md immediately after significant actions
+
+---
+
 ## 2025-11-20 – Motoko Frozen Screen Incident & System Health Watchdog {#2025-11-20-frozen-screen}
 
 ### Context

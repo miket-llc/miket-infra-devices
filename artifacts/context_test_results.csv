@@ -1,5 +1,0 @@
-test_name,model,max_input_tokens,success,latency,status_code,prompt_tokens,completion_tokens,total_tokens,error
-llama31-8b-wintermute,llama31-8b-wintermute,14000,False,34.76565599441528,500,,,,"HTTP 500: {""error"":{""message"":""litellm.InternalServerError: InternalServerError: OpenAIException - Connection error.. Received Model Group=llama31-8b-wintermute\nAvailable Model Group Fallbacks=None"",""type"":nul"
-qwen2.5-7b-armitage,qwen2.5-7b-armitage,7000,True,14.992740154266357,200,6338,80,6418,
-wintermute-direct,casperhansen/llama-3-8b-instruct-awq,14000,False,7.175366163253784,,,,,Request timeout
-armitage-direct,qwen2.5-7b-armitage,7000,False,7.168949842453003,,,,,Request timeout

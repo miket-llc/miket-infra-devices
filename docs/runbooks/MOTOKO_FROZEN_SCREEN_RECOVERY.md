@@ -179,20 +179,35 @@ All configurations are managed as code and can be redeployed idempotently.
 **Load Average**: 8.42 (4 core system)  
 **Root Causes**:
 - 10 MCP containers crash-looping
-- Tailscale at 361% CPU
-- GNOME Shell spamming 420K errors/hour
-- systemd-journal at 100% CPU
+- **Tailscale at 361% CPU** - Connection tracking storm
+  - Tailscale attempting to track non-peer connections (external IPs like 3.171.61.x:80)
+  - Thousands of failed `connect()` syscalls (exit codes -115 EINPROGRESS, -99 EADDRNOTAVAIL)
+  - "open-conn-track: timeout opening; no associated peer node" errors repeating
+  - Likely caused by system routing/iptables configuration causing Tailscale to intercept non-Tailscale traffic
+  - High CPU from spinning on connection attempts that don't belong to Tailscale network
+- **GNOME Shell error storm: Pop Shell extension stuck in infinite loop**
+  - Pop Shell (`pop-shell@system76.com`) encountered buggy X11 client sending incorrect window timestamps
+  - Extension repeatedly tried to process bad events → 10,000+ stack traces in 5 minutes
+  - Triggered by VNC or remote client sending inaccurate `_NET_ACTIVE_WINDOW` timestamps
+- systemd-journal at 100% CPU (flooded by error logs)
 
 **Resolution**:
 1. Stopped crash-looping MCP containers
 2. Restarted Tailscale
-3. Restarted GDM (GNOME)
+3. Restarted GDM (GNOME) - cleared Pop Shell error loop
 4. Restarted TigerVNC
 5. Configured Docker logging limits
 6. Deployed system health watchdog
 
 **Time to Recover**: ~5 minutes  
 **Long-term Prevention**: Automated monitoring and recovery deployed
+
+### 2025-11-20 - Watchdog Auto-Recovery
+**Time**: 08:02:27 EST  
+**Trigger**: Watchdog detected GNOME Shell error storm (10,000 errors in 5 minutes)  
+**Action**: Automatic GDM restart  
+**Result**: System recovered, Pop Shell errors cleared  
+**Note**: Watchdog syntax errors fixed (numeric value sanitization)
 
 ## Related Documentation
 - [Motoko Headless Laptop Setup](./MOTOKO_HEADLESS_LAPTOP_SETUP.md)

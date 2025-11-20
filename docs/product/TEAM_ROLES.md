@@ -33,6 +33,14 @@ This document defines the cross-functional team for MikeT LLC's device infrastru
 - Updates README and status dashboards with current deployment state
 - Ensures runbooks are accurate and executable
 - Archives deprecated documentation properly
+- **Documentation Standards:**
+  - **NO ephemeral .md files** - Point-in-time reports belong in COMMUNICATION_LOG.md, not root-level files
+  - **NO duplicate documentation** - Single source of truth for each topic
+  - **Runbooks are permanent** - Located in `docs/runbooks/` with descriptive names
+  - **Architecture docs are permanent** - Located in `docs/architecture/` or `docs/product/`
+  - **Status is current** - STATUS.md, EXECUTION_TRACKER.md, COMMUNICATION_LOG.md updated immediately after actions
+  - **Artifacts are logged, not stored** - Deployment reports summarized in COMMUNICATION_LOG.md, not stored as .txt files
+  - **Root directory is clean** - Only README.md and essential guides in root; all else organized in docs/
 
 ## Device Inventory
 
@@ -47,6 +55,54 @@ This document defines the cross-functional team for MikeT LLC's device infrastru
 - **Execution Tracking:** Log all agent tasks and deliverables in EXECUTION_TRACKER.md
 - **Architecture Alignment:** Coordinate with miket-infra team on network policy changes
 - **Security Posture:** Follow zero-trust principles established by miket-infra security team
+
+## Documentation Protocols
+
+### What to Document Where
+
+**COMMUNICATION_LOG.md** (`docs/communications/`):
+- All agent actions and decisions (chronological)
+- Point-in-time deployment reports (summarized, not full dumps)
+- Incident reports (summary format, detailed runbooks referenced)
+- Status changes and resolutions
+
+**EXECUTION_TRACKER.md** (`docs/product/`):
+- Current agent status and deliverables
+- Task completion tracking
+- Blockers and dependencies
+
+**STATUS.md** (`docs/product/`):
+- Current infrastructure state (operational/not operational)
+- Critical issues requiring attention
+- Device inventory status
+
+**Runbooks** (`docs/runbooks/`):
+- Permanent operational procedures
+- Troubleshooting guides
+- Setup instructions
+- Recovery procedures
+
+**Architecture Docs** (`docs/architecture/`, `docs/product/`):
+- System design and principles
+- Handoff documents
+- Specifications
+
+### What NOT to Create
+
+- ❌ **Ephemeral .md files in root** - Use COMMUNICATION_LOG.md instead
+- ❌ **Duplicate documentation** - Reference existing docs, don't recreate
+- ❌ **Point-in-time reports as files** - Summarize in COMMUNICATION_LOG.md
+- ❌ **Artifact .txt files** - Log key outcomes, delete detailed reports
+- ❌ **Status files that duplicate STATUS.md** - Update STATUS.md instead
+- ❌ **Incident reports as separate files** - Use COMMUNICATION_LOG.md with runbook references
+
+### Documentation Lifecycle
+
+1. **Create**: Only permanent, reusable documentation (runbooks, architecture)
+2. **Update**: Keep STATUS.md, EXECUTION_TRACKER.md, COMMUNICATION_LOG.md current
+3. **Archive**: Move obsolete docs to `docs/archive/` (don't delete historical context)
+4. **Delete**: Remove truly ephemeral files (point-in-time reports, duplicate status files)
+5. **Consolidate**: Merge duplicate or overlapping documentation
 
 ## RACI Summary
 

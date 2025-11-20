@@ -8,7 +8,7 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
 | **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | USB mount configuration deployed · Time Machine fixed · SMB shares active | Monitor Cloud Backplane | 2025-01-XX |
 | **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | Data Lifecycle Automation Deployed · Directory Structure Enforced · Password/Exclude Files Automated | Monitor backups | 2025-01-XX |
-| **Codex-DOC-005** (Documentation Architect) | ✅ Complete | Architecture Handoff published · Communication Logs updated | Maintain documentation | 2025-01-XX |
+| **Codex-DOC-005** (Documentation Architect) | ✅ Complete | Documentation standards established · Ephemeral files cleaned · Structure organized | Monitor compliance | 2025-11-20 |
 
 ---
 
@@ -41,6 +41,9 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Data Lifecycle Implementation** | Codex-DEVOPS-004 | 2025-01-XX | [Implementation Log](../communications/COMMUNICATION_LOG.md#2025-01-lifecycle-impl) |
 | **Directory Structure Enforcement** | Codex-DEVOPS-004 | 2025-01-XX | [Ansible Role](../../ansible/roles/data-lifecycle/tasks/main.yml) |
 | **Chief Architect Summary** | Codex-DCA-001 | 2025-01-XX | [CHIEF_ARCHITECT_SUMMARY.md](./CHIEF_ARCHITECT_SUMMARY.md) |
+| **Documentation Standards** | Codex-DOC-005 | 2025-11-20 | [TEAM_ROLES.md](./TEAM_ROLES.md) - Documentation protocols established |
+| **Documentation Cleanup** | Codex-DOC-005 | 2025-11-20 | Ephemeral files removed, artifacts/ deleted, structure organized |
+| **Windows Tailscale SSH Correction** | Codex-DOC-005 | 2025-11-20 | [TAILSCALE_DEVICE_SETUP.md](../runbooks/TAILSCALE_DEVICE_SETUP.md) - Corrected Windows limitation |
 
 ---
 
@@ -48,9 +51,8 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Task | Agent | Blocker | Priority |
 |------|-------|---------|----------|
-| Enable Tailscale SSH (wintermute) | Codex-INFRA-003 | Manual action required | 🔴 CRITICAL |
-| Enable Tailscale SSH (armitage) | Codex-INFRA-003 | Manual action required | 🔴 CRITICAL |
-| Deploy LiteLLM (motoko) | Codex-DEVOPS-004 | Ansible auth | 🟡 HIGH |
+| ~~Enable Tailscale SSH (wintermute)~~ | ~~Codex-INFRA-003~~ | ~~Windows doesn't support Tailscale SSH server~~ | ✅ N/A - Use RDP/WinRM |
+| ~~Enable Tailscale SSH (armitage)~~ | ~~Codex-INFRA-003~~ | ~~Windows doesn't support Tailscale SSH server~~ | ✅ N/A - Use RDP/WinRM |
 
 ---
 
@@ -65,5 +67,5 @@ Use this tracker to record agent activation status and deliverable completion. U
 ---
 
 **Owner:** Chief Device Architect (Codex-DCA-001)  
-**Last Updated:** 2025-01-XX  
+**Last Updated:** 2025-11-20  
 **Next Review:** Weekly Sync
