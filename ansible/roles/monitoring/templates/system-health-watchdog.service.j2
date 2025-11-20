@@ -1,0 +1,19 @@
+[Unit]
+Description=System Health Watchdog
+Documentation=https://github.com/miket-llc/miket-infra-devices
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/system-health-watchdog.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=system-health-watchdog
+
+# Resource limits to prevent watchdog from consuming resources
+CPUQuota=10%
+MemoryMax=100M
+
+[Install]
+WantedBy=multi-user.target
+

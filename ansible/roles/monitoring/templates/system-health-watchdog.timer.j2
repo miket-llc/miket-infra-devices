@@ -1,0 +1,13 @@
+[Unit]
+Description=System Health Watchdog Timer
+Documentation=https://github.com/miket-llc/miket-infra-devices
+
+[Timer]
+# Run every 5 minutes
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

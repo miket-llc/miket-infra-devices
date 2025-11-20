@@ -7,7 +7,7 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | Flux/Time/Space Architecture Implemented · macOS/Windows Roles Deployed | Monitor Architecture | 2025-01-XX |
 | **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
 | **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | USB mount configuration deployed · Time Machine fixed · SMB shares active | Monitor Cloud Backplane | 2025-01-XX |
-| **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | Data Lifecycle Automation Deployed · Restic/Rclone operational | Monitor backups | 2025-01-XX |
+| **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | Data Lifecycle Automation Deployed · Directory Structure Enforced · Password/Exclude Files Automated | Monitor backups | 2025-01-XX |
 | **Codex-DOC-005** (Documentation Architect) | ✅ Complete | Architecture Handoff published · Communication Logs updated | Maintain documentation | 2025-01-XX |
 
 ---
@@ -39,6 +39,8 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Architecture Handoff Doc** | Codex-DCA-001 | 2025-01-XX | [ARCHITECTURE_HANDOFF_FLUX.md](./ARCHITECTURE_HANDOFF_FLUX.md) |
 | **Data Lifecycle Spec** | Codex-DCA-001 | 2025-01-XX | [DATA_LIFECYCLE_SPEC.md](./DATA_LIFECYCLE_SPEC.md) |
 | **Data Lifecycle Implementation** | Codex-DEVOPS-004 | 2025-01-XX | [Implementation Log](../communications/COMMUNICATION_LOG.md#2025-01-lifecycle-impl) |
+| **Directory Structure Enforcement** | Codex-DEVOPS-004 | 2025-01-XX | [Ansible Role](../../ansible/roles/data-lifecycle/tasks/main.yml) |
+| **Chief Architect Summary** | Codex-DCA-001 | 2025-01-XX | [CHIEF_ARCHITECT_SUMMARY.md](./CHIEF_ARCHITECT_SUMMARY.md) |
 
 ---
 

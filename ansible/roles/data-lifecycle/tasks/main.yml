@@ -4,6 +4,62 @@
 - name: Setup Credentials
   include_tasks: credentials.yml
 
+- name: Ensure Flux directory structure exists
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+  loop:
+    - /flux/active
+    - /flux/scratch
+    - /flux/models
+    - /flux/.policy
+
+- name: Ensure Space directory structure exists
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+  loop:
+    - /space/projects
+    - /space/media
+    - /space/datasets
+    - /space/archives
+    - /space/snapshots/flux-local
+
+- name: Check if local Restic password file exists
+  stat:
+    path: /root/.restic-local-pass
+  register: restic_pass_file
+  changed_when: false
+
+- name: Generate local Restic password file if missing
+  command: openssl rand -base64 32
+  register: restic_local_password
+  changed_when: false
+  when: not restic_pass_file.stat.exists
+
+- name: Create local Restic password file
+  copy:
+    content: "{{ restic_local_password.stdout }}"
+    dest: /root/.restic-local-pass
+    mode: '0600'
+    owner: root
+    group: root
+  when: restic_pass_file.stat.exists == false and restic_local_password is defined and restic_local_password.stdout is defined
+
+- name: Ensure backup exclude file exists
+  file:
+    path: /flux/.backup-exclude
+    state: touch
+    owner: mdt
+    group: mdt
+    mode: '0644'
+
 - name: Deploy Lifecycle Scripts
   copy:
     src: "{{ item }}"
