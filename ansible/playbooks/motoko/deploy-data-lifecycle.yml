@@ -2,7 +2,7 @@
 - name: Configure Data Lifecycle Automation
   hosts: motoko
   gather_facts: true
-  become: true
+  become: true  # Explicitly enabling become at playbook level
   
   roles:
     - data-lifecycle
