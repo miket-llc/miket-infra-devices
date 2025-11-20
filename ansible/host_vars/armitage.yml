@@ -1,6 +1,10 @@
 ---
 # Hardware and OS profile for the armitage workstation
 # Alienware laptop with high-end GPU for mobile development and gaming
+
+# WinRM credentials (from vault)
+ansible_password: "{{ vault_armitage_password }}"
+
 hardware:
   vendor: "Alienware"
   model: "Gaming Laptop"

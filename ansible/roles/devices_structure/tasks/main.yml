@@ -1,0 +1,88 @@
+---
+# Devices Structure Role - Server-side setup for /space/devices
+
+- name: Ensure /space/devices directory exists
+  file:
+    path: /space/devices
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+
+- name: Ensure /space/mike directory exists
+  file:
+    path: /space/mike
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+
+- name: Check if /space/mike/devices already exists
+  stat:
+    path: /space/mike/devices
+  register: mike_devices_stat
+
+- name: Create /space/mike/devices symlink
+  file:
+    src: /space/devices
+    dest: /space/mike/devices
+    state: link
+    owner: mdt
+    group: mdt
+  when: 
+    - devices_symlink_enabled | default(true)
+    - not mike_devices_stat.stat.exists
+
+- name: Create device directories for known hosts
+  file:
+    path: "/space/devices/{{ item }}"
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+  loop:
+    - count-zero
+    - wintermute
+    - armitage
+  when: create_device_dirs | default(true)
+
+- name: Create README in /space/devices
+  copy:
+    content: |
+      # Device Storage Mirror
+      
+      This directory contains mirrored content from OS cloud services
+      (iCloud Drive, OneDrive) for each managed device and user.
+      
+      Structure:
+      /space/devices/<hostname>/<username>/<cloud-service>/
+      
+      Examples:
+      - /space/devices/count-zero/miket/icloud/
+      - /space/devices/wintermute/mdt/onedrive-personal/
+      - /space/devices/armitage/mdt/onedrive-business/
+      
+      Access via:
+      - macOS: ~/space/mike/devices
+      - Windows: S:\mike\devices
+      
+      Note: This content is synced nightly from client devices.
+      Do not modify directly on the server.
+      
+      Last updated: {{ ansible_date_time.date }}
+    dest: /space/devices/README.txt
+    owner: mdt
+    group: mdt
+    mode: '0644'
+
+- name: Display devices structure info
+  debug:
+    msg: |
+      Devices structure configured:
+      - /space/devices - Main device storage
+      - /space/mike/devices -> /space/devices (symlink)
+      
+      Access paths:
+      - macOS: ~/space/mike/devices
+      - Windows: S:\mike\devices
+

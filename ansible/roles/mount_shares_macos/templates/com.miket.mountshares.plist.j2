@@ -3,17 +3,26 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.miket.mountshares</string>
+    <string>com.miket.storage-connect</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LimitLoadToSessionType</key>
+    <array>
+        <string>Aqua</string>
+    </array>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/miket/.scripts/mount_shares.sh</string>
+        <string>{{ ansible_env.HOME }}/.scripts/mount_shares.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/tmp/com.miket.mountshares.out</string>
+    <string>{{ ansible_env.HOME }}/.scripts/mount_shares.log</string>
     <key>StandardErrorPath</key>
-    <string>/tmp/com.miket.mountshares.err</string>
+    <string>{{ ansible_env.HOME }}/.scripts/mount_shares.err</string>
+    <key>Nice</key>
+    <integer>10</integer>
 </dict>
 </plist>
+
 

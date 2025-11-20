@@ -1,6 +1,7 @@
 ---
 # Defaults for macOS mount shares role
-smb_server: "motoko.pangolin-vega.ts.net"
+smb_server: "192.168.1.195"  # Using LAN IP (motoko wireless) until Tailscale SMB is fixed
+smb_username: "mdt"  # SMB username on motoko (may differ from ansible_user)
 
 # Azure Key Vault Configuration
 # The name of the Key Vault containing the SMB password
@@ -8,13 +9,28 @@ akv_vault_name: "kv-miket-ops"
 # The name of the secret inside the vault
 akv_secret_name: "motoko-smb-password"
 
+# User-level mount points under ~/.mkt (no sudo required)
+# For single-user macOS workstations (count-zero, etc.)
 smb_shares:
-  - name: "time"
-    path: "/time"
-    mount_point: "~/Mounts/time"
-  - name: "space"
-    path: "/space"
-    mount_point: "~/Mounts/space"
   - name: "flux"
     path: "/flux"
-    mount_point: "~/Mounts/flux"
+    mount_point: "~/.mkt/flux"
+  - name: "space"
+    path: "/space"
+    mount_point: "~/.mkt/space"
+  - name: "time"
+    path: "/time"
+    mount_point: "~/.mkt/time"
+
+# User-level symlinks for convenience
+# Points from user home to mounts
+user_symlinks:
+  - name: "flux"
+    target: "~/.mkt/flux"
+    link: "~/flux"
+  - name: "space"
+    target: "~/.mkt/space"
+    link: "~/space"
+  - name: "time"
+    target: "~/.mkt/time"
+    link: "~/time"

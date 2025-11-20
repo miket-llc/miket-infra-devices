@@ -1,0 +1,209 @@
+---
+# Validation Playbook: Verify Devices Infrastructure Deployment
+#
+# This playbook validates that the devices infrastructure is working correctly
+# on all platforms and configurations.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/validate-devices-infrastructure.yml
+
+- name: Validate Motoko Server Configuration
+  hosts: motoko
+  gather_facts: yes
+  become: yes
+  
+  tasks:
+    - name: Check /space/devices exists
+      stat:
+        path: /space/devices
+      register: devices_dir
+    
+    - name: Verify devices directory
+      assert:
+        that:
+          - devices_dir.stat.exists
+          - devices_dir.stat.isdir
+        fail_msg: "/space/devices does not exist or is not a directory"
+        success_msg: "/space/devices exists and is properly configured"
+    
+    - name: Check /space/mike/devices symlink
+      stat:
+        path: /space/mike/devices
+      register: devices_link
+    
+    - name: Verify devices symlink
+      assert:
+        that:
+          - devices_link.stat.exists
+          - devices_link.stat.islnk
+          - devices_link.stat.lnk_target == "/space/devices"
+        fail_msg: "/space/mike/devices symlink is not correct"
+        success_msg: "/space/mike/devices symlink is correctly configured"
+    
+    - name: List devices subdirectories
+      command: ls -la /space/devices/
+      register: devices_contents
+      changed_when: false
+    
+    - name: Display devices contents
+      debug:
+        var: devices_contents.stdout_lines
+
+- name: Validate macOS Client Configuration
+  hosts: macos
+  gather_facts: yes
+  
+  tasks:
+    - name: Check /mkt directory exists
+      stat:
+        path: /mkt
+      register: mkt_dir
+      become: yes
+    
+    - name: Verify /mkt directory
+      assert:
+        that:
+          - mkt_dir.stat.exists
+          - mkt_dir.stat.isdir
+        fail_msg: "/mkt directory does not exist"
+        success_msg: "/mkt directory exists"
+    
+    - name: Check mount points
+      shell: mount | grep /mkt
+      register: mkt_mounts
+      changed_when: false
+      ignore_errors: yes
+    
+    - name: Display mount status
+      debug:
+        var: mkt_mounts.stdout_lines
+    
+    - name: Check user symlinks
+      stat:
+        path: "~/{{ item }}"
+      register: user_symlinks
+      loop:
+        - flux
+        - space
+        - time
+    
+    - name: Verify user symlinks exist
+      debug:
+        msg: "{{ item.item }}: {{ 'OK' if item.stat.exists and item.stat.islnk else 'MISSING or NOT A SYMLINK' }}"
+      loop: "{{ user_symlinks.results }}"
+    
+    - name: Check sync scripts exist
+      stat:
+        path: "~/.scripts/oscloud-sync/sync_to_devices.sh"
+      register: sync_script
+    
+    - name: Verify sync script
+      assert:
+        that:
+          - sync_script.stat.exists
+          - sync_script.stat.executable
+        fail_msg: "Sync script missing or not executable"
+        success_msg: "Sync script is properly configured"
+    
+    - name: Check LaunchAgents
+      stat:
+        path: "~/Library/LaunchAgents/{{ item }}"
+      register: launch_agents
+      loop:
+        - com.miket.mountshares.plist
+        - com.miket.usersymlinks.plist
+        - com.miket.oscloud.sync.plist
+    
+    - name: Display LaunchAgent status
+      debug:
+        msg: "{{ item.item }}: {{ 'INSTALLED' if item.stat.exists else 'MISSING' }}"
+      loop: "{{ launch_agents.results }}"
+
+- name: Validate Windows Client Configuration
+  hosts: windows
+  gather_facts: yes
+  
+  tasks:
+    - name: Check network drives
+      win_shell: |
+        Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Name -in @('X','S','T')} | Select-Object Name, DisplayRoot, Description | Format-Table -AutoSize
+      register: network_drives
+      changed_when: false
+    
+    - name: Display network drives
+      debug:
+        var: network_drives.stdout_lines
+    
+    - name: Verify drive X exists
+      win_stat:
+        path: X:\
+      register: drive_x
+    
+    - name: Verify drive S exists
+      win_stat:
+        path: S:\
+      register: drive_s
+    
+    - name: Verify drive T exists
+      win_stat:
+        path: T:\
+      register: drive_t
+    
+    - name: Display drive status
+      debug:
+        msg:
+          - "X: (FLUX): {{ 'MOUNTED' if drive_x.stat.exists else 'NOT MOUNTED' }}"
+          - "S: (SPACE): {{ 'MOUNTED' if drive_s.stat.exists else 'NOT MOUNTED' }}"
+          - "T: (TIME): {{ 'MOUNTED' if drive_t.stat.exists else 'NOT MOUNTED' }}"
+    
+    - name: Check sync scripts exist
+      win_stat:
+        path: C:\Scripts\oscloud-sync\Sync-ToDevices.ps1
+      register: sync_script_win
+    
+    - name: Verify sync script
+      assert:
+        that:
+          - sync_script_win.stat.exists
+        fail_msg: "Sync script missing"
+        success_msg: "Sync script is properly configured"
+    
+    - name: Check scheduled task
+      win_shell: |
+        Get-ScheduledTask -TaskName "MikeT OS Cloud Sync" -ErrorAction SilentlyContinue | Select-Object TaskName, State, LastRunTime, NextRunTime | Format-List
+      register: scheduled_task
+      changed_when: false
+      ignore_errors: yes
+    
+    - name: Display scheduled task status
+      debug:
+        var: scheduled_task.stdout_lines
+
+- name: Validation Summary
+  hosts: localhost
+  gather_facts: no
+  
+  tasks:
+    - name: Display validation summary
+      debug:
+        msg: |
+          ================================================================
+          VALIDATION COMPLETE
+          ================================================================
+          
+          Check the output above for any failures or warnings.
+          
+          Expected results:
+          ✓ motoko: /space/devices exists
+          ✓ motoko: /space/mike/devices -> /space/devices
+          ✓ macOS: /mkt directory exists
+          ✓ macOS: SMB mounts active on /mkt/*
+          ✓ macOS: User symlinks ~/flux, ~/space, ~/time
+          ✓ macOS: Sync scripts and LaunchAgents installed
+          ✓ Windows: X:, S:, T: drives mounted
+          ✓ Windows: Sync scripts installed
+          ✓ Windows: Scheduled task configured
+          
+          If any checks failed, review the output and re-run deployment.
+          ================================================================
+

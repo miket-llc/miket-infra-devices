@@ -1,0 +1,63 @@
+---
+# Defaults for OS cloud synchronization to /space/devices
+
+# Target server for syncing OS cloud content
+target_server: "motoko.pangolin-vega.ts.net"
+target_base_path: "/space/devices"
+
+# Sync schedule (cron format)
+sync_schedule:
+  hour: "2"
+  minute: "30"
+
+# OS Cloud root mappings by platform
+# These are the authoritative paths for discovering cloud storage
+
+# macOS cloud roots
+macos_cloud_roots:
+  icloud:
+    path: "~/Library/Mobile Documents/com~apple~CloudDocs"
+    target_subdir: "icloud"
+    description: "iCloud Drive"
+  onedrive_personal:
+    path: "~/OneDrive"
+    target_subdir: "onedrive-personal"
+    description: "OneDrive Personal"
+  # OneDrive Business - dynamic discovery needed
+  # Pattern: ~/Library/CloudStorage/OneDrive-*
+
+# Windows cloud roots  
+windows_cloud_roots:
+  onedrive_personal:
+    path: "%USERPROFILE%\\OneDrive"
+    target_subdir: "onedrive-personal"
+    description: "OneDrive Personal"
+  # OneDrive Business - dynamic discovery needed
+  # Pattern: %USERPROFILE%\OneDrive - *
+  icloud:
+    path: "%USERPROFILE%\\iCloudDrive"
+    target_subdir: "icloud"
+    description: "iCloud Drive (if installed)"
+
+# Rsync/Rclone options
+sync_options:
+  # Avoid copying symlinks (prevent loops)
+  no_links: true
+  # Preserve timestamps and permissions where possible
+  preserve_times: true
+  preserve_perms: false  # Windows doesn't map well to Unix perms
+  # Don't force-hydrate online-only files
+  skip_cloud_files: true
+  # Exclude patterns
+  exclude:
+    - "*.tmp"
+    - "*.temp"
+    - ".DS_Store"
+    - "desktop.ini"
+    - "Thumbs.db"
+    - "~*"
+    # Exclude our own symlinks to prevent loops
+    - "flux"
+    - "space"
+    - "time"
+

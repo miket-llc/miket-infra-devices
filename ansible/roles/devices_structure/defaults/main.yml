@@ -1,0 +1,9 @@
+---
+# Defaults for devices_structure role
+
+# Enable/disable creation of /space/mike/devices symlink
+devices_symlink_enabled: true
+
+# Enable/disable automatic creation of device directories
+create_device_dirs: true
+

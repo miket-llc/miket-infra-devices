@@ -1,11 +1,134 @@
 ---
-- name: Map Network Drives
-  win_mapped_drive:
-    letter: "{{ item.drive_letter }}"
-    path: "\\\\{{ smb_server }}{{ item.path }}"
-    state: present
-    persistent: yes
-  loop: "{{ smb_shares }}"
+# Note: smb_password should be passed as a variable from the playbook
+- name: Ensure Scripts directory exists
+  win_file:
+    path: C:\Scripts
+    state: directory
+
+- name: Deploy drive mapping script
+  win_template:
+    src: map_drives.ps1.j2
+    dest: C:\Scripts\Map-MikeTDrives.ps1
   vars:
-    ansible_become: no # Mapped drives are user-specific
+    smb_password: "{{ smb_password_result.stdout | trim }}"
+
+- name: Execute drive mapping script
+  win_shell: C:\Scripts\Map-MikeTDrives.ps1
+  register: map_result
+
+- name: Display mapping results
+  debug:
+    var: map_result.stdout_lines
+
+- name: Set Drive Labels
+  win_shell: |
+    $drive = "{{ item.drive_letter }}:"
+    $label = "{{ item.label }}"
+    if (Test-Path $drive) {
+        $vol = Get-Volume -DriveLetter "{{ item.drive_letter }}" -ErrorAction SilentlyContinue
+        if ($vol -and $vol.FileSystemLabel -ne $label) {
+            Set-Volume -DriveLetter "{{ item.drive_letter }}" -NewFileSystemLabel $label
+            Write-Output "Set label for $drive to $label"
+        } else {
+            Write-Output "Label already set for $drive"
+        }
+    } else {
+        Write-Output "Drive $drive not mounted yet"
+    }
+  loop: "{{ smb_shares }}"
+  ignore_errors: yes
+  register: label_result
+
+- name: "Pin S: and X: to Quick Access"
+  win_shell: |
+    # Pin S: (SPACE) and X: (FLUX) to Quick Access for easy user access
+    $shell = New-Object -ComObject Shell.Application
+    
+    $drives = @("S:", "X:")
+    foreach ($drive in $drives) {
+        if (Test-Path $drive) {
+            $folder = $shell.NameSpace($drive)
+            if ($folder) {
+                # Try to pin (this is a best-effort operation, may require user interaction)
+                try {
+                    $folder.Self.InvokeVerb("pintohome")
+                    Write-Output "Pinned $drive to Quick Access"
+                } catch {
+                    Write-Output "Could not pin $drive automatically (may require manual action)"
+                }
+            }
+        }
+    }
+  ignore_errors: yes
+
+- name: Deploy OneDrive exclusion check script
+  win_copy:
+    content: |
+      # OneDrive Loop Prevention Check
+      # Verifies that OneDrive doesn't back up network drives
+      
+      Write-Host "Checking OneDrive configuration for network drive exclusions..."
+      
+      # Check OneDrive settings
+      $oneDrivePaths = @(
+          "$env:USERPROFILE\OneDrive",
+          "$env:USERPROFILE\OneDrive - *"
+      )
+      
+      $networkDrives = @("X:", "S:", "T:")
+      
+      # Verify network drives are not inside OneDrive paths
+      foreach ($oneDrivePath in Get-ChildItem "$env:USERPROFILE\OneDrive*" -ErrorAction SilentlyContinue) {
+          Write-Host "Found OneDrive: $($oneDrivePath.FullName)"
+          
+          foreach ($drive in $networkDrives) {
+              $drivePath = Join-Path $oneDrivePath.FullName $drive
+              if (Test-Path $drivePath) {
+                  Write-Warning "ERROR: Found network drive reference in OneDrive: $drivePath"
+              }
+          }
+      }
+      
+      # Check OneDrive backup settings (if available)
+      $regPath = "HKCU:\Software\Microsoft\OneDrive\Accounts"
+      if (Test-Path $regPath) {
+          Write-Host "OneDrive accounts found. Verify backup settings exclude network drives."
+          
+          # List configured backup folders
+          Get-ChildItem $regPath -ErrorAction SilentlyContinue | ForEach-Object {
+              $backupPath = Join-Path $_.PSPath "UserFolder"
+              if (Test-Path $backupPath) {
+                  $folders = Get-ItemProperty $backupPath -ErrorAction SilentlyContinue
+                  Write-Host "OneDrive backup folders configured:"
+                  $folders.PSObject.Properties | Where-Object {$_.Name -notlike "PS*"} | ForEach-Object {
+                      Write-Host "  - $($_.Value)"
+                  }
+              }
+          }
+      }
+      
+      Write-Host ""
+      Write-Host "IMPORTANT: Ensure OneDrive does NOT back up:"
+      Write-Host "  - X: (FLUX)"
+      Write-Host "  - S: (SPACE)"  
+      Write-Host "  - T: (TIME)"
+      Write-Host ""
+      Write-Host "Configure this in OneDrive Settings > Backup > Manage backup"
+    dest: C:\Scripts\Check-OneDriveLoops.ps1
+    force: yes
+
+- name: Create Scripts directory if needed
+  win_file:
+    path: C:\Scripts
+    state: directory
+
+- name: Run OneDrive exclusion check
+  win_shell: C:\Scripts\Check-OneDriveLoops.ps1
+  register: onedrive_check_result
+  ignore_errors: yes
+
+- name: Display OneDrive check results
+  debug:
+    var: onedrive_check_result.stdout_lines
+  when: onedrive_check_result.stdout_lines is defined
 
