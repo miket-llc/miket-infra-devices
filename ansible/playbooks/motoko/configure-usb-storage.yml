@@ -1,0 +1,15 @@
+---
+# Configure USB Storage on Motoko
+# Sets up 20TB USB 3.0 drive with Time Machine and file cache partitions
+# Run from motoko with: ansible-playbook -i inventory/hosts.yml playbooks/motoko/configure-usb-storage.yml --limit motoko --connection=local
+
+- name: Configure USB Storage on Motoko
+  hosts: motoko
+  become: true
+  gather_facts: true
+  
+  roles:
+    - usb-storage
+
+
+

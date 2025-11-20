@@ -1,0 +1,38 @@
+---
+- name: Ensure Scripts directory exists
+  file:
+    path: "~/.scripts"
+    state: directory
+    mode: '0755'
+
+- name: Check for Azure CLI
+  command: which az
+  register: az_check
+  ignore_errors: yes
+  changed_when: false
+
+# Note: Skipping Homebrew install as it requires sudo/become
+
+- name: Deploy mount script
+  template:
+    src: mount_shares.sh.j2
+    dest: "~/.scripts/mount_shares.sh"
+    mode: '0700'
+
+- name: Deploy LaunchAgent for persistence
+  template:
+    src: com.miket.mountshares.plist.j2
+    dest: "~/Library/LaunchAgents/com.miket.mountshares.plist"
+    mode: '0644'
+
+- name: Unload existing LaunchAgent
+  command: launchctl unload -w "~/Library/LaunchAgents/com.miket.mountshares.plist"
+  ignore_errors: yes
+  changed_when: false
+
+- name: Load LaunchAgent
+  command: launchctl load -w "~/Library/LaunchAgents/com.miket.mountshares.plist"
+  
+- name: Run mount script immediately
+  command: "~/.scripts/mount_shares.sh"
+  ignore_errors: yes

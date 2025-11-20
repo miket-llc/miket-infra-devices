@@ -1,0 +1,9 @@
+[Unit]
+Description=Graduate cold data from /flux to /space
+Wants=flux-graduate.timer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/flux-graduate.sh
+User=root
+

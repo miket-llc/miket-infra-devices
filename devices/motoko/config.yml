@@ -22,6 +22,8 @@ hardware:
     - "/mnt/data/docker"  # Docker root
     - "/mnt/lacie"  # Backup storage
     - "/mnt/lacie/llama-model"  # Model storage
+    - "/mnt/usb-timemachine"  # Time Machine backup partition (APFS, read-only)
+    - "/mnt/usb-space"  # File cache partition (ext4, 20TB USB 3.0 drive)
 
 operating_system:
   os: Ubuntu
@@ -82,7 +84,8 @@ use_cases:
   - Docker container hosting
   - LLM inference (reasoning and embeddings)
   - LLM request routing (LiteLLM proxy)
-  - Backup storage server
+  - Backup storage server (Time Machine for count-zero)
+  - Enterprise file cache storage (20TB USB 3.0)
   - File sharing (Samba/AFP)
   - Knowledge graph building (with vLLM models)
 

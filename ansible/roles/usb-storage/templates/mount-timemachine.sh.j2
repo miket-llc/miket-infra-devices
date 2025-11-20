@@ -1,0 +1,29 @@
+#!/bin/bash
+# Mount Time Machine partition (APFS read-only)
+# Usage: mount-timemachine.sh
+
+PARTITION="{{ final_timemachine_partition }}"
+MOUNT_POINT="{{ usb_timemachine_mount }}"
+
+if [ ! -d "$MOUNT_POINT" ]; then
+    echo "Mount point $MOUNT_POINT does not exist"
+    exit 1
+fi
+
+if mountpoint -q "$MOUNT_POINT"; then
+    echo "Time Machine partition already mounted at $MOUNT_POINT"
+    exit 0
+fi
+
+# Try to mount with apfs-fuse
+if command -v apfs-fuse &> /dev/null; then
+    echo "Mounting Time Machine partition with apfs-fuse..."
+    apfs-fuse "/dev/$PARTITION" "$MOUNT_POINT" -o allow_other,ro
+else
+    echo "Error: apfs-fuse not installed. Install with:"
+    echo "  cd /tmp/apfs-fuse/build && sudo make install"
+    exit 1
+fi
+
+
+

@@ -8,3 +8,10 @@ desktop_env: "GNOME"
 display_server: "Xorg"  # Will be auto-detected
 session_sharing: true  # Share existing session, don't create new one
 
+# USB Storage Configuration
+usb_timemachine_filesystem: ext4
+usb_timemachine_fstab_options: "defaults,noatime"
+usb_space_filesystem: ext4
+usb_backup_before_format: false
+usb_timemachine_mount: /time
+usb_space_mount: /space

@@ -1,0 +1,32 @@
+---
+# Defaults for USB storage management role
+# Configures 20TB USB 3.0 drive with Time Machine and file cache partitions
+
+# Mount points (updated to match user preference for "time" and "space")
+usb_timemachine_mount: /time
+usb_space_mount: /space
+
+# Device detection (auto-detected if not specified)
+usb_device: ""  # Auto-detect USB devices > 10TB
+usb_timemachine_partition: ""  # Auto-detect partition labeled "Time Machine" or similar
+usb_space_partition: ""  # Auto-detect partition labeled "space" or similar
+
+# Filesystem options
+usb_space_filesystem: ext4  # Format space partition as ext4 for Linux
+usb_timemachine_filesystem: ext4  # Changed to ext4 for better Linux support (Time Machine over SMB works fine on ext4)
+
+# APFS support (Deprecated in favor of ext4)
+usb_apfs_readonly: true
+usb_apfs_driver: "apfs-fuse"
+
+# Ownership and permissions
+usb_space_owner: "{{ ansible_user | default('mdt') }}"
+usb_space_group: "{{ ansible_user | default('mdt') }}"
+usb_space_mode: "0755"
+
+# fstab options
+usb_timemachine_fstab_options: "defaults,noatime"  # Read-write for backups
+usb_space_fstab_options: "defaults,noatime"  # Standard options with no access time updates
+
+# Backup existing data before reformatting
+usb_backup_before_format: false
