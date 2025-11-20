@@ -1,12 +1,14 @@
 # Motoko Frozen Screen Recovery Runbook
 
 ## Status: ACTIVE
+
 **Last Updated:** 2025-11-20  
 **Maintainer:** Chief Device Architect
 
 ## Problem Description
 
 Motoko's main screen appears frozen or unresponsive when accessed via VNC. This can be caused by:
+
 1. GNOME Shell crash loops
 2. Tailscale runaway CPU consumption
 3. Docker containers in crash loops
@@ -21,6 +23,7 @@ Motoko's main screen appears frozen or unresponsive when accessed via VNC. This 
 4. **System resource exhaustion**: Load average >8.0, memory pressure, journal overload
 
 ### Contributing Factors
+
 - No resource limits on Docker containers
 - No health monitoring or automatic recovery
 - Journal flooded with GNOME Shell errors
