@@ -8,7 +8,7 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
 | **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | USB mount configuration deployed · Time Machine fixed · SMB shares active | Monitor Cloud Backplane | 2025-01-XX |
 | **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | Data Lifecycle Automation Deployed · Directory Structure Enforced · Password/Exclude Files Automated | Monitor backups | 2025-01-XX |
-| **Codex-DOC-005** (Documentation Architect) | ✅ Complete | Documentation standards established · Ephemeral files cleaned · Structure organized | Monitor compliance | 2025-11-20 |
+| **Codex-DOC-005** (Documentation Architect) | ✅ Complete | GNOME Freeze Documentation: Complete root cause analysis · Quick reference · All tracking docs updated · Merged to main | Monitor compliance | 2025-11-21 |
 
 ---
 
@@ -51,6 +51,9 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Pop Shell Root Cause Fix** | Codex-DCA-001 | 2025-11-21 | Disabled pop-shell@system76.com extension |
 | **System Health Watchdog Verification** | Codex-DCA-001 | 2025-11-21 | Confirmed D-Bus monitoring active and functional |
 | **GNOME Freeze Documentation** | Codex-DOC-005 | 2025-11-21 | [COMPLETE_ROOT_CAUSE_ANALYSIS.md](../../devices/motoko/COMPLETE_ROOT_CAUSE_ANALYSIS.md) + recovery scripts |
+| **Watchdog Tuning** | Codex-DCA-001 | 2025-11-21 | Modified watchdog to Log-Only mode (no auto-restart) |
+| **GPU Performance Fix** | Codex-DCA-001 | 2025-11-21 | Forced NVIDIA GPU to P0 (Maximum Performance) mode |
+| **Final GNOME Configuration** | Codex-DCA-001 | 2025-11-21 | Pop Shell + Dash to Dock active, system stable |
 
 ---
 

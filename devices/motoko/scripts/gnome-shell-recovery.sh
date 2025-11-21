@@ -72,3 +72,4 @@ else
     echo "Please restart GDM with: sudo systemctl restart gdm"
 fi
 
+

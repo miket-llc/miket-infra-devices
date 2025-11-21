@@ -76,6 +76,26 @@ Critical UI freeze on motoko (mouse moved but UI completely unresponsive). CEO b
 - Quick Ref: `devices/motoko/QUICK_REFERENCE_GNOME_RECOVERY.md`
 - Config: `devices/motoko/config.yml` (troubleshooting section added)
 
+### Final Resolution (2025-11-21 11:35 EST)
+**Issue:** Watchdog was causing "resets" by auto-restarting GDM during legitimate heavy load (Warp terminal + Pop Shell).
+
+**Root Cause:** Watchdog's 15-second D-Bus timeout was too aggressive. During Warp window operations, D-Bus could legitimately take >15s to respond, triggering false-positive "frozen" detection.
+
+**Resolution:**
+1. **Modified Watchdog:** Changed `/usr/local/bin/system-health-watchdog.sh` to LOG ONLY for UI freezes (no auto-restart)
+2. **Forced GPU P0:** NVIDIA GPU was idling in P8 state (300MHz). Forced "Preferred Maximum Performance" via `nvidia-settings` and persistence mode
+3. **Re-enabled Pop Shell:** With watchdog neutered, Pop Shell is safe to run
+
+**Result:**
+- ✅ Stability: Watchdog monitors but doesn't kill sessions
+- ✅ Functionality: Pop Shell Tiling + Dash to Dock active
+- ✅ Performance: GPU running at max clock, desktop responsive
+
+**Configuration:**
+- Watchdog: Logs UI freezes but does not auto-restart
+- GPU: P0 (Maximum Performance) mode enforced
+- Extensions: Pop Shell enabled, Active Hint disabled, Dash to Dock configured
+
 ---
 
 ## 2025-11-20 – Chief Architect Comprehensive Review {#2025-11-20-architect-review}

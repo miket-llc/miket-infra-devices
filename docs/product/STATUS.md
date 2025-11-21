@@ -37,10 +37,10 @@ Multi-contractor review and integration completed. All critical issues identifie
 
 **Current Incident (2025-11-21):**
 1. ✅ **GNOME UI Freeze** - Pop Shell extension causing silent freezes on VNC bad X11 events
-   - **Root Cause:** Pop Shell extension incompatible with VNC client timestamps
-   - **Resolution:** Disabled pop-shell@system76.com extension
-   - **Monitoring:** Watchdog with D-Bus responsiveness checks deployed
-   - **Status:** System stable 10+ minutes, verified responsive
+   - **Root Cause:** Pop Shell extension incompatible with VNC client timestamps + Aggressive Watchdog
+   - **Resolution:** Watchdog set to Log-Only (no restart), GPU forced to P0, Pop Shell re-enabled
+   - **Monitoring:** Watchdog with D-Bus responsiveness checks active
+   - **Status:** System stable, Tiling active, Dock active
    - **Documentation:** `devices/motoko/COMPLETE_ROOT_CAUSE_ANALYSIS.md`
 
 All infrastructure components are operational and follow IaC/CaC principles.
