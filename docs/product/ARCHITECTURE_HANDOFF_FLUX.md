@@ -31,8 +31,8 @@ We are not "manually sharing" drives. We have built an **Automated Infrastructur
     *   Passwords managed in **Azure Key Vault** (`kv-miket-ops`) and **1Password**.
     *   **No hardcoded credentials** in scripts or code.
 *   **Clients**:
-    *   **macOS (`count-zero`)**: Custom Ansible role deploys a persistent `LaunchAgent`. On login, it securely fetches the SMB password from Azure Key Vault and mounts `/time`, `/space`, and `/flux` to `~/Mounts/`.
-    *   **Windows (`armitage`, `wintermute`)**: Custom Ansible role maps `S:` (Space) and `F:` (Flux) as native network drives, keeping `Time` invisible to OS X-agnostic systems.
+    *   **macOS (`count-zero`)**: Custom Ansible role deploys a persistent `LaunchAgent`. On login, it securely fetches the SMB password from Azure Key Vault and mounts to `~/.mkt/flux`, `~/.mkt/space`, `~/.mkt/time`, with user symlinks `~/flux`, `~/space`, `~/time`.
+    *   **Windows (`armitage`, `wintermute`)**: Custom Ansible role maps `X:` (Flux), `S:` (Space), and `T:` (Time) as native network drives with proper labels.
 
 ### 3. Corrections to the Draft Design
 

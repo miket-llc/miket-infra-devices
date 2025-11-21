@@ -32,6 +32,10 @@
   import_playbook: deploy-mounts-windows.yml
   tags: [clients, mounts, windows]
 
+- name: "[3b/4] Deploy Linux Mount Configuration"
+  import_playbook: deploy-mounts-linux.yml
+  tags: [clients, mounts, linux]
+
 - name: "[4/4] Deploy OS Cloud Synchronization"
   import_playbook: deploy-oscloud-sync.yml
   tags: [clients, oscloud]
@@ -63,7 +67,12 @@
           ✓ Quick Access pinning configured
           ✓ OneDrive loop checks installed
           ✓ OS cloud sync scheduled (nightly at 2:30 AM)
-          
+
+          Linux Clients:
+          ✓ SMB mounts to /mnt/{flux,space,time}
+          ✓ User symlinks ~/flux, ~/space, ~/time
+          ✓ Health reporting configured
+
           VALIDATION CHECKLIST:
           
           [ ] macOS: Log out/in, verify /mkt/* mounts

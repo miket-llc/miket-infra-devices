@@ -50,3 +50,50 @@ foreach ($drive in $drives) {
 
 Write-Host "Drive mapping complete."
 
+# --- Device Health Reporting ---
+Write-Host "Reporting device health..."
+
+$hostname = $env:COMPUTERNAME
+$user = $env:USERNAME
+$spaceDrive = "S:"
+$statusDir = "${spaceDrive}\devices\${hostname}\${user}"
+$statusFile = "${statusDir}\_status.json"
+
+# Check drive status
+$fluxMounted = (Test-Path "X:\")
+$spaceMounted = (Test-Path "S:\")
+$timeMounted = (Test-Path "T:\")
+
+if ($fluxMounted -and $spaceMounted) {
+    $overallStatus = "healthy"
+} else {
+    $overallStatus = "degraded"
+}
+
+$timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$jsonPayload = @{
+    timestamp = $timestamp
+    device = $hostname
+    user = $user
+    platform = "Windows"
+    status = $overallStatus
+    components = @{
+        mounts = @{
+            flux = $fluxMounted
+            space = $spaceMounted
+            time = $timeMounted
+        }
+    }
+} | ConvertTo-Json -Depth 3
+
+if ($spaceMounted) {
+    if (-not (Test-Path $statusDir)) {
+        New-Item -Path $statusDir -ItemType Directory -Force | Out-Null
+    }
+    $jsonPayload | Out-File -FilePath $statusFile -Encoding utf8
+    Write-Host "Health status written to ${statusFile}"
+} else {
+    Write-Host "ERROR: Cannot write health status - S: drive is not mounted."
+}
+
