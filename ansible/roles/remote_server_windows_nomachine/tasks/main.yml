@@ -1,0 +1,152 @@
+---
+# Ansible role: remote_server_windows_nomachine
+# Installs and configures NoMachine server on Windows hosts via Chocolatey
+# Replaces RDP for remote desktop access
+
+- name: Check if Chocolatey is installed
+  win_shell: |
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+      Write-Output "INSTALLED"
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
+  register: choco_check
+  changed_when: false
+
+- name: Install Chocolatey if not present
+  win_shell: |
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+  when: "'NOT_INSTALLED' in choco_check.stdout"
+  register: choco_install
+
+- name: Install NoMachine via Chocolatey
+  win_chocolatey:
+    name: nomachine
+    state: present
+  register: nomachine_install
+
+- name: Wait for NoMachine installation to complete
+  win_wait_for:
+    timeout: 30
+    delay: 3
+  when: nomachine_install.changed
+
+- name: Ensure NoMachine server service is running and set to auto-start
+  win_service:
+    name: nxservice
+    state: started
+    start_mode: auto
+  register: nxserver_service
+
+- name: Find NoMachine installation directory
+  win_shell: |
+    $nxPaths = @(
+      "C:\Program Files\NoMachine",
+      "C:\Program Files (x86)\NoMachine"
+    )
+    foreach ($path in $nxPaths) {
+      if (Test-Path "$path\etc\server.cfg") {
+        Write-Output $path
+        break
+      }
+    }
+  register: nx_install_path
+  changed_when: false
+
+- name: Configure NoMachine server to use physical display (console session)
+  win_shell: |
+    $configFile = "{{ nx_install_path.stdout | trim }}\etc\server.cfg"
+    if (Test-Path $configFile) {
+      # Ensure physical display is enabled
+      (Get-Content $configFile) -replace '^#?PhysicalDesktopAuthorization.*', 'PhysicalDesktopAuthorization 1' | Set-Content $configFile
+      Write-Output "CONFIGURED"
+    } else {
+      Write-Output "CONFIG_NOT_FOUND"
+    }
+  register: nx_config
+  changed_when: "'CONFIGURED' in nx_config.stdout"
+  when: nx_install_path.stdout | length > 0
+
+- name: Restart NoMachine server to apply configuration
+  win_service:
+    name: nxservice
+    state: restarted
+  when: nx_config.changed
+
+- name: Configure Windows Firewall rule for NoMachine (Tailscale only)
+  win_shell: |
+    $ruleName = "NoMachine-Tailscale"
+    $desiredPort = {{ nomachine_port }}
+    $desiredRemoteAddress = "100.64.0.0/10"
+    $existingRule = Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
+    
+    if ($existingRule) {
+      # Check if update is needed
+      $portFilter = Get-NetFirewallPortFilter -AssociatedNetFirewallRule $existingRule
+      $addressFilter = Get-NetFirewallAddressFilter -AssociatedNetFirewallRule $existingRule
+      $needsUpdate = $false
+      
+      if ($existingRule.Enabled -ne $true) { $needsUpdate = $true }
+      if ($existingRule.Direction -ne "Inbound") { $needsUpdate = $true }
+      if ($existingRule.Action -ne "Allow") { $needsUpdate = $true }
+      if ($portFilter.LocalPort -ne $desiredPort) { $needsUpdate = $true }
+      if ($addressFilter.RemoteAddress -ne $desiredRemoteAddress) { $needsUpdate = $true }
+      
+      if ($needsUpdate) {
+        Remove-NetFirewallRule -Name $ruleName
+        New-NetFirewallRule `
+          -Name $ruleName `
+          -DisplayName "NoMachine - Tailscale Only" `
+          -Direction Inbound `
+          -Protocol TCP `
+          -LocalPort $desiredPort `
+          -RemoteAddress $desiredRemoteAddress `
+          -Action Allow `
+          -Enabled True `
+          -Description "Allow NoMachine only from Tailscale subnet (100.64.0.0/10)"
+        Write-Output "UPDATED"
+      } else {
+        Write-Output "UNCHANGED"
+      }
+    } else {
+      # Create new rule
+      New-NetFirewallRule `
+        -Name $ruleName `
+        -DisplayName "NoMachine - Tailscale Only" `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort $desiredPort `
+        -RemoteAddress $desiredRemoteAddress `
+        -Action Allow `
+        -Enabled True `
+        -Description "Allow NoMachine only from Tailscale subnet (100.64.0.0/10)"
+      Write-Output "CREATED"
+    }
+  register: nx_firewall
+  changed_when: "'CREATED' in nx_firewall.stdout or 'UPDATED' in nx_firewall.stdout"
+
+- name: Verify NoMachine is listening on port {{ nomachine_port }}
+  win_shell: |
+    $listener = Get-NetTCPConnection -LocalPort {{ nomachine_port }} -ErrorAction SilentlyContinue
+    if ($listener) {
+      Write-Output "NoMachine is listening on port {{ nomachine_port }}"
+    } else {
+      Write-Output "NoMachine is not listening"
+      exit 1
+    }
+  register: nx_verify
+  changed_when: false
+  retries: 3
+  delay: 5
+
+- name: Display connection information
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine server installed and configured"
+      - "✅ Console session sharing enabled"
+      - "✅ Firewall rule configured: Only Tailscale subnet (100.64.0.0/10)"
+      - "Connect via NoMachine to: {{ inventory_hostname }}.pangolin-vega.ts.net:{{ nomachine_port }}"
+      - "⚠️  RDP is still enabled - run disable_rdp role to shut it down"
+

@@ -1,0 +1,112 @@
+---
+# Ansible role: disable_windows_rdp
+# Disables RDP server on Windows in favor of NoMachine
+# Can optionally keep RDP available but fully firewalled for break-glass scenarios
+
+- name: Disable Remote Desktop via Group Policy
+  win_regedit:
+    path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services
+    name: fDenyTSConnections
+    data: 1
+    type: dword
+  when: rdp_disable_completely | bool
+
+- name: Disable Remote Desktop via registry
+  win_regedit:
+    path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server
+    name: fDenyTSConnections
+    data: 1
+    type: dword
+  when: rdp_disable_completely | bool
+
+- name: Stop Remote Desktop service
+  win_service:
+    name: TermService
+    state: stopped
+    start_mode: disabled
+  when: rdp_disable_completely | bool
+  failed_when: false
+
+- name: Remove or disable all RDP firewall rules (Tailscale-specific and built-in)
+  win_shell: |
+    # Disable or remove RDP firewall rules
+    $rdpRules = Get-NetFirewallRule | Where-Object {
+      $_.DisplayName -like "*Remote Desktop*" -or 
+      $_.Name -like "*RemoteDesktop*" -or
+      $_.Name -eq "RemoteDesktop-Tailscale"
+    }
+    
+    $changed = $false
+    foreach ($rule in $rdpRules) {
+      if ($rule.Enabled -eq $true) {
+        Set-NetFirewallRule -Name $rule.Name -Enabled False
+        Write-Output "Disabled rule: $($rule.DisplayName)"
+        $changed = $true
+      }
+    }
+    
+    if ($changed) {
+      Write-Output "RDP_RULES_DISABLED"
+    } else {
+      Write-Output "RDP_RULES_ALREADY_DISABLED"
+    }
+  register: rdp_firewall_disable
+  changed_when: "'RDP_RULES_DISABLED' in rdp_firewall_disable.stdout"
+
+- name: Block RDP port 3389 explicitly (defense in depth)
+  win_shell: |
+    $ruleName = 'Block-RDP-All'
+    $existingRule = Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
+    
+    if (-not $existingRule) {
+      New-NetFirewallRule `
+        -Name $ruleName `
+        -DisplayName 'Block RDP - NoMachine In Use' `
+        -Direction Inbound `
+        -Protocol TCP `
+        -LocalPort 3389 `
+        -Action Block `
+        -Enabled True `
+        -Description 'RDP blocked in favor of NoMachine'
+      Write-Output 'CREATED'
+    } else {
+      if ($existingRule.Action -ne 'Block' -or $existingRule.Enabled -ne $true) {
+        Set-NetFirewallRule -Name $ruleName -Action Block -Enabled True
+        Write-Output 'UPDATED'
+      } else {
+        Write-Output 'UNCHANGED'
+      }
+    }
+  register: rdp_block_rule
+  changed_when: "'CREATED' in rdp_block_rule.stdout or 'UPDATED' in rdp_block_rule.stdout"
+
+- name: Verify RDP is not listening on port 3389
+  win_shell: |
+    $listener = Get-NetTCPConnection -LocalPort 3389 -ErrorAction SilentlyContinue
+    if ($listener) {
+      Write-Output "WARNING: RDP is still listening on port 3389"
+      exit 1
+    } else {
+      Write-Output "RDP is not listening (as expected)"
+    }
+  register: rdp_verify_disabled
+  changed_when: false
+  failed_when: false
+
+- name: Display RDP disablement status
+  ansible.builtin.debug:
+    msg:
+      - "✅ RDP has been disabled on this Windows host"
+      - "✅ RDP firewall rules disabled"
+      - "✅ Port 3389 explicitly blocked by firewall"
+      - "✅ TermService stopped and disabled"
+      - "NoMachine is now the only remote desktop method"
+  when: rdp_disable_completely | bool
+
+- name: Display warning if RDP verification failed
+  ansible.builtin.debug:
+    msg:
+      - "⚠️  WARNING: RDP may still be listening on port 3389"
+      - "Manual verification recommended"
+  when: rdp_verify_disabled.rc != 0
+

@@ -1,0 +1,38 @@
+---
+# Ansible role: remote_client_windows_nomachine
+# Installs NoMachine client on Windows hosts via Chocolatey
+
+- name: Check if Chocolatey is installed
+  win_shell: |
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+      Write-Output "INSTALLED"
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
+  register: choco_check
+  changed_when: false
+
+- name: Install Chocolatey if not present
+  win_shell: |
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+  when: "'NOT_INSTALLED' in choco_check.stdout"
+  register: choco_install
+
+- name: Install NoMachine client via Chocolatey
+  win_chocolatey:
+    name: nomachine
+    state: present
+  register: nomachine_client_installed
+
+- name: Display NoMachine client installation status
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine client installed"
+      - "Launch from: Start Menu > NoMachine"
+      - "Pre-configured servers available:"
+      - "  - motoko.pangolin-vega.ts.net:4000"
+      - "  - wintermute.pangolin-vega.ts.net:4000"
+      - "  - armitage.pangolin-vega.ts.net:4000"
+

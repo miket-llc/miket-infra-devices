@@ -1,7 +1,7 @@
 ---
 # Playbook: remote_server.yml
 # Configures remote desktop servers per host OS
-# Linux and macOS use NoMachine (replacing VNC), Windows uses RDP
+# ALL PLATFORMS NOW USE NOMACHINE (replacing VNC on Linux, RDP on Windows)
 
 - name: Configure Linux remote desktop servers (NoMachine replaces VNC)
   hosts: workstations:&linux
@@ -11,29 +11,7 @@
     - remote
     - remote:server
   tasks:
-    - name: Stop and disable VNC service (removing VNC in favor of NoMachine)
-      ansible.builtin.systemd:
-        name: tigervnc.service
-        state: stopped
-        enabled: false
-      become: true
-      failed_when: false
-
-    - name: Remove VNC firewall rules
-      ansible.builtin.shell: |
-        while sudo ufw status numbered 2>/dev/null | grep -q "5900"; do
-          RULE_NUM=$(sudo ufw status numbered 2>/dev/null | grep "5900" | head -1 | sed -n 's/\[ *\([0-9]*\)\].*/\1/p')
-          if [ -n "$RULE_NUM" ]; then
-            echo "y" | sudo ufw delete "$RULE_NUM" 2>/dev/null || break
-          else
-            break
-          fi
-        done
-      become: true
-      changed_when: false
-      failed_when: false
-
-    - name: Install and configure NoMachine for Linux
+    - name: Install and configure NoMachine for Linux (includes VNC removal)
       ansible.builtin.include_role:
         name: remote_server_linux_nomachine
 
@@ -47,7 +25,7 @@
           firewall:
             type: "{{ 'ufw' if (ansible_facts.pkg_mgr == 'apt') else 'none' }}"
 
-- name: Configure Windows RDP servers
+- name: Configure Windows remote desktop servers (NoMachine replaces RDP)
   hosts: workstations:&windows
   gather_facts: true
   become: false
@@ -57,9 +35,15 @@
   vars:
     ansible_become: false
   tasks:
-    - name: Enable and configure RDP
+    - name: Install and configure NoMachine for Windows
       ansible.builtin.include_role:
-        name: remote_server_windows_rdp
+        name: remote_server_windows_nomachine
+
+    - name: Disable RDP server (NoMachine replaces it)
+      ansible.builtin.include_role:
+        name: disable_windows_rdp
+      vars:
+        rdp_disable_completely: true
 
 - name: Configure macOS remote desktop servers (NoMachine replaces VNC)
   hosts: macos

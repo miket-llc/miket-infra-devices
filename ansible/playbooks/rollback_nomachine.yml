@@ -1,0 +1,122 @@
+---
+# Playbook: rollback_nomachine.yml
+# Emergency rollback playbook - restores RDP on Windows (does NOT restore VNC on Linux)
+# Use only if NoMachine deployment fails critically
+
+- name: Emergency rollback - Re-enable RDP on Windows
+  hosts: workstations:&windows
+  gather_facts: true
+  become: false
+  tags:
+    - rollback
+    - emergency
+  tasks:
+    - name: Display rollback warning
+      ansible.builtin.debug:
+        msg:
+          - "⚠️  WARNING: EMERGENCY ROLLBACK IN PROGRESS"
+          - "This will re-enable RDP on Windows hosts"
+          - "NoMachine will remain installed but RDP will be primary"
+          - "VNC will NOT be restored on Linux (use NoMachine)"
+
+    - name: Enable Remote Desktop via Group Policy
+      win_regedit:
+        path: HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services
+        name: fDenyTSConnections
+        data: 0
+        type: dword
+
+    - name: Enable Remote Desktop via registry
+      win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server
+        name: fDenyTSConnections
+        data: 0
+        type: dword
+
+    - name: Start Remote Desktop service
+      win_service:
+        name: TermService
+        state: started
+        start_mode: auto
+
+    - name: Remove RDP block firewall rule
+      win_shell: |
+        $blockRule = Get-NetFirewallRule -Name "Block-RDP-All" -ErrorAction SilentlyContinue
+        if ($blockRule) {
+          Remove-NetFirewallRule -Name "Block-RDP-All"
+          Write-Output "REMOVED_BLOCK"
+        } else {
+          Write-Output "NO_BLOCK_RULE"
+        }
+      register: rdp_unblock
+      changed_when: "'REMOVED_BLOCK' in rdp_unblock.stdout"
+
+    - name: Enable RDP firewall rule for Tailscale
+      win_shell: |
+        $ruleName = "RemoteDesktop-Tailscale"
+        $existingRule = Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
+        
+        if ($existingRule) {
+          Set-NetFirewallRule -Name $ruleName -Enabled True
+          Write-Output "ENABLED_EXISTING"
+        } else {
+          New-NetFirewallRule `
+            -Name $ruleName `
+            -DisplayName "Remote Desktop - Tailscale Only" `
+            -Direction Inbound `
+            -Protocol TCP `
+            -LocalPort 3389 `
+            -RemoteAddress "100.64.0.0/10" `
+            -Action Allow `
+            -Enabled True
+          Write-Output "CREATED_NEW"
+        }
+      register: rdp_firewall_enable
+      changed_when: "'ENABLED' in rdp_firewall_enable.stdout or 'CREATED' in rdp_firewall_enable.stdout"
+
+    - name: Verify RDP is listening
+      win_shell: |
+        Start-Sleep -Seconds 3
+        $listener = Get-NetTCPConnection -LocalPort 3389 -ErrorAction SilentlyContinue
+        if ($listener) {
+          Write-Output "RDP is now listening on port 3389"
+        } else {
+          Write-Output "ERROR: RDP is not listening"
+          exit 1
+        }
+      register: rdp_verify
+
+    - name: Display rollback status
+      ansible.builtin.debug:
+        msg:
+          - "✅ RDP has been re-enabled on {{ inventory_hostname }}"
+          - "✅ RDP service is running"
+          - "✅ Firewall configured for Tailscale only"
+          - "Connect via RDP to: {{ inventory_hostname }}.pangolin-vega.ts.net:3389"
+          - ""
+          - "⚠️  NoMachine is still installed - you can remove it manually if needed"
+
+- name: Display rollback summary
+  hosts: localhost
+  gather_facts: false
+  tags:
+    - rollback
+  tasks:
+    - name: Rollback complete
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "EMERGENCY ROLLBACK COMPLETE"
+          - "=========================================="
+          - ""
+          - "✅ RDP has been restored on Windows hosts"
+          - "✅ Firewall rules updated for Tailscale access"
+          - ""
+          - "⚠️  NOTE: VNC has NOT been restored on Linux"
+          - "Linux hosts still use NoMachine only"
+          - ""
+          - "To fully remove NoMachine (if needed):"
+          - "  Windows: Control Panel > Uninstall > NoMachine"
+          - "  Linux: sudo /usr/NX/scripts/setup/nxserver --uninstall"
+
+

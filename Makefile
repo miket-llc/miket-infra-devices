@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst backup-configs health-check
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -15,21 +15,31 @@ TESTS_DIR := tests
 
 help:
 	@echo "Available targets:"
-	@echo "  deploy-wintermute    - Deploy vLLM updates to Wintermute"
-	@echo "  deploy-armitage      - Deploy vLLM updates to Armitage"
-	@echo "  deploy-proxy         - Deploy LiteLLM proxy updates to Motoko"
-	@echo "  rollback-wintermute  - Rollback Wintermute vLLM to previous config"
-	@echo "  rollback-armitage    - Rollback Armitage vLLM to previous config"
-	@echo "  rollback-proxy       - Rollback LiteLLM proxy to previous config"
-	@echo "  backup-configs       - Backup current configurations"
-	@echo "  health-check         - Check health of all services"
-	@echo "  test-context         - Run context window smoke tests"
-	@echo "  test-burst           - Run burst load tests"
+	@echo ""
+	@echo "vLLM & LiteLLM:"
+	@echo "  deploy-wintermute       - Deploy vLLM updates to Wintermute"
+	@echo "  deploy-armitage         - Deploy vLLM updates to Armitage"
+	@echo "  deploy-proxy            - Deploy LiteLLM proxy updates to Motoko"
+	@echo "  rollback-wintermute     - Rollback Wintermute vLLM to previous config"
+	@echo "  rollback-armitage       - Rollback Armitage vLLM to previous config"
+	@echo "  rollback-proxy          - Rollback LiteLLM proxy to previous config"
+	@echo ""
+	@echo "NoMachine Remote Desktop:"
+	@echo "  deploy-nomachine-servers   - Deploy NoMachine servers (Linux + Windows, disable RDP)"
+	@echo "  deploy-nomachine-clients   - Deploy NoMachine clients (all platforms)"
+	@echo "  validate-nomachine         - Validate NoMachine deployment (test all servers)"
+	@echo "  rollback-nomachine         - Emergency rollback (re-enable RDP on Windows)"
+	@echo ""
+	@echo "Utility:"
+	@echo "  backup-configs          - Backup current configurations"
+	@echo "  health-check            - Check health of all services"
+	@echo "  test-context            - Run context window smoke tests"
+	@echo "  test-burst              - Run burst load tests"
 	@echo ""
 	@echo "Environment variables:"
-	@echo "  WINTERMUTE_HOST     - Wintermute hostname (default: wintermute.tailnet.local)"
-	@echo "  ARMITAGE_HOST       - Armitage hostname (default: armitage.tailnet.local)"
-	@echo "  MOTOKO_HOST         - Motoko hostname (default: motoko.tailnet.local)"
+	@echo "  WINTERMUTE_HOST         - Wintermute hostname (default: wintermute.tailnet.local)"
+	@echo "  ARMITAGE_HOST           - Armitage hostname (default: armitage.tailnet.local)"
+	@echo "  MOTOKO_HOST             - Motoko hostname (default: motoko.tailnet.local)"
 
 # Create necessary directories
 $(LOGS_DIR) $(ARTIFACTS_DIR) $(BACKUP_DIR):
@@ -176,4 +186,91 @@ test-context: $(ARTIFACTS_DIR)
 test-burst: $(ARTIFACTS_DIR)
 	@echo "Running burst load tests..."
 	@python3 $(TESTS_DIR)/burst_test.py || echo "Burst tests failed - check $(ARTIFACTS_DIR)/burst_test_results.csv"
+
+# ========================================
+# NoMachine Remote Desktop Deployment
+# ========================================
+
+# Deploy NoMachine servers (Linux + Windows) and disable RDP/VNC
+deploy-nomachine-servers:
+	@echo "========================================"
+	@echo "NoMachine Server Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will:"
+	@echo "  ✓ Install NoMachine on motoko (Linux)"
+	@echo "  ✓ Install NoMachine on wintermute, armitage (Windows)"
+	@echo "  ✓ Remove VNC completely from Linux"
+	@echo "  ✓ Disable RDP on Windows"
+	@echo "  ✓ Configure firewalls for Tailscale-only access"
+	@echo ""
+	@read -p "Continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "Deploying NoMachine servers..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/remote_server.yml --ask-vault-pass; \
+	else \
+		echo "Deployment cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ NoMachine servers deployed!"
+	@echo "Run 'make validate-nomachine' to verify deployment"
+
+# Deploy NoMachine clients to all platforms
+deploy-nomachine-clients:
+	@echo "========================================"
+	@echo "NoMachine Client Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will install NoMachine client on:"
+	@echo "  - count-zero (macOS)"
+	@echo "  - wintermute, armitage (Windows)"
+	@echo "  - motoko (Linux)"
+	@echo ""
+	@read -p "Continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "Deploying NoMachine clients..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/remote_clients_nomachine.yml --ask-vault-pass; \
+	else \
+		echo "Deployment cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ NoMachine clients deployed!"
+	@echo ""
+	@echo "Connection info:"
+	@echo "  motoko:     motoko.pangolin-vega.ts.net:4000"
+	@echo "  wintermute: wintermute.pangolin-vega.ts.net:4000"
+	@echo "  armitage:   armitage.pangolin-vega.ts.net:4000"
+
+# Validate NoMachine deployment
+validate-nomachine:
+	@echo "========================================"
+	@echo "NoMachine Deployment Validation"
+	@echo "========================================"
+	@echo ""
+	@cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/validate_nomachine_deployment.yml --ask-vault-pass
+	@echo ""
+	@echo "✅ Validation complete!"
+
+# Emergency rollback - re-enable RDP on Windows
+rollback-nomachine:
+	@echo "========================================"
+	@echo "⚠️  EMERGENCY ROLLBACK"
+	@echo "========================================"
+	@echo ""
+	@echo "This will RE-ENABLE RDP on Windows hosts."
+	@echo "NoMachine will remain installed."
+	@echo "VNC will NOT be restored on Linux."
+	@echo ""
+	@read -p "Are you sure? (yes/N): " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		echo "Rolling back..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/rollback_nomachine.yml --ask-vault-pass; \
+	else \
+		echo "Rollback cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Rollback complete. RDP is re-enabled on Windows."
 

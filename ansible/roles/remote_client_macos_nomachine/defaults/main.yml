@@ -1,0 +1,23 @@
+---
+# NoMachine client version for macOS
+nomachine_version: "8.15.3"
+
+# NoMachine client download URL for macOS
+nomachine_macos_url: "https://download.nomachine.com/download/8.15/macOS/nomachine_{{ nomachine_version }}_1.dmg"
+
+# Pre-configured server connections
+nomachine_servers:
+  - name: "motoko"
+    host: "motoko.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+  - name: "wintermute"
+    host: "wintermute.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+  - name: "armitage"
+    host: "armitage.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+
+

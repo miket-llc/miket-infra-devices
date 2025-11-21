@@ -1,0 +1,69 @@
+---
+# Playbook: remote_clients_nomachine.yml
+# Deploys NoMachine clients across all platforms (macOS, Windows, Linux)
+# Enables all devices to connect to NoMachine servers
+
+- name: Install NoMachine client on macOS hosts
+  hosts: macos
+  gather_facts: true
+  tags:
+    - remote
+    - remote:client
+    - nomachine:client
+  tasks:
+    - name: Install NoMachine client for macOS
+      ansible.builtin.include_role:
+        name: remote_client_macos_nomachine
+
+- name: Install NoMachine client on Windows hosts
+  hosts: windows
+  gather_facts: true
+  become: false
+  tags:
+    - remote
+    - remote:client
+    - nomachine:client
+  tasks:
+    - name: Install NoMachine client for Windows
+      ansible.builtin.include_role:
+        name: remote_client_windows_nomachine
+
+- name: Install NoMachine client on Linux hosts
+  hosts: linux
+  gather_facts: true
+  become: true
+  tags:
+    - remote
+    - remote:client
+    - nomachine:client
+  tasks:
+    - name: Install NoMachine client for Linux
+      ansible.builtin.include_role:
+        name: remote_client_linux_nomachine
+
+- name: Display NoMachine client deployment summary
+  hosts: all
+  gather_facts: false
+  tags:
+    - remote
+    - remote:client
+  tasks:
+    - name: Summary of NoMachine client deployment
+      ansible.builtin.debug:
+        msg:
+          - "✅ NoMachine clients deployed across all platforms"
+          - ""
+          - "Available NoMachine servers:"
+          - "  - motoko.pangolin-vega.ts.net:4000 (Linux/Pop!_OS)"
+          - "  - wintermute.pangolin-vega.ts.net:4000 (Windows)"
+          - "  - armitage.pangolin-vega.ts.net:4000 (Windows)"
+          - ""
+          - "Launch NoMachine client:"
+          - "  - macOS: /Applications/NoMachine.app"
+          - "  - Windows: Start Menu > NoMachine"
+          - "  - Linux: Applications > NoMachine or 'nxplayer'"
+          - ""
+          - "All connections are restricted to Tailscale network only"
+      run_once: true
+
+
