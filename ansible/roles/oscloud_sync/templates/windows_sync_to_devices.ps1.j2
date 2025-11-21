@@ -77,25 +77,29 @@ if (Test-Path $oneDrivePersonal) {
 }
 
 # OneDrive Business (dynamic discovery)
-$oneDriveBusiness = Get-ChildItem "$env:USERPROFILE\OneDrive - *" -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($oneDriveBusiness) {
-    Write-Log "Syncing OneDrive Business: $($oneDriveBusiness.FullName)..."
-    $oneDriveTarget = "$targetBase\onedrive-business"
+$oneDriveBusinessFolders = Get-ChildItem "$env:USERPROFILE\OneDrive - *" -Directory -ErrorAction SilentlyContinue
+
+foreach ($folder in $oneDriveBusinessFolders) {
+    $orgName = $folder.Name -replace "OneDrive - ", ""
+    Write-Log "Syncing OneDrive Business: $orgName..."
+    $oneDriveTarget = "$targetBase\onedrive-business-$orgName"
     
     # Ensure target exists
     if (-not (Test-Path $oneDriveTarget)) {
         New-Item -Path $oneDriveTarget -ItemType Directory -Force | Out-Null
     }
     
-    $result = robocopy $oneDriveBusiness.FullName $oneDriveTarget @robocopyOpts
+    $result = robocopy $folder.FullName $oneDriveTarget @robocopyOpts
     $exitCode = $LASTEXITCODE
     
     if ($exitCode -lt 8) {
-        Write-Log "OneDrive Business sync complete (exit code: $exitCode)"
+        Write-Log "OneDrive Business ($orgName) sync complete (exit code: $exitCode)"
     } else {
-        Write-Log "WARNING: OneDrive Business sync completed with errors (exit code: $exitCode)"
+        Write-Log "WARNING: OneDrive Business ($orgName) sync completed with errors (exit code: $exitCode)"
     }
-} else {
+}
+
+if ($oneDriveBusinessFolders.Count -eq 0) {
     Write-Log "OneDrive Business not found."
 }
 
@@ -124,4 +128,10 @@ if (Test-Path $iCloudPath) {
 
 Write-Log "OS cloud sync completed successfully."
 Write-Log "Target: $targetBase"
+
+# Upload log to Space for central visibility
+$remoteLog = "$targetBase\_sync.log"
+Copy-Item -Path "C:\Scripts\oscloud-sync\sync.log" -Destination $remoteLog -Force
+Write-Log "Log uploaded to $remoteLog"
+
 

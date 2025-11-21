@@ -235,3 +235,4 @@ The watchdog is designed to be lightweight:
 - GNOME Shell error storm detection
 - Restart limiting for GDM
 
+

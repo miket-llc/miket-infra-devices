@@ -1,0 +1,97 @@
+---
+- name: Install cifs-utils
+  package:
+    name: cifs-utils
+    state: present
+
+- name: Create SMB credentials file
+  copy:
+    content: |
+      username={{ smb_username }}
+      password={{ smb_password }}
+    dest: "{{ smb_credentials_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  when: smb_password is defined
+
+- name: Ensure mount points exist
+  file:
+    path: "{{ item.mount_point }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ smb_shares }}"
+
+- name: Mount SMB shares via fstab
+  mount:
+    path: "{{ item.mount_point }}"
+    src: "//{{ smb_server }}{{ item.path }}"
+    fstype: cifs
+    opts: "credentials={{ smb_credentials_file }},uid={{ ansible_user_uid | default(1000) }},gid={{ ansible_user_gid | default(1000) }},iocharset=utf8,vers=3.0,_netdev"
+    state: mounted
+  loop: "{{ smb_shares }}"
+  when: inventory_hostname != smb_server
+
+- name: Bind mount local directories (Server Mode)
+  mount:
+    path: "{{ item.mount_point }}"
+    src: "{{ item.path }}"
+    fstype: none
+    opts: bind
+    state: mounted
+  loop: "{{ smb_shares }}"
+  when: inventory_hostname == smb_server
+
+- name: Create user symlinks
+  file:
+    src: "{{ item.target }}"
+    dest: "{{ item.link }}"
+    state: link
+    force: yes
+  loop: "{{ user_symlinks }}"
+  become: false # Run as user
+
+- name: Deploy device health check script
+  template:
+    src: device_health_check.sh.j2
+    dest: "/usr/local/bin/device_health_check.sh"
+    mode: '0755'
+
+- name: Create systemd service for health check
+  copy:
+    content: |
+      [Unit]
+      Description=Report Device Health to Motoko
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/device_health_check.sh
+      User={{ ansible_user }}
+      Group={{ ansible_user }}
+    dest: /etc/systemd/system/device-health.service
+
+- name: Create systemd timer for health check
+  copy:
+    content: |
+      [Unit]
+      Description=Run Device Health Check periodically
+
+      [Timer]
+      OnBootSec=5m
+      OnUnitActiveSec=1h
+      Unit=device-health.service
+
+      [Install]
+      WantedBy=timers.target
+    dest: /etc/systemd/system/device-health.timer
+
+- name: Enable and start health check timer
+  systemd:
+    name: device-health.timer
+    state: started
+    enabled: yes
+    daemon_reload: yes
+

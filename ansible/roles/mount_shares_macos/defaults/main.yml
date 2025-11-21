@@ -1,6 +1,6 @@
 ---
 # Defaults for macOS mount shares role
-smb_server: "192.168.1.195"  # Using LAN IP (motoko wireless) until Tailscale SMB is fixed
+smb_server: "motoko"  # Using Tailscale/Local hostname
 smb_username: "mdt"  # SMB username on motoko (may differ from ansible_user)
 
 # Azure Key Vault Configuration

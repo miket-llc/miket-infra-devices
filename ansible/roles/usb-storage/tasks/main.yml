@@ -153,11 +153,10 @@
     state: started
     enabled: yes
 
-- name: Set Samba password for user (needs manual intervention or vault usually, setting to known default or skipping)
-  # This is tricky without interactive input.
-  # Assuming the user 'mdt' exists. We need to add them to samba.
-  shell: "(echo '{{ ansible_password | default('miket') }}'; echo '{{ ansible_password | default('miket') }}') | smbpasswd -s -a {{ ansible_user | default('mdt') }}"
+- name: Set Samba password for user
+  # Requires ansible_password to be set in vault or host_vars
+  # SECURITY: No default password - fails if not provided
+  shell: "(echo '{{ ansible_password }}'; echo '{{ ansible_password }}') | smbpasswd -s -a {{ ansible_user | default('mdt') }}"
   register: smbpasswd_result
   changed_when: "'Added user' in smbpasswd_result.stdout"
-  failed_when: false 
-  # Note: Using default 'miket' if variable not set. Security risk but 'working solution' priority.
+  when: ansible_password is defined and ansible_password != ''

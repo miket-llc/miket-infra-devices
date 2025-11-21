@@ -96,3 +96,57 @@ fi
 {% endfor %}
 
 log "Setup complete. Access your files via ~/flux, ~/space, ~/time"
+
+# --- Device Health Reporting ---
+log "Reporting device health..."
+
+HOSTNAME=$(hostname -s)
+# Username is $USER
+
+# Define status file path
+# We expect /space to be mounted at ~/.mkt/space per convention
+SPACE_MOUNT="${HOME}/.mkt/space"
+STATUS_DIR="${SPACE_MOUNT}/devices/${HOSTNAME}/${USER}"
+STATUS_FILE="${STATUS_DIR}/_status.json"
+
+# Check mount status
+FLUX_MOUNTED=$(mount | grep -q "${HOME}/.mkt/flux" && echo "true" || echo "false")
+SPACE_MOUNTED=$(mount | grep -q "${HOME}/.mkt/space" && echo "true" || echo "false")
+TIME_MOUNTED=$(mount | grep -q "${HOME}/.mkt/time" && echo "true" || echo "false")
+
+# Determine overall status
+if [ "$FLUX_MOUNTED" == "true" ] && [ "$SPACE_MOUNTED" == "true" ]; then
+    OVERALL_STATUS="healthy"
+else
+    OVERALL_STATUS="degraded"
+fi
+
+# Create JSON content
+JSON_CONTENT=$(cat <<EOF
+{
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "device": "${HOSTNAME}",
+  "user": "${USER}",
+  "platform": "macOS",
+  "status": "${OVERALL_STATUS}",
+  "components": {
+    "mounts": {
+      "flux": ${FLUX_MOUNTED},
+      "space": ${SPACE_MOUNTED},
+      "time": ${TIME_MOUNTED}
+    }
+  }
+}
+EOF
+)
+
+if [ "$SPACE_MOUNTED" == "true" ]; then
+    if [ ! -d "$STATUS_DIR" ]; then
+        mkdir -p "$STATUS_DIR"
+    fi
+    echo "$JSON_CONTENT" > "$STATUS_FILE"
+    log "Health status written to ${STATUS_FILE}"
+else
+    log "ERROR: Cannot write health status - /space is not mounted."
+fi
+

@@ -4,7 +4,7 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Agent | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |-------|----------------|------------------------------|-------------|---------------|
-| **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | Devices Infrastructure: Implementation + Multi-Role Review Complete | Production-Ready | 2025-11-20 |
+| **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | GNOME Freeze Resolution: Multi-contractor integration + Pop Shell disabled + Watchdog deployed | Monitor stability | 2025-11-21 |
 | **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
 | **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | USB mount configuration deployed · Time Machine fixed · SMB shares active | Monitor Cloud Backplane | 2025-01-XX |
 | **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | Data Lifecycle Automation Deployed · Directory Structure Enforced · Password/Exclude Files Automated | Monitor backups | 2025-01-XX |
@@ -46,6 +46,11 @@ Use this tracker to record agent activation status and deliverable completion. U
 | **Windows Tailscale SSH Correction** | Codex-DOC-005 | 2025-11-20 | [TAILSCALE_DEVICE_SETUP.md](../runbooks/TAILSCALE_DEVICE_SETUP.md) - Corrected Windows limitation |
 | **Devices Infrastructure Implementation** | Codex-DCA-001 | 2025-11-20 | Complete client-side implementation: /mkt mounts, OS cloud sync, devices view, loop prevention |
 | **Devices Infrastructure Code Review** | All Agents | 2025-11-20 | Multi-role review complete, 4 critical bugs fixed, documentation cleaned up, production-ready |
+| **GNOME UI Freeze Diagnosis** | Codex-DCA-001 | 2025-11-21 | Initial analysis - found stuck disable-extensions file |
+| **Multi-Contractor Review Integration** | Codex-DCA-001 | 2025-11-21 | Analyzed 3 contractor worktrees, integrated findings |
+| **Pop Shell Root Cause Fix** | Codex-DCA-001 | 2025-11-21 | Disabled pop-shell@system76.com extension |
+| **System Health Watchdog Verification** | Codex-DCA-001 | 2025-11-21 | Confirmed D-Bus monitoring active and functional |
+| **GNOME Freeze Documentation** | Codex-DOC-005 | 2025-11-21 | [COMPLETE_ROOT_CAUSE_ANALYSIS.md](../../devices/motoko/COMPLETE_ROOT_CAUSE_ANALYSIS.md) + recovery scripts |
 
 ---
 
