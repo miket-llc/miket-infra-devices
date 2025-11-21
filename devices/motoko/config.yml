@@ -97,3 +97,14 @@ notes:
   - GPU memory allocation: 45% reasoning, 30% embeddings, 25% headroom
   - Connected to Tailnet for secure remote access
   - Self-managed via Ansible playbooks in `ansible/playbooks/motoko/`
+
+troubleshooting:
+  gnome_ui_freeze:
+    last_incident: "2025-11-21"
+    status: "Resolved"
+    root_cause: "GNOME Shell crash loop due to stuck gnome-shell-disable-extensions file"
+    solution: "Remove /run/user/1000/gnome-shell-disable-extensions and restart gnome-shell"
+    recovery_script: "devices/motoko/scripts/gnome-shell-recovery.sh"
+    monitoring_script: "devices/motoko/scripts/gnome-health-monitor.sh"
+    documentation: "devices/motoko/GNOME_UI_FREEZE_INCIDENT_REPORT.md"
+    quick_reference: "devices/motoko/QUICK_REFERENCE_GNOME_RECOVERY.md"

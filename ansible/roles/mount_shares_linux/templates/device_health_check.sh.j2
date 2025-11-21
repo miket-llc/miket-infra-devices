@@ -1,0 +1,52 @@
+#!/bin/bash
+# Device Health Reporting for Linux
+
+HOSTNAME=$(hostname -s)
+USER="{{ ansible_user }}"
+SPACE_MOUNT="/mnt/space"
+STATUS_DIR="${SPACE_MOUNT}/devices/${HOSTNAME}/${USER}"
+STATUS_FILE="${STATUS_DIR}/_status.json"
+
+# Check mount status
+if mountpoint -q /mnt/flux; then FLUX_MOUNTED="true"; else FLUX_MOUNTED="false"; fi
+if mountpoint -q /mnt/space; then SPACE_MOUNTED="true"; else SPACE_MOUNTED="false"; fi
+if mountpoint -q /mnt/time; then TIME_MOUNTED="true"; else TIME_MOUNTED="false"; fi
+
+# Determine overall status
+if [ "$FLUX_MOUNTED" == "true" ] && [ "$SPACE_MOUNTED" == "true" ]; then
+    OVERALL_STATUS="healthy"
+else
+    OVERALL_STATUS="degraded"
+fi
+
+# Create JSON content
+JSON_CONTENT=$(cat <<EOF
+{
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "device": "${HOSTNAME}",
+  "user": "${USER}",
+  "platform": "Linux",
+  "status": "${OVERALL_STATUS}",
+  "components": {
+    "mounts": {
+      "flux": ${FLUX_MOUNTED},
+      "space": ${SPACE_MOUNTED},
+      "time": ${TIME_MOUNTED}
+    }
+  }
+}
+EOF
+)
+
+if [ "$SPACE_MOUNTED" == "true" ]; then
+    if [ ! -d "$STATUS_DIR" ]; then
+        mkdir -p "$STATUS_DIR"
+    fi
+    echo "$JSON_CONTENT" > "$STATUS_FILE"
+    echo "Health status written to ${STATUS_FILE}"
+else
+    echo "ERROR: Cannot write health status - /space is not mounted."
+    exit 1
+fi
+
+

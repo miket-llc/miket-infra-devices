@@ -103,3 +103,7 @@ done
 log "OS cloud sync completed successfully."
 log "Target: ${MOUNTED_TARGET}"
 
+# Upload log to Space for central visibility
+cp ~/.scripts/oscloud-sync/sync.log "${MOUNTED_TARGET}/_sync.log"
+log "Log uploaded to ${MOUNTED_TARGET}/_sync.log"
+

@@ -90,12 +90,12 @@ The Flux/Time/Space storage architecture has been fully implemented and validate
 ### For End Users
 
 **Working on Active Projects:**
-1. Save files to `~/Mounts/flux/active/YourProject` (macOS) or `F:\active\YourProject` (Windows)
+1. Save files to `~/flux/active/YourProject` (macOS) or `X:\active\YourProject` (Windows)
 2. Files are automatically backed up hourly (local) and daily (cloud)
 3. No action required
 
 **Archiving Finished Work:**
-1. Move completed projects to `~/Mounts/space/projects/` or `S:\projects\`
+1. Move completed projects to `~/space/projects/` or `S:\projects\`
 2. Files are automatically mirrored to Backblaze B2 nightly
 3. No action required
 
