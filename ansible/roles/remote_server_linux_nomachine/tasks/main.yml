@@ -1,0 +1,58 @@
+---
+- name: Stop and disable TigerVNC service
+  ansible.builtin.systemd:
+    name: tigervnc.service
+    state: stopped
+    enabled: false
+  become: true
+  failed_when: false
+
+- name: Download NoMachine installer (.run format)
+  ansible.builtin.shell: |
+    cd /tmp
+    curl -L -f -o nomachine_{{ nomachine_version }}_4_x86_64.run "https://download.nomachine.com/download/8.x/Linux/nomachine_{{ nomachine_version }}_4_x86_64.run" || \
+    wget -O nomachine_{{ nomachine_version }}_4_x86_64.run "https://download.nomachine.com/download/8.x/Linux/nomachine_{{ nomachine_version }}_4_x86_64.run"
+    chmod +x nomachine_{{ nomachine_version }}_4_x86_64.run
+  args:
+    creates: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run"
+  become: true
+  register: nomachine_download
+
+- name: Install NoMachine
+  ansible.builtin.command:
+    cmd: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run install"
+    creates: "/usr/NX/bin/nxserver"
+  become: true
+
+- name: Configure NoMachine to attach to display :0
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableNXDisplayOutput='
+    line: 'EnableNXDisplayOutput=1'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+- name: Ensure NoMachine service is enabled and started
+  ansible.builtin.systemd:
+    name: nxserver
+    enabled: true
+    state: started
+    daemon_reload: yes
+  become: true
+
+- name: Wait for NoMachine to be accessible
+  ansible.builtin.wait_for:
+    host: localhost
+    port: "{{ nomachine_port }}"
+    delay: 2
+    timeout: 10
+  register: nomachine_port_check
+  failed_when: false
+
+- name: Display connection information
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine server configured to share existing GNOME session"
+      - "VNC has been stopped and disabled"
+      - "Connect via NoMachine to: {{ inventory_hostname }}.pangolin-vega.ts.net:{{ nomachine_port }}"
