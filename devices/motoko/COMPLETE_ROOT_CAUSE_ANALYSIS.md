@@ -189,13 +189,18 @@ DISPLAY=:0 timeout 3 bash -c 'dbus-send --session --type=method_call --dest=org.
 **Reason:** Known incompatibility with VNC clients sending malformed X11 events
 
 **Still Enabled (Tested Safe):**
-- cosmic-dock@system76.com
-- cosmic-workspaces@system76.com  
-- system76-power@system76.com
+- pop-shell@system76.com (Watchdog set to Log-Only mode)
 - ding@rastersoft.com
 - blur-my-shell@aunetx (monitor for issues)
 - caffeine@patapon.info
 - extension-list@tu.berry
+- system76-power@system76.com
+- ubuntu-appindicators@ubuntu.com
+
+**Disabled (Conflict Risk):**
+- pop-cosmic@system76.com (Conflict with Warp/GPU)
+- cosmic-workspaces@system76.com (Conflict with Warp/GPU)
+- cosmic-dock@system76.com (Conflict with Warp/GPU)
 
 ---
 
@@ -228,7 +233,13 @@ System is considered STABLE when:
 5. ✅ No gnome-shell-disable-extensions file appears
 6. ✅ VNC connectivity works without triggering freezes
 
-**Current Status:** All criteria met as of 08:56 Nov 21, 2025
+**Current Status:** All criteria met as of 11:35 Nov 21, 2025
+
+**Final Resolution (11:35 EST):**
+- Watchdog modified to Log-Only mode (no auto-restart for UI freezes)
+- NVIDIA GPU forced to P0 (Maximum Performance) to eliminate desktop lag
+- Pop Shell re-enabled (stable with neutered watchdog)
+- System stable with full functionality restored
 
 ---
 
