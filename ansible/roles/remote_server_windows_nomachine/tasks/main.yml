@@ -127,6 +127,26 @@
   register: nx_firewall
   changed_when: "'CREATED' in nx_firewall.stdout or 'UPDATED' in nx_firewall.stdout"
 
+- name: Block NoMachine from non-Tailscale networks (Windows)
+  win_shell: |
+    $blockAddresses = @(
+      "0.0.0.0-99.255.255.255",
+      "101.0.0.0-255.255.255.255"
+    )
+    New-NetFirewallRule -DisplayName "NoMachine Block WAN/LAN" `
+      -Name "NoMachine-Block-WAN-LAN" `
+      -Direction Inbound `
+      -LocalPort {{ nomachine_port }} `
+      -Protocol TCP `
+      -Action Block `
+      -RemoteAddress $blockAddresses `
+      -Description "Block NoMachine from non-Tailscale networks" `
+      -Enabled True `
+      -Profile Any `
+      -ErrorAction SilentlyContinue
+  register: win_firewall_block
+  changed_when: false
+
 - name: Verify NoMachine is listening on port {{ nomachine_port }}
   win_shell: |
     $listener = Get-NetTCPConnection -LocalPort {{ nomachine_port }} -ErrorAction SilentlyContinue

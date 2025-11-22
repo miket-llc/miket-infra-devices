@@ -27,15 +27,35 @@
 - name: Start NoMachine server
   ansible.builtin.shell: |
     /usr/NX/bin/nxserver --start
-  become: false
+  become: true
   failed_when: false
 
 - name: Configure NoMachine firewall (macOS firewall)
   ansible.builtin.shell: |
     /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/NX/bin/nxserver 2>/dev/null || true
     /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /usr/NX/bin/nxserver 2>/dev/null || true
-  become: false
+  become: true
   failed_when: false
+
+- name: Find NoMachine server config
+  ansible.builtin.stat:
+    path: /Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg
+  register: nx_cfg_path
+
+- name: Configure NoMachine to accept connections from Tailscale subnet only
+  ansible.builtin.lineinfile:
+    path: "{{ nx_cfg_path.stat.path }}"
+    regexp: '^AcceptFrom'
+    line: 'AcceptFrom 100.64.0.0/10'
+    backup: yes
+  become: true
+  when: nx_cfg_path.stat.exists
+  register: nx_config_updated
+
+- name: Restart NoMachine server
+  ansible.builtin.command: /usr/NX/bin/nxserver --restart
+  become: true
+  when: nx_config_updated.changed
 
 - name: Display connection information
   ansible.builtin.debug:

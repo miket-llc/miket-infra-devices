@@ -93,6 +93,32 @@
     creates: "/usr/NX/bin/nxserver"
   become: true
 
+- name: Get Tailscale IP address
+  ansible.builtin.command:
+    cmd: tailscale ip -4
+  register: tailscale_ip
+  changed_when: false
+  failed_when: false
+
+- name: Configure NoMachine to bind to Tailscale interface only
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^NXDListenAddress'
+    line: "NXDListenAddress {{ tailscale_ip.stdout }}"
+    backup: yes
+  become: true
+  when: tailscale_ip.stdout != ""
+  notify: restart nxserver
+
+- name: Configure NoMachine to accept connections from Tailscale subnet only
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^AcceptFrom'
+    line: 'AcceptFrom 100.64.0.0/10'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
 - name: Configure NoMachine to attach to display :0
   ansible.builtin.lineinfile:
     path: /usr/NX/etc/server.cfg
@@ -109,6 +135,29 @@
     state: started
     daemon_reload: yes
   become: true
+
+- name: Configure Firewall (UFW)
+  community.general.ufw:
+    rule: allow
+    port: "{{ nomachine_port }}"
+    proto: tcp
+    src: "100.64.0.0/10"
+    comment: "Allow NoMachine from Tailscale"
+  become: true
+  when: ansible_pkg_mgr == 'apt'
+  ignore_errors: true
+
+- name: Configure Firewall (Firewalld)
+  ansible.posix.firewalld:
+    port: "{{ nomachine_port }}/tcp"
+    source: "100.64.0.0/10"
+    permanent: true
+    immediate: true
+    state: enabled
+    zone: public
+  become: true
+  when: ansible_pkg_mgr == 'dnf' or ansible_pkg_mgr == 'yum'
+  ignore_errors: true
 
 - name: Wait for NoMachine to be accessible
   ansible.builtin.wait_for:

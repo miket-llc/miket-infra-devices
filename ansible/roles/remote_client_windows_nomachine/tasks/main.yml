@@ -26,13 +26,26 @@
     state: present
   register: nomachine_client_installed
 
+- name: Ensure NoMachine documents directory exists
+  ansible.windows.win_file:
+    path: "{{ ansible_user_dir }}\\Documents\\NoMachine"
+    state: directory
+
+- name: Deploy NoMachine session files
+  ansible.windows.win_template:
+    src: session.nxs.j2
+    dest: "{{ ansible_user_dir }}\\Documents\\NoMachine\\{{ item.name }}.nxs"
+  loop:
+    - { name: 'motoko', host: 'motoko', session_type: 'unix' }
+    - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
+
 - name: Display NoMachine client installation status
   ansible.builtin.debug:
     msg:
       - "✅ NoMachine client installed"
       - "Launch from: Start Menu > NoMachine"
-      - "Pre-configured servers available:"
-      - "  - motoko.pangolin-vega.ts.net:4000"
-      - "  - wintermute.pangolin-vega.ts.net:4000"
-      - "  - armitage.pangolin-vega.ts.net:4000"
-
+      - "Pre-configured servers available in Documents\\NoMachine:"
+      - "  - motoko (Linux)"
+      - "  - wintermute (Windows)"
+      - "  - armitage (Windows)"
