@@ -1179,3 +1179,77 @@ All connection failures during deployment were client-side configuration issues 
 - ✅ No new documentation files created per prompt
 - ✅ Code changes committed with descriptive messages
 - ✅ Coordination with miket-infra maintained throughout
+
+---
+
+## 2025-11-22 (CORRECTED) – NoMachine Second Pass: Architecture Simplification {#2025-11-22-nomachine-corrections}
+
+### CRITICAL CORRECTION
+
+**Context:** Initial second-pass work (earlier today) **incorrectly** implemented RDP/VNC as "break-glass" fallback. This was a misunderstanding of the architecture requirements.
+
+**Actual Architecture (Confirmed by miket-infra):**
+- RDP/VNC are **FULLY RETIRED** from our infrastructure
+- NOT "break-glass", NOT "emergency fallback", NOT "hidden but available"
+- Completely removed: no services running, no ACL rules, no firewall rules
+
+**Our Infrastructure Uses TWO TOOLS ONLY:**
+1. **NoMachine** - GUI/desktop access (port 4000)
+2. **Tailscale SSH** - Administrative shell access (port 22)
+
+### Actions Taken (Corrective)
+
+#### Fix 1: Disabled Auto-Discovery (Addresses CEO's "Jankiness")
+**Problem:** NoMachine's auto-discovery finds motoko via broadcast/mDNS using LAN IP, but connections must use Tailscale IP/MagicDNS. This caused confusing "found but can't connect" behavior.
+
+**Solution:**
+- Disabled auto-discovery in player.cfg
+- Forces users to use manual connections via helper script or GUI
+- All manual connections use correct Tailscale MagicDNS hostnames
+
+**Deployed to:**
+- count-zero (macOS): ✓ Verified disabled
+- wintermute (Windows): ✓ Deployed
+- armitage (Windows): ✓ Deployed
+
+#### Fix 2: Removed Break-Glass Scripts (Should Never Have Existed)
+**Problem:** First implementation created "emergency" scripts (remote-emergency, rdp-emergency.ps1) that implied RDP/VNC were fallback options.
+
+**Solution:**
+- Deleted templates and deployed scripts from all endpoints
+- Updated documentation to clarify "two tools only"
+
+#### Fix 3: Updated Deemphasize Role (REMOVE, not Hide)
+**Problem:** Initial implementation MOVED RDP shortcuts to "Legacy Remote Access" folder.
+
+**Solution:** Completely rewrote deemphasize_legacy_remote role to REMOVE all RDP/VNC configurations for our infrastructure.
+
+**Key Message in Desktop Guide:**
+- Our Infrastructure Uses Two Tools Only: NoMachine + Tailscale SSH
+- RDP and VNC have been RETIRED from our infrastructure
+- Note: RDP/VNC clients may still exist for OTHER systems (external clients, work VPNs)
+
+### Corrected End State
+
+**All Endpoints:**
+- Auto-discovery: disabled (prevents LAN-based confusion)
+- RDP/VNC for our infrastructure: removed (not hidden)
+- Helper scripts: nomachine-connect only (no break-glass scripts)
+- Documentation: clear "RETIRED" message
+
+### CEO's Feedback Addressed
+
+**Issue:** "Auto-find feature finds motoko but we can't connect to it"
+
+**Root Cause:** Auto-discovery uses LAN IP, but server only accepts Tailscale IP connections
+
+**Solution:** Disabled auto-discovery. Users now use CLI (nomachine-connect motoko) or manual GUI connection
+
+**Result:** No more janky discovery. Clean, predictable UX.
+
+### Code Changes (Corrective)
+
+**Commit:** c105e1e
+- Disabled auto-discovery
+- Removed break-glass scripts and templates
+- Rewrote deemphasize role to REMOVE (not hide) RDP/VNC
