@@ -1,0 +1,161 @@
+---
+# Ansible role: nomachine_firewall
+# Configures firewall rules for NoMachine restricted to Tailscale subnet
+
+- name: Configure NoMachine firewall (Linux - UFW)
+  block:
+    - name: Remove existing NoMachine firewall rules
+      ansible.builtin.command:
+        cmd: ufw delete allow {{ nomachine_port }}/tcp
+      become: yes
+      register: ufw_remove
+      failed_when: false
+      changed_when: false
+
+    - name: Allow NoMachine from Tailscale subnet only (UFW)
+      ansible.builtin.ufw:
+        rule: allow
+        port: "{{ nomachine_port }}"
+        proto: tcp
+        to_ip: "{{ tailscale_subnet }}"
+        comment: "NoMachine access via Tailscale only"
+      become: yes
+
+    - name: Block NoMachine from non-Tailscale networks (UFW)
+      ansible.builtin.command:
+        cmd: ufw deny {{ nomachine_port }}/tcp
+      become: yes
+      register: ufw_block
+      failed_when: false
+      changed_when: "'deny' in ufw_block.stdout"
+
+  when:
+    - ansible_system == "Linux"
+    - (remote_detection.firewall.type | default('ufw')) == "ufw" or remote_detection is not defined
+
+- name: Configure NoMachine firewall (Linux - firewalld)
+  block:
+    - name: Allow NoMachine from Tailscale subnet (firewalld)
+      ansible.posix.firewalld:
+        port: "{{ nomachine_port }}/tcp"
+        source: "{{ tailscale_subnet }}"
+        permanent: true
+        immediate: true
+        state: enabled
+        zone: public
+      become: yes
+
+  when:
+    - ansible_system == "Linux"
+    - remote_detection.firewall.type == "firewalld"
+
+- name: Configure NoMachine firewall (Windows)
+  block:
+    - name: Remove existing NoMachine firewall rules
+      ansible.builtin.win_shell: |
+        $rules = Get-NetFirewallRule -DisplayName "*NoMachine*" -ErrorAction SilentlyContinue
+        if ($rules) {
+          $rules | Remove-NetFirewallRule -ErrorAction SilentlyContinue
+        }
+      register: win_firewall_remove
+      changed_when: false
+      failed_when: false
+
+    - name: Allow NoMachine from Tailscale subnet (Windows)
+      ansible.builtin.win_shell: |
+        New-NetFirewallRule -DisplayName "NoMachine Tailscale In" `
+          -Name "NoMachine-Tailscale-In" `
+          -Direction Inbound `
+          -LocalPort {{ nomachine_port }} `
+          -Protocol TCP `
+          -Action Allow `
+          -RemoteAddress {{ tailscale_subnet }} `
+          -Description "Allow NoMachine access via Tailscale VPN only" `
+          -Enabled True `
+          -Profile Any `
+          -ErrorAction Stop
+      register: win_firewall_allow
+
+    - name: Block NoMachine from non-Tailscale networks (Windows)
+      ansible.builtin.win_shell: |
+        $blockAddresses = @(
+          "0.0.0.0-99.255.255.255",
+          "101.0.0.0-255.255.255.255"
+        )
+        New-NetFirewallRule -DisplayName "NoMachine Block WAN/LAN" `
+          -Name "NoMachine-Block-WAN-LAN" `
+          -Direction Inbound `
+          -LocalPort {{ nomachine_port }} `
+          -Protocol TCP `
+          -Action Block `
+          -RemoteAddress $blockAddresses `
+          -Description "Block NoMachine from non-Tailscale networks" `
+          -Enabled True `
+          -Profile Any `
+          -ErrorAction Stop
+      register: win_firewall_block
+
+  when: ansible_system == "Windows"
+
+- name: Configure NoMachine firewall (macOS)
+  block:
+    - name: Allow NoMachine from Tailscale subnet (macOS)
+      ansible.builtin.command:
+        cmd: |
+          /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/NX/bin/nxserver --allow-app
+          /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/NX/bin/nxnode --allow-app
+        become: yes
+      failed_when: false
+      changed_when: false
+
+    - name: Configure pf firewall rule for NoMachine (macOS)
+      ansible.builtin.copy:
+        dest: /etc/pf.anchors/nomachine
+        content: |
+          # NoMachine firewall rule - Tailscale only
+          pass in proto tcp from {{ tailscale_subnet }} to any port {{ nomachine_port }}
+          block in proto tcp to any port {{ nomachine_port }}
+        mode: '0644'
+      become: yes
+      register: pf_rule_created
+
+    - name: Reload pf rules (macOS)
+      ansible.builtin.command:
+        cmd: pfctl -f /etc/pf.conf
+      become: yes
+      when: pf_rule_created.changed
+      failed_when: false
+
+  when: ansible_system == "Darwin"
+
+- name: Disable Windows RDP (when NoMachine is primary)
+  block:
+    - name: Disable RDP via registry
+      ansible.builtin.win_regedit:
+        path: HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server
+        name: fDenyTSConnections
+        data: 1
+        type: dword
+
+    - name: Disable RDP firewall rules
+      ansible.builtin.win_shell: |
+        $rdpRules = Get-NetFirewallRule -DisplayGroup "Remote Desktop" -ErrorAction SilentlyContinue
+        if ($rdpRules) {
+          $rdpRules | Disable-NetFirewallRule -ErrorAction SilentlyContinue
+        }
+      register: rdp_disable
+      changed_when: "'Remote Desktop' in rdp_disable.stdout"
+      failed_when: false
+
+  when:
+    - ansible_system == "Windows"
+    - disable_rdp_when_nomachine | default(false) | bool
+
+- name: Display firewall configuration
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine firewall configured"
+      - "Port: {{ nomachine_port }}"
+      - "Allowed from: Tailscale subnet ({{ tailscale_subnet }})"
+      - "Blocked from: All other networks"
+
