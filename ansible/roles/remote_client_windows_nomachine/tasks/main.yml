@@ -32,6 +32,22 @@
     state: directory
   when: nomachine_client_installed.changed or nomachine_client_installed.changed == false
 
+- name: Disable auto-discovery (prevents confusing LAN-based connections)
+  ansible.windows.win_shell: |
+    $configFile = "C:\Users\{{ ansible_user }}\.nx\config\player.cfg"
+    if (Test-Path $configFile) {
+      # Disable network discovery to prevent finding servers via LAN
+      # Users will manually add Tailscale-based connections instead
+      $content = Get-Content $configFile -Raw
+      $content = $content -replace '<option key="Discover other NoMachine servers in the network" value="true" />', '<option key="Discover other NoMachine servers in the network" value="false" />'
+      Set-Content $configFile $content
+      Write-Output "Auto-discovery disabled"
+    } else {
+      Write-Output "Config file not found (will be created on first launch)"
+    }
+  register: discovery_result_windows
+  changed_when: "'Auto-discovery disabled' in discovery_result_windows.stdout"
+
 - name: Archive existing broken or stale connections (Windows)
   ansible.windows.win_shell: |
     $archiveDir = "C:\Users\{{ ansible_user }}\AppData\Roaming\NoMachine\archive-$(Get-Date -Format 'yyyyMMdd')"

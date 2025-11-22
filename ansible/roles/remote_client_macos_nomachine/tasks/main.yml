@@ -36,6 +36,21 @@
     mode: '0755'
   when: nomachine_client_app.stat.exists
 
+- name: Disable auto-discovery (prevents confusing LAN-based connections)
+  ansible.builtin.shell: |
+    CONFIG_FILE="{{ ansible_env.HOME }}/.nx/config/player.cfg"
+    if [ -f "$CONFIG_FILE" ]; then
+      # Disable network discovery to prevent finding servers via LAN
+      # Users will manually add Tailscale-based connections instead
+      sed -i.bak 's/<option key="Discover other NoMachine servers in the network" value="true" \/>/<option key="Discover other NoMachine servers in the network" value="false" \/>/g' "$CONFIG_FILE"
+      echo "Auto-discovery disabled"
+    else
+      echo "Config file not found (will be created on first launch)"
+    fi
+  register: discovery_result
+  changed_when: "'Auto-discovery disabled' in discovery_result.stdout"
+  when: nomachine_client_app.stat.exists
+
 - name: Archive existing broken or stale connections (macOS)
   ansible.builtin.shell: |
     NOMACHINE_DIR='{{ ansible_env.HOME }}/Library/Application Support/NoMachine'

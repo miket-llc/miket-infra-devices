@@ -1,173 +1,227 @@
 ---
 # Ansible role: deemphasize_legacy_remote
-# De-emphasizes RDP/VNC clients while preserving break-glass emergency access
-# Part of NoMachine endpoint normalization
+# Removes RDP/VNC configurations for our infrastructure (protocols fully retired)
+# Part of NoMachine endpoint normalization - CORRECTED VERSION
+# RDP/VNC are RETIRED (not "break-glass") - remove all references to our infrastructure
 
-- name: De-emphasize legacy remote clients on Windows
+- name: Remove RDP/VNC configurations on Windows
   block:
-    - name: Set Windows fact
-      ansible.builtin.set_fact:
-        ansible_system: "Windows"
-  when: ansible_system is not defined or ansible_system == "Windows"
-  
-- name: De-emphasize legacy remote clients on Windows (with facts)
-  block:
-    - name: Create backup of RDP shortcuts before modification
+    - name: Remove any saved RDP connections to our infrastructure (Windows)
       ansible.windows.win_shell: |
-        $backupDir = "C:\Users\{{ ansible_user }}\AppData\Local\Temp\rdp-shortcuts-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        $rdpFiles = @(
+          "$env:USERPROFILE\Documents\*.rdp",
+          "$env:APPDATA\Microsoft\Terminal Server Client\*.rdp"
+        )
         
-        # Backup RDP shortcuts from Start Menu
-        $startMenu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
-        Get-ChildItem -Path $startMenu -Recurse -Filter "*Remote Desktop*","*.rdp" -ErrorAction SilentlyContinue | ForEach-Object {
-          $relativePath = $_.FullName.Replace($startMenu, "")
-          $destPath = Join-Path $backupDir $relativePath
-          $destDir = Split-Path $destPath -Parent
-          New-Item -ItemType Directory -Path $destDir -Force | Out-Null
-          Copy-Item $_.FullName $destPath -Force
+        $removed = 0
+        foreach ($pattern in $rdpFiles) {
+          Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+            # Remove RDP files connecting to our infrastructure
+            if ($content -match "motoko|wintermute|armitage|pangolin-vega") {
+              Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+              $removed++
+            }
+          }
         }
         
-        Write-Output "Backed up RDP shortcuts to $backupDir"
-      register: rdp_backup_windows
-      changed_when: false
+        if ($removed -gt 0) {
+          Write-Output "Removed $removed RDP connection file(s) for our infrastructure"
+        } else {
+          Write-Output "No RDP connections to our infrastructure found"
+        }
+      register: rdp_remove_windows
+      changed_when: "'Removed' in rdp_remove_windows.stdout and 'Removed 0' not in rdp_remove_windows.stdout"
 
-    - name: Move RDP shortcuts to less prominent location (Windows)
+    - name: Remove RDP shortcuts from Start Menu and Desktop (Windows)
       ansible.windows.win_shell: |
-        $startMenu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
-        $legacyDir = "$startMenu\Legacy Remote Access"
-        New-Item -ItemType Directory -Path $legacyDir -Force | Out-Null
+        $locations = @(
+          "$env:APPDATA\Microsoft\Windows\Start Menu\Programs",
+          "$env:USERPROFILE\Desktop"
+        )
         
-        # Move RDP-related shortcuts to legacy folder
-        Get-ChildItem -Path $startMenu -Recurse -Filter "*Remote Desktop*","*.rdp" -ErrorAction SilentlyContinue | ForEach-Object {
-          $newPath = Join-Path $legacyDir $_.Name
-          Move-Item $_.FullName $newPath -Force -ErrorAction SilentlyContinue
+        $removed = 0
+        foreach ($location in $locations) {
+          if (Test-Path $location) {
+            Get-ChildItem -Path $location -Recurse -Filter "*.rdp" -ErrorAction SilentlyContinue | ForEach-Object {
+              $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+              if ($content -match "motoko|wintermute|armitage|pangolin-vega") {
+                Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+                $removed++
+              }
+            }
+          }
         }
         
-        Write-Output "Moved RDP shortcuts to legacy folder"
-      register: rdp_move_windows
-      changed_when: "'Moved' in rdp_move_windows.stdout"
+        if ($removed -gt 0) {
+          Write-Output "Removed $removed RDP shortcut(s)"
+        } else {
+          Write-Output "No RDP shortcuts to our infrastructure found"
+        }
+      register: rdp_shortcuts_remove
+      changed_when: "'Removed' in rdp_shortcuts_remove.stdout and 'Removed 0' not in rdp_shortcuts_remove.stdout"
 
-    - name: Create break-glass RDP access script (Windows)
+    - name: Create informational note about simplified remote access (Windows)
       ansible.windows.win_copy:
         content: |
-          # Break-glass RDP access script
-          # Use only when NoMachine is unavailable
-          # Usage: rdp-emergency [HOSTNAME]
-          param([string]$Hostname = "motoko")
+          # Remote Access Guide (Updated 2025-11-22)
           
-          $Target = "${Hostname}.pangolin-vega.ts.net:3389"
-          Write-Host "WARNING: Using legacy RDP connection. NoMachine is preferred." -ForegroundColor Yellow
-          Write-Host "Connecting to $Target via RDP..." -ForegroundColor Yellow
-          Start-Sleep -Seconds 2
+          ## Our Infrastructure Uses Two Tools Only:
           
-          mstsc /v:$Target
-        dest: "C:\\Windows\\System32\\rdp-emergency.ps1"
-        mode: '0755'
-
-    - name: Create informational note about NoMachine (Windows)
-      ansible.windows.win_copy:
-        content: |
-          # Remote Desktop Access - Use NoMachine
+          1. GUI/Desktop Access: NoMachine
+             - Use: Start Menu > NoMachine
+             - Or CLI: nomachine-connect [hostname]
+             - Servers: motoko, wintermute, armitage
+             - Port: 4000 via Tailscale
           
-          **Primary Method:** Use NoMachine for all remote desktop access.
+          2. Administrative Shell: Tailscale SSH
+             - Use: ssh user@hostname.pangolin-vega.ts.net
+             - Or: tailscale ssh user@hostname
           
-          - Launch: Start Menu > NoMachine
-          - Command: `nomachine-connect [HOSTNAME]`
-          - Connections: motoko-console, wintermute-console, armitage-console
+          ## What Changed:
           
-          **Break-Glass Access:**
-          - RDP is available via `rdp-emergency [HOSTNAME]` if NoMachine is unavailable
-          - Legacy shortcuts moved to: Start Menu > Legacy Remote Access
+          RDP and VNC have been RETIRED from our infrastructure:
+          - NoMachine provides better performance and features
+          - Simpler security model (one tool, not three)
+          - Easier to support and troubleshoot
           
-          **Why NoMachine?**
-          - Better performance over Tailscale
-          - Consistent experience across all devices
-          - Integrated with our infrastructure
-        dest: "C:\\Users\\{{ ansible_user }}\\Desktop\\REMOTE_ACCESS_README.txt"
-
+          ## For Other Systems:
+          
+          Your RDP/VNC clients may still be installed for accessing OTHER systems
+          (external clients, work VPNs, etc.) - that's fine! We've only removed
+          configurations specific to our infrastructure (motoko, wintermute, armitage).
+          
+          Use NoMachine for our infrastructure, RDP/VNC for everything else.
+        dest: "C:\\Users\\{{ ansible_user }}\\Desktop\\REMOTE-ACCESS-GUIDE.txt"
   when: ansible_os_family == "Windows"
 
-- name: De-emphasize legacy remote clients on macOS
+- name: Remove RDP/VNC configurations on macOS
   block:
-    - name: Ensure user bin directory exists (macOS)
-      ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/.local/bin"
-        state: directory
-        mode: '0755'
+    - name: Remove VNC/RDP bookmarks for our infrastructure (macOS)
+      ansible.builtin.shell: |
+        # Remove VNC bookmarks in various apps that might exist
+        REMOVED=0
+        
+        # Remove Screen Sharing bookmarks (if they exist)
+        if [ -d "$HOME/Library/Preferences" ]; then
+          find "$HOME/Library/Preferences" -name "*ScreenSharing*" -o -name "*VNC*" 2>/dev/null | while read -r f; do
+            if grep -q "motoko\|wintermute\|armitage\|pangolin-vega" "$f" 2>/dev/null; then
+              rm -f "$f" && REMOVED=$((REMOVED + 1))
+            fi
+          done
+        fi
+        
+        # Remove any .rdp or .vnc files in Documents
+        find "$HOME/Documents" -type f \( -name "*.rdp" -o -name "*.vnc" \) 2>/dev/null | while read -r f; do
+          if grep -q "motoko\|wintermute\|armitage\|pangolin-vega" "$f" 2>/dev/null; then
+            rm -f "$f" && REMOVED=$((REMOVED + 1))
+          fi
+        done
+        
+        if [ $REMOVED -gt 0 ]; then
+          echo "Removed $REMOVED VNC/RDP configuration(s) for our infrastructure"
+        else
+          echo "No VNC/RDP configurations to our infrastructure found"
+        fi
+      register: vnc_remove_macos
+      changed_when: "'Removed' in vnc_remove_macos.stdout and 'Removed 0' not in vnc_remove_macos.stdout"
 
-    - name: Create break-glass RDP/VNC access script (macOS)
-      ansible.builtin.template:
-        src: remote_emergency.sh.j2
-        dest: "{{ ansible_env.HOME }}/.local/bin/remote-emergency"
-        mode: '0755'
-
-    - name: Create informational note about NoMachine (macOS)
+    - name: Create informational note about simplified remote access (macOS)
       ansible.builtin.copy:
-        dest: "{{ ansible_env.HOME }}/Desktop/REMOTE_ACCESS_README.txt"
+        dest: "{{ ansible_env.HOME }}/Desktop/REMOTE-ACCESS-GUIDE.txt"
         content: |
-          # Remote Desktop Access - Use NoMachine
+          # Remote Access Guide (Updated 2025-11-22)
           
-          **Primary Method:** Use NoMachine for all remote desktop access.
+          ## Our Infrastructure Uses Two Tools Only:
           
-          - Launch: /Applications/NoMachine.app
-          - Command: `nomachine-connect [HOSTNAME]`
-          - Connections: motoko-console, wintermute-console, armitage-console
+          1. GUI/Desktop Access: NoMachine
+             - Use: /Applications/NoMachine.app
+             - Or CLI: nomachine-connect [hostname]
+             - Servers: motoko, wintermute, armitage
+             - Port: 4000 via Tailscale
           
-          **Break-Glass Access:**
-          - RDP/VNC available via `remote-emergency [HOSTNAME] [rdp|vnc]` if NoMachine is unavailable
-          - Screen Sharing (VNC) and Microsoft Remote Desktop (RDP) remain installed but are not the default
+          2. Administrative Shell: Tailscale SSH
+             - Use: ssh user@hostname.pangolin-vega.ts.net
+             - Or: tailscale ssh user@hostname
           
-          **Why NoMachine?**
-          - Better performance over Tailscale
-          - Consistent experience across all devices
-          - Integrated with our infrastructure
+          ## What Changed:
+          
+          RDP and VNC have been RETIRED from our infrastructure:
+          - NoMachine provides better performance and features
+          - Simpler security model (one tool, not three)
+          - Easier to support and troubleshoot
+          
+          ## For Other Systems:
+          
+          Your RDP/VNC clients may still be installed for accessing OTHER systems
+          (external clients, work VPNs, etc.) - that's fine! We've only removed
+          configurations specific to our infrastructure (motoko, wintermute, armitage).
+          
+          Use NoMachine for our infrastructure, Screen Sharing/VNC for everything else.
         mode: '0644'
-
-    - name: Note about Dock/Launchpad (macOS)
-      ansible.builtin.debug:
-        msg:
-          - "Note: To hide VNC/RDP apps from Dock/Launchpad:"
-          - "  - Remove from Dock: Right-click app icon in Dock > Options > Remove from Dock"
-          - "  - Hide from Launchpad: Use System Preferences > Dock & Menu Bar"
-          - "  - Apps remain functional for break-glass access"
-
   when: ansible_system == "Darwin"
 
-- name: De-emphasize legacy remote clients on Linux
+- name: Remove RDP/VNC configurations on Linux
   block:
-    - name: Ensure user bin directory exists (Linux)
-      ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/.local/bin"
-        state: directory
-        mode: '0755'
+    - name: Remove VNC/RDP configurations for our infrastructure (Linux)
+      ansible.builtin.shell: |
+        REMOVED=0
+        
+        # Remove Remmina profiles (if they exist)
+        if [ -d "$HOME/.local/share/remmina" ]; then
+          find "$HOME/.local/share/remmina" -name "*.remmina" 2>/dev/null | while read -r f; do
+            if grep -q "motoko\|wintermute\|armitage\|pangolin-vega" "$f" 2>/dev/null; then
+              rm -f "$f" && REMOVED=$((REMOVED + 1))
+            fi
+          done
+        fi
+        
+        # Remove any .rdp or .vnc files
+        find "$HOME" -maxdepth 3 -type f \( -name "*.rdp" -o -name "*.vnc" \) 2>/dev/null | while read -r f; do
+          if grep -q "motoko\|wintermute\|armitage\|pangolin-vega" "$f" 2>/dev/null; then
+            rm -f "$f" && REMOVED=$((REMOVED + 1))
+          fi
+        done
+        
+        if [ $REMOVED -gt 0 ]; then
+          echo "Removed $REMOVED VNC/RDP configuration(s) for our infrastructure"
+        else
+          echo "No VNC/RDP configurations to our infrastructure found"
+        fi
+      register: vnc_remove_linux
+      changed_when: "'Removed' in vnc_remove_linux.stdout and 'Removed 0' not in vnc_remove_linux.stdout"
 
-    - name: Create break-glass RDP/VNC access script (Linux)
-      ansible.builtin.template:
-        src: remote_emergency.sh.j2
-        dest: "{{ ansible_env.HOME }}/.local/bin/remote-emergency"
-        mode: '0755'
-
-    - name: Create informational note about NoMachine (Linux)
+    - name: Create informational note about simplified remote access (Linux)
       ansible.builtin.copy:
-        dest: "{{ ansible_env.HOME }}/Desktop/REMOTE_ACCESS_README.txt"
+        dest: "{{ ansible_env.HOME }}/Desktop/REMOTE-ACCESS-GUIDE.txt"
         content: |
-          # Remote Desktop Access - Use NoMachine
+          # Remote Access Guide (Updated 2025-11-22)
           
-          **Primary Method:** Use NoMachine for all remote desktop access.
+          ## Our Infrastructure Uses Two Tools Only:
           
-          - Launch: Applications > NoMachine or run 'nxplayer'
-          - Command: `nomachine-connect [HOSTNAME]`
-          - Connections: motoko-console, wintermute-console, armitage-console
+          1. GUI/Desktop Access: NoMachine
+             - Use: /usr/NX/bin/nxplayer
+             - Or CLI: nomachine-connect [hostname]
+             - Servers: motoko, wintermute, armitage
+             - Port: 4000 via Tailscale
           
-          **Break-Glass Access:**
-          - RDP/VNC available via `remote-emergency [HOSTNAME] [rdp|vnc]` if NoMachine is unavailable
-          - Remmina, FreeRDP, and TigerVNC remain installed but are not the default
+          2. Administrative Shell: Tailscale SSH
+             - Use: ssh user@hostname.pangolin-vega.ts.net
+             - Or: tailscale ssh user@hostname
           
-          **Why NoMachine?**
-          - Better performance over Tailscale
-          - Consistent experience across all devices
-          - Integrated with our infrastructure
+          ## What Changed:
+          
+          RDP and VNC have been RETIRED from our infrastructure:
+          - NoMachine provides better performance and features
+          - Simpler security model (one tool, not three)
+          - Easier to support and troubleshoot
+          
+          ## For Other Systems:
+          
+          Your RDP/VNC clients may still be installed for accessing OTHER systems
+          (external clients, work VPNs, etc.) - that's fine! We've only removed
+          configurations specific to our infrastructure (motoko, wintermute, armitage).
+          
+          Use NoMachine for our infrastructure, VNC/RDP for everything else.
         mode: '0644'
-
   when: ansible_system == "Linux"
-
