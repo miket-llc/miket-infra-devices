@@ -1,0 +1,173 @@
+---
+# Ansible role: deemphasize_legacy_remote
+# De-emphasizes RDP/VNC clients while preserving break-glass emergency access
+# Part of NoMachine endpoint normalization
+
+- name: De-emphasize legacy remote clients on Windows
+  block:
+    - name: Set Windows fact
+      ansible.builtin.set_fact:
+        ansible_system: "Windows"
+  when: ansible_system is not defined or ansible_system == "Windows"
+  
+- name: De-emphasize legacy remote clients on Windows (with facts)
+  block:
+    - name: Create backup of RDP shortcuts before modification
+      ansible.windows.win_shell: |
+        $backupDir = "C:\Users\{{ ansible_user }}\AppData\Local\Temp\rdp-shortcuts-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+        
+        # Backup RDP shortcuts from Start Menu
+        $startMenu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+        Get-ChildItem -Path $startMenu -Recurse -Filter "*Remote Desktop*","*.rdp" -ErrorAction SilentlyContinue | ForEach-Object {
+          $relativePath = $_.FullName.Replace($startMenu, "")
+          $destPath = Join-Path $backupDir $relativePath
+          $destDir = Split-Path $destPath -Parent
+          New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+          Copy-Item $_.FullName $destPath -Force
+        }
+        
+        Write-Output "Backed up RDP shortcuts to $backupDir"
+      register: rdp_backup_windows
+      changed_when: false
+
+    - name: Move RDP shortcuts to less prominent location (Windows)
+      ansible.windows.win_shell: |
+        $startMenu = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+        $legacyDir = "$startMenu\Legacy Remote Access"
+        New-Item -ItemType Directory -Path $legacyDir -Force | Out-Null
+        
+        # Move RDP-related shortcuts to legacy folder
+        Get-ChildItem -Path $startMenu -Recurse -Filter "*Remote Desktop*","*.rdp" -ErrorAction SilentlyContinue | ForEach-Object {
+          $newPath = Join-Path $legacyDir $_.Name
+          Move-Item $_.FullName $newPath -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Output "Moved RDP shortcuts to legacy folder"
+      register: rdp_move_windows
+      changed_when: "'Moved' in rdp_move_windows.stdout"
+
+    - name: Create break-glass RDP access script (Windows)
+      ansible.windows.win_copy:
+        content: |
+          # Break-glass RDP access script
+          # Use only when NoMachine is unavailable
+          # Usage: rdp-emergency [HOSTNAME]
+          param([string]$Hostname = "motoko")
+          
+          $Target = "${Hostname}.pangolin-vega.ts.net:3389"
+          Write-Host "WARNING: Using legacy RDP connection. NoMachine is preferred." -ForegroundColor Yellow
+          Write-Host "Connecting to $Target via RDP..." -ForegroundColor Yellow
+          Start-Sleep -Seconds 2
+          
+          mstsc /v:$Target
+        dest: "C:\\Windows\\System32\\rdp-emergency.ps1"
+        mode: '0755'
+
+    - name: Create informational note about NoMachine (Windows)
+      ansible.windows.win_copy:
+        content: |
+          # Remote Desktop Access - Use NoMachine
+          
+          **Primary Method:** Use NoMachine for all remote desktop access.
+          
+          - Launch: Start Menu > NoMachine
+          - Command: `nomachine-connect [HOSTNAME]`
+          - Connections: motoko-console, wintermute-console, armitage-console
+          
+          **Break-Glass Access:**
+          - RDP is available via `rdp-emergency [HOSTNAME]` if NoMachine is unavailable
+          - Legacy shortcuts moved to: Start Menu > Legacy Remote Access
+          
+          **Why NoMachine?**
+          - Better performance over Tailscale
+          - Consistent experience across all devices
+          - Integrated with our infrastructure
+        dest: "C:\\Users\\{{ ansible_user }}\\Desktop\\REMOTE_ACCESS_README.txt"
+
+  when: ansible_system == "Windows"
+
+- name: De-emphasize legacy remote clients on macOS
+  block:
+    - name: Ensure user bin directory exists (macOS)
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: '0755'
+
+    - name: Create break-glass RDP/VNC access script (macOS)
+      ansible.builtin.template:
+        src: remote_emergency.sh.j2
+        dest: "{{ ansible_env.HOME }}/.local/bin/remote-emergency"
+        mode: '0755'
+
+    - name: Create informational note about NoMachine (macOS)
+      ansible.builtin.copy:
+        dest: "{{ ansible_env.HOME }}/Desktop/REMOTE_ACCESS_README.txt"
+        content: |
+          # Remote Desktop Access - Use NoMachine
+          
+          **Primary Method:** Use NoMachine for all remote desktop access.
+          
+          - Launch: /Applications/NoMachine.app
+          - Command: `nomachine-connect [HOSTNAME]`
+          - Connections: motoko-console, wintermute-console, armitage-console
+          
+          **Break-Glass Access:**
+          - RDP/VNC available via `remote-emergency [HOSTNAME] [rdp|vnc]` if NoMachine is unavailable
+          - Screen Sharing (VNC) and Microsoft Remote Desktop (RDP) remain installed but are not the default
+          
+          **Why NoMachine?**
+          - Better performance over Tailscale
+          - Consistent experience across all devices
+          - Integrated with our infrastructure
+        mode: '0644'
+
+    - name: Note about Dock/Launchpad (macOS)
+      ansible.builtin.debug:
+        msg:
+          - "Note: To hide VNC/RDP apps from Dock/Launchpad:"
+          - "  - Remove from Dock: Right-click app icon in Dock > Options > Remove from Dock"
+          - "  - Hide from Launchpad: Use System Preferences > Dock & Menu Bar"
+          - "  - Apps remain functional for break-glass access"
+
+  when: ansible_system == "Darwin"
+
+- name: De-emphasize legacy remote clients on Linux
+  block:
+    - name: Ensure user bin directory exists (Linux)
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: '0755'
+
+    - name: Create break-glass RDP/VNC access script (Linux)
+      ansible.builtin.template:
+        src: remote_emergency.sh.j2
+        dest: "{{ ansible_env.HOME }}/.local/bin/remote-emergency"
+        mode: '0755'
+
+    - name: Create informational note about NoMachine (Linux)
+      ansible.builtin.copy:
+        dest: "{{ ansible_env.HOME }}/Desktop/REMOTE_ACCESS_README.txt"
+        content: |
+          # Remote Desktop Access - Use NoMachine
+          
+          **Primary Method:** Use NoMachine for all remote desktop access.
+          
+          - Launch: Applications > NoMachine or run 'nxplayer'
+          - Command: `nomachine-connect [HOSTNAME]`
+          - Connections: motoko-console, wintermute-console, armitage-console
+          
+          **Break-Glass Access:**
+          - RDP/VNC available via `remote-emergency [HOSTNAME] [rdp|vnc]` if NoMachine is unavailable
+          - Remmina, FreeRDP, and TigerVNC remain installed but are not the default
+          
+          **Why NoMachine?**
+          - Better performance over Tailscale
+          - Consistent experience across all devices
+          - Integrated with our infrastructure
+        mode: '0644'
+
+  when: ansible_system == "Linux"
+

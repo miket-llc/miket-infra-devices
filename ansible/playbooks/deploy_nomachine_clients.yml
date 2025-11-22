@@ -1,0 +1,158 @@
+---
+# Playbook: deploy_nomachine_clients.yml
+# Endpoint-side NoMachine normalization and cleanup
+# Part of the NoMachine rollout remediation for client/device side
+#
+# This playbook normalizes NoMachine clients across all endpoints:
+# 1. Installs/updates NoMachine clients
+# 2. Configures standardized saved connections
+# 3. Archives broken/stale connections
+# 4. De-emphasizes legacy RDP/VNC clients
+# 5. Validates the setup
+
+- name: Phase 1 - Install and normalize NoMachine clients on macOS
+  hosts: macos
+  gather_facts: true
+  tags:
+    - nomachine:normalize
+    - nomachine:install
+    - nomachine:macos
+  tasks:
+    - name: Install and configure NoMachine client for macOS
+      ansible.builtin.include_role:
+        name: remote_client_macos_nomachine
+
+- name: Phase 1 - Install and normalize NoMachine clients on Windows
+  hosts: windows
+  gather_facts: true
+  become: false
+  tags:
+    - nomachine:normalize
+    - nomachine:install
+    - nomachine:windows
+  tasks:
+    - name: Install and configure NoMachine client for Windows
+      ansible.builtin.include_role:
+        name: remote_client_windows_nomachine
+
+- name: Phase 1 - Install and normalize NoMachine clients on Linux
+  hosts: linux
+  gather_facts: true
+  become: true
+  tags:
+    - nomachine:normalize
+    - nomachine:install
+    - nomachine:linux
+  tasks:
+    - name: Install and configure NoMachine client for Linux
+      ansible.builtin.include_role:
+        name: remote_client_linux_nomachine
+
+- name: Phase 2 - De-emphasize legacy RDP/VNC clients
+  hosts: all
+  gather_facts: true
+  tags:
+    - nomachine:normalize
+    - nomachine:deemphasize
+  tasks:
+    - name: De-emphasize legacy remote clients
+      ansible.builtin.include_role:
+        name: deemphasize_legacy_remote
+
+- name: Phase 3 - Validate NoMachine endpoint setup
+  hosts: all
+  gather_facts: false
+  tags:
+    - nomachine:normalize
+    - nomachine:validate
+  tasks:
+    - name: Validate NoMachine installation (macOS)
+      block:
+        - name: Check NoMachine client exists
+          ansible.builtin.stat:
+            path: /Applications/NoMachine.app
+          register: nomachine_check_macos
+
+        - name: Check connection helper script
+          ansible.builtin.stat:
+            path: "{{ ansible_env.HOME }}/.local/bin/nomachine-connect"
+          register: helper_check_macos
+
+        - name: Display macOS validation results
+          ansible.builtin.debug:
+            msg:
+              - "macOS Validation:"
+              - "  NoMachine installed: {{ nomachine_check_macos.stat.exists }}"
+              - "  Connection helper: {{ helper_check_macos.stat.exists }}"
+      when: ansible_system == "Darwin"
+
+    - name: Validate NoMachine installation (Windows)
+      block:
+        - name: Check NoMachine client exists
+          ansible.windows.win_stat:
+            path: "C:\\Program Files\\NoMachine\\bin\\nxclient.exe"
+          register: nomachine_check_windows
+
+        - name: Check connection helper script
+          ansible.windows.win_stat:
+            path: "C:\\Windows\\System32\\nomachine-connect.ps1"
+          register: helper_check_windows
+
+        - name: Display Windows validation results
+          ansible.builtin.debug:
+            msg:
+              - "Windows Validation:"
+              - "  NoMachine installed: {{ nomachine_check_windows.stat.exists }}"
+              - "  Connection helper: {{ helper_check_windows.stat.exists }}"
+      when: ansible_system == "Windows"
+
+    - name: Validate NoMachine installation (Linux)
+      block:
+        - name: Check NoMachine client exists
+          ansible.builtin.stat:
+            path: /usr/NX/bin/nxplayer
+          register: nomachine_check_linux
+
+        - name: Check connection helper script
+          ansible.builtin.stat:
+            path: /usr/local/bin/nomachine-connect
+          register: helper_check_linux
+
+        - name: Display Linux validation results
+          ansible.builtin.debug:
+            msg:
+              - "Linux Validation:"
+              - "  NoMachine installed: {{ nomachine_check_linux.stat.exists }}"
+              - "  Connection helper: {{ helper_check_linux.stat.exists }}"
+      when: ansible_system == "Linux"
+
+- name: Phase 4 - Display normalization summary
+  hosts: all
+  gather_facts: false
+  tags:
+    - nomachine:normalize
+  tasks:
+    - name: Normalization summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ NoMachine endpoint normalization complete"
+          - ""
+          - "All endpoints now have:"
+          - "  - NoMachine client installed and configured"
+          - "  - Standardized connection helpers (nomachine-connect)"
+          - "  - Legacy RDP/VNC clients de-emphasized (break-glass access preserved)"
+          - ""
+          - "To connect to a remote desktop:"
+          - "  macOS/Linux: nomachine-connect [HOSTNAME]"
+          - "  Windows: nomachine-connect [HOSTNAME]"
+          - ""
+          - "Available connections:"
+          - "  - motoko-console (motoko.pangolin-vega.ts.net:4000)"
+          - "  - wintermute-console (wintermute.pangolin-vega.ts.net:4000)"
+          - "  - armitage-console (armitage.pangolin-vega.ts.net:4000)"
+          - ""
+          - "Break-glass access:"
+          - "  macOS/Linux: remote-emergency [HOSTNAME] [rdp|vnc]"
+          - "  Windows: rdp-emergency [HOSTNAME]"
+      run_once: true
+

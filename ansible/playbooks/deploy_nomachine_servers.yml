@@ -1,0 +1,63 @@
+---
+# Playbook: deploy_nomachine_servers.yml
+# Deploys and configures NoMachine Server on Linux, Windows, and macOS
+# Ensures consistent configuration, firewall rules, and user access
+
+- name: Deploy NoMachine Server on Linux (motoko)
+  hosts: linux
+  gather_facts: true
+  become: true
+  tags:
+    - nomachine
+    - nomachine:server
+    - nomachine:linux
+  tasks:
+    - name: Install and configure NoMachine server for Linux
+      ansible.builtin.include_role:
+        name: remote_server_linux_nomachine
+
+- name: Deploy NoMachine Server on Windows (wintermute, armitage)
+  hosts: windows
+  gather_facts: true
+  become: false
+  tags:
+    - nomachine
+    - nomachine:server
+    - nomachine:windows
+  tasks:
+    - name: Install and configure NoMachine server for Windows
+      ansible.builtin.include_role:
+        name: remote_server_windows_nomachine
+
+- name: Deploy NoMachine Server on macOS
+  hosts: macos
+  gather_facts: true
+  tags:
+    - nomachine
+    - nomachine:server
+    - nomachine:macos
+  tasks:
+    - name: Install and configure NoMachine server for macOS
+      ansible.builtin.include_role:
+        name: remote_server_macos_nomachine
+
+- name: Display Server Deployment Summary
+  hosts: all
+  gather_facts: false
+  tags:
+    - nomachine
+    - nomachine:summary
+  tasks:
+    - name: Server summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ NoMachine Server Deployment Complete"
+          - ""
+          - "Server: {{ inventory_hostname }}"
+          - "Address: {{ inventory_hostname }}.pangolin-vega.ts.net"
+          - "Port: 4000"
+          - "Protocol: NX"
+          - "Listen Address: 0.0.0.0 (All Interfaces)"
+          - "Firewall: Tailscale Access Only (100.64.0.0/10)"
+      run_once: false
+

@@ -1,5 +1,0 @@
----
-# Defaults for nomachine_client role
-
-nomachine_port: 4000
-

@@ -1,0 +1,131 @@
+---
+# Playbook: verify_nomachine_endpoints.yml
+# VERIFICATION PLAYBOOK - Run this to check all NoMachine endpoint files
+# This documents EXACT file locations so they can always be found
+#
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/verify_nomachine_endpoints.yml
+
+- name: Verify NoMachine endpoint files - macOS
+  hosts: macos
+  gather_facts: true
+  tasks:
+    - name: Document macOS file locations
+      ansible.builtin.debug:
+        msg:
+          - "macOS (count-zero) - User: {{ ansible_user }} (miket)"
+          - "Expected files:"
+          - "  Helper: /Users/{{ ansible_user }}/.local/bin/nomachine-connect"
+          - "  Break-glass: /Users/{{ ansible_user }}/.local/bin/remote-emergency"
+          - "  Desktop README: /Users/{{ ansible_user }}/Desktop/REMOTE_ACCESS_README.txt"
+          - "  Connection docs: /Users/{{ ansible_user }}/Library/Application Support/NoMachine/CONNECTIONS.txt"
+
+    - name: Verify nomachine-connect helper
+      ansible.builtin.stat:
+        path: "/Users/{{ ansible_user }}/.local/bin/nomachine-connect"
+      register: helper_macos
+
+    - name: Verify remote-emergency script
+      ansible.builtin.stat:
+        path: "/Users/{{ ansible_user }}/.local/bin/remote-emergency"
+      register: emergency_macos
+
+    - name: Verify Desktop README
+      ansible.builtin.stat:
+        path: "/Users/{{ ansible_user }}/Desktop/REMOTE_ACCESS_README.txt"
+      register: readme_macos
+
+    - name: Verify NoMachine connection docs
+      ansible.builtin.stat:
+        path: "/Users/{{ ansible_user }}/Library/Application Support/NoMachine/CONNECTIONS.txt"
+      register: conn_docs_macos
+
+    - name: macOS verification results
+      ansible.builtin.debug:
+        msg:
+          - "macOS Verification:"
+          - "  nomachine-connect: {{ 'EXISTS' if helper_macos.stat.exists else 'MISSING' }}"
+          - "  remote-emergency: {{ 'EXISTS' if emergency_macos.stat.exists else 'MISSING' }}"
+          - "  Desktop README: {{ 'EXISTS' if readme_macos.stat.exists else 'MISSING' }}"
+          - "  Connection docs: {{ 'EXISTS' if conn_docs_macos.stat.exists else 'MISSING' }}"
+
+- name: Verify NoMachine endpoint files - Windows
+  hosts: windows
+  gather_facts: true
+  tasks:
+    - name: Document Windows file locations
+      ansible.builtin.debug:
+        msg:
+          - "Windows ({{ inventory_hostname }}) - User: {{ ansible_user }} (mdt)"
+          - "Expected files:"
+          - "  Helper: C:\\Windows\\System32\\nomachine-connect.ps1"
+          - "  Break-glass: C:\\Windows\\System32\\rdp-emergency.ps1"
+          - "  Desktop README: C:\\Users\\{{ ansible_user }}\\Desktop\\REMOTE_ACCESS_README.txt"
+          - "  Connection docs: C:\\Users\\{{ ansible_user }}\\AppData\\Roaming\\NoMachine\\CONNECTIONS.txt"
+          - "  NoMachine client: C:\\Program Files\\NoMachine\\bin\\nxclient.exe"
+
+    - name: Verify nomachine-connect helper
+      ansible.windows.win_stat:
+        path: "C:\\Windows\\System32\\nomachine-connect.ps1"
+      register: helper_windows
+
+    - name: Verify rdp-emergency script
+      ansible.windows.win_stat:
+        path: "C:\\Windows\\System32\\rdp-emergency.ps1"
+      register: emergency_windows
+
+    - name: Verify Desktop README
+      ansible.windows.win_stat:
+        path: "C:\\Users\\{{ ansible_user }}\\Desktop\\REMOTE_ACCESS_README.txt"
+      register: readme_windows
+
+    - name: Verify NoMachine connection docs
+      ansible.windows.win_stat:
+        path: "C:\\Users\\{{ ansible_user }}\\AppData\\Roaming\\NoMachine\\CONNECTIONS.txt"
+      register: conn_docs_windows
+
+    - name: Verify NoMachine client
+      ansible.windows.win_stat:
+        path: "C:\\Program Files\\NoMachine\\bin\\nxclient.exe"
+      register: nomachine_client_windows
+
+    - name: Windows verification results
+      ansible.builtin.debug:
+        msg:
+          - "Windows ({{ inventory_hostname }}) Verification:"
+          - "  nomachine-connect.ps1: {{ 'EXISTS' if helper_windows.stat.exists else 'MISSING' }}"
+          - "  rdp-emergency.ps1: {{ 'EXISTS' if emergency_windows.stat.exists else 'MISSING' }}"
+          - "  Desktop README: {{ 'EXISTS' if readme_windows.stat.exists else 'MISSING' }}"
+          - "  Connection docs: {{ 'EXISTS' if conn_docs_windows.stat.exists else 'MISSING' }}"
+          - "  NoMachine client: {{ 'EXISTS' if nomachine_client_windows.stat.exists else 'MISSING' }}"
+
+- name: Summary
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: File location reference
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "NoMachine Endpoint File Locations Reference"
+          - "=========================================="
+          - ""
+          - "macOS (count-zero):"
+          - "  User: miket (from inventory: ansible_user)"
+          - "  Helper: /Users/miket/.local/bin/nomachine-connect"
+          - "  Break-glass: /Users/miket/.local/bin/remote-emergency"
+          - "  Desktop README: /Users/miket/Desktop/REMOTE_ACCESS_README.txt"
+          - "  Connection docs: /Users/miket/Library/Application Support/NoMachine/CONNECTIONS.txt"
+          - ""
+          - "Windows (armitage, wintermute):"
+          - "  User: mdt (from inventory: ansible_user)"
+          - "  Helper: C:\\Windows\\System32\\nomachine-connect.ps1"
+          - "  Break-glass: C:\\Windows\\System32\\rdp-emergency.ps1"
+          - "  Desktop README: C:\\Users\\mdt\\Desktop\\REMOTE_ACCESS_README.txt"
+          - "  Connection docs: C:\\Users\\mdt\\AppData\\Roaming\\NoMachine\\CONNECTIONS.txt"
+          - "  NoMachine client: C:\\Program Files\\NoMachine\\bin\\nxclient.exe"
+          - ""
+          - "To verify files, run this playbook or use:"
+          - "  ansible macos -m stat -a 'path=/Users/miket/.local/bin/nomachine-connect' -i inventory/hosts.yml"
+          - "  ansible windows -m win_stat -a 'path=C:\\Windows\\System32\\nomachine-connect.ps1' -i inventory/hosts.yml"
+      run_once: true
+

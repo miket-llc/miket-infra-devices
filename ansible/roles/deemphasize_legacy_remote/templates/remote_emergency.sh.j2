@@ -1,0 +1,50 @@
+#!/bin/bash
+# Break-glass remote access script
+# Use only when NoMachine is unavailable
+# Usage: remote-emergency [HOSTNAME] [rdp|vnc]
+
+HOST="${1:-motoko}"
+PROTOCOL="${2:-rdp}"
+
+case "$PROTOCOL" in
+  rdp)
+    TARGET="${HOST}.pangolin-vega.ts.net:3389"
+    echo "WARNING: Using legacy RDP connection. NoMachine is preferred." >&2
+    echo "Connecting to $TARGET via RDP..." >&2
+    
+    # Try different RDP clients
+    if command -v xfreerdp >/dev/null 2>&1; then
+      xfreerdp /v:"$TARGET" /u:mdt /p:"" /cert:ignore
+    elif command -v remmina >/dev/null 2>&1; then
+      remmina -c "rdp://$TARGET"
+    elif [ -d "/Applications/Microsoft Remote Desktop.app" ]; then
+      open "rdp://$TARGET"
+    else
+      echo "Error: No RDP client found. Install xfreerdp, remmina, or Microsoft Remote Desktop."
+      exit 1
+    fi
+    ;;
+  vnc)
+    TARGET="${HOST}.pangolin-vega.ts.net:5900"
+    echo "WARNING: Using legacy VNC connection. NoMachine is preferred." >&2
+    echo "Connecting to $TARGET via VNC..." >&2
+    
+    # Try different VNC clients
+    if command -v tigervnc-viewer >/dev/null 2>&1; then
+      tigervnc-viewer "$TARGET"
+    elif command -v remmina >/dev/null 2>&1; then
+      remmina -c "vnc://$TARGET"
+    elif [ -d "/System/Library/CoreServices/Screen Sharing.app" ]; then
+      open "vnc://$TARGET"
+    else
+      echo "Error: No VNC client found. Install tigervnc-viewer, remmina, or use Screen Sharing (macOS)."
+      exit 1
+    fi
+    ;;
+  *)
+    echo "Usage: remote-emergency [HOSTNAME] [rdp|vnc]"
+    echo "Example: remote-emergency motoko rdp"
+    exit 1
+    ;;
+esac
+

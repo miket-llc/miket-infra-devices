@@ -1,0 +1,39 @@
+#!/bin/bash
+# NoMachine connection helper for Linux
+# Usage: nomachine-connect [HOSTNAME]
+# Connects to NoMachine server via Tailscale MagicDNS
+
+HOST="${1:-motoko}"
+TARGET="${HOST}.pangolin-vega.ts.net:4000"
+
+# Map hostname to display name
+case "$HOST" in
+  motoko)
+    DISPLAY_NAME="motoko-console"
+    ;;
+  wintermute)
+    DISPLAY_NAME="wintermute-console"
+    ;;
+  armitage)
+    DISPLAY_NAME="armitage-console"
+    ;;
+  *)
+    DISPLAY_NAME="${HOST}-console"
+    ;;
+esac
+
+# Launch NoMachine client with connection
+if [ -f "/usr/NX/bin/nxplayer" ]; then
+  /usr/NX/bin/nxplayer --session "${TARGET}" 2>/dev/null || \
+  /usr/NX/bin/nxclient --session "${TARGET}" 2>/dev/null || \
+  echo "Error: Could not connect to ${DISPLAY_NAME} (${TARGET})"
+  echo "Please ensure NoMachine is installed and Tailscale is connected."
+elif [ -f "/usr/NX/bin/nxclient" ]; then
+  /usr/NX/bin/nxclient --session "${TARGET}" 2>/dev/null || \
+  echo "Error: Could not connect to ${DISPLAY_NAME} (${TARGET})"
+  echo "Please ensure NoMachine is installed and Tailscale is connected."
+else
+  echo "Error: NoMachine not found. Install from https://www.nomachine.com/download"
+  exit 1
+fi
+

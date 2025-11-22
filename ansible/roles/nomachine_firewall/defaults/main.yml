@@ -1,6 +1,0 @@
----
-# Defaults for nomachine_firewall role
-
-nomachine_port: 4000
-tailscale_subnet: 100.64.0.0/10
-

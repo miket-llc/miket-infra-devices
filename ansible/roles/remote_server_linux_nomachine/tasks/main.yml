@@ -102,6 +102,24 @@
   become: true
   notify: restart nxserver
 
+- name: Ensure NoMachine listens on all interfaces (not just Tailscale IP)
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?NXDListenAddress'
+    line: 'NXDListenAddress 0.0.0.0'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+- name: Disable NoMachine automatic firewall management
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableFirewallConfiguration'
+    line: 'EnableFirewallConfiguration 0'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
 - name: Ensure NoMachine service is enabled and started
   ansible.builtin.systemd:
     name: nxserver
@@ -109,6 +127,17 @@
     state: started
     daemon_reload: yes
   become: true
+
+- name: Add mdt user to NoMachine user database
+  ansible.builtin.command:
+    cmd: /usr/NX/bin/nxserver --useradd mdt
+  become: true
+  register: nxserver_useradd
+  failed_when: 
+    - nxserver_useradd.rc != 0
+    - "'already exists' not in nxserver_useradd.stdout"
+    - "'is enabled' not in nxserver_useradd.stdout"
+  changed_when: "'User added' in nxserver_useradd.stdout or 'User created' in nxserver_useradd.stdout"
 
 - name: Wait for NoMachine to be accessible
   ansible.builtin.wait_for:

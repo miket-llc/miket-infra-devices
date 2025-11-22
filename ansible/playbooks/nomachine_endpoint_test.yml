@@ -1,0 +1,134 @@
+---
+# Playbook: nomachine_endpoint_test.yml
+# Testing matrix for NoMachine endpoint connections
+# Execute once server-side NoMachine architecture is fixed
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/nomachine_endpoint_test.yml
+
+- name: Test NoMachine connectivity from macOS
+  hosts: macos
+  gather_facts: true
+  tags:
+    - nomachine:test
+    - nomachine:macos
+  tasks:
+    - name: Test Tailscale connectivity to NoMachine servers
+      ansible.builtin.shell: |
+        for host in motoko wintermute armitage; do
+          echo "Testing $host..."
+          if ping -c 1 ${host}.pangolin-vega.ts.net >/dev/null 2>&1; then
+            echo "✅ $host: Reachable"
+          else
+            echo "❌ $host: Not reachable"
+          fi
+        done
+      register: tailscale_test_macos
+      changed_when: false
+
+    - name: Test NoMachine port accessibility
+      ansible.builtin.shell: |
+        for host in motoko wintermute armitage; do
+          echo "Testing $host:4000..."
+          if timeout 2 bash -c "echo >/dev/tcp/${host}.pangolin-vega.ts.net/4000" 2>/dev/null; then
+            echo "✅ $host:4000: Port open"
+          else
+            echo "❌ $host:4000: Port closed or unreachable"
+          fi
+        done
+      register: port_test_macos
+      changed_when: false
+
+    - name: Verify NoMachine helper script
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/nomachine-connect"
+      register: helper_check_macos
+
+    - name: Display macOS test results
+      ansible.builtin.debug:
+        msg:
+          - "macOS Test Results:"
+          - "  Tailscale connectivity:"
+          - "{{ tailscale_test_macos.stdout_lines }}"
+          - "  Port accessibility:"
+          - "{{ port_test_macos.stdout_lines }}"
+          - "  Helper script: {{ 'Present' if helper_check_macos.stat.exists else 'Missing' }}"
+
+- name: Test NoMachine connectivity from Windows
+  hosts: windows
+  gather_facts: true
+  tags:
+    - nomachine:test
+    - nomachine:windows
+  tasks:
+    - name: Test Tailscale connectivity to NoMachine servers
+      ansible.windows.win_shell: |
+        $hosts = @("motoko", "wintermute", "armitage")
+        foreach ($host in $hosts) {
+          $target = "${host}.pangolin-vega.ts.net"
+          Write-Host "Testing $target..."
+          $result = Test-Connection -ComputerName $target -Count 1 -Quiet -ErrorAction SilentlyContinue
+          if ($result) {
+            Write-Host "✅ $host`: Reachable"
+          } else {
+            Write-Host "❌ $host`: Not reachable"
+          }
+        }
+      register: tailscale_test_windows
+      changed_when: false
+
+    - name: Test NoMachine port accessibility
+      ansible.windows.win_shell: |
+        $hosts = @("motoko", "wintermute", "armitage")
+        foreach ($host in $hosts) {
+          $target = "${host}.pangolin-vega.ts.net"
+          $port = 4000
+          Write-Host "Testing ${target}:${port}..."
+          try {
+            $tcpClient = New-Object System.Net.Sockets.TcpClient
+            $tcpClient.Connect($target, $port)
+            $tcpClient.Close()
+            Write-Host "✅ $host`:${port}: Port open"
+          } catch {
+            Write-Host "❌ $host`:${port}: Port closed or unreachable"
+          }
+        }
+      register: port_test_windows
+      changed_when: false
+
+    - name: Verify NoMachine helper script
+      ansible.windows.win_stat:
+        path: "C:\\Windows\\System32\\nomachine-connect.ps1"
+      register: helper_check_windows
+
+    - name: Display Windows test results
+      ansible.builtin.debug:
+        msg:
+          - "Windows Test Results:"
+          - "  Tailscale connectivity:"
+          - "{{ tailscale_test_windows.stdout_lines }}"
+          - "  Port accessibility:"
+          - "{{ port_test_windows.stdout_lines }}"
+          - "  Helper script: {{ 'Present' if helper_check_windows.stat.exists else 'Missing' }}"
+
+- name: Test summary
+  hosts: all
+  gather_facts: false
+  tags:
+    - nomachine:test
+  tasks:
+    - name: Testing summary
+      ansible.builtin.debug:
+        msg:
+          - "NoMachine Endpoint Testing Complete"
+          - ""
+          - "Next steps:"
+          - "1. Verify all Tailscale connections are reachable"
+          - "2. Verify all NoMachine ports (4000) are accessible"
+          - "3. Test actual NoMachine connections:"
+          - "   macOS: nomachine-connect motoko"
+          - "   Windows: nomachine-connect motoko"
+          - "4. Validate keyboard, clipboard, and display behavior"
+          - "5. Verify SMB-mounted SoR paths work correctly in remote sessions"
+      run_once: true
+

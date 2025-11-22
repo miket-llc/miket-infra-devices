@@ -1,0 +1,91 @@
+---
+# Playbook: verify_nomachine.yml
+# Validates the entire NoMachine stack (Servers and Clients)
+# Runs checks on all nodes to ensure services are up and configs are correct
+
+- name: Verify NoMachine Servers (Linux)
+  hosts: linux
+  gather_facts: true
+  become: true
+  tasks:
+    - name: Check NoMachine service status
+      ansible.builtin.systemd:
+        name: nxserver
+      register: nx_service
+    
+    - name: Assert service is running
+      ansible.builtin.assert:
+        that:
+          - nx_service.status.ActiveState == "active"
+        fail_msg: "NoMachine service is not active!"
+
+    - name: Check Port 4000 is listening
+      ansible.builtin.wait_for:
+        port: 4000
+        timeout: 5
+      register: port_check
+    
+    - name: Verify Listen Address (should be 0.0.0.0)
+      ansible.builtin.shell: ss -tlnp | grep 4000
+      register: listen_check
+      changed_when: false
+      failed_when: "'0.0.0.0:4000' not in listen_check.stdout and ':: :4000' not in listen_check.stdout"
+
+- name: Verify NoMachine Servers (Windows)
+  hosts: windows
+  gather_facts: true
+  become: false
+  tasks:
+    - name: Check Port 4000 is listening
+      ansible.windows.win_shell: Get-NetTCPConnection -LocalPort 4000 -ErrorAction SilentlyContinue
+      register: win_port_check
+      failed_when: win_port_check.rc != 0
+
+    - name: Verify Listen Address (should be 0.0.0.0 or ::)
+      ansible.builtin.assert:
+        that:
+          - "'0.0.0.0' in win_port_check.stdout or '::' in win_port_check.stdout"
+        fail_msg: "NoMachine not listening on all interfaces on Windows!"
+
+- name: Verify NoMachine Clients (macOS)
+  hosts: macos
+  gather_facts: true
+  tasks:
+    - name: Check Helper Script
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/nomachine-connect"
+      register: helper_script
+
+    - name: Assert Helper Script Exists
+      ansible.builtin.assert:
+        that:
+          - helper_script.stat.exists
+          - helper_script.stat.executable
+        fail_msg: "nomachine-connect helper script missing or not executable!"
+
+    - name: Check for Saved Connections
+      ansible.builtin.find:
+        paths: "{{ ansible_env.HOME }}/Documents/NoMachine"
+        patterns: "*.nxs"
+        recurse: yes
+      register: nxs_files
+      
+    - name: Check Connection Documentation
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/Library/Application Support/NoMachine/CONNECTIONS.txt"
+      register: conn_docs
+
+    - name: Assert Documentation Exists
+      ansible.builtin.assert:
+        that:
+          - conn_docs.stat.exists
+        fail_msg: "Connection documentation missing!"
+
+- name: Verification Summary
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Display Success
+      ansible.builtin.debug:
+        msg: "✅ Verification Passed for {{ inventory_hostname }}"
+

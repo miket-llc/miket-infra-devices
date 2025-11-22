@@ -40,6 +40,9 @@ roles:
   - cuda-development
   - docker-desktop
 
+# WinRM credentials (from vault)
+ansible_password: "{{ vault_wintermute_password }}"
+
 # Remote desktop configuration
 remote_protocol: rdp
 remote_port: 3389

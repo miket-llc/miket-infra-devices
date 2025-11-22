@@ -1,0 +1,63 @@
+#!/bin/bash
+# NoMachine connection helper for macOS
+# Usage: nomachine-connect [HOSTNAME]
+# Connects to NoMachine server via Tailscale MagicDNS
+
+HOST="${1:-motoko}"
+SERVER_HOST="${HOST}.pangolin-vega.ts.net"
+SERVER_PORT="4000"
+TARGET="${SERVER_HOST}:${SERVER_PORT}"
+
+# Map hostname to display name
+case "$HOST" in
+  motoko)
+    DISPLAY_NAME="motoko-console"
+    ;;
+  wintermute)
+    DISPLAY_NAME="wintermute-console"
+    ;;
+  armitage)
+    DISPLAY_NAME="armitage-console"
+    ;;
+  *)
+    DISPLAY_NAME="${HOST}-console"
+    ;;
+esac
+
+# Launch NoMachine client with connection
+if [ -d "/Applications/NoMachine.app" ]; then
+  # Method 1: Try nx:// protocol handler (most reliable on macOS)
+  if open "nx://${TARGET}" 2>/dev/null; then
+    echo "Connecting to ${DISPLAY_NAME} (${TARGET})..."
+    exit 0
+  fi
+  
+  # Method 2: Try opening NoMachine app with nx:// URL
+  if open -a NoMachine "nx://${TARGET}" 2>/dev/null; then
+    echo "Connecting to ${DISPLAY_NAME} (${TARGET})..."
+    exit 0
+  fi
+  
+  # Method 3: Use nxclient binary if available (fallback)
+  if [ -f "/Applications/NoMachine.app/Contents/MacOS/nxclient" ]; then
+    /Applications/NoMachine.app/Contents/MacOS/nxclient --session "${TARGET}" 2>/dev/null &
+    echo "Connecting to ${DISPLAY_NAME} (${TARGET})..."
+    echo "Note: If connection fails, try opening NoMachine.app manually and add connection:"
+    echo "  Server: ${SERVER_HOST}"
+    echo "  Port: ${SERVER_PORT}"
+    exit 0
+  fi
+  
+  # Method 4: Just open NoMachine GUI and let user connect manually
+  echo "Opening NoMachine client..."
+  echo "Please add connection manually:"
+  echo "  Server: ${SERVER_HOST}"
+  echo "  Port: ${SERVER_PORT}"
+  echo "  Protocol: NX"
+  open -a NoMachine 2>/dev/null || \
+  /Applications/NoMachine.app/Contents/MacOS/NoMachine 2>/dev/null &
+else
+  echo "Error: NoMachine not found. Install from https://www.nomachine.com/download"
+  exit 1
+fi
+
