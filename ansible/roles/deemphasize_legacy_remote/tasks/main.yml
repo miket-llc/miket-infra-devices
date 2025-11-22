@@ -85,7 +85,7 @@
           - Integrated with our infrastructure
         dest: "C:\\Users\\{{ ansible_user }}\\Desktop\\REMOTE_ACCESS_README.txt"
 
-  when: ansible_system == "Windows"
+  when: ansible_os_family == "Windows"
 
 - name: De-emphasize legacy remote clients on macOS
   block:
