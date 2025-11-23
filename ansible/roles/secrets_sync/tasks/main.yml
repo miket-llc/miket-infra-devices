@@ -1,0 +1,29 @@
+---
+- name: Load secrets mapping
+  ansible.builtin.include_vars:
+    file: "{{ secrets_map_file }}"
+    name: secrets_map
+
+- name: Build list of applicable mappings for host
+  ansible.builtin.set_fact:
+    secrets_sync_applicable: []
+
+- name: Select mappings for this host
+  ansible.builtin.set_fact:
+    secrets_sync_applicable: "{{ secrets_sync_applicable + [item] }}"
+  loop: "{{ secrets_map | dict2items }}"
+  when:
+    - (item.value.hosts is defined and inventory_hostname in item.value.hosts)
+      or (item.value.groups is defined and (group_names | intersect(item.value.groups) | length > 0))
+      or (item.value.hosts is not defined and item.value.groups is not defined)
+
+- name: Fail when no mappings apply to host
+  ansible.builtin.fail:
+    msg: "No secrets defined for host {{ inventory_hostname }} in {{ secrets_map_file }}."
+  when: secrets_sync_applicable | length == 0
+
+- name: Sync secrets for host
+  ansible.builtin.include_tasks: sync_entry.yml
+  loop: "{{ secrets_sync_applicable }}"
+  loop_control:
+    loop_var: secrets_sync_item

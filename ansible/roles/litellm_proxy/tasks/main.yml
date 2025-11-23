@@ -19,15 +19,6 @@
     mode: "0644"
   notify: restart litellm
 
-- name: Render env file
-  template:
-    src: "litellm.env.j2"
-    dest: "{{ litellm_env_path }}"
-    owner: root
-    group: root
-    mode: "0600"
-  notify: restart litellm
-
 - name: Render docker compose
   template:
     src: "docker-compose.yml.j2"
@@ -61,6 +52,29 @@
     state: started
     enabled: true
   when: ansible_os_family == "Debian"
+
+- name: Ensure LiteLLM env file exists (synced from Key Vault)
+  stat:
+    path: "{{ litellm_env_path }}"
+  register: litellm_env_stat
+  changed_when: false
+
+- name: Fail when LiteLLM env file is missing
+  fail:
+    msg: "{{ litellm_env_path }} not found. Run ansible/playbooks/secrets-sync.yml to materialize secrets from Azure Key Vault."
+  when: not litellm_env_stat.stat.exists
+
+- name: Load bearer token from env file
+  set_fact:
+    litellm_runtime_token: "{{ lookup('ini', 'LITELLM_TOKEN type=properties file=' + litellm_env_path) }}"
+  no_log: true
+
+- name: Ensure LiteLLM env file permissions are restrictive
+  file:
+    path: "{{ litellm_env_path }}"
+    owner: root
+    group: root
+    mode: "0600"
 
 - name: Pull and start LiteLLM
   command: docker compose -f "{{ litellm_compose_path }}" up -d
@@ -96,7 +110,7 @@
     url: "http://127.0.0.1:{{ litellm_port }}/v1/models"
     method: GET
     headers:
-      Authorization: "Bearer {{ litellm_bearer_token }}"
+      Authorization: "Bearer {{ litellm_runtime_token | default(litellm_bearer_token) }}"
     status_code: 200
     return_content: yes
   register: models_response
@@ -125,7 +139,7 @@
     url: "http://127.0.0.1:{{ litellm_port }}/v1/chat/completions"
     method: POST
     headers:
-      Authorization: "Bearer {{ litellm_bearer_token }}"
+      Authorization: "Bearer {{ litellm_runtime_token | default(litellm_bearer_token) }}"
       Content-Type: "application/json"
     body_format: json
     body:

@@ -393,7 +393,6 @@ ansible/
 │       └── templates/
 │           ├── litellm.config.yaml.j2    # LiteLLM config template
 │           ├── docker-compose.yml.j2     # Docker Compose template
-│           ├── litellm.env.j2            # Environment variables template
 │           └── litellm.service.j2        # systemd unit template
 └── deploy-litellm.yml         # Main deployment playbook
 ```
@@ -406,8 +405,8 @@ See `ansible/group_vars/motoko.yml` for all configurable variables. Key variable
 - `litellm_port`: Service port (default: `8000`)
 - `armitage_base_url`: Armitage vLLM endpoint
 - `wintermute_base_url`: Wintermute vLLM endpoint
-- `openai_api_key`: OpenAI API key (REQUIRED - set via vault)
-- `litellm_bearer_token`: Bearer token for auth (REQUIRED - set via vault)
+- `openai_api_key`: OpenAI API key (REQUIRED - synced from Azure Key Vault into `/opt/litellm/.env`)
+- `litellm_bearer_token`: Bearer token for auth (REQUIRED - synced from Azure Key Vault into `/opt/litellm/.env`)
 - `openai_budget_monthly_usd`: Monthly spend limit (default: `150`)
 
 ## Support

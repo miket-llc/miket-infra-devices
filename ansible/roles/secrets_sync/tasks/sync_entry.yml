@@ -1,0 +1,69 @@
+---
+- name: Prepare target paths for {{ secrets_sync_item.key }}
+  ansible.builtin.set_fact:
+    secrets_sync_env_file: "{{ secrets_sync_item.value.env_file | expanduser }}"
+    secrets_sync_owner: "{{ secrets_sync_item.value.owner | default('root') }}"
+    secrets_sync_group: "{{ secrets_sync_item.value.group | default('root') }}"
+    secrets_sync_mode: "{{ secrets_sync_item.value.mode | default('0600') }}"
+    secrets_sync_vault: "{{ secrets_sync_item.value.vault | default(secrets_sync_default_vault) }}"
+    secrets_sync_become: "{{ secrets_sync_item.value.become | default(true) }}"
+
+- name: Reset environment content buffer for {{ secrets_sync_item.key }}
+  ansible.builtin.set_fact:
+    secrets_sync_env_content: []
+
+- name: Ensure parent directory exists for {{ secrets_sync_env_file }}
+  ansible.builtin.file:
+    path: "{{ secrets_sync_env_file | dirname }}"
+    state: directory
+    owner: "{{ secrets_sync_owner }}"
+    group: "{{ secrets_sync_group }}"
+    mode: "0755"
+  become: "{{ secrets_sync_become }}"
+
+- name: Fetch secrets from Azure Key Vault for {{ secrets_sync_item.key }}
+  ansible.builtin.command: >
+    {{ secrets_sync_az_cli }} keyvault secret show
+    --vault-name "{{ secrets_sync_vault }}"
+    --name "{{ item.key }}"
+    --query value -o tsv
+  loop: "{{ secrets_sync_item.value.secrets | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: secrets_sync_results
+  changed_when: false
+  no_log: true
+  become: "{{ secrets_sync_become }}"
+  become_user: "{{ secrets_sync_item.value.become_user | default(omit) }}"
+
+- name: Build environment content for {{ secrets_sync_item.key }}
+  ansible.builtin.set_fact:
+    secrets_sync_env_content: "{{ secrets_sync_env_content | default([]) + [item.item.key ~ '=' ~ item.stdout] }}"
+  loop: "{{ secrets_sync_results.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+
+- name: Fail if any secrets are missing for {{ secrets_sync_item.key }}
+  ansible.builtin.fail:
+    msg: "Missing value for secret {{ item.item.key }} (AKV name: {{ item.item.value }})"
+  when: item.stdout is not defined or item.stdout | length == 0
+  loop: "{{ secrets_sync_results.results }}"
+  loop_control:
+    label: "{{ item.item.key }}"
+
+- name: Write env file for {{ secrets_sync_item.key }}
+  ansible.builtin.copy:
+    dest: "{{ secrets_sync_env_file }}"
+    content: "{{ (secrets_sync_env_content | join('\n')) ~ '\n' }}"
+    owner: "{{ secrets_sync_owner }}"
+    group: "{{ secrets_sync_group }}"
+    mode: "{{ secrets_sync_mode }}"
+  notify: Restart secrets sync services
+  become: "{{ secrets_sync_become }}"
+
+- name: Register services to restart for {{ secrets_sync_item.key }}
+  ansible.builtin.set_fact:
+    secrets_sync_restart_services: "{{ secrets_sync_restart_services | default([]) + secrets_sync_item.value.restart_services | default([]) }}"
+
+- name: Define handler for {{ secrets_sync_item.key }}
+  ansible.builtin.meta: flush_handlers

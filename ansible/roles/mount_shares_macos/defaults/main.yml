@@ -3,11 +3,8 @@
 smb_server: "motoko"  # Using Tailscale/Local hostname
 smb_username: "mdt"  # SMB username on motoko (may differ from ansible_user)
 
-# Azure Key Vault Configuration
-# The name of the Key Vault containing the SMB password
-akv_vault_name: "kv-miket-ops" 
-# The name of the secret inside the vault
-akv_secret_name: "motoko-smb-password"
+# Secrets landing zone (populated via ansible/playbooks/secrets-sync.yml)
+smb_env_file: "{{ ansible_env.HOME }}/.mkt/mounts.env"
 
 # User-level mount points under ~/.mkt (no sudo required)
 # For single-user macOS workstations (count-zero, etc.)

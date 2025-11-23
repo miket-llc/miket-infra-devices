@@ -54,6 +54,13 @@ ansible-playbook -i inventory/hosts.yml playbooks/standardize-users.yml
 
 See [Ansible Vault Setup](../../docs/runbooks/ansible-vault-setup.md) for detailed documentation.
 
+### Azure Key Vault → env files (preferred)
+
+- Automation secrets are sourced from Azure Key Vault and written to device-local env files via `ansible/playbooks/secrets-sync.yml`.
+- Add or update secrets by editing `ansible/secrets-map.yml` and rerunning the sync playbook.
+- 1Password remains for human access only; avoid wiring automation to `op` sessions.
+- Keep Ansible Vault limited to bootstrap credentials required to reach AKV.
+
 ## Devices Infrastructure Playbooks
 
 Comprehensive playbooks for deploying and managing mounts, OS cloud sync, and devices view across all platforms.

@@ -1,0 +1,9 @@
+---
+- name: Restart secrets sync services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ secrets_sync_restart_services | default([]) }}"
+  when: secrets_sync_restart_services | default([]) | length > 0
+  become: true

@@ -1,0 +1,9 @@
+---
+# Path to the secrets mapping file consumed by the secrets_sync role
+secrets_map_file: "{{ playbook_dir | default('.') }}/../secrets-map.yml"
+
+# Default Azure Key Vault name used when an entry does not specify one explicitly
+secrets_sync_default_vault: "kv-miket-ops"
+
+# Azure CLI binary path
+secrets_sync_az_cli: "az"

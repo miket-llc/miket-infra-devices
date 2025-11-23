@@ -4,7 +4,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-EnvironmentFile=/etc/miket/storage-credentials.env
+EnvironmentFile={{ data_lifecycle_env_file }}
 ExecStart=/usr/local/bin/space-mirror.sh
 User=root
 

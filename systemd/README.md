@@ -2,7 +2,7 @@
 
 ## Overview
 
-The systemd user service (`op-session.service`) and timer (`op-session.timer`) provide automated 1Password CLI session management on Motoko. This ensures the 1Password CLI remains authenticated for non-interactive Ansible runs.
+The systemd user service (`op-session.service`) and timer (`op-session.timer`) provide optional 1Password CLI session management on Motoko. Use this for personal/interactive workflows only—automation now pulls secrets from Azure Key Vault into env files via `ansible/playbooks/secrets-sync.yml`, and should not depend on `op` sessions.
 
 ## Installation
 

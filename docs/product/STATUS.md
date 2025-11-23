@@ -18,6 +18,7 @@
 | **LiteLLM (motoko)** | ✅ RUNNING | Container healthy, serving requests |
 | **Point-to-Point RDP** | ✅ OPERATIONAL | Port 3389 accessible from count-zero, firewall defense-in-depth configured |
 | **IaC/CaC Compliance** | ✅ COMPLETE | All RDP config consolidated into idempotent role |
+| **Secrets Management** | ✅ STANDARDIZED | Azure Key Vault → env files (`secrets-sync.yml`); 1Password human-only; Ansible Vault deprecated |
 | **Auto-Switcher** | ✅ REMOVED | Energy-wasting code purged from playbooks |
 | **Documentation** | ✅ CLEANED | Standards established, ephemeral files removed, organized structure |
 
