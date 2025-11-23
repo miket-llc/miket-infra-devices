@@ -1,6 +1,8 @@
 ---
 # Ansible role: remote_client_macos
-# Documents and ensures RDP/VNC clients are available on macOS workstations
+# DEPRECATED: This role is deprecated. Use remote_client_macos_nomachine instead.
+# RDP/VNC clients are no longer installed (architecturally retired 2025-11-22).
+# NoMachine is the sole remote desktop solution.
 
 - name: Check if Microsoft Remote Desktop is installed
   ansible.builtin.stat:

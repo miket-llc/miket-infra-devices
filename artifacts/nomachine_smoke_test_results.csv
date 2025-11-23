@@ -1,0 +1,4 @@
+timestamp,server_name,host,port,os,nomachine_reachable,nomachine_latency_ms,nomachine_error,rdp_compliant,rdp_message,vnc_compliant,vnc_message,overall_status
+2025-11-23T18:53:19.463999,motoko,motoko.pangolin-vega.ts.net,4000,Linux,True,1.12,,True,PASS: RDP port 3389 not listening (architectural compliance),True,PASS: VNC port 5900 not listening (architectural compliance),PASS
+2025-11-23T18:53:19.466129,wintermute,wintermute.pangolin-vega.ts.net,4000,Windows,True,2.04,,True,PASS: RDP port 3389 not listening (architectural compliance),True,PASS: VNC port 5900 not listening (architectural compliance),PASS
+2025-11-23T18:53:23.489458,armitage,armitage.pangolin-vega.ts.net,4000,Windows,True,4.54,,True,PASS: RDP port 3389 not listening (architectural compliance),True,PASS: VNC port 5900 not listening (architectural compliance),PASS

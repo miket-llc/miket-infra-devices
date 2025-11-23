@@ -1,6 +1,6 @@
 ---
 # Playbook: validate_nomachine_deployment.yml
-# Validates that NoMachine is properly deployed and VNC/RDP are disabled
+# Validates that NoMachine is properly deployed (RDP/VNC architecturally retired)
 # Tests connectivity, firewall rules, and service states
 
 - name: Validate NoMachine deployment on Linux servers
@@ -30,24 +30,24 @@
         timeout: 5
       register: nx_port
 
-    - name: Verify VNC ports are NOT listening
+    - name: Verify deprecated VNC ports are NOT listening (architectural validation)
       ansible.builtin.shell: |
         if ss -tulnp | grep -E ':(5900|5901|5902|5903)'; then
-          echo "FAIL: VNC ports still listening"
+          echo "FAIL: VNC ports still listening (architectural violation)"
           exit 1
         else
-          echo "PASS: No VNC ports listening"
+          echo "PASS: No VNC ports listening (architectural compliance)"
         fi
       register: vnc_check
       changed_when: false
 
-    - name: Verify VNC packages are removed
+    - name: Verify deprecated VNC packages are removed (architectural validation)
       ansible.builtin.shell: |
         if dpkg -l | grep -E 'tigervnc|x11vnc|vino' | grep -v 'un '; then
-          echo "WARNING: VNC packages still installed"
+          echo "WARNING: VNC packages still installed (architectural violation)"
           exit 1
         else
-          echo "PASS: VNC packages removed"
+          echo "PASS: VNC packages removed (architectural compliance)"
         fi
       register: vnc_pkg_check
       changed_when: false
@@ -71,9 +71,9 @@
         msg:
           - "✅ NoMachine server: {{ 'RUNNING' if nx_service.status.ActiveState == 'active' else 'FAILED' }}"
           - "✅ NoMachine port 4000: {{ 'LISTENING' if nx_port is succeeded else 'FAILED' }}"
-          - "✅ VNC removal: {{ vnc_check.stdout }}"
-          - "✅ VNC packages: {{ vnc_pkg_check.stdout if vnc_pkg_check is defined else 'N/A' }}"
-          - "✅ Firewall: {{ firewall_check.stdout if firewall_check is defined else 'N/A' }}"
+          - "✅ VNC removal: {{ vnc_check.stdout if vnc_check is defined and vnc_check.stdout is defined else 'N/A' }}"
+          - "✅ VNC packages: {{ vnc_pkg_check.stdout if vnc_pkg_check is defined and vnc_pkg_check.stdout is defined else 'N/A' }}"
+          - "✅ Firewall: {{ firewall_check.stdout if firewall_check is defined and firewall_check.stdout is defined else 'N/A' }}"
 
 - name: Validate NoMachine deployment on Windows servers
   hosts: workstations:&windows
@@ -89,10 +89,16 @@
       register: nx_binary_win
 
     - name: Verify NoMachine service is running
-      win_service_info:
-        name: nxserver
+      win_shell: |
+        $service = Get-Service -Name nxservice -ErrorAction SilentlyContinue
+        if ($service -and $service.Status -eq 'Running') {
+          Write-Output "RUNNING"
+        } else {
+          Write-Output "NOT_RUNNING"
+          exit 1
+        }
       register: nx_service_win
-      failed_when: nx_service_win.services[0].state != 'running'
+      changed_when: false
 
     - name: Verify NoMachine is listening on port 4000
       win_shell: |
@@ -105,27 +111,27 @@
         }
       register: nx_port_win
 
-    - name: Verify RDP is NOT listening (or is disabled)
+    - name: Verify deprecated RDP is NOT listening (architectural validation)
       win_shell: |
         $rdpService = Get-Service -Name TermService -ErrorAction SilentlyContinue
         $rdpListener = Get-NetTCPConnection -LocalPort 3389 -ErrorAction SilentlyContinue
         
         if ($rdpService.Status -eq "Stopped" -or -not $rdpListener) {
-          Write-Output "PASS: RDP is disabled or not listening"
+          Write-Output "PASS: RDP is disabled or not listening (architectural compliance)"
         } else {
-          Write-Output "WARNING: RDP may still be active"
+          Write-Output "WARNING: RDP may still be active (architectural violation)"
           exit 1
         }
       register: rdp_check_win
       failed_when: false
 
-    - name: Verify RDP port 3389 is blocked by firewall
+    - name: Verify deprecated RDP port 3389 is blocked by firewall (architectural validation)
       win_shell: |
         $blockRule = Get-NetFirewallRule -Name "Block-RDP-All" -ErrorAction SilentlyContinue
         if ($blockRule -and $blockRule.Enabled -eq $true) {
-          Write-Output "PASS: RDP is blocked by firewall"
+          Write-Output "PASS: RDP is blocked by firewall (architectural compliance)"
         } else {
-          Write-Output "WARNING: RDP block rule not found or disabled"
+          Write-Output "WARNING: RDP block rule not found or disabled (architectural violation)"
           exit 1
         }
       register: rdp_firewall_win
@@ -146,7 +152,7 @@
       ansible.builtin.debug:
         msg:
           - "✅ NoMachine server: {{ 'INSTALLED' if nx_binary_win.stat.exists else 'MISSING' }}"
-          - "✅ NoMachine service: {{ nx_service_win.services[0].state | upper }}"
+          - "✅ NoMachine service: {{ nx_service_win.stdout | upper }}"
           - "✅ NoMachine port: {{ nx_port_win.stdout }}"
           - "✅ RDP status: {{ rdp_check_win.stdout }}"
           - "✅ RDP firewall: {{ rdp_firewall_win.stdout }}"
@@ -197,8 +203,8 @@
           - "=========================================="
           - ""
           - "✅ All NoMachine servers should be running"
-          - "✅ All VNC services should be stopped and removed"
-          - "✅ Windows RDP should be disabled and firewalled"
+          - "✅ All deprecated VNC services should be stopped and removed (architectural compliance)"
+          - "✅ Windows RDP should be disabled and firewalled (architectural compliance)"
           - "✅ All NoMachine clients should be installed"
           - "✅ Firewall rules should restrict to Tailscale only"
           - ""

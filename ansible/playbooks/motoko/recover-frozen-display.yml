@@ -79,9 +79,9 @@
         timeout: 10
       when: gnome_errors.stdout | int > 1000
 
-    - name: Restart TigerVNC to connect to fresh session
+    - name: Restart NoMachine server to connect to fresh session
       ansible.builtin.systemd:
-        name: tigervnc.service
+        name: nxserver.service
         state: restarted
 
     - name: Wait for services to stabilize
@@ -94,7 +94,7 @@
         state: started
       loop:
         - gdm.service
-        - tigervnc.service
+        - nxserver.service
         - tailscaled.service
         - docker.service
 
@@ -102,7 +102,7 @@
       ansible.builtin.shell: |
         uptime
         free -h
-        systemctl status gdm tigervnc --no-pager | grep "Active:"
+        systemctl status gdm nxserver --no-pager | grep "Active:"
       register: final_status
       changed_when: false
 

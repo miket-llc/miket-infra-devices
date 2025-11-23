@@ -1,23 +1,38 @@
 ---
 # Playbook: remote_detect.yml
-# Detects existing remote desktop servers on Linux hosts (primarily Motoko)
+# Detects NoMachine server status on Linux hosts (primarily Motoko)
+# RDP/VNC detection removed - NoMachine is the sole remote desktop solution
 
-- name: Detect remote desktop servers
+- name: Detect NoMachine server
   hosts: motoko
   gather_facts: true
   tags:
     - remote
     - remote:detect
   tasks:
-    - name: Run detection role
-      ansible.builtin.include_role:
-        name: remote_detect_linux
+    - name: Check NoMachine server is installed
+      ansible.builtin.stat:
+        path: /usr/NX/bin/nxserver
+      register: nomachine_binary
+
+    - name: Check NoMachine service status
+      ansible.builtin.systemd:
+        name: nxserver
+      register: nomachine_service
+
+    - name: Check NoMachine port 4000 is listening
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 4000
+        timeout: 5
+      register: nomachine_port
+      failed_when: false
 
     - name: Set facts for Ansible inventory
       ansible.builtin.set_fact:
-        remote_server_type: "{{ 'vnc' if (remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active) else ('xrdp' if remote_detection.xrdp.active else 'none') }}"
-        remote_server_active: "{{ remote_detection.xrdp.active or remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active }}"
-        remote_display_server: "{{ remote_detection.display_server.type }}"
+        remote_server_type: "nomachine"
+        remote_server_active: "{{ nomachine_service.status.ActiveState == 'active' and nomachine_port is succeeded }}"
+        remote_port: 4000
 
     - name: Display detection summary
       ansible.builtin.debug:
@@ -25,6 +40,7 @@
           - "Detection Summary:"
           - "  Server Type: {{ remote_server_type }}"
           - "  Active: {{ remote_server_active }}"
-          - "  Display Server: {{ remote_display_server }}"
-          - "  Recommended: {{ remote_detection.recommended_server }}"
+          - "  Port: {{ remote_port }}"
+          - "  Service Status: {{ nomachine_service.status.ActiveState }}"
+          - "  Port Listening: {{ 'YES' if nomachine_port is succeeded else 'NO' }}"
 

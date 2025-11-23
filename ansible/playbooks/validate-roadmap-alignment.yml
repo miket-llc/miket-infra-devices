@@ -60,9 +60,10 @@
           
           5. Cloudflare Access Policy Mapping
              - Compare device personas vs Cloudflare Access groups
-             - Verify remote app policies (NoMachine, RDP, SSH)
+             - Verify remote app policies (NoMachine, SSH)
              - Check certificate enrollment status
              Status: NOT IMPLEMENTED (Wave 4)
+             Note: RDP/VNC retired 2025-11-22, NoMachine is sole remote desktop solution
           
           ===================================================================
           Implementation Timeline: Wave 4 (2026-02 → 2026-03)

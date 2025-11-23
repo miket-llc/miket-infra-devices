@@ -9,6 +9,7 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-creation
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-alignment-protocol
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion
 ---
 
 # Device Infrastructure Execution Tracker
@@ -18,26 +19,30 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 ## Agent Status
 | Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |---------|----------------|-----------------------------|-------------|---------------|
-| **Codex-CA-001** (Chief Architect) | 🚧 Active | Windows mounts + OS cloud redeployed on wintermute; playbooks fixed for vault loading | Validate post-logoff mounts and run validation play (wintermute) | 2025-11-24 |
-| **Codex-PM-011** (Product Manager) | 🚧 Active | Created `ROADMAP_ALIGNMENT_PROTOCOL.md` with weekly/monthly/quarterly review cadences | Execute first weekly alignment check (Monday 2025-11-25) | 2025-11-25 |
-| **Codex-PD-002** (Platform DevOps) | ⏸️ Standby | Ready to codify CI validation for device playbooks | Define lint/smoke pipeline for mounts + remote access | 2025-11-27 |
+| **Codex-CA-001** (Chief Architect) | 🚧 Active | Wave 1 completion: RDP/VNC cleanup + NoMachine standardization | Review deliverables, increment version to v1.7.0 | 2025-11-24 |
+| **Codex-PM-011** (Product Manager) | 🚧 Active | Created `ROADMAP_ALIGNMENT_PROTOCOL.md` with weekly/monthly/quarterly review cadences | Review Wave 1 completion, increment version, update roadmap | 2025-11-24 |
+| **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
 | **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
 | **Codex-SEC-004** (Security/IAM) | ⏸️ Standby | Pending Entra compliance inputs | Map device compliance attestations + Cloudflare Access | 2025-11-28 |
 | **Codex-SRE-005** (SRE/Observability) | ⏸️ Standby | Pending Wave 3 observability work | Define SLIs/SLOs for mounts/sync/remote access | 2025-11-28 |
-| **Codex-NET-006** (Networking) | ⏸️ Standby | Awaiting miket-infra ACL timeline | Validate MagicDNS/Tailscale path selection for devices | 2025-11-25 |
+| **Codex-NET-006** (Networking) | ✅ Complete | Removed RDP/VNC from 9 playbooks, updated firewall/detect playbooks | Ready for Wave 2 Cloudflare Access mapping | 2025-11-25 |
 | **Codex-REL-007** (Release) | ⏸️ Standby | Ready to enforce release gates | Draft promotion/rollback plan for device waves | 2025-11-29 |
 | **Codex-FIN-008** (FinOps) | ⏸️ Standby | Budget review pending | Estimate NoMachine licensing + Azure Monitor costs | 2025-11-29 |
-| **Codex-DOC-009** (DocOps) | ✅ Complete | Published documentation standards, linked artifacts, and alignment protocol | Monitor compliance with new standards | 2025-11-26 |
-| **Codex-UX-010** (UX/DX) | ⏸️ Standby | Preparing UX survey + TTFD metrics | Define UX instrumentation for remote access flows | 2025-11-30 |
-| **Codex-MAC-012** (macOS Engineer) | ⏸️ Standby | Mounts/loop-prevention validated on count-zero | Harden onboarding automation and LaunchAgent tests | 2025-11-26 |
+| **Codex-DOC-009** (DocOps) | ✅ Complete | Updated all remote access docs to NoMachine-only, created installation runbook | Monitor compliance with new standards | 2025-11-26 |
+| **Codex-UX-010** (UX/DX) | ✅ Complete | Standardized NoMachine client configs, created installation runbook | Ready for remote access UX instrumentation (Wave 4) | 2025-11-30 |
+| **Codex-MAC-012** (macOS Engineer) | 🚧 Active | Mounts/loop-prevention validated on count-zero | Execute DEV-011: NoMachine E2E testing from count-zero | 2025-11-24 |
 | **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts + OS cloud redeployed; scheduled tasks installed | Re-verify mounts/sync after user logoff/logon | 2025-11-24 |
 | **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 
 ## Current Wave Focus (Wave 1: Onboarding & Credentials)
+- ✅ **COMPLETE:** RDP/VNC cleanup from all playbooks (DEV-010)
+- ✅ **COMPLETE:** NoMachine client standardization (DEV-005)
+- ✅ **COMPLETE:** NoMachine connectivity smoke tests
+- ✅ **COMPLETE:** Documentation updates (NoMachine-only)
+- 🚧 **IN PROGRESS:** NoMachine E2E testing from count-zero (DEV-011)
 - Verify wintermute mounts and health writer after logoff/logon.
 - Validate Tailscale ACL alignment and MagicDNS behavior with miket-infra.
 - Package onboarding/offboarding playbooks with per-user credential retrieval.
-- Add mount + remote-access smoke tests to CI (lint + targeted Ansible check-mode).
 - **NEW:** Execute weekly alignment checks (every Monday) per ROADMAP_ALIGNMENT_PROTOCOL.md.
 
 ## Blockers
@@ -57,6 +62,10 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | First weekly alignment check executed | Codex-PM-011 | 2025-11-23 | [WEEKLY_ALIGNMENT_2025_11_23](../communications/WEEKLY_ALIGNMENT_2025_11_23.md) |
 | NoMachine server connectivity validated | Codex-MAC-012 | 2025-11-23 | All 3 servers PASS (port 4000 reachable via Tailscale) |
 | Created DEV-010, DEV-011, DEV-012 tasks | Codex-PM-011 | 2025-11-23 | [DAY0_BACKLOG](./DAY0_BACKLOG.md) |
+| DEV-010: RDP/VNC cleanup complete | Codex-NET-006 | 2025-11-23 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion) |
+| DEV-005: NoMachine client standardization | Codex-UX-010 | 2025-11-23 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion), [runbook](../runbooks/nomachine-client-installation.md) |
+| NoMachine connectivity smoke tests | Codex-PD-002 | 2025-11-23 | [tests/nomachine_smoke.py](../../tests/nomachine_smoke.py), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion) |
+| Remote access documentation updated | Codex-DOC-009 | 2025-11-23 | [README.md](../../README.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

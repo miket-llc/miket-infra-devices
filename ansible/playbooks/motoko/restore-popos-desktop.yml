@@ -111,6 +111,6 @@
           - "✅ Pop!_OS desktop features restored"
           - "✅ Pop Shell tiling enabled"
           - "✅ System76 extensions enabled"
-          - "⚠️  Monitor system for stability - Pop Shell may have issues with VNC clients"
+          - "⚠️  Monitor system for stability - Pop Shell may have issues with remote desktop clients"
           - "If freezes occur, see: devices/motoko/COMPLETE_ROOT_CAUSE_ANALYSIS.md"
 

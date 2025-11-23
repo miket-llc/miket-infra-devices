@@ -1,6 +1,8 @@
 ---
 # Ansible role: remote_client_linux
-# Installs RDP clients (Remmina and freerdp) on Linux workstations
+# DEPRECATED: This role is deprecated. Use remote_client_linux_nomachine instead.
+# RDP/VNC clients are no longer installed (architecturally retired 2025-11-22).
+# NoMachine is the sole remote desktop solution.
 
 - name: Install Remmina and RDP plugin
   ansible.builtin.apt:

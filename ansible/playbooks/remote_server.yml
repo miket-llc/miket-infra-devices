@@ -1,9 +1,9 @@
 ---
 # Playbook: remote_server.yml
-# Configures remote desktop servers per host OS
-# ALL PLATFORMS NOW USE NOMACHINE (replacing VNC on Linux, RDP on Windows)
+# Configures NoMachine remote desktop servers per host OS
+# NoMachine is the sole remote desktop solution (RDP/VNC architecturally retired 2025-11-22)
 
-- name: Configure Linux remote desktop servers (NoMachine replaces VNC)
+- name: Configure Linux remote desktop servers (NoMachine only)
   hosts: workstations:&linux
   gather_facts: true
   become: true
@@ -11,7 +11,7 @@
     - remote
     - remote:server
   tasks:
-    - name: Install and configure NoMachine for Linux (includes VNC removal)
+    - name: Install and configure NoMachine for Linux
       ansible.builtin.include_role:
         name: remote_server_linux_nomachine
 
@@ -25,7 +25,7 @@
           firewall:
             type: "{{ 'ufw' if (ansible_facts.pkg_mgr == 'apt') else 'none' }}"
 
-- name: Configure Windows remote desktop servers (NoMachine replaces RDP)
+- name: Configure Windows remote desktop servers (NoMachine only)
   hosts: workstations:&windows
   gather_facts: true
   become: false
@@ -39,13 +39,13 @@
       ansible.builtin.include_role:
         name: remote_server_windows_nomachine
 
-    - name: Disable RDP server (NoMachine replaces it)
+    - name: Disable deprecated RDP server (architectural compliance)
       ansible.builtin.include_role:
         name: disable_windows_rdp
       vars:
         rdp_disable_completely: true
 
-- name: Configure macOS remote desktop servers (NoMachine replaces VNC)
+- name: Configure macOS remote desktop servers (NoMachine only)
   hosts: macos
   gather_facts: true
   tags:

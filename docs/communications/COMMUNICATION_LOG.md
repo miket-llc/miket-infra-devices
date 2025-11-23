@@ -1,3 +1,120 @@
+## 2025-11-23 – Wave 1 Completion: RDP/VNC Cleanup & NoMachine Client Standardization {#2025-11-23-wave1-completion}
+
+### Context
+Executed Wave 1 completion initiative per `docs/product/NEXT_INITIATIVE_PROMPT.md`. Removed all RDP/VNC references from codebase and standardized NoMachine client configurations across all devices. Multi-persona execution protocol followed (Codex-NET-006, Codex-UX-010, Codex-PD-002, Codex-DOC-009).
+
+### Actions Taken
+
+#### DEV-010: RDP/VNC Cleanup (Codex-NET-006)
+- ✅ **Removed RDP/VNC references from 9 playbooks:**
+  - `ansible/playbooks/motoko/recover-frozen-display.yml` - Updated to use NoMachine service
+  - `ansible/playbooks/motoko/restore-popos-desktop.yml` - Removed VNC client reference
+  - `ansible/playbooks/rollback_nomachine.yml` - Deprecated (marked as no longer functional)
+  - `ansible/playbooks/remote_firewall.yml` - Updated to NoMachine-only
+  - `ansible/playbooks/remote_detect.yml` - Rewritten for NoMachine detection only
+  - `ansible/playbooks/remote_clients.yml` - Deprecated (redirects to remote_clients_nomachine.yml)
+  - `ansible/playbooks/validate_nomachine_deployment.yml` - Updated validation messages
+  - `ansible/playbooks/validate-roadmap-alignment.yml` - Removed RDP reference
+  - `ansible/playbooks/remote_server.yml` - Updated comments to reflect NoMachine-only
+- ✅ **Updated template:** `ansible/playbooks/templates/remote_cheatsheet.md.j2` - Rewritten for NoMachine-only
+- ✅ **Deprecated roles:** Added deprecation notices to `remote_client_linux`, `remote_client_macos`, `remote_client_windows`
+- ✅ **Architectural compliance:** All validation checks verify RDP/VNC ports are NOT listening
+
+#### DEV-005: NoMachine Client Standardization (Codex-UX-010)
+- ✅ **Verified existing roles:** Confirmed `remote_client_*_nomachine` roles already standardized
+- ✅ **Verified connection profiles:** All use port 4000, Tailscale hostnames (.pangolin-vega.ts.net)
+- ✅ **Created installation runbook:** `docs/runbooks/nomachine-client-installation.md`
+  - Automated installation procedures
+  - Manual installation fallback
+  - Connection profile standardization
+  - Troubleshooting guide
+  - TTFC (Time to First Connection) targets
+
+#### Smoke Tests (Codex-PD-002)
+- ✅ **Created smoke test:** `tests/nomachine_smoke.py`
+  - Tests NoMachine connectivity (port 4000) to all servers
+  - Validates architectural compliance (RDP/VNC ports NOT listening)
+  - Measures connection latency
+  - Generates CSV reports
+- ✅ **Added Makefile target:** `make test-nomachine` for easy execution
+
+#### Documentation Updates (Codex-DOC-009)
+- ✅ **Updated README.md:** Complete rewrite of remote desktop section for NoMachine-only
+  - Removed all RDP/VNC connection methods
+  - Updated protocols/ports table
+  - Updated troubleshooting section
+  - Added smoke test documentation
+- ✅ **Created runbook:** `docs/runbooks/nomachine-client-installation.md`
+
+### Outcomes
+
+**Architectural Compliance:**
+- ✅ Zero functional RDP/VNC references in playbooks (only deprecation notices and validation checks)
+- ✅ All playbooks updated to NoMachine-only architecture
+- ✅ Template files updated for NoMachine-only
+- ✅ Deprecated roles marked appropriately
+
+**Standardization:**
+- ✅ NoMachine client installation standardized across all platforms
+- ✅ Connection profiles use consistent configuration (port 4000, Tailscale hostnames)
+- ✅ Installation runbook provides clear procedures for all platforms
+
+**Testing:**
+- ✅ Smoke test validates NoMachine connectivity and architectural compliance
+- ✅ Makefile target enables easy test execution
+- ✅ Test results saved to CSV for tracking
+
+**Documentation:**
+- ✅ README.md updated to reflect NoMachine-only architecture
+- ✅ Installation runbook created with comprehensive procedures
+- ✅ All documentation aligns with architectural decision (RDP/VNC retired 2025-11-22)
+
+### Files Modified
+
+**Playbooks:**
+- `ansible/playbooks/motoko/recover-frozen-display.yml`
+- `ansible/playbooks/motoko/restore-popos-desktop.yml`
+- `ansible/playbooks/rollback_nomachine.yml`
+- `ansible/playbooks/remote_firewall.yml`
+- `ansible/playbooks/remote_detect.yml`
+- `ansible/playbooks/remote_clients.yml`
+- `ansible/playbooks/validate_nomachine_deployment.yml`
+- `ansible/playbooks/validate-roadmap-alignment.yml`
+- `ansible/playbooks/remote_server.yml`
+- `ansible/playbooks/templates/remote_cheatsheet.md.j2`
+
+**Roles:**
+- `ansible/roles/remote_client_linux/tasks/main.yml` (deprecation notice)
+- `ansible/roles/remote_client_macos/tasks/main.yml` (deprecation notice)
+- `ansible/roles/remote_client_windows/tasks/main.yml` (deprecation notice)
+
+**Tests:**
+- `tests/nomachine_smoke.py` (new)
+- `Makefile` (added test-nomachine target)
+
+**Documentation:**
+- `README.md` (remote desktop section rewritten)
+- `docs/runbooks/nomachine-client-installation.md` (new)
+
+### Next Steps
+
+**DEV-011:** NoMachine E2E testing from count-zero (Codex-MAC-012)
+- Execute testing procedure per `docs/runbooks/nomachine-client-testing.md`
+- Document test results in COMMUNICATION_LOG
+- Update DAY0_BACKLOG when complete
+
+**Wave 1 Completion:**
+- All DEV-010, DEV-005 tasks complete
+- DEV-011 pending (E2E testing)
+- Ready for Product Manager review and version increment
+
+### Sign-Off
+**Codex-CA-001 (Chief Architect):** ✅ **WAVE 1 CLEANUP COMPLETE**  
+**Date:** November 23, 2025  
+**Status:** Ready for Product Manager review
+
+---
+
 ## 2025-11-20 – Chief Architect Comprehensive Review {#2025-11-20-architect-review}
 
 ### Context

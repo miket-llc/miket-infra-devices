@@ -691,152 +691,130 @@ grep -A 2 ansible_become_password ansible/group_vars/all/auth.yml
 
 ## Tailnet Remote Desktop
 
-This repository includes comprehensive Ansible automation for standardizing remote desktop access across the Tailscale tailnet. All connections are restricted to the Tailscale network (100.64.0.0/10) and use MagicDNS for hostname resolution.
+This repository includes comprehensive Ansible automation for standardizing remote desktop access across the Tailscale tailnet using **NoMachine** as the sole remote desktop solution. All connections are restricted to the Tailscale network (100.64.0.0/10) and use MagicDNS for hostname resolution.
+
+**Architecture:** RDP and VNC have been architecturally retired (2025-11-22). NoMachine is the only remote desktop protocol in use.
 
 ### Overview
 
-- **Linux Servers**: VNC (x11vnc) for **session sharing** - accesses existing kiosk/auto-login sessions
-- **Windows Servers**: Native RDP with Network Level Authentication (NLA) - shares existing sessions
-- **macOS**: VNC/Screen Sharing (RDP not natively supported)
-- **Security**: All firewall rules restrict access to Tailscale subnet only
+- **All Platforms**: NoMachine (port 4000) - unified protocol across Linux, Windows, and macOS
+- **Session Sharing**: NoMachine supports session sharing on all platforms
+- **Security**: All firewall rules restrict access to Tailscale subnet only (100.64.0.0/10)
 - **Zero Public Exposure**: No ports exposed to the internet
-- **Session Sharing**: Linux uses VNC to share the existing desktop session (not create new ones like xrdp)
+- **Standardized Configuration**: Port 4000, Tailscale MagicDNS hostnames, NX protocol
 
 ### Quick Start
 
-#### 1. Detect Existing Remote Desktop Servers
+#### 1. Deploy NoMachine Servers
 
-Run detection on Motoko to identify any existing VNC or RDP servers:
+Install and configure NoMachine servers on all hosts:
 
 ```bash
 cd ansible
-ansible-playbook playbooks/remote_detect.yml -l motoko --tags remote:detect
+# Deploy to all servers
+ansible-playbook -i inventory/hosts.yml playbooks/remote_server.yml --tags remote:server
+
+# Or use Makefile
+make deploy-nomachine-servers
 ```
 
 This will:
-- Detect xrdp, x11vnc, TigerVNC, GNOME Remote Desktop, Vino
-- Identify display server (Xorg vs Wayland)
-- Detect firewall type (ufw, firewalld, iptables)
-- Recommend server type based on existing setup
+- Install NoMachine server on Linux (motoko)
+- Install NoMachine server on Windows (wintermute, armitage)
+- Disable deprecated RDP/VNC services (architectural compliance)
+- Configure firewall rules for Tailscale-only access (port 4000)
 
-#### 2. Configure Remote Desktop Servers
+#### 2. Deploy NoMachine Clients
 
-Install and configure remote desktop servers on all hosts:
-
-```bash
-# Configure all servers
-ansible-playbook playbooks/remote_server.yml --tags remote:server
-
-# Or target specific groups
-ansible-playbook playbooks/remote_server.yml -l linux_servers --tags remote:server  # VNC for session sharing
-ansible-playbook playbooks/remote_server.yml -l windows_servers --tags remote:server  # RDP
-```
-
-**Note**: Linux servers use VNC (x11vnc) to share the existing desktop session. This is important for kiosk/auto-login setups like Motoko where you need to access the same session that boots automatically.
-
-#### 3. Install Remote Desktop Clients
-
-Install clients on workstations:
+Install NoMachine clients on all workstations:
 
 ```bash
-ansible-playbook playbooks/remote_clients.yml --tags remote:client
+# Deploy to all clients
+ansible-playbook -i inventory/hosts.yml playbooks/remote_clients_nomachine.yml --tags remote:client
+
+# Or use Makefile
+make deploy-nomachine-clients
 ```
 
-#### 4. Configure Firewall Rules
+This will:
+- Install NoMachine client on macOS (count-zero)
+- Install NoMachine client on Windows (wintermute, armitage)
+- Install NoMachine client on Linux (motoko)
+- Create standardized connection profiles for all servers
 
-Ensure firewall rules are configured (idempotent):
+#### 3. Validate Deployment
+
+Verify NoMachine deployment:
 
 ```bash
-ansible-playbook playbooks/remote_firewall.yml --tags remote:firewall
+# Run validation playbook
+ansible-playbook -i inventory/hosts.yml playbooks/validate_nomachine_deployment.yml
+
+# Or run smoke tests
+make test-nomachine
+
+# Or use Makefile
+make validate-nomachine
 ```
-
-#### 5. Generate Connection Cheatsheet
-
-Create a connection reference document:
-
-```bash
-ansible-playbook playbooks/remote_cheatsheet.yml --tags remote:docs
-```
-
-The cheatsheet will be generated at `docs/remote-desktop-cheatsheet.md`.
 
 ### Connection Methods
 
-#### Linux Clients
+#### All Platforms (NoMachine)
 
-**GUI (Remmina)**:
+**GUI**:
+- **macOS**: Launch `/Applications/NoMachine.app`
+- **Windows**: Start Menu > NoMachine
+- **Linux**: Applications menu > NoMachine or run `nxplayer`
+
+**CLI Helper Script**:
 ```bash
-remmina
-# Then add VNC connection: motoko.pangolin-vega.ts.net:5900
-# Protocol: VNC
+# All platforms support the same helper script
+nomachine motoko      # Connect to motoko (Linux)
+nomachine wintermute   # Connect to wintermute (Windows)
+nomachine armitage    # Connect to armitage (Windows)
 ```
 
-**CLI (VNC)**:
+**Direct Connection**:
 ```bash
-# Using helper script
-vnc motoko
+# macOS
+open "nx://motoko.pangolin-vega.ts.net:4000"
 
-# Or directly with vncviewer
-vncviewer motoko.pangolin-vega.ts.net:5900
+# Windows PowerShell
+& "C:\Program Files\NoMachine\bin\nxplayer.exe" --session motoko.pangolin-vega.ts.net:4000
 
-# Or with Remmina CLI
-remmina -c vnc://motoko.pangolin-vega.ts.net:5900
+# Linux
+/usr/NX/bin/nxplayer --session motoko.pangolin-vega.ts.net:4000
 ```
 
-#### Windows Clients
+**Pre-configured Profiles**:
+Connection profiles are automatically created in:
+- **macOS/Linux**: `~/Documents/NoMachine/*.nxs`
+- **Windows**: `%USERPROFILE%\Documents\NoMachine\*.nxs`
 
-**GUI (MSTSC)**:
-```powershell
-# Launch Remote Desktop Connection
-mstsc
-
-# Or via command line
-mstsc /v:motoko.pangolin-vega.ts.net:3389
-```
-
-**CLI Helper**:
-```powershell
-rdp motoko
-```
-
-#### macOS Clients
-
-**RDP (Microsoft Remote Desktop)**:
-```bash
-# Install from Mac App Store first, then:
-rdp motoko
-
-# Or open directly
-open -a "Microsoft Remote Desktop" "rdp://full%20address=s:motoko.pangolin-vega.ts.net:3389"
-```
-
-**VNC (Screen Sharing - built-in)**:
-```bash
-vnc motoko
-
-# Or directly
-open vnc://motoko.pangolin-vega.ts.net:5900
-```
+Profiles include: `motoko.nxs`, `wintermute.nxs`, `armitage.nxs`
 
 ### Protocols and Ports
 
-| Host | Protocol | Port | MagicDNS Hostname | Notes |
-|------|----------|------|-------------------|-------|
-| motoko | VNC | 5900 | `motoko.pangolin-vega.ts.net:5900` | Shares existing kiosk session |
-| wintermute | RDP | 3389 | `wintermute.pangolin-vega.ts.net:3389` | Windows RDP |
-| armitage | RDP | 3389 | `armitage.pangolin-vega.ts.net:3389` | Windows RDP |
-| count-zero | VNC | 5900 | `count-zero.pangolin-vega.ts.net:5900` | macOS Screen Sharing |
+| Host | Protocol | Port | MagicDNS Hostname | OS | Notes |
+|------|----------|------|-------------------|----|-------|
+| motoko | NoMachine | 4000 | `motoko.pangolin-vega.ts.net:4000` | Linux (Pop!_OS) | Session sharing supported |
+| wintermute | NoMachine | 4000 | `wintermute.pangolin-vega.ts.net:4000` | Windows | Session sharing supported |
+| armitage | NoMachine | 4000 | `armitage.pangolin-vega.ts.net:4000` | Windows | Session sharing supported |
 
-### Why VNC for Linux (Session Sharing)
+**Deprecated Ports (Architectural Compliance)**:
+- **RDP (3389)**: Disabled and firewalled on all Windows hosts
+- **VNC (5900)**: Removed from all Linux hosts
 
-Linux servers use VNC (x11vnc) instead of RDP because:
+### Why NoMachine (Unified Solution)
 
-1. **Session Sharing**: VNC can attach to and share the existing desktop session
-2. **Kiosk Mode**: For auto-login setups like Motoko, you need to access the same session that boots automatically
-3. **xrdp Limitation**: xrdp creates new sessions, not the existing one - this breaks kiosk mode workflows
-4. **Troubleshooting**: Sometimes you need to see the exact screen that's displayed locally (e.g., for 1Password credentials)
+NoMachine is used across all platforms because:
 
-**Important**: The VNC server (x11vnc) shares the existing X11 session. When you connect, you see exactly what's on the physical display - the same kiosk session that auto-logged in.
+1. **Unified Protocol**: Single protocol (NX) for all platforms - simplifies management
+2. **Session Sharing**: Supports session sharing on Linux, Windows, and macOS
+3. **Performance**: Better performance than VNC/RDP, especially over Tailscale
+4. **Cross-Platform**: Native clients for all platforms with consistent UX
+5. **Security**: Encrypted connections by default, Tailscale-only access
+6. **Architectural Alignment**: Aligns with miket-infra architecture decision (RDP/VNC retired 2025-11-22)
 
 ### Troubleshooting
 
@@ -848,141 +826,162 @@ ping motoko.pangolin-vega.ts.net
 tailscale status
 ```
 
+**Test NoMachine port connectivity**:
+```bash
+# Test port 4000
+nc -zv motoko.pangolin-vega.ts.net 4000
+# Expected: Connection to motoko.pangolin-vega.ts.net port 4000 [tcp/*] succeeded!
+```
+
 **Check firewall rules**:
 ```bash
 # Linux (ufw)
-sudo ufw status | grep 3389
+sudo ufw status | grep 4000
+# Expected: 4000/tcp ALLOW 100.64.0.0/10
 
-# Linux (firewalld)
-sudo firewall-cmd --list-all | grep 3389
-
-# Windows
-Get-NetFirewallRule -Name "*RDP*" | Select-Object DisplayName, Enabled, Direction
+# Windows PowerShell
+Get-NetFirewallRule -Name "*NoMachine*" | Select-Object DisplayName, Enabled, Direction
 ```
 
-**Verify service is running**:
+**Verify NoMachine service is running**:
 ```bash
 # Linux
-systemctl status xrdp
-systemctl status xrdp-sesman
+systemctl status nxserver
+# Expected: active (running)
 
-# Windows
-Get-Service TermService
+# Windows PowerShell
+Get-Service nxservice
+# Expected: Running
 ```
 
-#### Wayland Issues (Linux)
+#### NoMachine Service Issues
 
-RDP works best with Xorg. If you're on Wayland:
+**Linux**:
+```bash
+# Check NoMachine logs
+sudo journalctl -u nxserver -n 50
 
-1. **Switch to Xorg session** at login (select "GNOME on Xorg" or "Xorg")
-2. **Or configure xorgxrdp** for Wayland compatibility (advanced)
-3. **Check display server**:
-   ```bash
-   echo $XDG_SESSION_TYPE
-   loginctl show-session $(loginctl | grep $(whoami) | awk '{print $1}') -p Type
-   ```
+# Restart NoMachine service
+sudo systemctl restart nxserver
+```
 
-#### Blank Screen Fixes
+**Windows**:
+```powershell
+# Check Event Viewer
+Get-EventLog -LogName Application -Source NoMachine -Newest 10
 
-- Ensure desktop environment is running: `systemctl --user status gnome-session`
-- Check xrdp logs: `sudo journalctl -u xrdp -n 50`
-- Verify Xorg session file exists: `ls /usr/share/xsessions/Xorg.desktop`
-- Try reconnecting with different session type in Remmina
+# Restart NoMachine service
+Restart-Service nxservice
+```
+
+#### MagicDNS Not Resolving
+
+If MagicDNS fails, use Tailscale IPs directly:
+
+```bash
+# Get IPs
+tailscale status | grep -E "(motoko|wintermute|armitage)"
+
+# Create IP-based connection profile
+# Host: 100.x.x.x (instead of hostname.pangolin-vega.ts.net)
+# Port: 4000
+```
 
 #### Firewall Checks
 
 **Linux**:
 ```bash
-# UFW
-sudo ufw status numbered
+# Verify NoMachine port is open for Tailscale subnet
+sudo ufw status | grep 4000
+# Expected: 4000/tcp ALLOW 100.64.0.0/10
 
-# Firewalld
-sudo firewall-cmd --list-all-zones
-
-# Verify Tailscale subnet restriction
-sudo ufw status | grep "100.64.0.0/10"
+# Verify deprecated ports are blocked
+sudo ufw status | grep -E "(3389|5900)"
+# Expected: No output (ports not open)
 ```
 
 **Windows**:
 ```powershell
-# Check RDP firewall rule
-Get-NetFirewallRule -Name "RDP-Tailscale" | Format-List
+# Check NoMachine firewall rule
+Get-NetFirewallRule -Name "NoMachine-Tailscale" | Format-List
 
-# Verify Tailscale subnet
-Get-NetFirewallRule -Name "RDP-Tailscale" | Get-NetFirewallAddressFilter
+# Verify Tailscale subnet restriction
+Get-NetFirewallRule -Name "NoMachine-Tailscale" | Get-NetFirewallAddressFilter
+# Expected: RemoteAddress: 100.64.0.0/10
 ```
 
 ### Playbook Tags
 
-All remote desktop playbooks support these tags for targeted execution:
+All NoMachine playbooks support these tags for targeted execution:
 
 - `remote` - All remote desktop tasks
-- `remote:detect` - Detection tasks only
 - `remote:server` - Server configuration only
 - `remote:client` - Client installation only
 - `remote:firewall` - Firewall configuration only
-- `remote:docs` - Documentation generation only
+- `nomachine:client` - NoMachine client installation only
+- `validate` - Validation tasks only
 
 Example:
 ```bash
-# Only configure servers, skip clients and firewall
-ansible-playbook playbooks/remote_server.yml --tags remote:server
+# Only configure servers
+ansible-playbook -i inventory/hosts.yml playbooks/remote_server.yml --tags remote:server
 
-# Only generate cheatsheet
-ansible-playbook playbooks/remote_cheatsheet.yml --tags remote:docs
+# Only install clients
+ansible-playbook -i inventory/hosts.yml playbooks/remote_clients_nomachine.yml --tags remote:client
+
+# Run validation
+ansible-playbook -i inventory/hosts.yml playbooks/validate_nomachine_deployment.yml --tags validate
 ```
 
 ### Inventory Groups
 
-New inventory groups for remote desktop management:
+Inventory groups for NoMachine management:
 
-- `tailnet_all` - All hosts in the tailnet
-- `linux_servers` - Linux hosts serving remote desktop (motoko)
-- `windows_servers` - Windows hosts serving remote desktop (wintermute, armitage)
-- `workstations` - All workstations that need clients installed
+- `workstations` - All workstations (clients)
+- `linux_servers` - Linux hosts serving NoMachine (motoko)
+- `windows_servers` - Windows hosts serving NoMachine (wintermute, armitage)
+- `macos` - macOS hosts (count-zero)
 
 ### Host Variables
 
 Each host can override defaults in `host_vars/HOSTNAME.yml`:
 
 ```yaml
-# Remote desktop configuration
-remote_protocol: rdp  # or 'vnc'
-remote_port: 3389
-restrict_to_tailscale: true
-desktop_env: "GNOME"  # Linux only
-display_server: "Xorg"  # Linux only
+# NoMachine configuration
+nomachine_port: 4000  # Default port
+nomachine_version: "9.2.18-3"  # Server version
 ```
 
 ### Security Notes
 
 - **No Public Exposure**: All firewall rules restrict access to Tailscale subnet (100.64.0.0/10)
 - **MagicDNS**: Use `.pangolin-vega.ts.net` hostnames for automatic resolution
-- **NLA Enabled**: Windows RDP requires Network Level Authentication
-- **SSL Certificates**: xrdp uses self-signed certificates (ignore warnings in clients)
+- **Encrypted Connections**: NoMachine uses encrypted connections by default
+- **Architectural Compliance**: RDP (3389) and VNC (5900) ports are disabled and firewalled
 
-### Migration Notes
+### Smoke Tests
 
-If Motoko currently runs a VNC server:
+Run NoMachine connectivity smoke tests:
 
-1. **Detection** will identify the existing server
-2. **Server setup** will install xrdp alongside (or replace if you stop VNC)
-3. **Both can coexist** - use different ports (VNC: 5900, RDP: 3389)
-4. **To revert**: Stop xrdp services and restart your VNC server
-
-**Revert to VNC**:
 ```bash
-sudo systemctl stop xrdp xrdp-sesman
-sudo systemctl disable xrdp xrdp-sesman
-sudo systemctl start x11vnc  # or your VNC server
-sudo systemctl enable x11vnc
+# Run smoke tests
+make test-nomachine
+
+# Or directly
+python3 tests/nomachine_smoke.py
 ```
+
+Tests validate:
+- NoMachine servers are reachable on port 4000
+- RDP/VNC ports are NOT listening (architectural compliance)
+- Connection latency and responsiveness
 
 ### Additional Resources
 
-- Generated cheatsheet: `docs/remote-desktop-cheatsheet.md`
-- Ansible roles: `ansible/roles/remote_*`
-- Playbooks: `ansible/playbooks/remote_*.yml`
+- **Client Installation**: `docs/runbooks/nomachine-client-installation.md`
+- **Client Testing**: `docs/runbooks/nomachine-client-testing.md`
+- **Ansible Roles**: `ansible/roles/remote_*_nomachine/`
+- **Playbooks**: `ansible/playbooks/remote_*_nomachine.yml`
 
 ## Contributing
 

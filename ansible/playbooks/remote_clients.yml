@@ -1,42 +1,29 @@
 ---
 # Playbook: remote_clients.yml
-# Installs BOTH RDP and VNC viewers on ALL workstations
-# Every workstation needs both viewers to connect to any other workstation
+# DEPRECATED: Use remote_clients_nomachine.yml instead
+# This playbook is kept for historical reference only.
+# NoMachine is the sole remote desktop solution (RDP/VNC retired 2025-11-22)
 
-- name: Install Linux RDP/VNC clients (both viewers on all Linux workstations)
-  hosts: workstations:&linux
-  gather_facts: true
-  become: true
+- name: Display deprecation notice
+  hosts: localhost
+  gather_facts: false
   tags:
     - remote
     - remote:client
   tasks:
-    - name: Install Remmina, FreeRDP, and VNC viewers
-      ansible.builtin.include_role:
-        name: remote_client_linux
-
-- name: Install Windows RDP/VNC clients (both viewers on all Windows workstations)
-  hosts: workstations:&windows
-  gather_facts: true
-  become: false
-  tags:
-    - remote
-    - remote:client
-  vars:
-    ansible_become: false  # Explicitly disable become for Windows
-  tasks:
-    - name: Install MSTSC (RDP) and TigerVNC viewer (VNC)
-      ansible.builtin.include_role:
-        name: remote_client_windows
-
-- name: Configure macOS remote desktop clients (both viewers)
-  hosts: workstations:&macos
-  gather_facts: true
-  tags:
-    - remote
-    - remote:client
-  tasks:
-    - name: Document and configure macOS clients (RDP + VNC)
-      ansible.builtin.include_role:
-        name: remote_client_macos
+    - name: Playbook deprecated
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "PLAYBOOK DEPRECATED"
+          - "=========================================="
+          - ""
+          - "⚠️  This playbook is deprecated"
+          - "RDP and VNC clients are no longer installed"
+          - "NoMachine is the sole remote desktop solution"
+          - ""
+          - "Use instead:"
+          - "  ansible-playbook -i inventory/hosts.yml playbooks/remote_clients_nomachine.yml"
+          - ""
+          - "Reference: docs/product/NEXT_INITIATIVE_PROMPT.md"
 

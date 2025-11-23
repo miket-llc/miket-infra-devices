@@ -1,6 +1,8 @@
 ---
 # Ansible role: remote_client_windows
-# Ensures RDP client (MSTSC) and VNC viewer are available on Windows workstations
+# DEPRECATED: This role is deprecated. Use remote_client_windows_nomachine instead.
+# RDP/VNC clients are no longer installed (architecturally retired 2025-11-22).
+# NoMachine is the sole remote desktop solution.
 
 - name: Check if MSTSC is available
   win_stat:

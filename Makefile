@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -35,6 +35,7 @@ help:
 	@echo "  health-check            - Check health of all services"
 	@echo "  test-context            - Run context window smoke tests"
 	@echo "  test-burst              - Run burst load tests"
+	@echo "  test-nomachine          - Run NoMachine connectivity smoke tests"
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  WINTERMUTE_HOST         - Wintermute hostname (default: wintermute.tailnet.local)"
@@ -186,6 +187,10 @@ test-context: $(ARTIFACTS_DIR)
 test-burst: $(ARTIFACTS_DIR)
 	@echo "Running burst load tests..."
 	@python3 $(TESTS_DIR)/burst_test.py || echo "Burst tests failed - check $(ARTIFACTS_DIR)/burst_test_results.csv"
+
+test-nomachine: $(ARTIFACTS_DIR)
+	@echo "Running NoMachine connectivity smoke tests..."
+	@python3 $(TESTS_DIR)/nomachine_smoke.py || echo "NoMachine tests failed - check $(ARTIFACTS_DIR)/nomachine_smoke_test_results.csv"
 
 # ========================================
 # NoMachine Remote Desktop Deployment
