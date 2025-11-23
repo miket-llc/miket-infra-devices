@@ -185,22 +185,20 @@ DISPLAY=:0 timeout 3 bash -c 'dbus-send --session --type=method_call --dest=org.
 - `devices/motoko/scripts/gnome-health-monitor.sh` - Alternative monitoring
 
 ### Layer 3: Extension Management
-**Permanently Disabled:** `pop-shell@system76.com`
-**Reason:** Known incompatibility with VNC clients sending malformed X11 events
+**Status (Updated):** Pop Shell and Pop!_OS extensions have been **RESTORED** to restore full desktop functionality.
 
-**Still Enabled (Tested Safe):**
-- pop-shell@system76.com (Watchdog set to Log-Only mode)
-- ding@rastersoft.com
-- blur-my-shell@aunetx (monitor for issues)
-- caffeine@patapon.info
-- extension-list@tu.berry
-- system76-power@system76.com
-- ubuntu-appindicators@ubuntu.com
+**Currently Enabled:**
+- pop-shell@system76.com (Tiling window manager - RESTORED)
+- system76-power@system76.com (System76 power management)
+- pop-cosmic@system76.com (COSMIC desktop - RESTORED)
+- cosmic-workspaces@system76.com (COSMIC workspaces - RESTORED)
+- cosmic-dock@system76.com (COSMIC dock - RESTORED)
+- ding@rastersoft.com (Desktop icons)
+- ubuntu-appindicators@ubuntu.com (App indicators)
+- caffeine@patapon.info (Prevent screen lock)
+- extension-list@tu.berry (Extension manager)
 
-**Disabled (Conflict Risk):**
-- pop-cosmic@system76.com (Conflict with Warp/GPU)
-- cosmic-workspaces@system76.com (Conflict with Warp/GPU)
-- cosmic-dock@system76.com (Conflict with Warp/GPU)
+**Note:** Pop Shell was previously disabled due to VNC client compatibility issues. It has been re-enabled to restore Pop!_OS tiling functionality. Monitor system stability - if freezes recur, see recovery procedures below.
 
 ---
 

@@ -1,0 +1,104 @@
+---
+# Roadmap Alignment Validation Playbook (Skeleton - Wave 4 Implementation)
+#
+# Purpose: Automated validation of miket-infra-devices roadmap alignment with miket-infra v2.0
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/validate-roadmap-alignment.yml
+#
+# Validates:
+#   1. Tailscale ACL alignment (device tags vs miket-infra ACL policy)
+#   2. Entra ID compliance evidence format
+#   3. Azure Monitor log shipping integration
+#   4. NoMachine connectivity
+#   5. Cloudflare Access policy mapping
+#
+# Output: Alignment validation report with pass/fail per integration point
+#
+# NOTE: Full implementation planned for Wave 4 (2026-02+)
+
+- name: "Roadmap Alignment Validation (Skeleton)"
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    validation_report_path: "/tmp/roadmap-alignment-report-{{ ansible_date_time.iso8601_basic_short }}.txt"
+    
+  tasks:
+    - name: Display validation placeholder
+      ansible.builtin.debug:
+        msg: |
+          ===================================================================
+          Roadmap Alignment Validation (Skeleton - Wave 4 Implementation)
+          ===================================================================
+          
+          This playbook will validate cross-project integration points:
+          
+          1. Tailscale ACL Alignment
+             - Fetch miket-infra Terraform state for current ACL
+             - Compare device tags vs ACL tagOwners
+             - Verify SSH rules match device configurations
+             Status: NOT IMPLEMENTED (Wave 4)
+          
+          2. Entra ID Compliance Evidence
+             - Check /space/devices/<host>/compliance file format
+             - Verify required fields (FileVault, BitLocker, EDR)
+             - Compare against Entra compliance schema
+             Status: NOT IMPLEMENTED (Wave 4)
+          
+          3. Azure Monitor Integration
+             - Send test log events from each device
+             - Query Azure Monitor workspace for received events
+             - Verify schema matches miket-infra dashboard queries
+             Status: NOT IMPLEMENTED (Wave 4)
+          
+          4. NoMachine Connectivity
+             - Test connection from each client to server
+             - Measure latency, throughput, session establishment
+             - Verify fallback paths (Tailscale → LAN)
+             Status: NOT IMPLEMENTED (Wave 4)
+          
+          5. Cloudflare Access Policy Mapping
+             - Compare device personas vs Cloudflare Access groups
+             - Verify remote app policies (NoMachine, RDP, SSH)
+             - Check certificate enrollment status
+             Status: NOT IMPLEMENTED (Wave 4)
+          
+          ===================================================================
+          Implementation Timeline: Wave 4 (2026-02 → 2026-03)
+          ===================================================================
+          
+          For now, perform manual validation per:
+          docs/product/ROADMAP_ALIGNMENT_PROTOCOL.md
+          
+          Weekly/Monthly/Quarterly review checklists document the manual
+          validation process until automation is implemented.
+          
+    - name: Create placeholder validation report
+      ansible.builtin.copy:
+        content: |
+          Roadmap Alignment Validation Report
+          Generated: {{ ansible_date_time.iso8601 }}
+          Status: PLACEHOLDER (Wave 4 Implementation Pending)
+          
+          Integration Points:
+          - Tailscale ACL Alignment: NOT IMPLEMENTED
+          - Entra ID Compliance Evidence: NOT IMPLEMENTED
+          - Azure Monitor Integration: NOT IMPLEMENTED
+          - NoMachine Connectivity: NOT IMPLEMENTED
+          - Cloudflare Access Policy Mapping: NOT IMPLEMENTED
+          
+          Next Steps:
+          1. Follow manual validation process in ROADMAP_ALIGNMENT_PROTOCOL.md
+          2. Execute weekly alignment checks (every Monday)
+          3. Execute monthly deep reviews (first Monday of month)
+          4. Implement automation playbooks in Wave 4
+          
+          Reference: docs/product/ROADMAP_ALIGNMENT_PROTOCOL.md
+        dest: "{{ validation_report_path }}"
+        mode: '0644'
+        
+    - name: Display report location
+      ansible.builtin.debug:
+        msg: "Validation report created at: {{ validation_report_path }}"
+

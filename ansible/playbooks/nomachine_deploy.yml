@@ -14,21 +14,17 @@
       ansible.builtin.set_fact:
         ansible_become: "{{ 'yes' if ansible_facts.system != 'Win32NT' else 'no' }}"
       when: ansible_facts.system is defined
-
-    - name: Install and configure NoMachine server (macOS)
+    - name: Install and configure NoMachine server
       ansible.builtin.include_role:
-        name: remote_server_macos_nomachine
-      when: ansible_distribution == 'MacOSX' or ansible_system == 'Darwin'
+        name: nomachine_server
 
-    - name: Install and configure NoMachine server (Windows)
+    - name: Configure NoMachine firewall
       ansible.builtin.include_role:
-        name: remote_server_windows_nomachine
-      when: ansible_os_family == 'Windows'
-
-    - name: Install and configure NoMachine server (Linux)
-      ansible.builtin.include_role:
-        name: remote_server_linux_nomachine
-      when: ansible_system == 'Linux'
+        name: nomachine_firewall
+      vars:
+        remote_detection:
+          firewall:
+            type: "{{ 'ufw' if (ansible_facts.pkg_mgr | default('apt')) == 'apt' else ('firewalld' if (ansible_facts.pkg_mgr | default('')) == 'yum' else 'none') }}"
 
 - name: Deploy NoMachine clients
   hosts: workstations
@@ -37,20 +33,13 @@
     - nomachine
     - nomachine:client
   tasks:
-    - name: Install NoMachine client (macOS)
+    - name: Set become based on OS
+      ansible.builtin.set_fact:
+        ansible_become: "{{ 'yes' if ansible_facts.system != 'Win32NT' else 'no' }}"
+      when: ansible_facts.system is defined
+    - name: Install NoMachine client
       ansible.builtin.include_role:
-        name: remote_client_macos_nomachine
-      when: ansible_distribution == 'MacOSX' or ansible_system == 'Darwin'
-
-    - name: Install NoMachine client (Windows)
-      ansible.builtin.include_role:
-        name: remote_client_windows_nomachine
-      when: ansible_os_family == 'Windows'
-
-    - name: Install NoMachine client (Linux)
-      ansible.builtin.include_role:
-        name: remote_client_linux_nomachine
-      when: ansible_system == 'Linux'
+        name: nomachine_client
 
 - name: Display deployment summary
   hosts: localhost
@@ -70,9 +59,8 @@
           - "  - armitage.pangolin-vega.ts.net:4000"
           - "  - count-zero.pangolin-vega.ts.net:4000"
           - ""
-          - "Clients installed on all workstations with saved sessions:"
-          - "  - motoko"
-          - "  - wintermute"
-          - "  - armitage"
+          - "Clients installed on all workstations"
           - ""
-          - "Connect using NoMachine client UI."
+          - "Connect using: nomachine HOSTNAME"
+          - "Example: nomachine motoko"
+

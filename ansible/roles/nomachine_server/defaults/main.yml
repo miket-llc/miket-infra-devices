@@ -1,0 +1,9 @@
+---
+# Defaults for nomachine_server role
+
+nomachine_port: 4000
+nomachine_service_name: nxserver
+nomachine_install_path_linux: /usr/NX
+nomachine_install_path_windows: "C:\\Program Files\\NoMachine"
+nomachine_install_path_macos: /Applications/NoMachine.app
+

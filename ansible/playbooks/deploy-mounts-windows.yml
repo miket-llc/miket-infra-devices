@@ -7,32 +7,49 @@
   gather_facts: no
   vars:
     smb_server_override: "192.168.1.195"  # Override for LAN connectivity
-    smb_password: "{{ lookup('env', 'MOTOKO_SMB_PASSWORD') | default('', true) }}"
-
+  
   pre_tasks:
-    - name: Fail if SMB password is not available in the environment
-      fail:
-        msg: >-
-          MOTOKO_SMB_PASSWORD is not set. Run the secrets-sync playbook first or export it manually
-          (e.g. source /etc/miket/storage-credentials.env).
-      when: smb_password | length == 0
-
-    - name: Set SMB password fact
-      set_fact:
-        smb_password: "{{ smb_password | trim }}"
-        smb_server: "{{ smb_server_override | default(smb_server) }}"
+    - name: Load windows group vault vars
+      include_vars:
+        file: "{{ playbook_dir }}/../group_vars/windows/vault.yml"
       no_log: true
     
-    - name: Ensure Scripts directory exists
-      win_file:
-        path: C:\Scripts
-        state: directory
+    - name: Load host vault vars
+      include_vars:
+        file: "{{ playbook_dir }}/../host_vars/{{ inventory_hostname }}/vault.yml"
+      no_log: true
     
-    - name: Deploy drive mapping script
-      win_template:
-        src: mount_shares_windows/templates/map_drives.ps1.j2
-        dest: C:\Scripts\Map-MikeTDrives.ps1
+    - name: Fetch SMB password from Azure Key Vault
+      shell: /usr/bin/az keyvault secret show --vault-name kv-miket-ops --name motoko-smb-password --query value -o tsv
+      register: smb_password_result
+      delegate_to: localhost
+      run_once: true
+      no_log: true
+      connection: local
     
+    - name: Set SMB password fact
+      set_fact:
+        smb_password: "{{ smb_password_result.stdout | trim }}"
+        smb_server: "{{ smb_server_override | default(smb_server) }}"
+      no_log: true
+
+    - name: Set WinRM password for wintermute
+      set_fact:
+        ansible_password: "{{ vault_wintermute_password }}"
+      no_log: true
+      when: inventory_hostname == "wintermute"
+
+    - name: Set WinRM password for armitage
+      set_fact:
+        ansible_password: "{{ vault_armitage_password }}"
+      no_log: true
+      when: inventory_hostname == "armitage"
+    
+    - name: Include mount_shares_windows role
+      include_role:
+        name: mount_shares_windows
+  
+  tasks:
     - name: Create scheduled task for drive mapping at logon
       win_shell: |
         $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Scripts\Map-MikeTDrives.ps1"
@@ -56,7 +73,6 @@
       debug:
         var: map_result.stdout_lines
   
-  tasks:
     - name: Deployment complete
       debug:
         msg: |
@@ -70,4 +86,3 @@
           2. Verify drives: Open File Explorer, check X:, S:, T:
           3. Run loop check: C:\Scripts\Check-OneDriveLoops.ps1
           4. Verify OneDrive settings exclude network drives
-

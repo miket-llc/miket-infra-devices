@@ -1,81 +1,65 @@
+---
+document_title: "miket-infra-devices Execution Tracker"
+author: "Codex-PM-011 (miket-infra-devices)"
+last_updated: 2025-11-23
+status: Active
+related_initiatives:
+  - initiatives/device-onboarding
+linked_communications:
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-creation
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-alignment-protocol
+---
+
 # Device Infrastructure Execution Tracker
 
-Use this tracker to record agent activation status and deliverable completion. Update immediately after completing tasks.
+Use this tracker to record persona activation, deliverables, and dependencies. Update immediately after completing tasks and log every substantive change in `COMMUNICATION_LOG.md`.
 
-| Agent | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
-|-------|----------------|------------------------------|-------------|---------------|
-| **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | GNOME Freeze Resolution: Multi-contractor integration + Pop Shell disabled + Watchdog deployed | Monitor stability | 2025-11-21 |
-| **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
-| **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | USB mount configuration deployed · Time Machine fixed · SMB shares active | Monitor Cloud Backplane | 2025-01-XX |
-| **Codex-DEVOPS-004** (DevOps Engineer) | ✅ Complete | Data Lifecycle Automation Deployed · Directory Structure Enforced · Password/Exclude Files Automated | Monitor backups | 2025-01-XX |
-| **Codex-DOC-005** (Documentation Architect) | ✅ Complete | GNOME Freeze Documentation: Complete root cause analysis · Quick reference · All tracking docs updated · Merged to main | Monitor compliance | 2025-11-21 |
+## Agent Status
+| Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
+|---------|----------------|-----------------------------|-------------|---------------|
+| **Codex-CA-001** (Chief Architect) | 🚧 Active | Windows mounts + OS cloud redeployed on wintermute; playbooks fixed for vault loading | Validate post-logoff mounts and run validation play (wintermute) | 2025-11-24 |
+| **Codex-PM-011** (Product Manager) | 🚧 Active | Created `ROADMAP_ALIGNMENT_PROTOCOL.md` with weekly/monthly/quarterly review cadences | Execute first weekly alignment check (Monday 2025-11-25) | 2025-11-25 |
+| **Codex-PD-002** (Platform DevOps) | ⏸️ Standby | Ready to codify CI validation for device playbooks | Define lint/smoke pipeline for mounts + remote access | 2025-11-27 |
+| **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
+| **Codex-SEC-004** (Security/IAM) | ⏸️ Standby | Pending Entra compliance inputs | Map device compliance attestations + Cloudflare Access | 2025-11-28 |
+| **Codex-SRE-005** (SRE/Observability) | ⏸️ Standby | Pending Wave 3 observability work | Define SLIs/SLOs for mounts/sync/remote access | 2025-11-28 |
+| **Codex-NET-006** (Networking) | ⏸️ Standby | Awaiting miket-infra ACL timeline | Validate MagicDNS/Tailscale path selection for devices | 2025-11-25 |
+| **Codex-REL-007** (Release) | ⏸️ Standby | Ready to enforce release gates | Draft promotion/rollback plan for device waves | 2025-11-29 |
+| **Codex-FIN-008** (FinOps) | ⏸️ Standby | Budget review pending | Estimate NoMachine licensing + Azure Monitor costs | 2025-11-29 |
+| **Codex-DOC-009** (DocOps) | ✅ Complete | Published documentation standards, linked artifacts, and alignment protocol | Monitor compliance with new standards | 2025-11-26 |
+| **Codex-UX-010** (UX/DX) | ⏸️ Standby | Preparing UX survey + TTFD metrics | Define UX instrumentation for remote access flows | 2025-11-30 |
+| **Codex-MAC-012** (macOS Engineer) | ⏸️ Standby | Mounts/loop-prevention validated on count-zero | Harden onboarding automation and LaunchAgent tests | 2025-11-26 |
+| **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts + OS cloud redeployed; scheduled tasks installed | Re-verify mounts/sync after user logoff/logon | 2025-11-24 |
+| **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 
----
+## Current Wave Focus (Wave 1: Onboarding & Credentials)
+- Verify wintermute mounts and health writer after logoff/logon.
+- Validate Tailscale ACL alignment and MagicDNS behavior with miket-infra.
+- Package onboarding/offboarding playbooks with per-user credential retrieval.
+- Add mount + remote-access smoke tests to CI (lint + targeted Ansible check-mode).
+- **NEW:** Execute weekly alignment checks (every Monday) per ROADMAP_ALIGNMENT_PROTOCOL.md.
 
-## 🔴 Blockers
+## Blockers
+| Blocker | Impact | Owner | Dependency | Notes |
+|---------|--------|-------|------------|-------|
+| MagicDNS instability | Forces LAN IP fallback in mounts | Codex-NET-006 | miket-infra DNS/ACL updates | ACL alignment verified 2025-11-23; DNS fix timeline TBD; LAN fallback operational |
+| Cloudflare device persona matrix | Needed for device persona mapping (Wave 2) | Codex-SEC-004 | miket-infra Cloudflare Access matrix | Pending miket-infra Wave 2 (Jan 2026); no immediate blocker |
 
-### Blocker #1: Ansible Authentication (User Space)
-- **Blocking:** Deployment of LiteLLM and vLLM to Windows/Linux hosts via Ansible (still requires Vault password)
-- **Owner:** Codex-DEVOPS-004
-- **Requires:** Vault passwords set for Windows hosts
-- **ETA:** TBD
-
----
-
-## ✅ Completed Tasks
-
-| Task | Agent | Completion Date | Evidence |
-|------|-------|-----------------|----------|
-| Remove Auto-ModeSwitcher.ps1 (wintermute) | Codex-QA-002 | 2025-11-13 | File deleted |
-| Clean ansible playbook references | Codex-QA-002 | 2025-11-13 | 3 playbooks updated |
-| Create TAILSCALE_DEVICE_SETUP.md | Codex-INFRA-003 | 2025-11-13 | [Runbook](../runbooks/TAILSCALE_DEVICE_SETUP.md) |
-| Create management structure | Codex-DCA-001 | 2025-11-13 | docs/product/, docs/communications/ |
-| Define team roles | Codex-DCA-001 | 2025-11-13 | [TEAM_ROLES.md](./TEAM_ROLES.md) |
-| USB storage Ansible role | Codex-DCA-001 | 2025-01-XX | [ansible/roles/usb-storage/](../../ansible/roles/usb-storage/) |
-| Update motoko config with USB storage | Codex-DCA-001 | 2025-01-XX | [devices/motoko/config.yml](../../devices/motoko/config.yml) |
-| **Flux/Time/Space Architecture** | Codex-DCA-001 | 2025-01-XX | [Implementation Log](../communications/COMMUNICATION_LOG.md#2025-01-flux-implementation) |
-| **macOS Client Automation** | Codex-DCA-001 | 2025-01-XX | [ansible/roles/mount_shares_macos/](../../ansible/roles/mount_shares_macos/) |
-| **Windows Client Automation** | Codex-DCA-001 | 2025-01-XX | [ansible/roles/mount_shares_windows/](../../ansible/roles/mount_shares_windows/) |
-| **Architecture Handoff Doc** | Codex-DCA-001 | 2025-01-XX | [ARCHITECTURE_HANDOFF_FLUX.md](./ARCHITECTURE_HANDOFF_FLUX.md) |
-| **Data Lifecycle Spec** | Codex-DCA-001 | 2025-01-XX | [DATA_LIFECYCLE_SPEC.md](./DATA_LIFECYCLE_SPEC.md) |
-| **Data Lifecycle Implementation** | Codex-DEVOPS-004 | 2025-01-XX | [Implementation Log](../communications/COMMUNICATION_LOG.md#2025-01-lifecycle-impl) |
-| **Directory Structure Enforcement** | Codex-DEVOPS-004 | 2025-01-XX | [Ansible Role](../../ansible/roles/data-lifecycle/tasks/main.yml) |
-| **Chief Architect Summary** | Codex-DCA-001 | 2025-01-XX | [CHIEF_ARCHITECT_SUMMARY.md](./CHIEF_ARCHITECT_SUMMARY.md) |
-| **Documentation Standards** | Codex-DOC-005 | 2025-11-20 | [TEAM_ROLES.md](./TEAM_ROLES.md) - Documentation protocols established |
-| **Documentation Cleanup** | Codex-DOC-005 | 2025-11-20 | Ephemeral files removed, artifacts/ deleted, structure organized |
-| **Windows Tailscale SSH Correction** | Codex-DOC-005 | 2025-11-20 | [TAILSCALE_DEVICE_SETUP.md](../runbooks/TAILSCALE_DEVICE_SETUP.md) - Corrected Windows limitation |
-| **Devices Infrastructure Implementation** | Codex-DCA-001 | 2025-11-20 | Complete client-side implementation: /mkt mounts, OS cloud sync, devices view, loop prevention |
-| **Devices Infrastructure Code Review** | All Agents | 2025-11-20 | Multi-role review complete, 4 critical bugs fixed, documentation cleaned up, production-ready |
-| **GNOME UI Freeze Diagnosis** | Codex-DCA-001 | 2025-11-21 | Initial analysis - found stuck disable-extensions file |
-| **Multi-Contractor Review Integration** | Codex-DCA-001 | 2025-11-21 | Analyzed 3 contractor worktrees, integrated findings |
-| **Pop Shell Root Cause Fix** | Codex-DCA-001 | 2025-11-21 | Disabled pop-shell@system76.com extension |
-| **System Health Watchdog Verification** | Codex-DCA-001 | 2025-11-21 | Confirmed D-Bus monitoring active and functional |
-| **GNOME Freeze Documentation** | Codex-DOC-005 | 2025-11-21 | [COMPLETE_ROOT_CAUSE_ANALYSIS.md](../../devices/motoko/COMPLETE_ROOT_CAUSE_ANALYSIS.md) + recovery scripts |
-| **Watchdog Tuning** | Codex-DCA-001 | 2025-11-21 | Modified watchdog to Log-Only mode (no auto-restart) |
-| **GPU Performance Fix** | Codex-DCA-001 | 2025-11-21 | Forced NVIDIA GPU to P0 (Maximum Performance) mode |
-| **Final GNOME Configuration** | Codex-DCA-001 | 2025-11-21 | Pop Shell + Dash to Dock active, system stable |
-
----
-
-## ⏸️ Pending Tasks
-
-| Task | Agent | Blocker | Priority |
-|------|-------|---------|----------|
-| ~~Enable Tailscale SSH (wintermute)~~ | ~~Codex-INFRA-003~~ | ~~Windows doesn't support Tailscale SSH server~~ | ✅ N/A - Use RDP/WinRM |
-| ~~Enable Tailscale SSH (armitage)~~ | ~~Codex-INFRA-003~~ | ~~Windows doesn't support Tailscale SSH server~~ | ✅ N/A - Use RDP/WinRM |
-
----
+## Completed
+| Deliverable | Persona | Completion Date | Evidence |
+|-------------|---------|-----------------|----------|
+| V1.0 Roadmap drafted | Codex-PM-011 | 2025-11-23 | [docs/product/V1_0_ROADMAP.md](./V1_0_ROADMAP.md) |
+| Documentation standards published | Codex-DOC-009 | 2025-11-23 | [docs/product/DOCUMENTATION_STANDARDS.md](./DOCUMENTATION_STANDARDS.md) |
+| Team roles aligned to multi-persona protocol | Codex-PM-011 | 2025-11-23 | [docs/product/TEAM_ROLES.md](./TEAM_ROLES.md) |
+| Windows mounts + OS cloud redeployed (wintermute) | Codex-WIN-013 | 2025-11-23 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts) |
+| Roadmap alignment protocol established | Codex-PM-011 | 2025-11-23 | [docs/product/ROADMAP_ALIGNMENT_PROTOCOL.md](./ROADMAP_ALIGNMENT_PROTOCOL.md) |
+| First weekly alignment check executed | Codex-PM-011 | 2025-11-23 | [WEEKLY_ALIGNMENT_2025_11_23](../communications/WEEKLY_ALIGNMENT_2025_11_23.md) |
+| NoMachine server connectivity validated | Codex-MAC-012 | 2025-11-23 | All 3 servers PASS (port 4000 reachable via Tailscale) |
+| Created DEV-010, DEV-011, DEV-012 tasks | Codex-PM-011 | 2025-11-23 | [DAY0_BACKLOG](./DAY0_BACKLOG.md) |
 
 ## Update Process
-
-1. **Start Task:** Mark agent status as "🚧 In Progress" and record start time
-2. **Complete Task:** Move to "✅ Completed Tasks" table with evidence link
-3. **Hit Blocker:** Update "🔴 Blockers" section with details and requirements
-4. **Log Actions:** Record all significant actions in [COMMUNICATION_LOG.md](../communications/COMMUNICATION_LOG.md)
-5. **Update Status:** Refresh [STATUS.md](./STATUS.md) after major changes
-
----
-
-**Owner:** Chief Device Architect (Codex-DCA-001)  
-**Last Updated:** 2025-11-20  
-**Next Review:** Weekly Sync
+1. Start task → set persona status to "🚧 Active" with next check-in.
+2. Complete task → move to Completed with evidence link and log in `COMMUNICATION_LOG.md`.
+3. Hit blocker → add to Blockers with owner/dependency and log context.
+4. Always refresh `STATUS.md` and `COMMUNICATION_LOG.md` after significant actions.

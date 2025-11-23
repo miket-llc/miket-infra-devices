@@ -1,4 +1,11 @@
 ---
+- name: Assert SMB password provided
+  assert:
+    that:
+      - smb_password is defined
+      - smb_password | length > 0
+    fail_msg: "smb_password must be provided to mount_shares_windows role"
+
 # Note: smb_password should be passed as a variable from the playbook
 - name: Ensure Scripts directory exists
   win_file:
@@ -9,8 +16,6 @@
   win_template:
     src: map_drives.ps1.j2
     dest: C:\Scripts\Map-MikeTDrives.ps1
-  vars:
-    smb_password: "{{ smb_password_result.stdout | trim }}"
 
 - name: Execute drive mapping script
   win_shell: C:\Scripts\Map-MikeTDrives.ps1
@@ -131,4 +136,3 @@
   debug:
     var: onedrive_check_result.stdout_lines
   when: onedrive_check_result.stdout_lines is defined
-
