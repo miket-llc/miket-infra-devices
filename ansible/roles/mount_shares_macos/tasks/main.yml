@@ -18,6 +18,23 @@
     state: directory
     mode: '0755'
 
+- name: Check for SMB secrets env file
+  stat:
+    path: "{{ smb_env_file }}"
+  register: smb_env_stat
+  changed_when: false
+
+- name: Fail when SMB secrets env file is missing
+  fail:
+    msg: "{{ smb_env_file }} missing. Run ansible/playbooks/secrets-sync.yml to pull mount credentials from Azure Key Vault."
+  when: not smb_env_stat.stat.exists
+
+- name: Harden SMB secrets env file permissions
+  file:
+    path: "{{ smb_env_file }}"
+    mode: '0600'
+  when: smb_env_stat.stat.exists
+
 - name: Check for Azure CLI
   command: which az
   register: az_check

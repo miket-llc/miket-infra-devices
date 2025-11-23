@@ -9,12 +9,6 @@ log() {
 
 log "Starting mount script for user: $USER..."
 
-# Ensure Azure CLI is available
-if ! command -v az &> /dev/null; then
-    log "ERROR: Azure CLI (az) is not installed or not in PATH."
-    exit 1
-fi
-
 # Wait for network (simple check)
 count=0
 while ! ping -c 1 {{ smb_server }} &> /dev/null; do
@@ -26,14 +20,16 @@ while ! ping -c 1 {{ smb_server }} &> /dev/null; do
     fi
 done
 
-log "Network is up. Fetching credentials from Azure Key Vault '{{ akv_vault_name }}'..."
+SECRETS_FILE="{{ smb_env_file | expanduser }}"
 
-# Fetch password from Azure Key Vault
-# Note: Requires active 'az login' session or Service Principal environment variables
-SMB_PASSWORD=$(az keyvault secret show --vault-name "{{ akv_vault_name }}" --name "{{ akv_secret_name }}" --query value -o tsv 2>/dev/null)
+if [ -f "$SECRETS_FILE" ]; then
+    set -o allexport
+    source "$SECRETS_FILE"
+    set +o allexport
+fi
 
 if [ -z "$SMB_PASSWORD" ]; then
-    log "ERROR: Failed to retrieve secret '{{ akv_secret_name }}' from Key Vault. Check 'az login' status."
+    log "ERROR: SMB_PASSWORD is not present. Run ansible/playbooks/secrets-sync.yml to fetch credentials from Azure Key Vault."
     exit 1
 fi
 
