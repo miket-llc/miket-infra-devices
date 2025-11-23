@@ -25,5 +25,5 @@ linked_communications:
 | DEV-008 | Publish Azure Monitor/observability plan for mounts/sync/remote access | Codex-SRE-005 | miket-infra workspace IDs | 🔜 Planned | Targets Wave 3 |
 | DEV-009 | UX instrumentation & survey for remote access TTFD/NPS | Codex-UX-010 | None | 🔜 Planned | Targets Wave 4 optimization |
 | DEV-010 | Remove RDP/VNC fallback paths from remote access playbooks and documentation | Codex-NET-006 | None | 🚧 **In Progress** | Align with miket-infra architecture decision (RDP/VNC fully retired 2025-11-22); NoMachine is SOLE remote desktop solution |
-| DEV-011 | Test macOS NoMachine client connectivity from count-zero | Codex-MAC-012 | DEV-005 (server baseline) | 🚧 **In Progress** | End-to-end validation: count-zero → motoko/wintermute/armitage on port 4000 via Tailscale |
+| DEV-011 | Test macOS NoMachine client connectivity from count-zero | Codex-MAC-012 | DEV-005 (server baseline) | ✅ **Done** | All connections PASS: count-zero → motoko/wintermute/armitage on port 4000 via Tailscale (2025-11-23) |
 | DEV-012 | Coordinate NoMachine client testing and MagicDNS fix timeline with miket-infra | Codex-PM-011 | None | 🚧 **In Progress** | Request MagicDNS fix ETA, coordinate client testing, request Wave 2 deliverables timeline |

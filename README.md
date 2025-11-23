@@ -1,7 +1,7 @@
 # miket-infra-devices
 
 **Status:** ✅ **PRODUCTION-READY** - Comprehensive architectural review complete  
-**Architecture Version:** v1.2.3 (Windows mounts/OS cloud redeploy)  
+**Architecture Version:** v1.7.0 (Wave 1 completion: NoMachine standardization, RDP/VNC removal)  
 **Last Updated:** November 23, 2025
 
 ---

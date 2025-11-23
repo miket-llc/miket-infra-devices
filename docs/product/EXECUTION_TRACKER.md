@@ -2,6 +2,7 @@
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
 last_updated: 2025-11-23
+version: v1.7.0
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
