@@ -1,0 +1,50 @@
+---
+# Migrate OneDrive to /space
+# Deploys migration script and executes migration
+
+- name: Migrate OneDrive to /space
+  hosts: motoko
+  become: yes
+  gather_facts: yes
+
+  vars:
+    onedrive_migration_account: "{{ migration_account | default('') }}"
+    onedrive_migration_dest: "{{ migration_dest | default('/space/mike') }}"
+    onedrive_migration_conflict_resolution: "{{ migration_conflict_resolution | default('rename') }}"
+    onedrive_migration_transfers: "{{ migration_transfers | default(8) }}"
+    onedrive_migration_dry_run: "{{ dry_run | default(false) }}"
+
+  pre_tasks:
+    - name: Validate required variables
+      assert:
+        that:
+          - onedrive_migration_account != ""
+          - onedrive_migration_dest != ""
+        fail_msg: "migration_account and migration_dest are required"
+
+    - name: Display migration parameters
+      debug:
+        msg:
+          - "Account: {{ onedrive_migration_account }}"
+          - "Destination: {{ onedrive_migration_dest }}"
+          - "Conflict Resolution: {{ onedrive_migration_conflict_resolution }}"
+          - "Parallel Transfers: {{ onedrive_migration_transfers }}"
+          - "Dry Run: {{ onedrive_migration_dry_run }}"
+
+  roles:
+    - onedrive-migration
+
+  post_tasks:
+    - name: Display migration log location
+      debug:
+        msg: "Migration log: /var/log/m365-migrate-{{ onedrive_migration_account }}.log"
+
+    - name: Display next steps
+      debug:
+        msg:
+          - "Next steps:"
+          - "1. Review migration log: /var/log/m365-migrate-{{ onedrive_migration_account }}.log"
+          - "2. Verify migrated content: ls -la {{ onedrive_migration_dest }}"
+          - "3. Test Samba access: smbclient //motoko/space"
+          - "4. Verify B2 backup includes migrated content"
+

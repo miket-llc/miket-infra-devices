@@ -1,0 +1,157 @@
+---
+# onedrive-migration role
+# Deploys and executes OneDrive to /space migration
+
+- name: Ensure migration script directory exists
+  file:
+    path: /usr/local/bin
+    state: directory
+    mode: '0755'
+
+- name: Deploy migration script
+  copy:
+    src: ../../scripts/m365-migrate-to-space.sh
+    dest: /usr/local/bin/m365-migrate-to-space.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Ensure migration configuration directory exists
+  file:
+    path: /etc/miket
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Ensure checkpoint directory exists
+  file:
+    path: /var/lib/miket
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Ensure log directory exists
+  file:
+    path: /var/log
+    state: directory
+    mode: '0755'
+
+- name: Verify Rclone remote exists
+  command: rclone listremotes
+  register: rclone_remotes
+  changed_when: false
+  failed_when: false
+
+- name: Check if Rclone remote is configured
+  assert:
+    that:
+      - "('m365-' + onedrive_migration_account + ':') in rclone_remotes.stdout"
+    fail_msg: "Rclone remote 'm365-{{ onedrive_migration_account }}' not found. Configure it first with 'rclone config'."
+    success_msg: "Rclone remote 'm365-{{ onedrive_migration_account }}' found"
+
+- name: Test Rclone remote connectivity
+  command: rclone lsd "m365-{{ onedrive_migration_account }}:"
+  register: rclone_test
+  changed_when: false
+  failed_when: false
+
+- name: Verify Rclone remote connectivity
+  assert:
+    that:
+      - rclone_test.rc == 0
+    fail_msg: "Cannot connect to Rclone remote 'm365-{{ onedrive_migration_account }}'. Check authentication with 'rclone config reconnect m365-{{ onedrive_migration_account }}:'"
+    success_msg: "Rclone remote connectivity verified"
+
+- name: Ensure destination directory exists
+  file:
+    path: "{{ onedrive_migration_dest }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ onedrive_migration_owner | default('mdt') }}"
+    group: "{{ onedrive_migration_group | default('mdt') }}"
+
+- name: Check disk space
+  command: df "{{ onedrive_migration_dest }}"
+  register: disk_space
+  changed_when: false
+
+- name: Get source size
+  command: rclone size "m365-{{ onedrive_migration_account }}:" --json
+  register: source_size
+  changed_when: false
+  failed_when: false
+
+- name: Calculate required space
+  set_fact:
+    required_space: "{{ (source_size.json.bytes | int) * 1.2 | int }}"
+  when: source_size.json.bytes is defined
+
+- name: Warn if disk space may be insufficient
+  debug:
+    msg: "WARNING: Available disk space may be insufficient. Required: {{ required_space }} bytes, Available: {{ disk_space.stdout_lines[1].split()[3] }}"
+  when:
+    - source_size.json.bytes is defined
+    - (disk_space.stdout_lines[1].split()[3] | int) < (required_space | int)
+
+- name: Execute migration (dry run)
+  command: >
+    /usr/local/bin/m365-migrate-to-space.sh
+    --account {{ onedrive_migration_account }}
+    --dest {{ onedrive_migration_dest }}
+    --conflict-resolution {{ onedrive_migration_conflict_resolution | default('rename') }}
+    --transfers {{ onedrive_migration_transfers | default(8) }}
+    --dry-run
+    --verbose
+  register: migration_dry_run
+  when: onedrive_migration_dry_run | default(false) | bool
+
+- name: Display dry run results
+  debug:
+    var: migration_dry_run.stdout_lines
+  when: onedrive_migration_dry_run | default(false) | bool
+
+- name: Execute migration (production)
+  command: >
+    /usr/local/bin/m365-migrate-to-space.sh
+    --account {{ onedrive_migration_account }}
+    --dest {{ onedrive_migration_dest }}
+    --conflict-resolution {{ onedrive_migration_conflict_resolution | default('rename') }}
+    --transfers {{ onedrive_migration_transfers | default(8) }}
+    --verbose
+  register: migration_result
+  when: not (onedrive_migration_dry_run | default(false) | bool)
+  async: 3600  # Allow up to 1 hour
+  poll: 60     # Poll every 60 seconds
+
+- name: Check migration status
+  async_status:
+    jid: "{{ migration_result.ansible_job_id }}"
+  register: migration_status
+  until: migration_status.finished
+  retries: 60
+  delay: 60
+  when: not (onedrive_migration_dry_run | default(false) | bool)
+
+- name: Display migration results
+  debug:
+    var: migration_status
+  when: not (onedrive_migration_dry_run | default(false) | bool)
+
+- name: Validate migration
+  command: >
+    /usr/local/bin/m365-migrate-to-space.sh
+    --account {{ onedrive_migration_account }}
+    --dest {{ onedrive_migration_dest }}
+    --validate-only
+  register: validation_result
+  changed_when: false
+  failed_when: false
+  when: not (onedrive_migration_dry_run | default(false) | bool)
+
+- name: Display validation results
+  debug:
+    var: validation_result.stdout_lines
+  when: not (onedrive_migration_dry_run | default(false) | bool)
+

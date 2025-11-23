@@ -4,6 +4,139 @@ Chronological log of all significant actions, decisions, and outcomes for the mi
 
 ---
 
+## 2025-11-23 – OneDrive to /space Migration Initiative {#2025-11-23-onedrive-migration}
+
+### Context
+CEO identified need to migrate all content from MikeT LLC OneDrive for Business to `/space` drive on motoko, establishing `/space` as the canonical Source of Record (SoR) for all organizational data per the Flux/Time/Space file system architecture.
+
+### Architecture Alignment
+**File System Architecture (from miket-infra):**
+- `/space` - Source of Record (SoR) for archival storage
+- `/flux` - Runtime/active data
+- `/time` - SMB Time Machine backups
+- B2 Backup - Nightly mirror of `/space` to Backblaze B2
+
+**Current State:**
+- `m365-hoover.sh` creates versioned snapshots in `/space/journal/m365/<account>/restic-repo`
+- `m365-publish.sh` publishes approved slices FROM `/space` TO OneDrive
+- Need to reverse direction: OneDrive → `/space` as primary
+
+### Actions Taken
+
+**Codex-CA-001 (Chief Architect):**
+- ✅ Created migration initiative structure: `docs/initiatives/onedrive-to-space-migration/`
+- ✅ Created comprehensive migration plan: `MIGRATION_PLAN.md`
+  - 4-phase migration strategy (Assessment → Dry Run → Production → Cutover)
+  - Risk assessment and mitigation strategies
+  - Success criteria and validation procedures
+- ✅ Created deployment guide: `DEPLOYMENT_GUIDE.md`
+  - Step-by-step execution procedures
+  - Pre-migration checklist
+  - Monitoring and troubleshooting procedures
+- ✅ Created rollback procedures: `ROLLBACK_PROCEDURES.md`
+  - Multiple rollback scenarios
+  - Data recovery procedures
+  - Emergency contacts
+- ✅ Created migration script: `scripts/m365-migrate-to-space.sh`
+  - Rclone-based migration with conflict resolution
+  - Parallel transfers for performance
+  - Resume capability for interrupted migrations
+  - Dry-run mode for testing
+  - Comprehensive logging and validation
+- ✅ Created Ansible role: `ansible/roles/onedrive-migration/`
+  - Automated deployment and execution
+  - Prerequisites validation
+  - Progress monitoring
+  - Error handling
+- ✅ Created Ansible playbook: `ansible/playbooks/motoko/migrate-onedrive-to-space.yml`
+  - Single-command execution
+  - Dry-run and production modes
+  - Variable-driven configuration
+- ✅ Created operational runbook: `docs/runbooks/onedrive-to-space-migration.md`
+  - Quick reference guide
+  - Troubleshooting procedures
+  - Post-migration tasks
+
+### Migration Strategy
+
+**Phase 1: Assessment & Preparation**
+- Inventory OneDrive content per account
+- Verify `/space` capacity
+- Prepare migration environment
+
+**Phase 2: Dry Run Migration**
+- Test migration script on small dataset
+- Verify file integrity and conflict resolution
+- Performance testing
+
+**Phase 3: Production Migration**
+- Execute migration per account
+- Monitor progress and handle errors
+- Validate data integrity
+
+**Phase 4: Cutover & Cleanup**
+- Update workflows (modify `m365-publish.sh`)
+- Archive OneDrive as read-only backup (90 days)
+- Document new sync patterns
+
+### Key Features
+
+**Migration Script:**
+- Conflict resolution: rename (default), skip, or overwrite
+- Parallel transfers: Configurable (default: 8)
+- Resume capability: Checkpoint-based recovery
+- Validation: File count and size comparison
+- Logging: Comprehensive logs to `/var/log/m365-migrate-<account>.log`
+
+**Ansible Automation:**
+- Prerequisites validation (Rclone remotes, disk space)
+- Dry-run mode for testing
+- Production execution with progress monitoring
+- Post-migration validation
+
+### Directory Structure
+
+After migration, OneDrive content organized under `/space`:
+```
+/space/
+├── mike/                    # Personal user tree (canonical)
+│   ├── Documents/          # Migrated from OneDrive/Documents
+│   ├── Desktop/            # Migrated from OneDrive/Desktop
+│   ├── Pictures/           # Migrated from OneDrive/Pictures
+│   └── work/               # Work-related content
+├── devices/                 # OS cloud synchronization backend
+│   └── onedrive-migration/ # Migration artifacts and logs
+└── journal/                 # Versioned snapshots (existing)
+    └── m365/               # Existing hoover backups
+```
+
+### Dependencies
+
+- Rclone configured with M365 remotes (`m365-<account>`)
+- Sufficient disk space on `/space` partition
+- B2 backup capacity verified
+- Samba shares configured and accessible
+- Existing `m365-hoover.sh` backups as safety net
+
+### Next Steps
+
+1. **Review and Approve:** Migration plan reviewed by stakeholders
+2. **Execute Phase 1:** Assessment & Preparation
+3. **Schedule Migration:** Coordinate migration window
+4. **Execute Migration:** Run with monitoring
+5. **Validate Results:** Verify migration success
+6. **Update Workflows:** Modify sync patterns
+
+### Related Documentation
+
+- [Migration Plan](../initiatives/onedrive-to-space-migration/MIGRATION_PLAN.md)
+- [Deployment Guide](../initiatives/onedrive-to-space-migration/DEPLOYMENT_GUIDE.md)
+- [Rollback Procedures](../initiatives/onedrive-to-space-migration/ROLLBACK_PROCEDURES.md)
+- [Migration Runbook](../runbooks/onedrive-to-space-migration.md)
+- [Data Lifecycle Spec](../../miket-infra/docs/product/initiatives/data-lifecycle/DATA_LIFECYCLE_SPEC.md)
+
+---
+
 ## 2025-11-13 – macOS Best Practices: Tailscale MagicDNS Automation {#2025-11-13-macos-automation}
 
 ### Context

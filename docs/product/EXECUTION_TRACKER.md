@@ -4,6 +4,7 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Agent | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |-------|----------------|------------------------------|-------------|---------------|
+| **Codex-CA-001** (Chief Architect) | 🚧 In Progress | OneDrive to /space migration initiative · Migration plan, scripts, and automation created | Execute Phase 1: Assessment & Preparation | 2025-11-23 |
 | **Codex-DCA-001** (Chief Device Architect) | ✅ Complete | All infrastructure operational · IaC/CaC compliance achieved | Monitor and maintain | 2025-11-13 |
 | **Codex-QA-002** (Quality Assurance Lead) | ✅ Complete | Auto-switcher purged · YAML syntax fixed · Redundant RDP playbooks deleted | Monitor for technical debt | 2025-11-13 |
 | **Codex-INFRA-003** (Infrastructure Lead) | ✅ Complete | RDP connectivity validated · Tailscale mesh verified · Client setup documented | Support CEO with count-zero setup | 2025-11-13 |
@@ -34,6 +35,13 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Task | Agent | Completion Date | Evidence |
 |------|-------|-----------------|----------|
+| Create OneDrive migration plan | Codex-CA-001 | 2025-11-23 | [Migration Plan](../initiatives/onedrive-to-space-migration/MIGRATION_PLAN.md) |
+| Create migration script | Codex-CA-001 | 2025-11-23 | [scripts/m365-migrate-to-space.sh](../../scripts/m365-migrate-to-space.sh) |
+| Create Ansible migration role | Codex-CA-001 | 2025-11-23 | [ansible/roles/onedrive-migration/](../../ansible/roles/onedrive-migration/) |
+| Create migration playbook | Codex-CA-001 | 2025-11-23 | [ansible/playbooks/motoko/migrate-onedrive-to-space.yml](../../ansible/playbooks/motoko/migrate-onedrive-to-space.yml) |
+| Create deployment guide | Codex-CA-001 | 2025-11-23 | [Deployment Guide](../initiatives/onedrive-to-space-migration/DEPLOYMENT_GUIDE.md) |
+| Create rollback procedures | Codex-CA-001 | 2025-11-23 | [Rollback Procedures](../initiatives/onedrive-to-space-migration/ROLLBACK_PROCEDURES.md) |
+| Create migration runbook | Codex-CA-001 | 2025-11-23 | [Runbook](../runbooks/onedrive-to-space-migration.md) |
 | Remove Auto-ModeSwitcher.ps1 (wintermute) | Codex-QA-002 | 2025-11-13 | File deleted |
 | Remove Auto-ModeSwitcher.ps1 (armitage) | Codex-QA-002 | 2025-11-13 | File deleted |
 | Clean ansible playbook references | Codex-QA-002 | 2025-11-13 | 3 playbooks updated |
@@ -51,6 +59,10 @@ Use this tracker to record agent activation status and deliverable completion. U
 
 | Task | Agent | Blocker | Priority |
 |------|-------|---------|----------|
+| Execute Phase 1: Assessment & Preparation | Codex-CA-001 | None | 🟡 HIGH |
+| Execute Phase 2: Dry Run Migration | Codex-CA-001 | Phase 1 complete | 🟡 HIGH |
+| Execute Phase 3: Production Migration | Codex-CA-001 | Phase 2 validation | 🟡 HIGH |
+| Execute Phase 4: Cutover & Cleanup | Codex-CA-001 | Phase 3 complete | 🟢 MEDIUM |
 | Enable Tailscale SSH (wintermute) | Codex-INFRA-003 | Manual action required | 🔴 CRITICAL |
 | Enable Tailscale SSH (armitage) | Codex-INFRA-003 | Manual action required | 🔴 CRITICAL |
 | Deploy LiteLLM (motoko) | Codex-DEVOPS-004 | Ansible auth | 🟡 HIGH |
@@ -73,6 +85,6 @@ Use this tracker to record agent activation status and deliverable completion. U
 ---
 
 **Owner:** Chief Device Architect (Codex-DCA-001)  
-**Last Updated:** 2025-11-13  
-**Next Review:** After Tailscale SSH blocker cleared
+**Last Updated:** 2025-11-23  
+**Next Review:** After OneDrive migration Phase 1 complete
 

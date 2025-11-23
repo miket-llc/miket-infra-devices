@@ -1,0 +1,11 @@
+---
+# Default variables for onedrive-migration role
+
+onedrive_migration_account: ""
+onedrive_migration_dest: ""
+onedrive_migration_conflict_resolution: "rename"  # rename, skip, or overwrite
+onedrive_migration_transfers: 8
+onedrive_migration_dry_run: false
+onedrive_migration_owner: "mdt"
+onedrive_migration_group: "mdt"
+
