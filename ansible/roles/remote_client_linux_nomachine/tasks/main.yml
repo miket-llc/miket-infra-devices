@@ -1,0 +1,60 @@
+---
+# Ansible role: remote_client_linux_nomachine
+# Installs NoMachine client on Linux hosts for accessing remote NoMachine servers
+
+- name: Check if NoMachine client is already installed
+  ansible.builtin.stat:
+    path: /usr/NX/bin/nxplayer
+  register: nomachine_client_bin
+
+- name: Download NoMachine client installer (.run format)
+  ansible.builtin.shell: |
+    cd /tmp
+    curl -L -f -o nomachine_{{ nomachine_version }}_4_x86_64.run "https://download.nomachine.com/download/8.x/Linux/nomachine_{{ nomachine_version }}_4_x86_64.run" || \
+    wget -O nomachine_{{ nomachine_version }}_4_x86_64.run "https://download.nomachine.com/download/8.x/Linux/nomachine_{{ nomachine_version }}_4_x86_64.run"
+    chmod +x nomachine_{{ nomachine_version }}_4_x86_64.run
+  args:
+    creates: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run"
+  when: not nomachine_client_bin.stat.exists
+  become: true
+
+- name: Install NoMachine client
+  ansible.builtin.command:
+    cmd: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run install"
+    creates: "/usr/NX/bin/nxplayer"
+  become: true
+  when: not nomachine_client_bin.stat.exists
+
+- name: Clean up installer
+  ansible.builtin.file:
+    path: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run"
+    state: absent
+  become: true
+
+- name: Ensure NoMachine documents directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/Documents/NoMachine"
+    state: directory
+    mode: '0755'
+  become: false
+
+- name: Deploy NoMachine session files
+  ansible.builtin.template:
+    src: session.nxs.j2
+    dest: "{{ ansible_user_dir }}/Documents/NoMachine/{{ item.name }}.nxs"
+    mode: '0644'
+  become: false
+  loop:
+    - { name: 'motoko', host: 'motoko', session_type: 'unix' }
+    - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
+
+- name: Display NoMachine client installation status
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine client installed"
+      - "Launch from: Applications menu > NoMachine or run 'nxplayer'"
+      - "Pre-configured servers available in ~/Documents/NoMachine:"
+      - "  - motoko (Linux)"
+      - "  - wintermute (Windows)"
+      - "  - armitage (Windows)"

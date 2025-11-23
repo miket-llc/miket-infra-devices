@@ -1,0 +1,23 @@
+---
+# NoMachine client version for Windows
+nomachine_version: "8.15.3"
+
+# NoMachine client download URL
+nomachine_windows_client_url: "https://download.nomachine.com/download/8.15/Windows/nomachine_{{ nomachine_version }}_1.exe"
+
+# Pre-configured server connections
+nomachine_servers:
+  - name: "motoko"
+    host: "motoko.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+  - name: "wintermute"
+    host: "wintermute.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+  - name: "armitage"
+    host: "armitage.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+
+

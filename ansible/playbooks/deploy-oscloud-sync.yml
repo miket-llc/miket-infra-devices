@@ -1,0 +1,40 @@
+---
+# Deploy OS cloud synchronization to all client devices
+# Syncs iCloud/OneDrive to /space/devices on motoko
+
+- name: Deploy OS Cloud Synchronization
+  hosts: macos,windows
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Display deployment info
+      debug:
+        msg: |
+          Deploying OS cloud sync to {{ inventory_hostname }}
+          - Target: /space/devices/{{ inventory_hostname_short }}/{{ ansible_user }}/
+          - Schedule: Daily at {{ sync_schedule.hour | default('2') }}:{{ sync_schedule.minute | default('30') }}
+          - Syncs: iCloud, OneDrive Personal, OneDrive Business
+  
+  roles:
+    - oscloud_sync
+  
+  post_tasks:
+    - name: Deployment complete
+      debug:
+        msg: |
+          OS cloud sync deployed successfully!
+          
+          macOS:
+          - Scripts in: ~/.scripts/oscloud-sync/
+          - LaunchAgent: ~/Library/LaunchAgents/com.miket.oscloud.sync.plist
+          - Logs: ~/.scripts/oscloud-sync/sync.log
+          - Manual run: ~/.scripts/oscloud-sync/sync_to_devices.sh
+          
+          Windows:
+          - Scripts in: C:\Scripts\oscloud-sync\
+          - Scheduled Task: "MikeT OS Cloud Sync"
+          - Logs: C:\Scripts\oscloud-sync\sync.log
+          - Manual run: C:\Scripts\oscloud-sync\Sync-ToDevices.ps1
+          
+          Verify sync target: /space/devices/{{ inventory_hostname_short }}/{{ ansible_user }}/
+

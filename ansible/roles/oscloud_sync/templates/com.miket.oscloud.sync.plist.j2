@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miket.backup-sync</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>LimitLoadToSessionType</key>
+    <array>
+        <string>Aqua</string>
+    </array>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ ansible_env.HOME }}/.scripts/oscloud-sync/sync_to_devices.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>{{ sync_schedule.hour }}</integer>
+        <key>Minute</key>
+        <integer>{{ sync_schedule.minute }}</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>{{ ansible_env.HOME }}/.scripts/oscloud-sync/sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ ansible_env.HOME }}/.scripts/oscloud-sync/sync.err</string>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>Nice</key>
+    <integer>15</integer>
+</dict>
+</plist>
+

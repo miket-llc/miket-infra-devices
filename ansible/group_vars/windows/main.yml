@@ -21,4 +21,6 @@ ansible_task_timeout: 600               # Maximum time for task execution (10 mi
 
 # WinRM passwords - set per host using vault variables
 # These are resolved from vault after decryption
-ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else (vault_armitage_password if inventory_hostname == 'armitage' else '') }}"
+ansible_password: >-
+  {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
+     else (lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') if inventory_hostname == 'armitage' else '') }}

@@ -1,0 +1,20 @@
+---
+# NoMachine client version for Linux
+nomachine_version: "8.15.3"
+
+# Pre-configured server connections
+nomachine_servers:
+  - name: "motoko"
+    host: "motoko.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+  - name: "wintermute"
+    host: "wintermute.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+  - name: "armitage"
+    host: "armitage.pangolin-vega.ts.net"
+    port: 4000
+    protocol: "NX"
+
+

@@ -1,0 +1,95 @@
+---
+- name: Ensure user mount directory exists
+  file:
+    path: "{{ ansible_env.HOME }}/.mkt"
+    state: directory
+    mode: '0755'
+
+- name: Ensure mount point subdirectories exist
+  file:
+    path: "{{ item.mount_point | replace('~', ansible_env.HOME) }}"
+    state: directory
+    mode: '0755'
+  loop: "{{ smb_shares }}"
+
+- name: Ensure Scripts directory exists
+  file:
+    path: "~/.scripts"
+    state: directory
+    mode: '0755'
+
+- name: Check for SMB secrets env file
+  stat:
+    path: "{{ smb_env_file }}"
+  register: smb_env_stat
+  changed_when: false
+
+- name: Fail when SMB secrets env file is missing
+  fail:
+    msg: "{{ smb_env_file }} missing. Run ansible/playbooks/secrets-sync.yml to pull mount credentials from Azure Key Vault."
+  when: not smb_env_stat.stat.exists
+
+- name: Harden SMB secrets env file permissions
+  file:
+    path: "{{ smb_env_file }}"
+    mode: '0600'
+  when: smb_env_stat.stat.exists
+
+- name: Check for Azure CLI
+  command: which az
+  register: az_check
+  ignore_errors: yes
+  changed_when: false
+
+# Note: Skipping Homebrew install as it requires sudo/become
+
+- name: Deploy mount script
+  template:
+    src: mount_shares.sh.j2
+    dest: "~/.scripts/mount_shares.sh"
+    mode: '0700'
+
+- name: Deploy OS cloud loop check script
+  template:
+    src: check_oscloud_loops.sh.j2
+    dest: "~/.scripts/check_oscloud_loops.sh"
+    mode: '0700'
+
+- name: Unload old LaunchAgents (cleanup)
+  command: launchctl unload -w "~/Library/LaunchAgents/{{ item }}"
+  loop:
+    - com.miket.mountshares.plist
+    - com.miket.usersymlinks.plist
+    - com.miket.storage-connect.plist
+  ignore_errors: yes
+  changed_when: false
+
+- name: Deploy consolidated LaunchAgent for storage connection
+  template:
+    src: com.miket.mountshares.plist.j2
+    dest: "~/Library/LaunchAgents/com.miket.storage-connect.plist"
+    mode: '0644'
+
+- name: Load storage connection LaunchAgent
+  command: launchctl load -w "~/Library/LaunchAgents/com.miket.storage-connect.plist"
+  
+- name: Run storage connection script immediately
+  command: "~/.scripts/mount_shares.sh"
+  ignore_errors: yes
+
+- name: Run OS cloud loop check
+  command: "~/.scripts/check_oscloud_loops.sh"
+  register: loop_check_result
+  ignore_errors: yes
+
+- name: Display OS cloud loop check results
+  debug:
+    var: loop_check_result.stdout_lines
+  when: loop_check_result.stdout_lines is defined
+
+- name: Remove old ~/Mounts directory if empty
+  file:
+    path: "~/Mounts"
+    state: absent
+  ignore_errors: yes
+  when: false  # Only enable after confirming new system works

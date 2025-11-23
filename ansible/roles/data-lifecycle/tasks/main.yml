@@ -1,0 +1,143 @@
+---
+# Main entry point for Data Lifecycle role
+
+- name: Setup Credentials
+  include_tasks: credentials.yml
+
+- name: Ensure Flux directory structure exists
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+  loop:
+    - /flux/active
+    - /flux/scratch
+    - /flux/models
+    - /flux/.policy
+
+- name: Ensure Space directory structure exists
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: '0755'
+  loop:
+    - /space/projects
+    - /space/media
+    - /space/datasets
+    - /space/archives
+    - /space/snapshots/flux-local
+
+- name: Check if local Restic password file exists
+  stat:
+    path: /root/.restic-local-pass
+  register: restic_pass_file
+  changed_when: false
+
+- name: Generate local Restic password file if missing
+  command: openssl rand -base64 32
+  register: restic_local_password
+  changed_when: false
+  when: not restic_pass_file.stat.exists
+
+- name: Create local Restic password file
+  copy:
+    content: "{{ restic_local_password.stdout }}"
+    dest: /root/.restic-local-pass
+    mode: '0600'
+    owner: root
+    group: root
+  when: restic_pass_file.stat.exists == false and restic_local_password is defined and restic_local_password.stdout is defined
+
+- name: Ensure backup exclude file exists
+  file:
+    path: /flux/.backup-exclude
+    state: touch
+    owner: mdt
+    group: mdt
+    mode: '0644'
+
+- name: Deploy Lifecycle Scripts
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - flux-graduate.sh
+    - space-mirror.sh
+    - flux-backup.sh
+    - flux-local-snap.sh
+
+- name: Deploy Flux Graduation Service
+  template:
+    src: flux-graduate.service.j2
+    dest: /etc/systemd/system/flux-graduate.service
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Flux Graduation Timer
+  template:
+    src: flux-graduate.timer.j2
+    dest: /etc/systemd/system/flux-graduate.timer
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Space Mirror Service
+  template:
+    src: space-mirror.service.j2
+    dest: /etc/systemd/system/space-mirror.service
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Space Mirror Timer
+  template:
+    src: space-mirror.timer.j2
+    dest: /etc/systemd/system/space-mirror.timer
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Flux Backup Service
+  template:
+    src: flux-backup.service.j2
+    dest: /etc/systemd/system/flux-backup.service
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Flux Backup Timer
+  template:
+    src: flux-backup.timer.j2
+    dest: /etc/systemd/system/flux-backup.timer
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Flux Local Snapshot Service
+  template:
+    src: flux-local.service.j2
+    dest: /etc/systemd/system/flux-local.service
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Deploy Flux Local Snapshot Timer
+  template:
+    src: flux-local.timer.j2
+    dest: /etc/systemd/system/flux-local.timer
+    mode: '0644'
+  notify: Reload Systemd
+
+- name: Enable and Start Timers
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  loop:
+    - flux-graduate.timer
+    - space-mirror.timer
+    - flux-backup.timer
+    - flux-local.timer
+

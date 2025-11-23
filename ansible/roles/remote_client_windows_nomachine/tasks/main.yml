@@ -1,0 +1,51 @@
+---
+# Ansible role: remote_client_windows_nomachine
+# Installs NoMachine client on Windows hosts via Chocolatey
+
+- name: Check if Chocolatey is installed
+  win_shell: |
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+      Write-Output "INSTALLED"
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
+  register: choco_check
+  changed_when: false
+
+- name: Install Chocolatey if not present
+  win_shell: |
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+  when: "'NOT_INSTALLED' in choco_check.stdout"
+  register: choco_install
+
+- name: Install NoMachine client via Chocolatey
+  win_chocolatey:
+    name: nomachine
+    state: present
+  register: nomachine_client_installed
+
+- name: Ensure NoMachine documents directory exists
+  ansible.windows.win_file:
+    path: "{{ ansible_user_dir }}\\Documents\\NoMachine"
+    state: directory
+
+- name: Deploy NoMachine session files
+  ansible.windows.win_template:
+    src: session.nxs.j2
+    dest: "{{ ansible_user_dir }}\\Documents\\NoMachine\\{{ item.name }}.nxs"
+  loop:
+    - { name: 'motoko', host: 'motoko', session_type: 'unix' }
+    - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
+
+- name: Display NoMachine client installation status
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine client installed"
+      - "Launch from: Start Menu > NoMachine"
+      - "Pre-configured servers available in Documents\\NoMachine:"
+      - "  - motoko (Linux)"
+      - "  - wintermute (Windows)"
+      - "  - armitage (Windows)"

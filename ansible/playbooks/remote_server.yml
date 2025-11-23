@@ -1,9 +1,9 @@
 ---
 # Playbook: remote_server.yml
 # Configures remote desktop servers per host OS
-# Every workstation serves its protocol: Linux=VNC, Windows=RDP, macOS=VNC
+# ALL PLATFORMS NOW USE NOMACHINE (replacing VNC on Linux, RDP on Windows)
 
-- name: Configure Linux VNC servers (session sharing)
+- name: Configure Linux remote desktop servers (NoMachine replaces VNC)
   hosts: workstations:&linux
   gather_facts: true
   become: true
@@ -11,22 +11,21 @@
     - remote
     - remote:server
   tasks:
-    - name: Install and configure VNC for session sharing
+    - name: Install and configure NoMachine for Linux (includes VNC removal)
       ansible.builtin.include_role:
-        name: remote_server_linux_vnc
-      when: remote_protocol | default('vnc') == 'vnc'
+        name: remote_server_linux_nomachine
 
-    - name: Configure firewall for VNC
+    - name: Configure firewall for NoMachine
       ansible.builtin.include_role:
         name: remote_firewall
       vars:
-        remote_protocol: vnc
-        remote_port: "{{ remote_port | default(5900) }}"
+        remote_protocol: nomachine
+        remote_port: "{{ nomachine_port | default(4000) }}"
         remote_detection:
           firewall:
             type: "{{ 'ufw' if (ansible_facts.pkg_mgr == 'apt') else 'none' }}"
 
-- name: Configure Windows RDP servers
+- name: Configure Windows remote desktop servers (NoMachine replaces RDP)
   hosts: workstations:&windows
   gather_facts: true
   become: false
@@ -34,34 +33,25 @@
     - remote
     - remote:server
   vars:
-    ansible_become: false  # Explicitly disable become for Windows
+    ansible_become: false
   tasks:
-    - name: Enable and configure RDP
+    - name: Install and configure NoMachine for Windows
       ansible.builtin.include_role:
-        name: remote_server_windows_rdp
+        name: remote_server_windows_nomachine
 
-    - name: Note firewall is configured by RDP role
-      ansible.builtin.debug:
-        msg: "Firewall rules are configured by remote_server_windows_rdp role"
+    - name: Disable RDP server (NoMachine replaces it)
+      ansible.builtin.include_role:
+        name: disable_windows_rdp
+      vars:
+        rdp_disable_completely: true
 
-- name: Configure macOS remote desktop (documentation only)
+- name: Configure macOS remote desktop servers (NoMachine replaces VNC)
   hosts: macos
   gather_facts: true
   tags:
     - remote
     - remote:server
   tasks:
-    - name: Display macOS remote desktop setup instructions
-      ansible.builtin.debug:
-        msg:
-          - "macOS Remote Desktop Configuration:"
-          - "  For Screen Sharing (VNC):"
-          - "    1. System Settings > Sharing > Screen Sharing"
-          - "    2. Enable Screen Sharing"
-          - "    3. Configure access permissions"
-          - "  For Remote Management (VNC + SSH):"
-          - "    1. System Settings > Sharing > Remote Management"
-          - "    2. Enable Remote Management"
-          - "  Note: RDP is not natively supported on macOS"
-          - "  Use VNC (port 5900) or Apple Remote Desktop"
-
+    - name: Install and configure NoMachine for macOS
+      ansible.builtin.include_role:
+        name: remote_server_macos_nomachine

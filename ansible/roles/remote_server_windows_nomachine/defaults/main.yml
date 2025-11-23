@@ -1,0 +1,13 @@
+---
+# NoMachine version for Windows
+nomachine_version: "8.15.3"
+nomachine_port: 4000
+
+# NoMachine download URL for Windows (64-bit)
+# Format: https://download.nomachine.com/download/VERSION/Windows/nomachine_VERSION_ARCHITECTURE.exe
+# For 64-bit: nomachine_VERSION_1_x86_64.exe
+nomachine_windows_url: "https://download.nomachine.com/download/8.15/Windows/nomachine_{{ nomachine_version }}_1_x86_64.exe"
+
+# Installation options
+nomachine_install_dir: "C:\\Program Files\\NoMachine"
+

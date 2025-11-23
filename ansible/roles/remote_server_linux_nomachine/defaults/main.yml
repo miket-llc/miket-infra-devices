@@ -1,0 +1,4 @@
+---
+nomachine_version: "8.15.3"
+nomachine_port: 4000
+nomachine_display: "0"

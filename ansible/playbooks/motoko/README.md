@@ -58,6 +58,27 @@ ansible-playbook -i inventory/hosts.yml \
   # No --connection flag needed - uses SSH via Tailscale
 ```
 
+## USB Storage Configuration
+
+To configure the 20TB USB drive:
+
+```bash
+# First, detect the drive partitions
+~/miket-infra-devices/scripts/detect-usb-drive.sh
+
+# Then configure storage
+ansible-playbook -i inventory/hosts.yml \
+  playbooks/motoko/configure-usb-storage.yml \
+  --limit motoko \
+  --connection=local
+```
+
+This will:
+- Install APFS read-only support for Time Machine partition
+- Reformat space partition to ext4
+- Configure persistent mounts
+- Set up file cache directories
+
 ## Summary
 
 - **Self-management (Motoko → Motoko)**: Use `--connection=local`

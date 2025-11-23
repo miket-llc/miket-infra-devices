@@ -1,0 +1,17 @@
+---
+# OS Cloud Sync Role - Main Entry Point
+# Syncs iCloud/OneDrive to /space/devices on motoko
+
+- name: Include macOS tasks
+  include_tasks: macos.yml
+  when: ansible_os_family == "Darwin"
+
+- name: Include Windows tasks
+  include_tasks: windows.yml
+  when: ansible_os_family == "Windows"
+
+- name: OS cloud sync not supported on this platform
+  debug:
+    msg: "OS cloud sync is only supported on macOS and Windows. Skipping for {{ ansible_os_family }}."
+  when: ansible_os_family not in ["Darwin", "Windows"]
+

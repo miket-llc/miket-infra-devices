@@ -1,0 +1,32 @@
+---
+# Deploy updated mount configuration to macOS clients
+# Mounts SMB shares to /mkt/* and creates user symlinks
+
+- name: Deploy macOS Mount Configuration
+  hosts: macos
+  gather_facts: yes
+  
+  tasks:
+    - name: Display deployment info
+      debug:
+        msg: |
+          Deploying mount configuration to {{ inventory_hostname }}
+          - Mount points: /mkt/flux, /mkt/space, /mkt/time
+          - User symlinks: ~/flux, ~/space, ~/time
+          - Per-user credentials from Azure Key Vault
+    
+    - name: Apply mount_shares_macos role
+      include_role:
+        name: mount_shares_macos
+    
+    - name: Deployment complete
+      debug:
+        msg: |
+          Mount configuration deployed successfully!
+          
+          Next steps:
+          1. User should log out and log back in
+          2. Verify mounts: ls -la /mkt/
+          3. Verify symlinks: ls -la ~/
+          4. Run loop check: ~/.scripts/check_oscloud_loops.sh
+

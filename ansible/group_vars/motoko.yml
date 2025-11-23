@@ -43,8 +43,6 @@ openai_strong_model: "gpt-4.1-mini"
 openai_cheap_model: "gpt-4o-mini"
 openai_budget_monthly_usd: 150
 
-# Secrets loaded from vault (ansible/group_vars/linux/vault.yml)
-# These reference vault variables which are encrypted
-openai_api_key: "{{ vault_openai_api_key | default('sk-REPLACE_ME') }}"
-litellm_bearer_token: "{{ vault_litellm_bearer_token | default('mkt-REPLACE_ME_SUPERLONG') }}"
-
+# Secrets supplied via env files generated from Azure Key Vault
+openai_api_key: "{{ lookup('env', 'OPENAI_API_KEY') | default('__SECRET_OPENAI_API_KEY__', true) }}"
+litellm_bearer_token: "{{ lookup('env', 'LITELLM_TOKEN') | default('__SECRET_LITELLM_TOKEN__', true) }}"

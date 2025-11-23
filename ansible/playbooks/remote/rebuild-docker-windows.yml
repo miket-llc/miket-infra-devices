@@ -6,10 +6,10 @@
 - name: Rebuild Docker Desktop on Windows Workstation
   hosts: "{{ target_hosts | default('windows_workstations') }}"
   gather_facts: false
-  vars_files:
-    - ../../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+    ansible_password: >-
+      {{ lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') if inventory_hostname == 'armitage'
+         else lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') }}
   
   tasks:
     - name: Check for old Microsoft account references in Docker config

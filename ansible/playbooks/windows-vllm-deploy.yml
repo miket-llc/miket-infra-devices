@@ -9,10 +9,10 @@
 - name: Deploy vLLM to Windows workstations
   hosts: windows_workstations
   gather_facts: false
-  vars_files:
-    - ../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
+    ansible_password: >-
+      {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
+         else lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}
     # PowerShell scripts to deploy (device-specific)
     vllm_powershell_scripts:
       - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Start-VLLM.ps1"

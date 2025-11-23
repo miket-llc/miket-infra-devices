@@ -1,0 +1,64 @@
+---
+# Monitoring role - System health watchdog and alerting
+# Part of miket-infra-devices
+
+- name: Create system health watchdog directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /var/lib/system-health-watchdog
+    - /var/log
+
+- name: Deploy system health watchdog script
+  ansible.builtin.copy:
+    src: system-health-watchdog.sh
+    dest: /usr/local/bin/system-health-watchdog.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Deploy system health watchdog service
+  ansible.builtin.template:
+    src: system-health-watchdog.service.j2
+    dest: /etc/systemd/system/system-health-watchdog.service
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Reload systemd
+
+- name: Deploy system health watchdog timer
+  ansible.builtin.template:
+    src: system-health-watchdog.timer.j2
+    dest: /etc/systemd/system/system-health-watchdog.timer
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Reload systemd
+
+- name: Enable and start system health watchdog timer
+  ansible.builtin.systemd:
+    name: system-health-watchdog.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Configure Docker default logging limits
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    mode: '0644'
+  notify: Restart Docker
+  when: ansible_facts.services['docker.service'] is defined
+
+
+
+

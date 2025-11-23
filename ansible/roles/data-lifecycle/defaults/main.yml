@@ -1,0 +1,6 @@
+---
+# Location for data lifecycle service credentials
+data_lifecycle_env_file: "/etc/miket/storage-credentials.env"
+data_lifecycle_env_owner: root
+data_lifecycle_env_group: root
+data_lifecycle_env_mode: "0600"

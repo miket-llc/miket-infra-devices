@@ -6,10 +6,8 @@
 - name: Fix NVIDIA Container Toolkit Repository on Armitage
   hosts: armitage
   gather_facts: false
-  vars_files:
-    - ../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_armitage_password }}"
+    ansible_password: "{{ lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}"
   
   tasks:
     - name: Check current repository file status

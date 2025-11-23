@@ -1,0 +1,6 @@
+---
+- name: restart nxserver
+  ansible.builtin.systemd:
+    name: nxserver
+    state: restarted
+  become: true

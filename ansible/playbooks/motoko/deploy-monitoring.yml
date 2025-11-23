@@ -1,0 +1,40 @@
+---
+# Deploy system health monitoring and watchdog services to motoko
+# Part of miket-infra-devices
+# Usage: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/deploy-monitoring.yml
+
+- name: Deploy System Health Monitoring
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Ensure monitoring directories exist
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /var/lib/system-health-watchdog
+        - /var/log
+
+    - name: Include monitoring role
+      ansible.builtin.include_role:
+        name: monitoring
+
+    - name: Verify watchdog timer is running
+      ansible.builtin.systemd:
+        name: system-health-watchdog.timer
+        state: started
+        enabled: true
+      register: watchdog_status
+
+    - name: Display watchdog status
+      ansible.builtin.debug:
+        msg: "System health watchdog deployed and active. Runs every 5 minutes."
+
+
+
+

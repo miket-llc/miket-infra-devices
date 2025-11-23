@@ -1,0 +1,19 @@
+---
+# Defaults for Windows mount shares role
+smb_server: "motoko"  # Using Tailscale/Local hostname
+
+# Network drive mappings with labels
+smb_shares:
+  - name: "flux"
+    path: "/flux"
+    drive_letter: "X"
+    label: "FLUX"
+  - name: "space"
+    path: "/space"
+    drive_letter: "S"
+    label: "SPACE"
+  - name: "time"
+    path: "/time"
+    drive_letter: "T"
+    label: "TIME"
+

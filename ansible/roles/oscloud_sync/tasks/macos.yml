@@ -1,0 +1,48 @@
+---
+# macOS OS Cloud Sync Tasks
+
+- name: Ensure sync scripts directory exists
+  file:
+    path: "~/.scripts/oscloud-sync"
+    state: directory
+    mode: '0755'
+
+- name: Discover OneDrive Business locations
+  shell: |
+    find ~/Library/CloudStorage -maxdepth 1 -type d -name "OneDrive-*" 2>/dev/null || true
+  register: onedrive_business_paths
+  changed_when: false
+
+- name: Deploy OS cloud discovery script
+  template:
+    src: macos_discover_clouds.sh.j2
+    dest: "~/.scripts/oscloud-sync/discover_clouds.sh"
+    mode: '0755'
+
+- name: Deploy OS cloud sync script
+  template:
+    src: macos_sync_to_devices.sh.j2
+    dest: "~/.scripts/oscloud-sync/sync_to_devices.sh"
+    mode: '0755'
+
+- name: Unload old sync LaunchAgents (cleanup)
+  command: launchctl unload -w "~/Library/LaunchAgents/{{ item }}"
+  loop:
+    - com.miket.oscloud.sync.plist
+    - com.miket.backup-sync.plist
+  ignore_errors: yes
+  changed_when: false
+
+- name: Deploy LaunchAgent for scheduled sync
+  template:
+    src: com.miket.oscloud.sync.plist.j2
+    dest: "~/Library/LaunchAgents/com.miket.backup-sync.plist"
+    mode: '0644'
+
+- name: Load sync LaunchAgent
+  command: launchctl load -w "~/Library/LaunchAgents/com.miket.backup-sync.plist"
+
+- name: Display sync schedule
+  debug:
+    msg: "OS cloud sync scheduled daily at {{ sync_schedule.hour }}:{{ sync_schedule.minute }}"
+

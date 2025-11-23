@@ -1,0 +1,67 @@
+---
+- name: Prepare context for {{ secrets_sync_item.key }}
+  ansible.builtin.set_fact:
+    secrets_sync_env_file: "{{ secrets_sync_item.value.env_file | expanduser }}"
+    secrets_sync_env_owner: "{{ secrets_sync_item.value.owner | default(secrets_sync_default_owner) }}"
+    secrets_sync_env_group: "{{ secrets_sync_item.value.group | default(secrets_sync_default_group) }}"
+    secrets_sync_env_mode: "{{ secrets_sync_item.value.mode | default(secrets_sync_default_mode) }}"
+    secrets_sync_vault: "{{ secrets_sync_item.value.akv_vault_name | default(secrets_map.akv_vault_name | default(akv_vault_name)) }}"
+    secrets_sync_become: "{{ secrets_sync_item.value.become | default(secrets_sync_default_become) }}"
+    secrets_sync_run_as: "{{ secrets_sync_item.value.run_as | default(secrets_sync_runner_user) }}"
+
+- name: Ensure destination directory exists for {{ secrets_sync_item.key }}
+  ansible.builtin.file:
+    path: "{{ secrets_sync_env_file | dirname }}"
+    state: directory
+    owner: "{{ secrets_sync_env_owner }}"
+    group: "{{ secrets_sync_env_group }}"
+    mode: "0700"
+  become: "{{ secrets_sync_become }}"
+
+- name: Read secrets for {{ secrets_sync_item.key }} from Azure Key Vault
+  ansible.builtin.command: >-
+    {{ secrets_sync_az_cli }} keyvault secret show
+    --vault-name "{{ secrets_sync_vault }}"
+    --name "{{ secret_entry.value }}"
+    --query value -o tsv
+  register: secrets_sync_results
+  loop: "{{ secrets_sync_item.value.secrets | default({}) | dict2items }}"
+  loop_control:
+    loop_var: secret_entry
+  no_log: true
+  changed_when: false
+  become: "{{ secrets_sync_become }}"
+  become_user: "{{ secrets_sync_run_as if secrets_sync_become | default(false) else omit }}"
+
+- name: Fail if any secrets are missing for {{ secrets_sync_item.key }}
+  ansible.builtin.fail:
+    msg: "Missing value for secret {{ result.secret_entry.key }} (AKV: {{ result.secret_entry.value }})"
+  loop: "{{ secrets_sync_results.results }}"
+  loop_control:
+    loop_var: result
+  when: result.stdout is not defined or result.stdout | length == 0
+
+- name: Build env file for {{ secrets_sync_item.key }}
+  ansible.builtin.copy:
+    dest: "{{ secrets_sync_env_file }}"
+    owner: "{{ secrets_sync_env_owner }}"
+    group: "{{ secrets_sync_env_group }}"
+    mode: "{{ secrets_sync_env_mode }}"
+    content: |-
+      # Managed by Ansible (secrets_sync role)
+      # Source: Azure Key Vault {{ secrets_sync_vault }}
+      {% for result in secrets_sync_results.results %}
+      {{ result.secret_entry.key }}={{ result.stdout }}
+      {% endfor %}
+  become: "{{ secrets_sync_become }}"
+
+- name: Restart services that depend on {{ secrets_sync_env_file }}
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    state: restarted
+    daemon_reload: true
+  loop: "{{ secrets_sync_item.value.restart | default([]) }}"
+  loop_control:
+    loop_var: service_name
+  become: true
+  when: secrets_sync_item.value.restart | default([]) | length > 0

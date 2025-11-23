@@ -1,0 +1,62 @@
+---
+# Set up /space/devices structure on motoko
+# Creates directories and symlinks for device storage view
+
+- name: Setup Devices Structure on Motoko
+  hosts: motoko
+  gather_facts: yes
+  become: yes
+  
+  pre_tasks:
+    - name: Display setup info
+      debug:
+        msg: |
+          Setting up /space/devices structure on motoko
+          - Creating /space/devices/
+          - Creating /space/mike/ if needed
+          - Symlinking /space/mike/devices -> /space/devices
+          - Creating device subdirectories
+  
+  roles:
+    - devices_structure
+  
+  post_tasks:
+    - name: Verify devices structure
+      command: ls -la /space/devices/
+      register: devices_list
+      changed_when: false
+    
+    - name: Display devices directory
+      debug:
+        var: devices_list.stdout_lines
+    
+    - name: Verify mike symlink
+      command: ls -la /space/mike/
+      register: mike_list
+      changed_when: false
+      ignore_errors: yes
+    
+    - name: Display mike directory
+      debug:
+        var: mike_list.stdout_lines
+      when: mike_list.rc == 0
+    
+    - name: Setup complete
+      debug:
+        msg: |
+          Devices structure setup complete!
+          
+          Structure:
+          - /space/devices/<hostname>/<username>/<cloud-service>/
+          
+          Access paths:
+          - Direct: /space/devices
+          - Via user path: /space/mike/devices
+          - macOS clients: ~/space/mike/devices
+          - Windows clients: S:\mike\devices
+          
+          Next steps:
+          1. Deploy mount configuration to clients (deploy-mounts-*.yml)
+          2. Deploy OS cloud sync to clients (deploy-oscloud-sync.yml)
+          3. Verify client devices can write to /space/devices/
+

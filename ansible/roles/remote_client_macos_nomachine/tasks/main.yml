@@ -1,0 +1,57 @@
+---
+# Ansible role: remote_client_macos_nomachine
+# Installs NoMachine client on macOS hosts for accessing remote NoMachine servers
+
+- name: Check if NoMachine client is already installed
+  ansible.builtin.stat:
+    path: /Applications/NoMachine.app
+  register: nomachine_client_app
+
+- name: Download NoMachine client installer for macOS
+  ansible.builtin.shell: |
+    cd /tmp
+    curl -L -f -o nomachine_{{ nomachine_version }}.dmg "{{ nomachine_macos_url }}" || \
+    wget -O nomachine_{{ nomachine_version }}.dmg "{{ nomachine_macos_url }}"
+  when: not nomachine_client_app.stat.exists
+  args:
+    creates: "/tmp/nomachine_{{ nomachine_version }}.dmg"
+
+- name: Mount DMG and install NoMachine client
+  ansible.builtin.shell: |
+    hdiutil attach /tmp/nomachine_{{ nomachine_version }}.dmg -nobrowse -quiet
+    sudo installer -pkg /Volumes/NoMachine/NoMachine.pkg -target /
+    hdiutil detach /Volumes/NoMachine -quiet
+  when: not nomachine_client_app.stat.exists
+  become: false
+
+- name: Clean up installer DMG
+  ansible.builtin.file:
+    path: "/tmp/nomachine_{{ nomachine_version }}.dmg"
+    state: absent
+
+- name: Ensure NoMachine documents directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/Documents/NoMachine"
+    state: directory
+    mode: '0755'
+
+- name: Deploy NoMachine session files
+  ansible.builtin.template:
+    src: session.nxs.j2
+    dest: "{{ ansible_user_dir }}/Documents/NoMachine/{{ item.name }}.nxs"
+    mode: '0644'
+  loop:
+    - { name: 'motoko', host: 'motoko', session_type: 'unix' }
+    - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
+
+- name: Display NoMachine client installation status
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine client installed"
+      - "Launch from: /Applications/NoMachine.app"
+      - "Pre-configured servers available in ~/Documents/NoMachine:"
+      - "  - motoko (Linux)"
+      - "  - wintermute (Windows)"
+      - "  - armitage (Windows)"
+      - "Keyboard tip: macOS Command key maps to Ctrl in remote sessions"

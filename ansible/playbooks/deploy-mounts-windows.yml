@@ -1,0 +1,73 @@
+---
+# Deploy updated mount configuration to Windows clients
+# Maps network drives X:, S:, T: with proper labels
+
+- name: Deploy Windows Mount Configuration
+  hosts: windows
+  gather_facts: no
+  vars:
+    smb_server_override: "192.168.1.195"  # Override for LAN connectivity
+    smb_password: "{{ lookup('env', 'MOTOKO_SMB_PASSWORD') | default('', true) }}"
+
+  pre_tasks:
+    - name: Fail if SMB password is not available in the environment
+      fail:
+        msg: >-
+          MOTOKO_SMB_PASSWORD is not set. Run the secrets-sync playbook first or export it manually
+          (e.g. source /etc/miket/storage-credentials.env).
+      when: smb_password | length == 0
+
+    - name: Set SMB password fact
+      set_fact:
+        smb_password: "{{ smb_password | trim }}"
+        smb_server: "{{ smb_server_override | default(smb_server) }}"
+      no_log: true
+    
+    - name: Ensure Scripts directory exists
+      win_file:
+        path: C:\Scripts
+        state: directory
+    
+    - name: Deploy drive mapping script
+      win_template:
+        src: mount_shares_windows/templates/map_drives.ps1.j2
+        dest: C:\Scripts\Map-MikeTDrives.ps1
+    
+    - name: Create scheduled task for drive mapping at logon
+      win_shell: |
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File C:\Scripts\Map-MikeTDrives.ps1"
+        $trigger = New-ScheduledTaskTrigger -AtLogon -User "{{ ansible_user }}"
+        $principal = New-ScheduledTaskPrincipal -UserId "{{ ansible_user }}" -LogonType Interactive -RunLevel Limited
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        
+        $existingTask = Get-ScheduledTask -TaskName "MikeT Map Network Drives" -ErrorAction SilentlyContinue
+        if ($existingTask) {
+            Unregister-ScheduledTask -TaskName "MikeT Map Network Drives" -Confirm:$false
+        }
+        
+        Register-ScheduledTask -TaskName "MikeT Map Network Drives" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+        Write-Host "Scheduled task created for drive mapping at logon"
+    
+    - name: Run mapping script to create initial mappings
+      win_shell: C:\Scripts\Map-MikeTDrives.ps1
+      register: map_result
+    
+    - name: Display mapping results
+      debug:
+        var: map_result.stdout_lines
+  
+  tasks:
+    - name: Deployment complete
+      debug:
+        msg: |
+          Mount configuration deployed successfully!
+          
+          Drives will be fully accessible after next logon.
+          Scheduled task "MikeT Map Network Drives" will run at every logon.
+          
+          Next steps:
+          1. User should log off and log back on
+          2. Verify drives: Open File Explorer, check X:, S:, T:
+          3. Run loop check: C:\Scripts\Check-OneDriveLoops.ps1
+          4. Verify OneDrive settings exclude network drives
+

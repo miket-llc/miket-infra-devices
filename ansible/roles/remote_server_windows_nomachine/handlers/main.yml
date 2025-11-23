@@ -1,0 +1,6 @@
+---
+- name: restart nxserver
+  win_service:
+    name: nxservice
+    state: restarted
+

@@ -1,0 +1,102 @@
+---
+# Master Playbook: Deploy Complete Devices Infrastructure
+# 
+# This playbook orchestrates the deployment of:
+# 1. Server-side /space/devices structure on motoko
+# 2. Updated mount configuration on macOS clients
+# 3. Updated mount configuration on Windows clients
+# 4. OS cloud synchronization on all clients
+#
+# Usage:
+#   # Deploy everything
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml
+#
+#   # Deploy only server setup
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml --tags server
+#
+#   # Deploy only client mounts
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml --tags mounts
+#
+#   # Deploy only OS cloud sync
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml --tags oscloud
+
+- name: "[1/4] Setup Devices Structure on Motoko"
+  import_playbook: motoko/setup-devices-structure.yml
+  tags: [server, devices-structure]
+
+- name: "[2/4] Deploy macOS Mount Configuration"
+  import_playbook: deploy-mounts-macos.yml
+  tags: [clients, mounts, macos]
+
+- name: "[3/4] Deploy Windows Mount Configuration"
+  import_playbook: deploy-mounts-windows.yml
+  tags: [clients, mounts, windows]
+
+- name: "[3b/4] Deploy Linux Mount Configuration"
+  import_playbook: deploy-mounts-linux.yml
+  tags: [clients, mounts, linux]
+
+- name: "[4/4] Deploy OS Cloud Synchronization"
+  import_playbook: deploy-oscloud-sync.yml
+  tags: [clients, oscloud]
+
+- name: Deployment Summary
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ================================================================
+          DEVICES INFRASTRUCTURE DEPLOYMENT COMPLETE
+          ================================================================
+          
+          Server (motoko):
+          ✓ /space/devices structure created
+          ✓ /space/mike/devices symlink created
+          
+          macOS Clients:
+          ✓ SMB mounts to /mkt/flux, /mkt/space, /mkt/time
+          ✓ User symlinks ~/flux, ~/space, ~/time
+          ✓ iCloud/OneDrive loop guards installed
+          ✓ OS cloud sync scheduled (nightly at 2:30 AM)
+          
+          Windows Clients:
+          ✓ Network drives X: (FLUX), S: (SPACE), T: (TIME)
+          ✓ Drive labels set
+          ✓ Quick Access pinning configured
+          ✓ OneDrive loop checks installed
+          ✓ OS cloud sync scheduled (nightly at 2:30 AM)
+
+          Linux Clients:
+          ✓ SMB mounts to /mnt/{flux,space,time}
+          ✓ User symlinks ~/flux, ~/space, ~/time
+          ✓ Health reporting configured
+
+          VALIDATION CHECKLIST:
+          
+          [ ] macOS: Log out/in, verify /mkt/* mounts
+          [ ] macOS: Verify ~/flux, ~/space, ~/time symlinks
+          [ ] macOS: Run ~/.scripts/check_oscloud_loops.sh
+          [ ] macOS: Manually test sync: ~/.scripts/oscloud-sync/sync_to_devices.sh
+          
+          [ ] Windows: Log off/on, verify X:, S:, T: drives
+          [ ] Windows: Verify drive labels in Explorer
+          [ ] Windows: Run C:\Scripts\Check-OneDriveLoops.ps1
+          [ ] Windows: Manually test sync: C:\Scripts\oscloud-sync\Sync-ToDevices.ps1
+          
+          [ ] Server: Verify /space/devices/<hostname>/<user>/ structure
+          [ ] Server: Verify /space/mike/devices symlink
+          
+          [ ] All: Wait 24h and verify nightly sync ran successfully
+          [ ] All: Check logs for errors
+          
+          USER GUIDANCE:
+          - Use ~/space (macOS) or S: (Windows) for daily work
+          - Use ~/flux (macOS) or X: (Windows) for runtime/ops only
+          - Access devices view: ~/space/mike/devices or S:\mike\devices
+          - OS clouds (iCloud/OneDrive) continue to work normally
+          - Everything is backed up to motoko automatically
+          
+          ================================================================
+

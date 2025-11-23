@@ -1,0 +1,10 @@
+[Unit]
+Description=Backup /flux to Backblaze B2
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile={{ data_lifecycle_env_file }}
+ExecStart=/usr/local/bin/flux-backup.sh
+User=root
+

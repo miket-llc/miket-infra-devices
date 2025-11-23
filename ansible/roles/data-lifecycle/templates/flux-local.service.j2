@@ -1,0 +1,9 @@
+[Unit]
+Description=Local snapshot of /flux
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/flux-local-snap.sh
+User=root
+

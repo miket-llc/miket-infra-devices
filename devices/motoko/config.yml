@@ -22,6 +22,8 @@ hardware:
     - "/mnt/data/docker"  # Docker root
     - "/mnt/lacie"  # Backup storage
     - "/mnt/lacie/llama-model"  # Model storage
+    - "/mnt/usb-timemachine"  # Time Machine backup partition (APFS, read-only)
+    - "/mnt/usb-space"  # File cache partition (ext4, 20TB USB 3.0 drive)
 
 operating_system:
   os: Ubuntu
@@ -82,7 +84,8 @@ use_cases:
   - Docker container hosting
   - LLM inference (reasoning and embeddings)
   - LLM request routing (LiteLLM proxy)
-  - Backup storage server
+  - Backup storage server (Time Machine for count-zero)
+  - Enterprise file cache storage (20TB USB 3.0)
   - File sharing (Samba/AFP)
   - Knowledge graph building (with vLLM models)
 
@@ -94,3 +97,14 @@ notes:
   - GPU memory allocation: 45% reasoning, 30% embeddings, 25% headroom
   - Connected to Tailnet for secure remote access
   - Self-managed via Ansible playbooks in `ansible/playbooks/motoko/`
+
+troubleshooting:
+  gnome_ui_freeze:
+    last_incident: "2025-11-21"
+    status: "Resolved"
+    root_cause: "GNOME Shell crash loop due to stuck gnome-shell-disable-extensions file"
+    solution: "Remove /run/user/1000/gnome-shell-disable-extensions and restart gnome-shell"
+    recovery_script: "devices/motoko/scripts/gnome-shell-recovery.sh"
+    monitoring_script: "devices/motoko/scripts/gnome-health-monitor.sh"
+    documentation: "devices/motoko/GNOME_UI_FREEZE_INCIDENT_REPORT.md"
+    quick_reference: "devices/motoko/QUICK_REFERENCE_GNOME_RECOVERY.md"

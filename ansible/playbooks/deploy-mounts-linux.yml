@@ -1,0 +1,10 @@
+---
+- name: Deploy Mount Shares (Linux)
+  hosts: linux:&workstations
+  become: true
+  roles:
+    - mount_shares_linux
+
+
+
+

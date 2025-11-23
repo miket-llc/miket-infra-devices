@@ -1,0 +1,122 @@
+---
+# Emergency recovery playbook for frozen display on motoko
+# Part of miket-infra-devices
+# Usage: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/recover-frozen-display.yml
+
+- name: Recover Frozen Display on motoko
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Gather system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - 'all'
+
+    - name: Check current load average
+      ansible.builtin.command: uptime
+      register: uptime_output
+      changed_when: false
+
+    - name: Display current load
+      ansible.builtin.debug:
+        msg: "{{ uptime_output.stdout }}"
+
+    - name: Check for crash-looping containers
+      ansible.builtin.shell: |
+        docker ps -a --filter "status=restarting" --format "{{{{.Names}}}}" || echo ""
+      register: crashloop_containers
+      changed_when: false
+      failed_when: false
+
+    - name: Stop crash-looping containers
+      ansible.builtin.shell: |
+        docker stop {{ item }}
+        docker update --restart=no {{ item }}
+      loop: "{{ crashloop_containers.stdout_lines }}"
+      when: crashloop_containers.stdout_lines | length > 0
+      register: stop_containers
+
+    - name: Display stopped containers
+      ansible.builtin.debug:
+        msg: "Stopped crash-looping containers: {{ crashloop_containers.stdout_lines }}"
+      when: crashloop_containers.stdout_lines | length > 0
+
+    - name: Check tailscale CPU usage
+      ansible.builtin.shell: |
+        ps aux | grep '[t]ailscaled' | awk '{print $3}' || echo "0"
+      register: tailscale_cpu
+      changed_when: false
+
+    - name: Restart tailscale if consuming excessive CPU
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: restarted
+      when: tailscale_cpu.stdout | float > 200
+
+    - name: Check GNOME Shell error rate
+      ansible.builtin.shell: |
+        journalctl -t gnome-shell --since "5 minutes ago" --no-pager 2>/dev/null | grep -c "Stack trace" || echo "0"
+      register: gnome_errors
+      changed_when: false
+      failed_when: false
+
+    - name: Display GNOME Shell error count
+      ansible.builtin.debug:
+        msg: "GNOME Shell errors in last 5 minutes: {{ gnome_errors.stdout }}"
+
+    - name: Restart GDM if GNOME Shell is in error storm
+      ansible.builtin.systemd:
+        name: gdm.service
+        state: restarted
+      when: gnome_errors.stdout | int > 1000
+
+    - name: Wait for GDM to restart
+      ansible.builtin.wait_for:
+        timeout: 10
+      when: gnome_errors.stdout | int > 1000
+
+    - name: Restart TigerVNC to connect to fresh session
+      ansible.builtin.systemd:
+        name: tigervnc.service
+        state: restarted
+
+    - name: Wait for services to stabilize
+      ansible.builtin.wait_for:
+        timeout: 10
+
+    - name: Verify critical services are running
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - gdm.service
+        - tigervnc.service
+        - tailscaled.service
+        - docker.service
+
+    - name: Get final system status
+      ansible.builtin.shell: |
+        uptime
+        free -h
+        systemctl status gdm tigervnc --no-pager | grep "Active:"
+      register: final_status
+      changed_when: false
+
+    - name: Display recovery results
+      ansible.builtin.debug:
+        msg: "{{ final_status.stdout_lines }}"
+
+    - name: Log recovery action
+      ansible.builtin.lineinfile:
+        path: /var/log/system-recovery.log
+        line: "[{{ ansible_date_time.iso8601 }}] Automated recovery executed via Ansible"
+        create: true
+        mode: '0644'
+
+
+
+

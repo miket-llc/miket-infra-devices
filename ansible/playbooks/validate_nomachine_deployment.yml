@@ -1,0 +1,211 @@
+---
+# Playbook: validate_nomachine_deployment.yml
+# Validates that NoMachine is properly deployed and VNC/RDP are disabled
+# Tests connectivity, firewall rules, and service states
+
+- name: Validate NoMachine deployment on Linux servers
+  hosts: workstations:&linux
+  gather_facts: true
+  become: true
+  tags:
+    - validate
+    - validate:linux
+  tasks:
+    - name: Check NoMachine server binary exists
+      ansible.builtin.stat:
+        path: /usr/NX/bin/nxserver
+      register: nx_binary
+      failed_when: not nx_binary.stat.exists
+
+    - name: Verify NoMachine service is running
+      ansible.builtin.systemd:
+        name: nxserver
+      register: nx_service
+      failed_when: nx_service.status.ActiveState != "active"
+
+    - name: Verify NoMachine is listening on port 4000
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 4000
+        timeout: 5
+      register: nx_port
+
+    - name: Verify VNC ports are NOT listening
+      ansible.builtin.shell: |
+        if ss -tulnp | grep -E ':(5900|5901|5902|5903)'; then
+          echo "FAIL: VNC ports still listening"
+          exit 1
+        else
+          echo "PASS: No VNC ports listening"
+        fi
+      register: vnc_check
+      changed_when: false
+
+    - name: Verify VNC packages are removed
+      ansible.builtin.shell: |
+        if dpkg -l | grep -E 'tigervnc|x11vnc|vino' | grep -v 'un '; then
+          echo "WARNING: VNC packages still installed"
+          exit 1
+        else
+          echo "PASS: VNC packages removed"
+        fi
+      register: vnc_pkg_check
+      changed_when: false
+      failed_when: false
+      when: ansible_pkg_mgr == "apt"
+
+    - name: Check NoMachine firewall rule exists (UFW)
+      ansible.builtin.shell: |
+        if ufw status | grep -q "4000"; then
+          echo "PASS: NoMachine firewall rule exists"
+        else
+          echo "FAIL: NoMachine firewall rule missing"
+          exit 1
+        fi
+      register: firewall_check
+      changed_when: false
+      when: ansible_pkg_mgr == "apt"
+
+    - name: Display Linux validation results
+      ansible.builtin.debug:
+        msg:
+          - "✅ NoMachine server: {{ 'RUNNING' if nx_service.status.ActiveState == 'active' else 'FAILED' }}"
+          - "✅ NoMachine port 4000: {{ 'LISTENING' if nx_port is succeeded else 'FAILED' }}"
+          - "✅ VNC removal: {{ vnc_check.stdout }}"
+          - "✅ VNC packages: {{ vnc_pkg_check.stdout if vnc_pkg_check is defined else 'N/A' }}"
+          - "✅ Firewall: {{ firewall_check.stdout if firewall_check is defined else 'N/A' }}"
+
+- name: Validate NoMachine deployment on Windows servers
+  hosts: workstations:&windows
+  gather_facts: true
+  become: false
+  tags:
+    - validate
+    - validate:windows
+  tasks:
+    - name: Check NoMachine server is installed
+      win_stat:
+        path: "C:\\Program Files\\NoMachine\\bin\\nxserver.exe"
+      register: nx_binary_win
+
+    - name: Verify NoMachine service is running
+      win_service_info:
+        name: nxserver
+      register: nx_service_win
+      failed_when: nx_service_win.services[0].state != 'running'
+
+    - name: Verify NoMachine is listening on port 4000
+      win_shell: |
+        $listener = Get-NetTCPConnection -LocalPort 4000 -ErrorAction SilentlyContinue
+        if ($listener) {
+          Write-Output "PASS: NoMachine listening on port 4000"
+        } else {
+          Write-Output "FAIL: NoMachine not listening"
+          exit 1
+        }
+      register: nx_port_win
+
+    - name: Verify RDP is NOT listening (or is disabled)
+      win_shell: |
+        $rdpService = Get-Service -Name TermService -ErrorAction SilentlyContinue
+        $rdpListener = Get-NetTCPConnection -LocalPort 3389 -ErrorAction SilentlyContinue
+        
+        if ($rdpService.Status -eq "Stopped" -or -not $rdpListener) {
+          Write-Output "PASS: RDP is disabled or not listening"
+        } else {
+          Write-Output "WARNING: RDP may still be active"
+          exit 1
+        }
+      register: rdp_check_win
+      failed_when: false
+
+    - name: Verify RDP port 3389 is blocked by firewall
+      win_shell: |
+        $blockRule = Get-NetFirewallRule -Name "Block-RDP-All" -ErrorAction SilentlyContinue
+        if ($blockRule -and $blockRule.Enabled -eq $true) {
+          Write-Output "PASS: RDP is blocked by firewall"
+        } else {
+          Write-Output "WARNING: RDP block rule not found or disabled"
+          exit 1
+        }
+      register: rdp_firewall_win
+      failed_when: false
+
+    - name: Verify NoMachine firewall rule exists (Tailscale only)
+      win_shell: |
+        $nxRule = Get-NetFirewallRule -Name "NoMachine-Tailscale" -ErrorAction SilentlyContinue
+        if ($nxRule -and $nxRule.Enabled -eq $true) {
+          Write-Output "PASS: NoMachine firewall rule exists (Tailscale only)"
+        } else {
+          Write-Output "FAIL: NoMachine firewall rule missing"
+          exit 1
+        }
+      register: nx_firewall_win
+
+    - name: Display Windows validation results
+      ansible.builtin.debug:
+        msg:
+          - "✅ NoMachine server: {{ 'INSTALLED' if nx_binary_win.stat.exists else 'MISSING' }}"
+          - "✅ NoMachine service: {{ nx_service_win.services[0].state | upper }}"
+          - "✅ NoMachine port: {{ nx_port_win.stdout }}"
+          - "✅ RDP status: {{ rdp_check_win.stdout }}"
+          - "✅ RDP firewall: {{ rdp_firewall_win.stdout }}"
+          - "✅ NoMachine firewall: {{ nx_firewall_win.stdout }}"
+
+- name: Validate NoMachine client deployment
+  hosts: all
+  gather_facts: true
+  tags:
+    - validate
+    - validate:clients
+  tasks:
+    - name: Check NoMachine client on macOS
+      ansible.builtin.stat:
+        path: /Applications/NoMachine.app
+      register: nx_client_macos
+      when: ansible_system == "Darwin"
+
+    - name: Check NoMachine client on Windows
+      win_stat:
+        path: "C:\\Program Files\\NoMachine\\bin\\nxplayer.exe"
+      register: nx_client_win
+      when: ansible_system == "Win32NT"
+
+    - name: Check NoMachine client on Linux
+      ansible.builtin.stat:
+        path: /usr/NX/bin/nxplayer
+      register: nx_client_linux
+      when: ansible_system == "Linux"
+
+    - name: Display client validation results
+      ansible.builtin.debug:
+        msg:
+          - "Host: {{ inventory_hostname }}"
+          - "NoMachine Client: {{ 'INSTALLED' if (nx_client_macos.stat.exists | default(false)) or (nx_client_win.stat.exists | default(false)) or (nx_client_linux.stat.exists | default(false)) else 'NOT INSTALLED' }}"
+
+- name: Final validation summary
+  hosts: localhost
+  gather_facts: false
+  tags:
+    - validate
+  tasks:
+    - name: Display final summary
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "NOMACHINE DEPLOYMENT VALIDATION COMPLETE"
+          - "=========================================="
+          - ""
+          - "✅ All NoMachine servers should be running"
+          - "✅ All VNC services should be stopped and removed"
+          - "✅ Windows RDP should be disabled and firewalled"
+          - "✅ All NoMachine clients should be installed"
+          - "✅ Firewall rules should restrict to Tailscale only"
+          - ""
+          - "Next steps:"
+          - "1. Test connectivity from each client to each server"
+          - "2. Verify clipboard, multi-monitor, keyboard work"
+          - "3. Confirm S:\\ and X:\\ drive mappings work in remote sessions"
+          - "4. Test reconnection after network interruption"
+
+

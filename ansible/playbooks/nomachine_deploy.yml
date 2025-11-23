@@ -1,0 +1,78 @@
+---
+# Playbook: nomachine_deploy.yml
+# Deploys NoMachine server and client across all Tailnet nodes
+# Provides point-to-point remote desktop access via Tailscale
+
+- name: Deploy NoMachine servers
+  hosts: tailnet_all
+  gather_facts: yes
+  tags:
+    - nomachine
+    - nomachine:server
+  tasks:
+    - name: Set become based on OS
+      ansible.builtin.set_fact:
+        ansible_become: "{{ 'yes' if ansible_facts.system != 'Win32NT' else 'no' }}"
+      when: ansible_facts.system is defined
+
+    - name: Install and configure NoMachine server (macOS)
+      ansible.builtin.include_role:
+        name: remote_server_macos_nomachine
+      when: ansible_distribution == 'MacOSX' or ansible_system == 'Darwin'
+
+    - name: Install and configure NoMachine server (Windows)
+      ansible.builtin.include_role:
+        name: remote_server_windows_nomachine
+      when: ansible_os_family == 'Windows'
+
+    - name: Install and configure NoMachine server (Linux)
+      ansible.builtin.include_role:
+        name: remote_server_linux_nomachine
+      when: ansible_system == 'Linux'
+
+- name: Deploy NoMachine clients
+  hosts: workstations
+  gather_facts: yes
+  tags:
+    - nomachine
+    - nomachine:client
+  tasks:
+    - name: Install NoMachine client (macOS)
+      ansible.builtin.include_role:
+        name: remote_client_macos_nomachine
+      when: ansible_distribution == 'MacOSX' or ansible_system == 'Darwin'
+
+    - name: Install NoMachine client (Windows)
+      ansible.builtin.include_role:
+        name: remote_client_windows_nomachine
+      when: ansible_os_family == 'Windows'
+
+    - name: Install NoMachine client (Linux)
+      ansible.builtin.include_role:
+        name: remote_client_linux_nomachine
+      when: ansible_system == 'Linux'
+
+- name: Display deployment summary
+  hosts: localhost
+  gather_facts: no
+  tags:
+    - nomachine
+    - nomachine:summary
+  tasks:
+    - name: Generate connection summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ NoMachine deployment complete"
+          - ""
+          - "Servers configured on all Tailnet nodes:"
+          - "  - motoko.pangolin-vega.ts.net:4000"
+          - "  - wintermute.pangolin-vega.ts.net:4000"
+          - "  - armitage.pangolin-vega.ts.net:4000"
+          - "  - count-zero.pangolin-vega.ts.net:4000"
+          - ""
+          - "Clients installed on all workstations with saved sessions:"
+          - "  - motoko"
+          - "  - wintermute"
+          - "  - armitage"
+          - ""
+          - "Connect using NoMachine client UI."

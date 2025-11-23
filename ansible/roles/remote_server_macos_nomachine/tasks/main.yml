@@ -1,0 +1,64 @@
+---
+- name: Check if NoMachine is already installed
+  ansible.builtin.stat:
+    path: /Applications/NoMachine.app
+  register: nomachine_app
+
+- name: Download NoMachine installer for macOS
+  ansible.builtin.shell: |
+    cd /tmp
+    curl -L -f -o nomachine_{{ nomachine_version }}.dmg "https://download.nomachine.com/download/8.x/macosx/nomachine_{{ nomachine_version }}.dmg" || \
+    wget -O nomachine_{{ nomachine_version }}.dmg "https://download.nomachine.com/download/8.x/macosx/nomachine_{{ nomachine_version }}.dmg"
+  when: not nomachine_app.stat.exists
+  become: false
+  args:
+    creates: "/tmp/nomachine_{{ nomachine_version }}.dmg"
+
+- name: Mount DMG and install NoMachine
+  ansible.builtin.shell: |
+    hdiutil attach /tmp/nomachine_{{ nomachine_version }}.dmg -nobrowse -quiet
+    sudo installer -pkg /Volumes/NoMachine/NoMachine.pkg -target /
+    hdiutil detach /Volumes/NoMachine -quiet
+  when: not nomachine_app.stat.exists
+  become: false
+  args:
+    creates: /Applications/NoMachine.app
+
+- name: Start NoMachine server
+  ansible.builtin.shell: |
+    /usr/NX/bin/nxserver --start
+  become: true
+  failed_when: false
+
+- name: Configure NoMachine firewall (macOS firewall)
+  ansible.builtin.shell: |
+    /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/NX/bin/nxserver 2>/dev/null || true
+    /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /usr/NX/bin/nxserver 2>/dev/null || true
+  become: true
+  failed_when: false
+
+- name: Find NoMachine server config
+  ansible.builtin.stat:
+    path: /Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg
+  register: nx_cfg_path
+
+- name: Configure NoMachine to accept connections from Tailscale subnet only
+  ansible.builtin.lineinfile:
+    path: "{{ nx_cfg_path.stat.path }}"
+    regexp: '^AcceptFrom'
+    line: 'AcceptFrom 100.64.0.0/10'
+    backup: yes
+  become: true
+  when: nx_cfg_path.stat.exists
+  register: nx_config_updated
+
+- name: Restart NoMachine server
+  ansible.builtin.command: /usr/NX/bin/nxserver --restart
+  become: true
+  when: nx_config_updated.changed
+
+- name: Display connection information
+  ansible.builtin.debug:
+    msg:
+      - "✅ NoMachine server configured on macOS"
+      - "Connect via NoMachine to: {{ inventory_hostname }}.pangolin-vega.ts.net:{{ nomachine_port }}"

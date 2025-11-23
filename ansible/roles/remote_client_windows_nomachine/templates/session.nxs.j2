@@ -1,0 +1,14 @@
+<!DOCTYPE NXClientSettings>
+<NXClientSettings application="nxclient" version="2.0">
+  <group name="General" >
+    <option key="Server host" value="{{ item.host }}.pangolin-vega.ts.net" />
+    <option key="Server port" value="4000" />
+    <option key="Session" value="{{ item.session_type | default('unix') }}" />
+    <option key="Resolution" value="fit" />
+    <option key="Link quality" value="9" />
+  </group>
+  <group name="Advanced" >
+    <option key="Grab the keyboard input" value="true" />
+    <option key="Grab the mouse input" value="true" />
+  </group>
+</NXClientSettings>

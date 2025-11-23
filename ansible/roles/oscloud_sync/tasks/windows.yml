@@ -1,0 +1,42 @@
+---
+# Windows OS Cloud Sync Tasks
+
+- name: Ensure sync scripts directory exists
+  win_file:
+    path: C:\Scripts\oscloud-sync
+    state: directory
+
+- name: Discover OneDrive Business locations
+  win_shell: |
+    Get-ChildItem "$env:USERPROFILE\OneDrive - *" -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+  register: onedrive_business_paths
+  changed_when: false
+
+- name: Deploy OS cloud discovery script
+  win_template:
+    src: windows_discover_clouds.ps1.j2
+    dest: C:\Scripts\oscloud-sync\Discover-Clouds.ps1
+
+- name: Deploy OS cloud sync script
+  win_template:
+    src: windows_sync_to_devices.ps1.j2
+    dest: C:\Scripts\oscloud-sync\Sync-ToDevices.ps1
+
+- name: Create scheduled task for OS cloud sync
+  win_scheduled_task:
+    name: "MikeT OS Cloud Sync"
+    description: "Syncs iCloud/OneDrive to /space/devices on motoko"
+    actions:
+      - path: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
+        arguments: -ExecutionPolicy Bypass -File "C:\Scripts\oscloud-sync\Sync-ToDevices.ps1"
+    triggers:
+      - type: daily
+        start_boundary: "2025-01-01T{{ '%02d:%02d:00' | format(sync_schedule.hour | int, sync_schedule.minute | int) }}"
+    username: "{{ ansible_user }}"
+    enabled: yes
+    run_level: limited
+
+- name: Display sync schedule
+  debug:
+    msg: "OS cloud sync scheduled daily at {{ sync_schedule.hour }}:{{ sync_schedule.minute }}"
+

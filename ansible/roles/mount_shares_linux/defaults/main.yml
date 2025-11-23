@@ -1,0 +1,36 @@
+---
+# Defaults for Linux mount shares role
+smb_server: "motoko"
+smb_username: "mdt"
+
+# Credentials file for cifs (managed by this role or externally)
+smb_credentials_file: "/root/.smbcredentials_motoko"
+
+# System-level mount points
+smb_shares:
+  - name: "flux"
+    path: "/flux"
+    mount_point: "/mnt/flux"
+  - name: "space"
+    path: "/space"
+    mount_point: "/mnt/space"
+  - name: "time"
+    path: "/time"
+    mount_point: "/mnt/time"
+
+# User-level symlinks
+# These will be created for the ansible_user
+user_symlinks:
+  - name: "flux"
+    target: "/mnt/flux"
+    link: "~/flux"
+  - name: "space"
+    target: "/mnt/space"
+    link: "~/space"
+  - name: "time"
+    target: "/mnt/time"
+    link: "~/time"
+
+
+
+

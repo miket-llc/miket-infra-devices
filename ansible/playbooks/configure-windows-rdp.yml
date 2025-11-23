@@ -7,12 +7,12 @@
 - name: Configure RDP on all Windows devices
   hosts: windows_workstations
   gather_facts: true
-  vars_files:
-    - ../group_vars/windows/vault.yml
   vars:
     ansible_become: false  # Windows doesn't use become like Linux
     # Ensure password is resolved from vault
-    ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
+    ansible_password: >-
+      {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
+         else lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}
   tasks:
     - name: Enable and configure RDP with Group Policy
       ansible.builtin.include_role:

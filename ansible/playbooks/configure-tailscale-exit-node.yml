@@ -1,0 +1,56 @@
+---
+- name: Configure Tailscale Exit Node on motoko
+  hosts: motoko
+  become: yes
+  
+  tasks:
+    - name: Check if Tailscale is installed
+      command: which tailscale
+      register: tailscale_check
+      changed_when: false
+      failed_when: false
+    
+    - name: Fail if Tailscale not installed
+      fail:
+        msg: "Tailscale is not installed on {{ inventory_hostname }}"
+      when: tailscale_check.rc != 0
+    
+    - name: Enable IP forwarding (required for exit node)
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        reload: yes
+    
+    - name: Enable IPv6 forwarding (required for exit node)
+      sysctl:
+        name: net.ipv6.conf.all.forwarding
+        value: '1'
+        state: present
+        reload: yes
+    
+    - name: Configure Tailscale as exit node
+      command: tailscale up --advertise-exit-node --accept-routes --accept-dns --ssh
+      register: tailscale_exitnode
+      changed_when: "'Success' in tailscale_exitnode.stdout or tailscale_exitnode.rc == 0"
+    
+    - name: Get Tailscale status
+      command: tailscale status --json
+      register: tailscale_status_json
+      changed_when: false
+    
+    - name: Display exit node status
+      debug:
+        msg: "motoko is now configured as a Tailscale exit node"
+    
+    - name: Instructions for enabling on clients
+      debug:
+        msg: |
+          To use motoko as an exit node from count-zero:
+          sudo tailscale up --exit-node=motoko --exit-node-allow-lan-access=true
+          
+          This will route all traffic through motoko, bypassing local router filtering.
+
+
+
+

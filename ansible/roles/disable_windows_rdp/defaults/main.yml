@@ -1,0 +1,8 @@
+---
+# Whether to completely disable RDP or just firewall it off
+rdp_disable_completely: true
+
+# Whether to keep RDP available for emergency break-glass access (firewalled off by default)
+rdp_keep_for_emergency: false
+
+

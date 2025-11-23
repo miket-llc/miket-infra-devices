@@ -1,0 +1,37 @@
+---
+- name: Load secrets mapping file
+  ansible.builtin.include_vars:
+    file: "{{ secrets_map_file }}"
+    name: secrets_map
+
+- name: Initialize secrets list
+  ansible.builtin.set_fact:
+    secrets_sync_services: []
+
+- name: Select secrets to apply for this host
+  ansible.builtin.set_fact:
+    secrets_sync_services: "{{ secrets_sync_services + [item] }}"
+  loop: "{{ secrets_map.services | default({}) | dict2items }}"
+  when: >
+    (item.value.hosts is not defined and item.value.groups is not defined) or
+    (item.value.hosts is defined and inventory_hostname in item.value.hosts) or
+    (item.value.groups is defined and (group_names | intersect(item.value.groups)) | length > 0)
+
+- name: Skip when no secrets are mapped for this host
+  ansible.builtin.debug:
+    msg: "No secrets mapped for {{ inventory_hostname }} in {{ secrets_map_file }}"
+  when: secrets_sync_services | length == 0
+
+- name: Ensure Azure CLI is available
+  ansible.builtin.command: which {{ secrets_sync_az_cli }}
+  register: az_cli_check
+  changed_when: false
+  failed_when: az_cli_check.rc != 0
+  when: secrets_sync_services | length > 0
+
+- name: Sync mapped secrets from Azure Key Vault
+  ansible.builtin.include_tasks: sync_service.yml
+  loop: "{{ secrets_sync_services }}"
+  loop_control:
+    loop_var: secrets_sync_item
+  when: secrets_sync_services | length > 0
