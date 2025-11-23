@@ -16,6 +16,7 @@
 | **vLLM (armitage)** | ✅ RUNNING | Container operational, port 8000, Qwen2.5-7B-Instruct |
 | **vLLM (wintermute)** | ✅ RUNNING | Container operational with GPU access, Llama-3-8B-Instruct-AWQ |
 | **LiteLLM (motoko)** | ✅ RUNNING | Container healthy, serving requests |
+| **Secrets management** | ✅ UPDATED | AKV → env files via `secrets-sync`; 1Password human-only; Vault legacy only |
 | **Point-to-Point RDP** | ✅ OPERATIONAL | Port 3389 accessible from count-zero, firewall defense-in-depth configured |
 | **IaC/CaC Compliance** | ✅ COMPLETE | All RDP config consolidated into idempotent role |
 | **Secrets Management** | ✅ STANDARDIZED | Azure Key Vault → env files (`secrets-sync.yml`); 1Password human-only; Ansible Vault deprecated |

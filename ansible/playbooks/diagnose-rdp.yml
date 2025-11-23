@@ -3,11 +3,11 @@
 - name: Diagnose RDP Configuration
   hosts: windows
   gather_facts: true
-  vars_files:
-    - ../group_vars/windows/vault.yml
   vars:
     ansible_become: false
-    ansible_password: "{{ vault_wintermute_password if inventory_hostname == 'wintermute' else vault_armitage_password }}"
+    ansible_password: >-
+      {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
+         else lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}
   tasks:
     - name: Check Group Policy fDenyTSConnections
       win_shell: |

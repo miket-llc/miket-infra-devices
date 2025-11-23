@@ -1,9 +1,20 @@
 ---
-# Path to the secrets mapping file consumed by the secrets_sync role
-secrets_map_file: "{{ playbook_dir | default('.') }}/../secrets-map.yml"
+# Default Key Vault name used when an entry doesn't override it
+akv_vault_name: "kv-miket-ops"
 
-# Default Azure Key Vault name used when an entry does not specify one explicitly
-secrets_sync_default_vault: "kv-miket-ops"
+# Path to the secrets mapping file
+secrets_map_file: "{{ playbook_dir }}/../secrets-map.yml"
 
-# Azure CLI binary path
+# File permission defaults for generated .env files
+secrets_sync_default_owner: "root"
+secrets_sync_default_group: "root"
+secrets_sync_default_mode: "0600"
+
+# Azure CLI binary
 secrets_sync_az_cli: "az"
+
+# Default user to execute az under (override per service with run_as)
+secrets_sync_runner_user: "{{ ansible_user | default('mdt') }}"
+
+# Default privilege escalation for file writes (override per service with become)
+secrets_sync_default_become: true

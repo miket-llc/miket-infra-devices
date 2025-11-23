@@ -10,7 +10,9 @@
   vars:
     automation_account_name: "mdt"
     automation_account_description: "MDT - Infrastructure automation account"
-    automation_account_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
+    automation_account_password: >-
+      {{ lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') if inventory_hostname == 'armitage'
+         else lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') }}
   
   tasks:
     - name: Check if automation account already exists

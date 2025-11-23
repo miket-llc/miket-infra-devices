@@ -16,43 +16,23 @@ When adding a new host, place it under the appropriate OS family and opt in to a
 
 ## Ansible Vault
 
-Sensitive credentials (passwords, API keys, etc.) are stored in encrypted Ansible Vault files located in `group_vars/`:
-
-- `group_vars/all/vault.yml` - Linux/macOS user passwords
-- `group_vars/windows/vault.yml` - Windows WinRM passwords
-- `group_vars/linux/vault.yml` - Linux-specific secrets
-
-### Quick Start
+Automation secrets now flow from Azure Key Vault into host-local `.env` files via the `secrets_sync` role. Update or extend the
+mapping in `ansible/secrets-map.yml`, then run:
 
 ```bash
-# Initialize vault structure
-./scripts/manage-vault.sh init
-
-# Create all vault files
-./scripts/manage-vault.sh create-all
-
-# Edit a vault file
-./scripts/manage-vault.sh edit windows/vault.yml
-
-# Generate password hash for Linux/macOS
-./scripts/manage-vault.sh generate-hash
-
-# Test vault access
-./scripts/manage-vault.sh test
+ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit motoko
 ```
 
-### Using Vault Files
+For Windows automation, export the generated `/etc/ansible/windows-automation.env` before running playbooks so `ansible_password`
+lookups resolve without prompting:
 
 ```bash
-# Run playbooks with vault (interactive password prompt)
-ansible-playbook -i inventory/hosts.yml playbooks/standardize-users.yml --ask-vault-pass
-
-# Or use vault password file
-export ANSIBLE_VAULT_PASSWORD_FILE=~/.ansible/vault_pass.txt
-ansible-playbook -i inventory/hosts.yml playbooks/standardize-users.yml
+set -a
+source /etc/ansible/windows-automation.env
+set +a
 ```
 
-See [Ansible Vault Setup](../../docs/runbooks/ansible-vault-setup.md) for detailed documentation.
+> Legacy Ansible Vault files remain for reference/bootstrapping but should be migrated to Azure Key Vault-backed secrets.
 
 ### Azure Key Vault → env files (preferred)
 

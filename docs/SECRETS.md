@@ -1,54 +1,66 @@
-# Secrets Management
+# Secrets Management (Azure Key Vault → device `.env`)
 
-Azure Key Vault (AKV) is the single source of truth for automation secrets. Ansible syncs those secrets into device-local `.env` files, and services consume environment variables only. 1Password remains for human access and break-glass scenarios but is not used by automation.
+Automation secrets live in Azure Key Vault (`kv-miket-ops`) and are rendered into device-local `.env` files via `ansible/playbooks/secrets-sync.yml`. Services only read environment variables or env files. 1Password is for humans/break-glass only.
 
 ## Inventory
 
-| Env Var | Purpose | AKV Secret Name | Consuming Service | Env File Path |
-| --- | --- | --- | --- | --- |
-| `OPENAI_API_KEY` | Upstream OpenAI access for LiteLLM routing | `openai-api-key` | LiteLLM proxy on motoko | `/opt/litellm/.env` |
-| `LITELLM_TOKEN` | Bearer token required to call LiteLLM | `litellm-bearer-token` | LiteLLM proxy on motoko | `/opt/litellm/.env` |
-| `B2_APPLICATION_KEY_ID` | Rclone mirror identity | `b2-space-mirror-id` | Flux/space mirror timer | `/etc/miket/storage-credentials.env` |
-| `B2_APPLICATION_KEY` | Rclone mirror secret | `b2-space-mirror-key` | Flux/space mirror timer | `/etc/miket/storage-credentials.env` |
-| `B2_ACCOUNT_ID` | Restic backup identity | `b2-restic-id` | Flux backup timer | `/etc/miket/storage-credentials.env` |
-| `B2_ACCOUNT_KEY` | Restic backup secret | `b2-restic-key` | Flux backup timer | `/etc/miket/storage-credentials.env` |
-| `RESTIC_PASSWORD` | Restic repository password | `restic-password` | Flux backup timer | `/etc/miket/storage-credentials.env` |
-| `SMB_PASSWORD` | Motoko SMB mount credential | `motoko-smb-password` | macOS mount automation | `~/.mkt/mounts.env` |
+| Env Var | AKV Secret | Purpose / Service | Env File (host/group) |
+| --- | --- | --- | --- |
+| `OPENAI_API_KEY` | `openai-api-key` | LiteLLM upstream OpenAI key | `/opt/litellm/.env` (motoko) |
+| `LITELLM_TOKEN` | `litellm-bearer-token` | LiteLLM client auth token | `/opt/litellm/.env` (motoko) |
+| `B2_APPLICATION_KEY_ID` | `b2-space-mirror-id` | Rclone mirror identity | `/etc/miket/storage-credentials.env` (motoko) |
+| `B2_APPLICATION_KEY` | `b2-space-mirror-key` | Rclone mirror secret | `/etc/miket/storage-credentials.env` (motoko) |
+| `B2_ACCOUNT_ID` | `b2-restic-id` | Restic backup identity | `/etc/miket/storage-credentials.env` (motoko) |
+| `B2_ACCOUNT_KEY` | `b2-restic-key` | Restic backup secret | `/etc/miket/storage-credentials.env` (motoko) |
+| `RESTIC_PASSWORD` | `restic-password` | Restic repo password | `/etc/miket/storage-credentials.env` (motoko) |
+| `ARMITAGE_ANSIBLE_PASSWORD` | `armitage-ansible-password` | WinRM password for armitage | `/etc/ansible/windows-automation.env` (motoko) |
+| `WINTERMUTE_ANSIBLE_PASSWORD` | `wintermute-ansible-password` | WinRM password for wintermute | `/etc/ansible/windows-automation.env` (motoko) |
+| `SMB_PASSWORD` | `motoko-smb-password` | macOS SMB mount password | `~/.mkt/mounts.env` (macos group) |
 
-## AKV → .env Sync
+Additions only require editing `ansible/secrets-map.yml`; the role consumes new entries automatically.
 
-- Mapping file: `ansible/secrets-map.yml` (extend with new services/hosts; no code changes needed).
-- Playbook: `ansible/playbooks/secrets-sync.yml`.
-- Role: `ansible/roles/secrets_sync/` reads the mapping, pulls secrets from AKV via the Azure CLI, writes env files with `0600` permissions, and restarts dependent services listed per mapping entry.
-- Default Key Vault: `kv-miket-ops` (override per entry).
+## AKV → .env sync
 
-### Usage
+- Mapping file: `ansible/secrets-map.yml` (per-service `env_file`, `secrets`, optional `hosts`/`groups`, `restart`).
+- Playbook: `ansible/playbooks/secrets-sync.yml` (runs `roles/secrets_sync`).
+- Role: reads the mapping, pulls each AKV secret with Azure CLI (run as `run_as` per entry), writes `KEY=VALUE` lines with restrictive permissions, and restarts listed services.
 
+Usage:
 ```bash
-# Limit to a host
+# Sync a single host
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/secrets-sync.yml --limit motoko
 
-# Sync everything defined in secrets-map.yml
+# Sync everything mapped
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/secrets-sync.yml
 ```
 
-Services reference only the generated env files (Docker Compose env_file, systemd EnvironmentFile, or scripts that source the file). No playbooks embed raw secrets or Ansible Vault blobs.
+Service expectations:
+- LiteLLM: `/opt/litellm/.env` must contain `OPENAI_API_KEY` and `LITELLM_TOKEN`.
+- Data lifecycle timers: `/etc/miket/storage-credentials.env` provides Backblaze + Restic creds.
+- Windows automation: `set -a; source /etc/ansible/windows-automation.env; set +a` before running WinRM playbooks.
+- macOS mounts: `~/.mkt/mounts.env` provides `SMB_PASSWORD` for `mount_shares_macos`.
 
-## Migration Checklist
+## Migration checklist
 
-1. **Populate AKV** (all secrets names above under vault `kv-miket-ops`).
-2. **Remove legacy Ansible Vault usage**
-   - `ansible/group_vars/motoko.yml` currently references `vault_openai_api_key` and `vault_litellm_bearer_token`; migrate those values into AKV and remove the vault indirection when convenient.
-   - `ansible/group_vars/linux/vault.yml` template remains as a bootstrap only; avoid adding new secrets there.
-3. **Replace 1Password automation hooks**
-   - The `systemd/op-session` helper is now human-only; automation should rely on `secrets-sync.yml` instead of `op` sessions.
-4. **Verify**
-   - Run `ansible/playbooks/secrets-sync.yml` for the relevant host(s).
-   - Inspect env files for correct permissions and expected keys.
-   - Restart dependent services if not already handled by the playbook.
-   - For LiteLLM: ensure `/opt/litellm/.env` contains `OPENAI_API_KEY` and `LITELLM_TOKEN`, then rerun the LiteLLM playbook.
+1) Populate AKV (`kv-miket-ops`) with these secrets:  
+`openai-api-key`, `litellm-bearer-token`, `b2-space-mirror-id`, `b2-space-mirror-key`, `b2-restic-id`, `b2-restic-key`, `restic-password`, `armitage-ansible-password`, `wintermute-ansible-password`, `motoko-smb-password`.
 
-## Notes on Deprecated Paths
+2) Run sync:  
+`ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/secrets-sync.yml --limit motoko`  
+`ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/secrets-sync.yml --limit macos`
 
-- Any remaining `ansible_vault` encrypted files are legacy and should only hold bootstrap material (e.g., credentials that allow AKV access). Do not add new secrets to Vault.
-- 1Password (`op` CLI) stays for interactive human use; automation should not assume an active 1Password session.
+3) Verify env files and permissions (0600, correct owner):  
+- `/opt/litellm/.env`  
+- `/etc/miket/storage-credentials.env`  
+- `/etc/ansible/windows-automation.env`  
+- `~/.mkt/mounts.env` on macOS hosts
+
+4) Consume Windows env before playbooks:  
+`set -a; source /etc/ansible/windows-automation.env; set +a`
+
+5) Retire legacy secrets:  
+- Move any remaining values from vaulted files (`ansible/group_vars/all/vault.yml`, `ansible/group_vars/linux/vault.yml`, `ansible/group_vars/windows/vault.yml`, `ansible/host_vars/armitage_vault.yml`) into AKV, then delete the vault entries.  
+- `ansible/host_vars/wintermute/password.yml` is now a placeholder; do not store passwords there.  
+- Do not add new Ansible Vault data; keep Vault only for short-lived bootstrap if absolutely required.
+
+6) 1Password automation is deprecated: keep `op` for humans only; automation must rely on AKV→env via `secrets-sync`.

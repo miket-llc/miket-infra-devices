@@ -9,10 +9,7 @@
 - name: Configure WSL2 on Windows Workstations
   hosts: "{{ target_hosts | default('windows_workstations') }}"
   gather_facts: false
-  vars_files:
-    - ../group_vars/windows/vault.yml
   vars:
-    ansible_password: "{{ vault_armitage_password if inventory_hostname == 'armitage' else vault_wintermute_password }}"
     wsl_distro: "{{ wsl2.default_distro | default('Ubuntu') }}"
     wsl_version: "{{ wsl2.version | default('24.04') }}"
   
