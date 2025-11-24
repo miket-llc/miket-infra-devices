@@ -1,5 +1,10 @@
 # Secrets Management (Azure Key Vault → device `.env`)
 
+**Constraints:**
+- Use Azure Key Vault (AKV) as the only automation secrets store; do not add Vaultwarden or Ansible Vault dependencies beyond short-lived bootstrap into AKV.
+- Keep human access in 1Password only; never store secrets in `host_vars` or `group_vars` unencrypted.
+- Templates and examples must reference AKV-sourced variables or env files directly so secret handling stays explicit.
+
 Automation secrets live in Azure Key Vault (`kv-miket-ops`) and are rendered into device-local `.env` files via `ansible/playbooks/secrets-sync.yml`. Services only read environment variables or env files. 1Password is for humans/break-glass only.
 
 ## Inventory
@@ -21,9 +26,9 @@ Additions only require editing `ansible/secrets-map.yml`; the role consumes new 
 
 ## AKV → .env sync
 
-- Mapping file: `ansible/secrets-map.yml` (per-service `env_file`, `secrets`, optional `hosts`/`groups`, `restart`).
+- Mapping file: `ansible/secrets-map.yml` (per-service `env_file`, `secrets`, optional `hosts`/`groups`, `restart`). This defines where API keys (e.g., `OPENAI_API_KEY`, `LITELLM_TOKEN`) and B2 credentials (`B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, `B2_ACCOUNT_ID`, `B2_ACCOUNT_KEY`) land.
 - Playbook: `ansible/playbooks/secrets-sync.yml` (runs `roles/secrets_sync`).
-- Role: reads the mapping, pulls each AKV secret with Azure CLI (run as `run_as` per entry), writes `KEY=VALUE` lines with restrictive permissions, and restarts listed services.
+- Role: reads the mapping, pulls each AKV secret with Azure CLI (run as `run_as` per entry), writes `KEY=VALUE` lines with restrictive permissions, and restarts listed services. Roles that need credentials should read from the synced env file paths defined in the mapping instead of embedding secrets.
 
 Usage:
 ```bash
@@ -39,6 +44,20 @@ Service expectations:
 - Data lifecycle timers: `/etc/miket/storage-credentials.env` provides Backblaze + Restic creds.
 - Windows automation: `set -a; source /etc/ansible/windows-automation.env; set +a` before running WinRM playbooks.
 - macOS mounts: `~/.mkt/mounts.env` provides `SMB_PASSWORD` for `mount_shares_macos`.
+
+## Template references (explicit)
+
+- Systemd unit files should include `EnvironmentFile=` directives that point to the AKV-synced env files (e.g., `/opt/litellm/.env` for API keys, `/etc/miket/storage-credentials.env` for B2/Restic credentials).
+- Jinja templates must pull secrets via those env files, not inline values. Example:
+
+```jinja
+# templates/litellm.service.j2
+[Service]
+EnvironmentFile=/opt/litellm/.env  # OPENAI_API_KEY, LITELLM_TOKEN from AKV
+ExecStart=/usr/local/bin/litellm
+```
+
+This keeps the secret source explicit and AKV-only while avoiding accidental plaintext in templates.
 
 ## Migration checklist
 

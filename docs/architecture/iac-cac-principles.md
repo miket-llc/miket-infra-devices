@@ -100,10 +100,10 @@ This repository follows Infrastructure as Code (IaC) and Configuration as Code (
 - Centralized secret management
 
 **Implementation**:
-- Use Ansible Vault for passwords and keys
-- Store vault password securely (password manager)
-- Never commit unencrypted secrets
-- Rotate secrets regularly
+- Use Azure Key Vault (AKV) as the sole secrets store for automation
+- Keep AKV-backed env files under configuration management; never commit unencrypted secrets
+- Avoid Vaultwarden and Ansible Vault except for short-lived bootstrap access to AKV
+- Rotate AKV secrets regularly and re-sync to hosts
 
 ### 7. Testing Before Applying
 
