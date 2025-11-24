@@ -1,0 +1,16 @@
+---
+# Load Windows WinRM passwords from environment (sourced from /etc/ansible/windows-automation.env)
+# Source: Azure Key Vault kv-miket-ops via secrets-sync playbook
+# 
+# Usage in playbook pre_tasks:
+#   - name: Load Windows credentials
+#     include_tasks: "{{ playbook_dir }}/includes/winrm_env.yml"
+#     when: ansible_connection | default('') == 'winrm'
+
+- name: Set WinRM password from environment
+  set_fact:
+    ansible_password: >-
+      {{ lookup('env', inventory_hostname.upper() + '_ANSIBLE_PASSWORD') }}
+  no_log: true
+  when: ansible_connection | default('') == 'winrm'
+

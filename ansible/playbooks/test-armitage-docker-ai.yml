@@ -6,8 +6,6 @@
 - name: Test Armitage Docker and AI Configuration
   hosts: armitage
   gather_facts: false
-  vars:
-    ansible_password: "{{ lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}"
   
   tasks:
     - name: Test Docker Desktop Service
@@ -192,4 +190,3 @@
           - "{{ ai_test.json.choices[0].message.content if (ai_test.json is defined and ai_test.json.choices is defined) else ai_test.msg | default('N/A') }}"
           - "================================================================"
       tags: [always]
-

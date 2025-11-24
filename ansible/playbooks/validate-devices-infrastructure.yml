@@ -121,9 +121,38 @@
 
 - name: Validate Windows Client Configuration
   hosts: windows
+  gather_facts: no
   gather_facts: yes
   
   tasks:
+    - name: Run mapping script in-session
+      win_shell: C:\Scripts\Map-MikeTDrives.ps1
+      register: map_run
+
+    - name: Check mapped drives and UNC reachability (same session)
+      win_shell: |
+        $results = @{}
+        $results.X_drive = Test-Path X:\
+        $results.S_drive = Test-Path S:\
+        $results.T_drive = Test-Path T:\
+        $results.flux_unc = Test-Path \\192.168.1.195\flux
+        $results.space_unc = Test-Path \\192.168.1.195\space
+        $results.time_unc = Test-Path \\192.168.1.195\time
+        $results | ConvertTo-Json
+      register: drive_checks
+      changed_when: false
+
+    - name: Assert drive/UNC reachability
+      assert:
+        that:
+          - (drive_checks.stdout | from_json).X_drive
+          - (drive_checks.stdout | from_json).S_drive
+          - (drive_checks.stdout | from_json).T_drive
+          - (drive_checks.stdout | from_json).flux_unc
+          - (drive_checks.stdout | from_json).space_unc
+          - (drive_checks.stdout | from_json).time_unc
+        fail_msg: "Drive or UNC check failed in-session; see drive_checks"
+
     - name: Check network drives
       win_shell: |
         Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Name -in @('X','S','T')} | Select-Object Name, DisplayRoot, Description | Format-Table -AutoSize
@@ -206,4 +235,3 @@
           
           If any checks failed, review the output and re-run deployment.
           ================================================================
-

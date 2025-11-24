@@ -1,0 +1,80 @@
+---
+# Smoke test for Windows remote-access readiness (mounts + scheduled tasks)
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/smoke-windows-remote-access.yml --limit wintermute
+
+- name: Smoke test Windows remote access
+  hosts: windows
+  gather_facts: yes
+
+  tasks:
+    - name: Run mapping script in-session
+      win_shell: C:\Scripts\Map-MikeTDrives.ps1
+      register: map_run
+
+    - name: Show mapping output
+      debug:
+        var: map_run.stdout_lines
+
+    - name: Check mapped drives X/S/T and UNC reachability (same session)
+      win_shell: |
+        $results = @{}
+        $results.X_drive = Test-Path X:\
+        $results.S_drive = Test-Path S:\
+        $results.T_drive = Test-Path T:\
+        $results.flux_unc = Test-Path \\192.168.1.195\flux
+        $results.space_unc = Test-Path \\192.168.1.195\space
+        $results.time_unc = Test-Path \\192.168.1.195\time
+        $results | ConvertTo-Json
+      register: drive_checks
+      changed_when: false
+      failed_when: drive_checks.rc != 0
+
+    - name: Show drive/UNC check results
+      debug:
+        var: drive_checks.stdout
+
+    - name: Assert drive/UNC reachability
+      assert:
+        that:
+          - (drive_checks.stdout | from_json).X_drive
+          - (drive_checks.stdout | from_json).S_drive
+          - (drive_checks.stdout | from_json).T_drive
+          - (drive_checks.stdout | from_json).flux_unc
+          - (drive_checks.stdout | from_json).space_unc
+          - (drive_checks.stdout | from_json).time_unc
+        fail_msg: "Drive or UNC check failed in-session; see drive_checks"
+
+    - name: Check mapped drives X/S/T
+      win_shell: |
+        Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Name -in @('X','S','T')} | Select-Object Name, DisplayRoot
+      register: drive_status
+      changed_when: false
+      failed_when: false
+
+    - name: Show mapped drives
+      debug:
+        var: drive_status.stdout_lines
+
+    - name: Check Map Network Drives scheduled task
+      win_shell: |
+        $task = Get-ScheduledTask -TaskName "MikeT Map Network Drives" -ErrorAction SilentlyContinue
+        if ($task) { $task | Select-Object TaskName, State, LastRunTime, NextRunTime }
+        else { Write-Output "MISSING" }
+      register: map_task
+      changed_when: false
+      failed_when: false
+
+    - name: Check OS Cloud Sync scheduled task
+      win_shell: |
+        $task = Get-ScheduledTask -TaskName "MikeT OS Cloud Sync" -ErrorAction SilentlyContinue
+        if ($task) { $task | Select-Object TaskName, State, LastRunTime, NextRunTime }
+        else { Write-Output "MISSING" }
+      register: oscloud_task
+      changed_when: false
+      failed_when: false
+
+    - name: Display scheduled task status
+      debug:
+        msg:
+          - "Map Network Drives: {{ map_task.stdout_lines | default(['N/A']) | join(' ') }}"
+          - "OS Cloud Sync: {{ oscloud_task.stdout_lines | default(['N/A']) | join(' ') }}"

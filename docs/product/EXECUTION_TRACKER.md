@@ -12,6 +12,8 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-alignment-protocol
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion
   - docs/communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-23-windows-smoke
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-24-wintermute-validation
 ---
 
 # Device Infrastructure Execution Tracker
@@ -21,7 +23,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 ## Agent Status
 | Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |---------|----------------|-----------------------------|-------------|---------------|
-| **Codex-CA-001** (Chief Architect) | ✅ Complete | Wave 2 completion: Cloudflare Access mapping, certificate enrollment, ACL drift checks | Review Wave 2 deliverables, prepare for Wave 3 | 2025-11-24 |
+| **Codex-CA-001** (Chief Architect) | 🚧 Active | Windows UNC mapping fix; validation/smoke rerun on wintermute | Wire smoke + lint/check-mode into CI; align roadmap with miket-infra v2.0 | 2025-11-24 |
 | **Codex-PM-011** (Product Manager) | 🚧 Active | Wave 2 coordination requests created, version incremented to v1.8.0 | Review Wave 2 completion, update roadmap for Wave 3 | 2025-11-24 |
 | **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
 | **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
@@ -33,7 +35,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | **Codex-DOC-009** (DocOps) | ✅ Complete | Updated all remote access docs to NoMachine-only, created installation runbook | Monitor compliance with new standards | 2025-11-26 |
 | **Codex-UX-010** (UX/DX) | ✅ Complete | Standardized NoMachine client configs, created installation runbook | Ready for remote access UX instrumentation (Wave 4) | 2025-11-30 |
 | **Codex-MAC-012** (macOS Engineer) | 🚧 Active | Mounts/loop-prevention validated on count-zero | Execute DEV-011: NoMachine E2E testing from count-zero | 2025-11-24 |
-| **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts + OS cloud redeployed; scheduled tasks installed | Re-verify mounts/sync after user logoff/logon | 2025-11-24 |
+| **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts fixed (UNC), health file written; smoke/validation executed | Monitor interactive session drive availability; add UNC reachability check to smoke if needed | 2025-11-24 |
 | **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 
 ## Current Wave Focus (Wave 2: Cloudflare Access Mapping & Remote Access UX Enhancement)
@@ -68,6 +70,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | Documentation standards published | Codex-DOC-009 | 2025-11-23 | [docs/product/DOCUMENTATION_STANDARDS.md](./DOCUMENTATION_STANDARDS.md) |
 | Team roles aligned to multi-persona protocol | Codex-PM-011 | 2025-11-23 | [docs/product/TEAM_ROLES.md](./TEAM_ROLES.md) |
 | Windows mounts + OS cloud redeployed (wintermute) | Codex-WIN-013 | 2025-11-23 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts) |
+| Windows UNC mapping fix + validation (wintermute) | Codex-WIN-013 | 2025-11-24 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wintermute-validation) |
 | Roadmap alignment protocol established | Codex-PM-011 | 2025-11-23 | [docs/product/ROADMAP_ALIGNMENT_PROTOCOL.md](./ROADMAP_ALIGNMENT_PROTOCOL.md) |
 | First weekly alignment check executed | Codex-PM-011 | 2025-11-23 | [WEEKLY_ALIGNMENT_2025_11_23](../communications/WEEKLY_ALIGNMENT_2025_11_23.md) |
 | NoMachine server connectivity validated | Codex-MAC-012 | 2025-11-23 | All 3 servers PASS (port 4000 reachable via Tailscale) |

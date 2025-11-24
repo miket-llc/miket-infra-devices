@@ -229,4 +229,3 @@
           - "{{ '⚠️  MANUAL STEP REQUIRED: Ubuntu first-run setup' if (ubuntu_setup_status.stdout is defined and 'NEEDS_SETUP' in ubuntu_setup_status.stdout) else '' }}"
           - "{{ 'Run: wsl -d Ubuntu-' + wsl_version + ' and create mdt user' if (ubuntu_setup_status.stdout is defined and 'NEEDS_SETUP' in ubuntu_setup_status.stdout) else '' }}"
           - "================================================================"
-

@@ -24,7 +24,7 @@ $drives = @(
 
 foreach ($drive in $drives) {
     $letter = $drive.Letter
-    $sharePath = $drive.Path -replace '/', '\'
+    $sharePath = ($drive.Path -replace '^[/\\]+','') -replace '/', '\'
     $uncPath = "\\$server\$sharePath"
     
     Write-Host "Processing drive ${letter}:..."
@@ -38,12 +38,13 @@ foreach ($drive in $drives) {
         Write-Host "  Mapping ${letter}: to $uncPath..."
         
         # Use net use with credentials
-        $netCmd = "net use ${letter}: $uncPath /user:$username $password /persistent:yes 2>&1"
-        try {
-            $output = Invoke-Expression $netCmd
+        $netCmd = "net use ${letter}: $uncPath /user:$username `"$password`" /persistent:yes 2>&1"
+        $output = Invoke-Expression $netCmd
+        if ($LASTEXITCODE -eq 0) {
             Write-Host "  Successfully mapped ${letter}:"
-        } catch {
-            Write-Host "  ERROR: Failed to map ${letter}: - $($_.Exception.Message)"
+        } else {
+            Write-Host "  ERROR: Failed to map ${letter}:"
+            Write-Host $output
         }
     }
 }
@@ -96,4 +97,3 @@ if ($spaceMounted) {
 } else {
     Write-Host "ERROR: Cannot write health status - S: drive is not mounted."
 }
-

@@ -5,10 +5,6 @@
 - name: Configure Windows Firewall for vLLM
   hosts: windows_workstations
   gather_facts: false
-  vars:
-    ansible_password: >-
-      {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
-         else lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}
   
   tasks:
     - name: Allow vLLM API port 8000 inbound
@@ -20,4 +16,3 @@
         action: allow
         state: present
         enabled: true
-

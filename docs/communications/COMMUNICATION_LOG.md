@@ -1069,6 +1069,55 @@ Wave 1 task DEV-001 required redeploying mounts and OS cloud sync to wintermute 
 
 ---
 
+## 2025-11-23 – Windows Vault Preload & Remote-Access Smoke Playbook {#2025-11-23-windows-smoke}
+
+### Context
+WinRM playbooks relied on environment-provided passwords and failed when vault credentials were not loaded. Added shared vault preload include and created a Windows remote-access smoke playbook to verify mounts and scheduled tasks.
+
+### Actions Taken
+- Added shared WinRM vault include (`ansible/playbooks/includes/winrm_vault.yml`) and applied to Windows playbooks: configure-vllm-firewall, windows-vllm-deploy, windows-vllm-test, configure-wsl2-windows, test-armitage-docker-ai, test-connectivity.
+- Created smoke test for Windows mounts/remote-access (`ansible/playbooks/smoke-windows-remote-access.yml`) covering X/S/T mappings and scheduled tasks (Map Network Drives, OS Cloud Sync).
+- Kept validation pending user logoff/logon on wintermute; smoke playbook ready for post-logoff verification.
+
+### Next Steps
+- Log off/log on wintermute, then run:
+  - `ansible-playbook -i inventory/hosts.yml playbooks/smoke-windows-remote-access.yml --limit wintermute`
+  - `ansible-playbook -i inventory/hosts.yml playbooks/validate-devices-infrastructure.yml --limit wintermute`
+- Wire smoke playbook into CI with ansible-lint + check-mode.
+
+### Validation
+- Smoke/validation plays not yet executed post-logoff.
+
+---
+
+## 2025-11-24 – Wintermute Mount Fix (UNC path) & Validation {#2025-11-24-wintermute-validation}
+
+### Context
+Validation play was failing (drives not mounted) because UNC paths were built with an extra leading slash (`\\server\\\flux`). Corrected the Windows mapping template and re-ran deployment and validation on wintermute.
+
+### Actions Taken
+- Fixed UNC path construction in `map_drives.ps1.j2` (trim leading slashes, wrap password in quotes, emit net use errors).
+- Reran Windows mounts deployment on wintermute: X:/S:/T: map to `\\192.168.1.195\flux|space|time`; health status written to `S:\devices\WINTERMUTE\mdt\_status.json`.
+- Added vault preload to `validate-devices-infrastructure.yml` (gather facts after creds).
+- Ran validation and smoke plays on wintermute:
+  - `ansible-playbook -i inventory/hosts.yml playbooks/deploy-mounts-windows.yml --limit wintermute`
+  - `ansible-playbook -i inventory/hosts.yml playbooks/validate-devices-infrastructure.yml --limit wintermute`
+  - `ansible-playbook -i inventory/hosts.yml playbooks/smoke-windows-remote-access.yml --limit wintermute`
+- Net use shows drives as “Unavailable” in the WinRM session (expected for non-interactive context), but mapping succeeded and health file wrote.
+
+### Results
+- Drives map successfully; health status file created.
+- Smoke/validation playbooks now execute with vault-loaded credentials.
+
+### Follow-ups
+- Post-login interactive check on wintermute to confirm drives are online in user session (Net Use shows “Unavailable” under WinRM).
+- Consider adding a UNC reachability check to smoke play (Test-Path \\192.168.1.195\space) if needed for CI.
+
+### Validation
+- See commands above; validation play now completes.
+
+---
+
 ## 2025-11-23 – Roadmap Alignment Protocol Establishment {#2025-11-23-roadmap-alignment-protocol}
 
 ### Context

@@ -3,12 +3,7 @@
 - name: Test Windows Connectivity
   hosts: windows
   gather_facts: true
-  vars:
-    ansible_password: >-
-      {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
-         else lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}
   
   tasks:
     - name: Test WinRM connectivity
       win_ping:
-

@@ -4,37 +4,9 @@
 
 - name: Deploy OS Cloud Synchronization
   hosts: macos,windows
-  gather_facts: no
+  gather_facts: yes
   
   pre_tasks:
-    - name: Load windows group vault vars
-      include_vars:
-        file: "{{ playbook_dir }}/../group_vars/windows/vault.yml"
-      no_log: true
-      when: ansible_connection | default('') == "winrm"
-
-    - name: Load host vault vars
-      include_vars:
-        file: "{{ playbook_dir }}/../host_vars/{{ inventory_hostname }}/vault.yml"
-      no_log: true
-      when: ansible_connection | default('') == "winrm"
-
-    - name: Set WinRM password for wintermute
-      set_fact:
-        ansible_password: "{{ vault_wintermute_password }}"
-      no_log: true
-      when: ansible_connection | default('') == "winrm" and inventory_hostname == "wintermute"
-
-    - name: Set WinRM password for armitage
-      set_fact:
-        ansible_password: "{{ vault_armitage_password }}"
-      no_log: true
-      when: ansible_connection | default('') == "winrm" and inventory_hostname == "armitage"
-
-    - name: Gather facts after credentials are set
-      setup:
-      when: ansible_connection | default('') != ""
-
     - name: Display deployment info
       debug:
         msg: |

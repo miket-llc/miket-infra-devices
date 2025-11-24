@@ -10,9 +10,6 @@
   hosts: windows_workstations
   gather_facts: false
   vars:
-    ansible_password: >-
-      {{ lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') if inventory_hostname == 'wintermute'
-         else lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') }}
     # PowerShell scripts to deploy (device-specific)
     vllm_powershell_scripts:
       - src: "{{ playbook_dir }}/../../devices/{{ inventory_hostname }}/scripts/Start-VLLM.ps1"

@@ -11,9 +11,6 @@
   hosts: "{{ target_hosts | default('windows_workstations') }}"
   gather_facts: false
   vars:
-    ansible_password: >-
-      {{ lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') if inventory_hostname == 'armitage'
-         else lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') }}
     vllm_container_name: "{{ vllm.container_name | default('vllm-' + inventory_hostname) }}"
     vllm_port: "{{ vllm.port | default(8000) }}"
     test_model_name: "{{ vllm.served_model_name | default('local/chat') }}"

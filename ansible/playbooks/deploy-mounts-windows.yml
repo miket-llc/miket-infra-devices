@@ -9,16 +9,6 @@
     smb_server_override: "192.168.1.195"  # Override for LAN connectivity
   
   pre_tasks:
-    - name: Load windows group vault vars
-      include_vars:
-        file: "{{ playbook_dir }}/../group_vars/windows/vault.yml"
-      no_log: true
-    
-    - name: Load host vault vars
-      include_vars:
-        file: "{{ playbook_dir }}/../host_vars/{{ inventory_hostname }}/vault.yml"
-      no_log: true
-    
     - name: Fetch SMB password from Azure Key Vault
       shell: /usr/bin/az keyvault secret show --vault-name kv-miket-ops --name motoko-smb-password --query value -o tsv
       register: smb_password_result
