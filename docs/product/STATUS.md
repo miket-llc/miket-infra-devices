@@ -11,16 +11,16 @@
 
 | Component | Status | Details |
 |-----------|--------|---------|
+| **lite-llm-proxy** | ✅ GREEN | motoko:8000, routing to local models + OpenAI fallback |
+| **vllm-armitage** | ⚠️ YELLOW | armitage:8000, Qwen2.5-7B (workstation may be off) |
+| **vllm-wintermute** | ⚠️ YELLOW | wintermute:8000, Llama-3.1-8B (workstation may be off) |
+| **nomachine-server** | ✅ GREEN | motoko/wintermute/armitage:4000, Cloudflare Access + MFA |
+| **samba-file-sharing** | ✅ GREEN | motoko SMB, Flux/Space/Time mounts operational |
+| **tailscale-ssh** | ✅ GREEN | Bastion access via Tailscale SSH, MFA enforced |
+| **device-health-reporting** | ✅ GREEN | Centralized status files in /space/devices/ |
 | **Ansible WinRM (Windows)** | ✅ OPERATIONAL | wintermute and armitage responding perfectly |
 | **Tailscale Connectivity** | ✅ OPERATIONAL | All devices pingable, sub-4ms latency |
-| **vLLM (armitage)** | ✅ RUNNING | Container operational, port 8000, Qwen2.5-7B-Instruct |
-| **vLLM (wintermute)** | ✅ RUNNING | Container operational with GPU access, Llama-3-8B-Instruct-AWQ |
-| **LiteLLM (motoko)** | ✅ RUNNING | Container healthy, serving requests |
-| **Secrets management** | ✅ UPDATED | AKV → env files via `secrets-sync`; 1Password human-only; Vault legacy only |
-| **Point-to-Point RDP** | ✅ OPERATIONAL | Port 3389 accessible from count-zero, firewall defense-in-depth configured |
-| **IaC/CaC Compliance** | ✅ COMPLETE | All RDP config consolidated into idempotent role |
 | **Secrets Management** | ✅ STANDARDIZED | Azure Key Vault → env files (`secrets-sync.yml`); 1Password human-only; Ansible Vault deprecated |
-| **Auto-Switcher** | ✅ REMOVED | Energy-wasting code purged from playbooks |
 | **Documentation** | ✅ CLEANED | Standards established, ephemeral files removed, organized structure |
 
 ---

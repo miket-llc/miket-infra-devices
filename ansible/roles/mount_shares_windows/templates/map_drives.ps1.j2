@@ -10,6 +10,65 @@ $password = "{{ smb_password }}"
 
 Write-Host "Mapping network drives to $server..."
 
+# Wait for Tailscale to be ready using Tailscale's own status command
+# This is more reliable than polling - we check Tailscale's backend state directly
+$maxWaitSeconds = 300
+$waitIntervalSeconds = 5
+$waitedSeconds = 0
+$tailscaleReady = $false
+
+Write-Host "Waiting for Tailscale to be ready..."
+Write-Host "This may take up to 5 minutes after Windows boot..."
+
+# Check if Tailscale executable exists
+$tailscaleExe = "C:\Program Files\Tailscale\tailscale.exe"
+if (-not (Test-Path $tailscaleExe)) {
+    Write-Warning "Tailscale executable not found at $tailscaleExe. Skipping readiness check."
+    $tailscaleReady = $true  # Proceed anyway
+}
+
+while ($waitedSeconds -lt $maxWaitSeconds -and -not $tailscaleReady) {
+    try {
+        # Use Tailscale's status command to check backend state
+        # BackendState should be "Running" when connected
+        $statusJson = & $tailscaleExe status --json 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $status = $statusJson | ConvertFrom-Json
+            $backendState = $status.BackendState
+            
+            if ($backendState -eq "Running") {
+                $tailscaleReady = $true
+                Write-Host "Tailscale is ready (BackendState: $backendState) after $waitedSeconds seconds"
+            } else {
+                if ($waitedSeconds % 30 -eq 0) {
+                    Write-Host "Tailscale backend state: $backendState (waiting for 'Running'... $waitedSeconds / $maxWaitSeconds seconds)"
+                }
+                Start-Sleep -Seconds $waitIntervalSeconds
+                $waitedSeconds += $waitIntervalSeconds
+            }
+        } else {
+            # Tailscale service might not be started yet
+            if ($waitedSeconds % 30 -eq 0) {
+                Write-Host "Tailscale status command failed (service may be starting)... ($waitedSeconds / $maxWaitSeconds seconds)"
+            }
+            Start-Sleep -Seconds $waitIntervalSeconds
+            $waitedSeconds += $waitIntervalSeconds
+        }
+    } catch {
+        # JSON parsing or other error - service might be starting
+        if ($waitedSeconds % 30 -eq 0) {
+            Write-Host "Error checking Tailscale status (service may be starting)... ($waitedSeconds / $maxWaitSeconds seconds)"
+        }
+        Start-Sleep -Seconds $waitIntervalSeconds
+        $waitedSeconds += $waitIntervalSeconds
+    }
+}
+
+if (-not $tailscaleReady) {
+    Write-Warning "Tailscale did not become ready after $maxWaitSeconds seconds. Attempting drive mapping anyway..."
+    Write-Warning "Drives may appear disconnected until Tailscale is ready. You can manually reconnect them later."
+}
+
 # Drive mappings
 $drives = @(
 {% for share in smb_shares %}
@@ -29,16 +88,25 @@ foreach ($drive in $drives) {
     
     Write-Host "Processing drive ${letter}:..."
     
-    # Check if already mapped
+    # Check if already mapped to the correct path
     $existing = Get-PSDrive -Name $letter -PSProvider FileSystem -ErrorAction SilentlyContinue
     
-    if ($existing) {
-        Write-Host "  Drive ${letter}: already mapped to $($existing.DisplayRoot)"
+    if ($existing -and $existing.DisplayRoot -eq $uncPath) {
+        Write-Host "  Drive ${letter}: already mapped to $uncPath"
     } else {
+        # Disconnect any existing mapping (including remembered connections)
+        if ($existing) {
+            Write-Host "  Disconnecting existing mapping: $($existing.DisplayRoot)"
+            net use ${letter}: /delete /yes 2>&1 | Out-Null
+        }
+        
+        # Also delete any remembered connections
+        net use ${letter}: /delete /yes 2>&1 | Out-Null
+        
         Write-Host "  Mapping ${letter}: to $uncPath..."
         
-        # Use net use with credentials
-        $netCmd = "net use ${letter}: $uncPath /user:$username `"$password`" /persistent:yes 2>&1"
+        # Use net use with credentials and force overwrite
+        $netCmd = "net use ${letter}: $uncPath /user:$username `"$password`" /persistent:yes /yes 2>&1"
         $output = Invoke-Expression $netCmd
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  Successfully mapped ${letter}:"

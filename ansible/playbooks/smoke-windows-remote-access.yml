@@ -21,9 +21,9 @@
         $results.X_drive = Test-Path X:\
         $results.S_drive = Test-Path S:\
         $results.T_drive = Test-Path T:\
-        $results.flux_unc = Test-Path \\192.168.1.195\flux
-        $results.space_unc = Test-Path \\192.168.1.195\space
-        $results.time_unc = Test-Path \\192.168.1.195\time
+        $results.flux_unc = Test-Path \\motoko.pangolin-vega.ts.net\flux
+        $results.space_unc = Test-Path \\motoko.pangolin-vega.ts.net\space
+        $results.time_unc = Test-Path \\motoko.pangolin-vega.ts.net\time
         $results | ConvertTo-Json
       register: drive_checks
       changed_when: false

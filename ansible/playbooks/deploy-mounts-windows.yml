@@ -6,7 +6,7 @@
   hosts: windows
   gather_facts: no
   vars:
-    smb_server_override: "192.168.1.195"  # Override for LAN connectivity
+    smb_server: "motoko.pangolin-vega.ts.net"  # Use Tailscale FQDN for resilience
   
   pre_tasks:
     - name: Fetch SMB password from Azure Key Vault
@@ -20,20 +20,11 @@
     - name: Set SMB password fact
       set_fact:
         smb_password: "{{ smb_password_result.stdout | trim }}"
-        smb_server: "{{ smb_server_override | default(smb_server) }}"
       no_log: true
-
-    - name: Set WinRM password for wintermute
-      set_fact:
-        ansible_password: "{{ vault_wintermute_password }}"
-      no_log: true
-      when: inventory_hostname == "wintermute"
-
-    - name: Set WinRM password for armitage
-      set_fact:
-        ansible_password: "{{ vault_armitage_password }}"
-      no_log: true
-      when: inventory_hostname == "armitage"
+    
+    # WinRM authentication handled by inventory Azure Key Vault lookup
+    # ansible_password is set in inventory/hosts.yml via:
+    # lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name <host>-ansible-password --query value -o tsv')
     
     - name: Include mount_shares_windows role
       include_role:
@@ -55,24 +46,68 @@
         Register-ScheduledTask -TaskName "MikeT Map Network Drives" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
         Write-Host "Scheduled task created for drive mapping at logon"
     
-    - name: Run mapping script to create initial mappings
-      win_shell: C:\Scripts\Map-MikeTDrives.ps1
+    - name: Run mapping script in user's interactive session via scheduled task
+      win_shell: |
+        $taskName = "MikeT Map Network Drives"
+        $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        if ($task) {
+            Write-Host "Running scheduled task to map drives in user session..."
+            Start-ScheduledTask -TaskName $taskName
+            Start-Sleep -Seconds 5
+            $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName
+            if ($taskInfo.LastTaskResult -eq 0) {
+                Write-Host "Drive mapping task completed successfully"
+            } else {
+                Write-Host "Drive mapping task completed with exit code: $($taskInfo.LastTaskResult)"
+            }
+        } else {
+            Write-Host "Scheduled task not found, running script directly..."
+            powershell.exe -ExecutionPolicy Bypass -File C:\Scripts\Map-MikeTDrives.ps1
+        }
       register: map_result
+      async: 10
+      poll: 2
     
     - name: Display mapping results
       debug:
         var: map_result.stdout_lines
+    
+    - name: Verify drives are mapped
+      win_shell: |
+        $drives = @("X:", "S:", "T:")
+        $mapped = @()
+        $unmapped = @()
+        
+        foreach ($drive in $drives) {
+            $psDrive = Get-PSDrive -Name ($drive -replace ':', '') -PSProvider FileSystem -ErrorAction SilentlyContinue
+            if ($psDrive -and (Test-Path $drive)) {
+                $mapped += $drive
+            } else {
+                $unmapped += $drive
+            }
+        }
+        
+        Write-Host "Mapped drives: $($mapped -join ', ')"
+        if ($unmapped.Count -gt 0) {
+            Write-Host "Unmapped drives: $($unmapped -join ', ')"
+            Write-Host "Note: Drives may need a few seconds to appear in File Explorer"
+        }
+      register: verify_result
+    
+    - name: Display verification results
+      debug:
+        var: verify_result.stdout_lines
   
     - name: Deployment complete
       debug:
         msg: |
           Mount configuration deployed successfully!
           
-          Drives will be fully accessible after next logon.
+          Drives mapped via Tailscale FQDN: motoko.pangolin-vega.ts.net
           Scheduled task "MikeT Map Network Drives" will run at every logon.
           
           Next steps:
-          1. User should log off and log back on
-          2. Verify drives: Open File Explorer, check X:, S:, T:
+          1. Check File Explorer - drives should appear in "This PC" (may take a few seconds)
+          2. If drives don't appear, refresh File Explorer (F5) or restart Explorer
           3. Run loop check: C:\Scripts\Check-OneDriveLoops.ps1
           4. Verify OneDrive settings exclude network drives
