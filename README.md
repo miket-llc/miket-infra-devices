@@ -820,6 +820,16 @@ NoMachine is used across all platforms because:
 
 ### Troubleshooting
 
+#### Automated Connectivity Diagnostics
+
+**For wintermute (Windows workstation)**:
+```bash
+cd ~/miket-infra-devices
+./scripts/troubleshoot-wintermute.sh
+```
+
+This comprehensive script tests DNS, Tailscale status, ping, ports (NoMachine/WinRM), and Ansible connectivity. See [Wintermute Connectivity Troubleshooting](docs/wintermute-connectivity-troubleshooting.md) for detailed documentation.
+
 #### Connection Issues
 
 **Verify Tailscale connectivity**:
