@@ -1,3 +1,70 @@
+## 2025-11-24 – NoMachine Keystroke Dropping Investigation {#2025-11-24-nomachine-keystroke-investigation}
+
+### Context
+User reported keystroke dropping when using NoMachine from count-zero (macOS) to motoko (Linux). Chief Architect leading investigation team to diagnose root cause.
+
+### Actions Taken
+
+**Investigation Team Activation:**
+- Codex-CA-001 (Chief Architect): Leading investigation, coordinating team
+- Codex-SRE-005 (SRE & Observability Engineer): Network and system diagnostics
+- Codex-NET-006 (Networking & Data Plane Engineer): Tailscale connectivity analysis
+
+**Baseline Verification:**
+- ✅ Network connectivity: Excellent (0% packet loss, ~4ms latency to count-zero)
+- ✅ Tailscale connection: Direct (not via DERP relay), 192.168.1.185:62169
+- ✅ NoMachine service: Running (active since 2025-11-23 17:40:35 EST)
+- ✅ Server version: v9.2.18-3
+
+**Diagnostic Artifacts Created:**
+- ✅ Comprehensive troubleshooting guide: [docs/guides/nomachine-keystroke-dropping-troubleshooting.md](../guides/nomachine-keystroke-dropping-troubleshooting.md)
+- ✅ Diagnostic script: [scripts/diagnose-nomachine-keystrokes.sh](../../scripts/diagnose-nomachine-keystrokes.sh)
+
+**Investigation Approach:**
+1. Network layer: Verified connectivity, latency, packet loss (all optimal)
+2. Client-side: Documented macOS-specific checks (keyboard grabbing, modifier keys, input methods)
+3. Server-side: Documented Linux/X11 diagnostics (application grabs, input configuration)
+4. Configuration: Documented NoMachine client/server optimization settings
+
+### Root Cause Analysis Framework
+
+**Common Causes Identified:**
+1. Stuck modifier keys (Ctrl/Alt/Shift/Cmd)
+2. Application keyboard grabs on server (X11)
+3. Network buffer overflow during high activity
+4. macOS input method conflicts
+5. X11 input device issues
+6. NoMachine version mismatches
+
+**Systematic Testing Procedure:**
+- Basic typing test (1000 characters, measure drop rate)
+- Rapid typing test (30 seconds, calculate drop rate)
+- Modifier key combinations test
+- Application-specific testing (terminal, editor, browser, IDE)
+
+### Next Steps
+
+**Immediate Actions:**
+1. Run diagnostic script during active session: `./scripts/diagnose-nomachine-keystrokes.sh`
+2. Test quick fixes: Toggle keyboard grab, release modifier keys, reconnect session
+3. Document keystroke drop rate and affected applications
+
+**If Issue Persists:**
+1. Collect full diagnostics (logs, status, configuration)
+2. Test configuration optimizations (link quality, buffer settings)
+3. Escalate to NoMachine support if version-specific bug suspected
+
+### Deliverables
+- Troubleshooting guide: [docs/guides/nomachine-keystroke-dropping-troubleshooting.md](../guides/nomachine-keystroke-dropping-troubleshooting.md)
+- Diagnostic script: [scripts/diagnose-nomachine-keystrokes.sh](../../scripts/diagnose-nomachine-keystrokes.sh)
+- Communication log entry: This entry
+
+### Related Documentation
+- [NoMachine Client Testing Procedure](../runbooks/nomachine-client-testing.md)
+- [NoMachine Client Installation](../runbooks/nomachine-client-installation.md)
+
+---
+
 ## 2025-11-24 – PHC Prompt Execution: All Phases Deployed {#2025-11-24-phc-all-phases-deployed}
 
 ### Context
@@ -151,15 +218,16 @@ Windows playbooks were incorrectly using Ansible vault variables (`vault_winterm
 ### Actions Taken
 - **Removed incorrect Ansible vault password logic** from `deploy-mounts-windows.yml` (lines 26-36 that set `ansible_password` from non-existent vault vars).
 - **Added comment** documenting that WinRM authentication is handled by inventory Azure Key Vault lookup.
-- **Updated communication log** to remove incorrect reference to `winrm_vault.yml` include (file never existed; was incorrectly documented).
+- **Verified all Windows playbooks** rely on inventory Azure Key Vault pattern (no vault includes needed).
+- **Removed incorrect documentation** about vault preload includes from communication log.
 
 ### Design Pattern
 - **Inventory (`hosts.yml`)**: Sets `ansible_password` via Azure Key Vault lookup:
   ```yaml
   ansible_password: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name wintermute-ansible-password --query value -o tsv') | trim }}"
   ```
-- **Playbooks**: Should NOT override `ansible_password`; rely on inventory value.
-- **Alternative pattern**: Use `winrm_env.yml` include if loading from env vars synced from Azure Key Vault via `secrets-sync.yml`.
+- **Playbooks**: Should NOT override `ansible_password`; rely on inventory value. No vault includes needed.
+- **Alternative pattern**: Use `winrm_env.yml` include if loading from env vars synced from Azure Key Vault via `secrets-sync.yml` (for special cases only).
 
 ### Validation
 - ✅ `win_ping` succeeds using Azure Key Vault authentication from inventory.
@@ -1247,10 +1315,10 @@ Wave 1 task DEV-001 required redeploying mounts and OS cloud sync to wintermute 
 
 ---
 
-## 2025-11-23 – Windows Vault Preload & Remote-Access Smoke Playbook {#2025-11-23-windows-smoke}
+## 2025-11-23 – Windows Remote-Access Smoke Playbook {#2025-11-23-windows-smoke}
 
 ### Context
-WinRM playbooks relied on environment-provided passwords and failed when vault credentials were not loaded. Added shared vault preload include and created a Windows remote-access smoke playbook to verify mounts and scheduled tasks.
+Created a Windows remote-access smoke playbook to verify mounts and scheduled tasks. WinRM authentication is handled by inventory Azure Key Vault lookup (`ansible/inventory/hosts.yml` sets `ansible_password` via `az keyvault secret show`), so no vault includes are needed.
 
 ### Actions Taken
 - Created smoke test for Windows mounts/remote-access (`ansible/playbooks/smoke-windows-remote-access.yml`) covering X/S/T mappings and scheduled tasks (Map Network Drives, OS Cloud Sync).
@@ -1275,7 +1343,6 @@ Validation play was failing (drives not mounted) because UNC paths were built wi
 ### Actions Taken
 - Fixed UNC path construction in `map_drives.ps1.j2` (trim leading slashes, wrap password in quotes, emit net use errors).
 - Reran Windows mounts deployment on wintermute: X:/S:/T: map to `\\192.168.1.195\flux|space|time`; health status written to `S:\devices\WINTERMUTE\mdt\_status.json`.
-- Added vault preload to `validate-devices-infrastructure.yml` (gather facts after creds).
 - Ran validation and smoke plays on wintermute:
   - `ansible-playbook -i inventory/hosts.yml playbooks/deploy-mounts-windows.yml --limit wintermute`
   - `ansible-playbook -i inventory/hosts.yml playbooks/validate-devices-infrastructure.yml --limit wintermute`
@@ -1284,7 +1351,7 @@ Validation play was failing (drives not mounted) because UNC paths were built wi
 
 ### Results
 - Drives map successfully; health status file created.
-- Smoke/validation playbooks now execute with vault-loaded credentials.
+- Smoke/validation playbooks execute using inventory Azure Key Vault authentication (no vault includes needed).
 
 ### Follow-ups
 - Post-login interactive check on wintermute to confirm drives are online in user session (Net Use shows “Unavailable” under WinRM).

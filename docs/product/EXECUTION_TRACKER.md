@@ -14,6 +14,7 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-windows-smoke
   - docs/communications/COMMUNICATION_LOG.md#2025-11-24-wintermute-validation
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-24-nomachine-keystroke-investigation
 ---
 
 # Device Infrastructure Execution Tracker
@@ -23,13 +24,13 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 ## Agent Status
 | Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |---------|----------------|-----------------------------|-------------|---------------|
-| **Codex-CA-001** (Chief Architect) | 🚧 Active | Windows UNC mapping fix; validation/smoke rerun on wintermute | Wire smoke + lint/check-mode into CI; align roadmap with miket-infra v2.0 | 2025-11-24 |
+| **Codex-CA-001** (Chief Architect) | 🚧 Active | NoMachine keystroke dropping investigation; troubleshooting guide + diagnostic script created | Execute diagnostic script during active session; test quick fixes; document findings | 2025-11-24 |
 | **Codex-PM-011** (Product Manager) | 🚧 Active | Wave 2 coordination requests created, version incremented to v1.8.0 | Review Wave 2 completion, update roadmap for Wave 3 | 2025-11-24 |
 | **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
 | **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
 | **Codex-SEC-004** (Security/IAM) | ✅ Complete | Cloudflare Access mapping + certificate enrollment role complete | Awaiting miket-infra configuration for finalization | 2025-11-24 |
-| **Codex-SRE-005** (SRE/Observability) | ⏸️ Standby | Pending Wave 3 observability work | Define SLIs/SLOs for mounts/sync/remote access | 2025-11-28 |
-| **Codex-NET-006** (Networking) | ✅ Complete | Tailscale ACL drift check playbook complete | Awaiting miket-infra ACL state access method | 2025-11-24 |
+| **Codex-SRE-005** (SRE/Observability) | 🚧 Active | Network diagnostics for NoMachine keystroke issue (0% packet loss, ~4ms latency verified) | Monitor system resources during active session; analyze diagnostic output | 2025-11-24 |
+| **Codex-NET-006** (Networking) | 🚧 Active | Tailscale connectivity analysis for NoMachine (direct connection verified) | Monitor network during active session; check for buffer/packet issues | 2025-11-24 |
 | **Codex-REL-007** (Release) | ⏸️ Standby | Ready to enforce release gates | Draft promotion/rollback plan for device waves | 2025-11-29 |
 | **Codex-FIN-008** (FinOps) | ⏸️ Standby | Budget review pending | Estimate NoMachine licensing + Azure Monitor costs | 2025-11-29 |
 | **Codex-DOC-009** (DocOps) | ✅ Complete | Updated all remote access docs to NoMachine-only, created installation runbook | Monitor compliance with new standards | 2025-11-26 |
@@ -90,6 +91,8 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | Wave 2 coordination response processing | Codex-PM-011 | 2025-11-24 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
 | Cloudflare Access mapping finalization | Codex-SEC-004 | 2025-11-24 | [cloudflare-access-mapping.md](../runbooks/cloudflare-access-mapping.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
 | Tailscale API integration | Codex-NET-006 | 2025-11-24 | [validate-tailscale-acl-drift.yml](../../ansible/playbooks/validate-tailscale-acl-drift.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
+|| NoMachine keystroke dropping troubleshooting guide | Codex-CA-001 | 2025-11-24 | [nomachine-keystroke-dropping-troubleshooting.md](../guides/nomachine-keystroke-dropping-troubleshooting.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-nomachine-keystroke-investigation) |
+|| NoMachine keystroke diagnostic script | Codex-CA-001 | 2025-11-24 | [diagnose-nomachine-keystrokes.sh](../../scripts/diagnose-nomachine-keystrokes.sh), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-nomachine-keystroke-investigation) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.
