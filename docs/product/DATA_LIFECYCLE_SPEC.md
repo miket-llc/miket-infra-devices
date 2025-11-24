@@ -37,6 +37,11 @@ These components will be deployed to `motoko` via Ansible.
     - `rsync` move to `/space/projects/YYYY-Graduate/`.
     - Leave symlink in `/flux` (optional, maybe confusing?).
 - **Schedule:** Nightly at 03:00.
+- **Done when…**
+    - Storage mounts present: `/flux` and `/space` mounted and writable.
+    - Systemd timer `flux-graduate.timer` is enabled and active.
+    - Dry-run `rsync` shows no destructive actions; real run migrates a test folder end-to-end.
+    - Second Ansible apply of the role reports no changes (idempotent).
 
 ### B. Flux Snapshots (Hourly Local)
 **Goal:** Instant recovery of accidental deletions in the working set.
@@ -46,6 +51,11 @@ These components will be deployed to `motoko` via Ansible.
 - **Destination:** `/space/snapshots/flux-local` (Local repo on HDD)
 - **Retention:** Keep 24 hourly, 7 daily.
 - **Schedule:** Hourly (`*:00`).
+- **Done when…**
+    - `/space/snapshots/flux-local` exists with correct permissions and Restic repo initialized.
+    - `restic snapshots` shows hourly entries after timer start; dry-run (`--dry-run`) succeeds.
+    - Timer `flux-snapshot.timer` is enabled and active.
+    - Second Ansible apply of the role reports no changes (idempotent).
 
 ### C. Space Mirror (Nightly Cloud)
 **Goal:** Disaster recovery for the massive archive.
@@ -56,6 +66,11 @@ These components will be deployed to `motoko` via Ansible.
 - **Mode:** `sync` (Mirror delete)
 - **Flags:** `--fast-list --transfers 16 --track-renames`
 - **Schedule:** Nightly at 04:00.
+- **Done when…**
+    - Rclone config for `b2:miket-space-mirror` deployed with encrypted credentials.
+    - Dry-run (`--dry-run`) completes without errors and shows expected transfers.
+    - Timer `space-mirror.timer` enabled and active; logs show successful sync.
+    - Second Ansible apply of the role reports no changes (idempotent).
 
 ### D. Critical Backup (Daily Cloud)
 **Goal:** Immutable, versioned history of the most critical data.
@@ -65,6 +80,11 @@ These components will be deployed to `motoko` via Ansible.
 - **Destination:** `b2:miket-backups-restic/flux`
 - **Retention:** Keep 7 daily, 4 weekly, 12 monthly.
 - **Schedule:** Daily at 05:00.
+- **Done when…**
+    - Restic repository initialized at `b2:miket-backups-restic/flux` with B2 credentials validated.
+    - `restic check` passes for latest snapshot set; pruning respects retention policy.
+    - Timer `flux-backup.timer` enabled and active; logs show successful backup.
+    - Second Ansible apply of the role reports no changes (idempotent).
 
 ## 3. Directory Structure (Ontology)
 
@@ -95,4 +115,8 @@ This structure must be enforced by the Ansible role.
     - Configure systemd timers.
     - Deploy graduation scripts.
 4.  **Validation**: Verify data flows and restore paths.
+    - Run `ansible-playbook --check -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml` to confirm plan is clean.
+    - Run `ansible-lint` for policy conformance.
+    - Smoke-test LiteLLM health endpoint: `curl -f http://motoko:4000/health` (or service-specific health URL) after deploy.
+    - Confirm second `ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml` run is a no-op (idempotent).
 
