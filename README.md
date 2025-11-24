@@ -1,7 +1,7 @@
 # miket-infra-devices
 
 **Status:** ✅ **PRODUCTION-READY** - Comprehensive architectural review complete  
-**Architecture Version:** v1.7.0 (Wave 1 completion: NoMachine standardization, RDP/VNC removal)  
+**Architecture Version:** v1.8.0 (Wave 2 completion: Cloudflare Access mapping, certificate enrollment, ACL drift checks)  
 **Last Updated:** November 23, 2025
 
 ---
@@ -695,6 +695,8 @@ This repository includes comprehensive Ansible automation for standardizing remo
 
 **Architecture:** RDP and VNC have been architecturally retired (2025-11-22). NoMachine is the only remote desktop protocol in use.
 
+**Wave 2 Enhancement:** Cloudflare Access integration for enhanced security and device persona-based access policies. See [Cloudflare Access Mapping](docs/runbooks/cloudflare-access-mapping.md) for details.
+
 ### Overview
 
 - **All Platforms**: NoMachine (port 4000) - unified protocol across Linux, Windows, and macOS
@@ -980,6 +982,8 @@ Tests validate:
 
 - **Client Installation**: `docs/runbooks/nomachine-client-installation.md`
 - **Client Testing**: `docs/runbooks/nomachine-client-testing.md`
+- **Cloudflare Access Mapping**: `docs/runbooks/cloudflare-access-mapping.md` (Wave 2)
+- **Certificate Enrollment**: `ansible/roles/certificate_enrollment/README.md` (Wave 2)
 - **Ansible Roles**: `ansible/roles/remote_*_nomachine/`
 - **Playbooks**: `ansible/playbooks/remote_*_nomachine.yml`
 

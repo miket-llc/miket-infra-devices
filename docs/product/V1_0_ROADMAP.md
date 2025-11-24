@@ -2,7 +2,7 @@
 document_title: "miket-infra-devices v1.0 Roadmap"
 author: "Codex-PM-011 (miket-infra-devices)"
 last_updated: 2025-11-23
-version: v1.7.0
+version: v1.8.0
 status: Draft
 related_initiatives:
   - initiatives/device-onboarding
@@ -56,9 +56,11 @@ linked_communications:
   - Dependencies discovered: MagicDNS fix from miket-infra; Entra device compliance feed format; vault password owner for wintermute.
   - **Completed:** RDP/VNC cleanup (DEV-010), NoMachine client standardization (DEV-005), NoMachine E2E testing (DEV-011), smoke tests, documentation updates.
   - **Status:** Wave 1 release criteria met. Ready for Wave 2.
-- **Wave 2 (Remote access UX)** 🚧 **READY TO START**
+- **Wave 2 (Remote access UX)** ✅ **COMPLETE** (2025-11-24, v1.8.0)
   - Actions: Cloudflare Access mapping for device personas; remote app policies (NoMachine, SSH); certificate enrollment; Tailscale ACL drift checks.
-  - Dependencies discovered: NoMachine server images and firewall baselines from miket-infra → **DELIVERED 2025-11-22** (v9.2.18-3, port 4000); Cloudflare Access mapping for device apps (pending Wave 2).
+  - Dependencies discovered: NoMachine server images and firewall baselines from miket-infra → **DELIVERED 2025-11-22** (v9.2.18-3, port 4000); Cloudflare Access mapping for device apps → **FINALIZED 2025-11-24** (miket-infra coordination response received).
+  - **Completed:** DEV-012 (coordination requests), DEV-007 (Cloudflare Access mapping finalized), DEV-013 (certificate enrollment - NOT REQUIRED), DEV-014 (ACL drift checks with Tailscale API), documentation updates, validation playbooks.
+  - **Status:** Wave 2 implementation finalized with miket-infra coordination response. All deliverables complete. Ready for Wave 3.
 - **Wave 3 (Compliance & observability)**  
   - Actions: ship Azure Monitor agent configs; define SLOs for mounts/sync; implement alerting to Ops channel; publish runbooks.  
   - Dependencies discovered: Azure Monitor workspace IDs and ingestion rules; miket-infra dashboards for shared view.

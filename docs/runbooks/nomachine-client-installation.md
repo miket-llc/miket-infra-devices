@@ -395,11 +395,32 @@ ping {hostname}.pangolin-vega.ts.net
 
 ---
 
+## Cloudflare Access Integration
+
+**Wave 2 Enhancement:** NoMachine access may be protected by Cloudflare Access policies.
+
+**Certificate Enrollment Required:**
+- All devices accessing Cloudflare Access-protected applications must enroll with Cloudflare WARP
+- See: [Certificate Enrollment Automation](../../ansible/roles/certificate_enrollment/README.md)
+
+**Access Policy:**
+- Device personas (workstation, server) mapped to Cloudflare Access groups
+- See: [Cloudflare Access Mapping](./cloudflare-access-mapping.md)
+
+**Validation:**
+```bash
+# Validate Cloudflare Access configuration
+ansible-playbook -i ansible/inventory/hosts.yml \
+  ansible/playbooks/validate-cloudflare-access.yml
+```
+
 ## Related Documentation
 
 - [NoMachine Client Testing](./nomachine-client-testing.md)
 - [NoMachine Server Deployment](../../miket-infra/docs/communications/COMMUNICATION_LOG.md#2025-11-22-nomachine-second-pass) (miket-infra)
 - [Device Onboarding Runbook](./onboarding.md)
+- [Cloudflare Access Mapping](./cloudflare-access-mapping.md)
+- [Certificate Enrollment Automation](../../ansible/roles/certificate_enrollment/README.md)
 
 ---
 

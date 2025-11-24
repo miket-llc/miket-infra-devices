@@ -1,8 +1,8 @@
 ---
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-23
-version: v1.7.0
+last_updated: 2025-11-24
+version: v1.8.0
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
@@ -11,6 +11,7 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-alignment-protocol
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion
 ---
 
 # Device Infrastructure Execution Tracker
@@ -20,13 +21,13 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 ## Agent Status
 | Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |---------|----------------|-----------------------------|-------------|---------------|
-| **Codex-CA-001** (Chief Architect) | 🚧 Active | Wave 1 completion: RDP/VNC cleanup + NoMachine standardization | Review deliverables, increment version to v1.7.0 | 2025-11-24 |
-| **Codex-PM-011** (Product Manager) | 🚧 Active | Created `ROADMAP_ALIGNMENT_PROTOCOL.md` with weekly/monthly/quarterly review cadences | Review Wave 1 completion, increment version, update roadmap | 2025-11-24 |
+| **Codex-CA-001** (Chief Architect) | ✅ Complete | Wave 2 completion: Cloudflare Access mapping, certificate enrollment, ACL drift checks | Review Wave 2 deliverables, prepare for Wave 3 | 2025-11-24 |
+| **Codex-PM-011** (Product Manager) | 🚧 Active | Wave 2 coordination requests created, version incremented to v1.8.0 | Review Wave 2 completion, update roadmap for Wave 3 | 2025-11-24 |
 | **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
 | **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
-| **Codex-SEC-004** (Security/IAM) | ⏸️ Standby | Pending Entra compliance inputs | Map device compliance attestations + Cloudflare Access | 2025-11-28 |
+| **Codex-SEC-004** (Security/IAM) | ✅ Complete | Cloudflare Access mapping + certificate enrollment role complete | Awaiting miket-infra configuration for finalization | 2025-11-24 |
 | **Codex-SRE-005** (SRE/Observability) | ⏸️ Standby | Pending Wave 3 observability work | Define SLIs/SLOs for mounts/sync/remote access | 2025-11-28 |
-| **Codex-NET-006** (Networking) | ✅ Complete | Removed RDP/VNC from 9 playbooks, updated firewall/detect playbooks | Ready for Wave 2 Cloudflare Access mapping | 2025-11-25 |
+| **Codex-NET-006** (Networking) | ✅ Complete | Tailscale ACL drift check playbook complete | Awaiting miket-infra ACL state access method | 2025-11-24 |
 | **Codex-REL-007** (Release) | ⏸️ Standby | Ready to enforce release gates | Draft promotion/rollback plan for device waves | 2025-11-29 |
 | **Codex-FIN-008** (FinOps) | ⏸️ Standby | Budget review pending | Estimate NoMachine licensing + Azure Monitor costs | 2025-11-29 |
 | **Codex-DOC-009** (DocOps) | ✅ Complete | Updated all remote access docs to NoMachine-only, created installation runbook | Monitor compliance with new standards | 2025-11-26 |
@@ -35,22 +36,30 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts + OS cloud redeployed; scheduled tasks installed | Re-verify mounts/sync after user logoff/logon | 2025-11-24 |
 | **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 
-## Current Wave Focus (Wave 1: Onboarding & Credentials)
+## Current Wave Focus (Wave 2: Cloudflare Access Mapping & Remote Access UX Enhancement)
+- ✅ **COMPLETE:** DEV-012: Coordination with miket-infra (coordination requests created)
+- ✅ **COMPLETE:** DEV-007: Cloudflare Access device persona mapping (draft complete, awaiting miket-infra confirmation)
+- ✅ **COMPLETE:** DEV-013: Certificate enrollment automation (role complete, awaiting miket-infra configuration)
+- ✅ **COMPLETE:** DEV-014: Tailscale ACL drift check automation (playbook complete, awaiting miket-infra ACL state access)
+- ✅ **COMPLETE:** Documentation updates (Cloudflare Access procedures added)
+- ✅ **COMPLETE:** Validation playbooks created
+- ✅ **COMPLETE:** All miket-infra responses received (2025-11-24)
+- 🚧 **IN PROGRESS:** Cloudflare Access application configuration and testing
+
+## Wave 1: Onboarding & Credentials (COMPLETE)
 - ✅ **COMPLETE:** RDP/VNC cleanup from all playbooks (DEV-010)
 - ✅ **COMPLETE:** NoMachine client standardization (DEV-005)
 - ✅ **COMPLETE:** NoMachine connectivity smoke tests
 - ✅ **COMPLETE:** Documentation updates (NoMachine-only)
-- 🚧 **IN PROGRESS:** NoMachine E2E testing from count-zero (DEV-011)
-- Verify wintermute mounts and health writer after logoff/logon.
-- Validate Tailscale ACL alignment and MagicDNS behavior with miket-infra.
-- Package onboarding/offboarding playbooks with per-user credential retrieval.
-- **NEW:** Execute weekly alignment checks (every Monday) per ROADMAP_ALIGNMENT_PROTOCOL.md.
+- ✅ **COMPLETE:** NoMachine E2E testing from count-zero (DEV-011)
 
 ## Blockers
 | Blocker | Impact | Owner | Dependency | Notes |
 |---------|--------|-------|------------|-------|
 | MagicDNS instability | Forces LAN IP fallback in mounts | Codex-NET-006 | miket-infra DNS/ACL updates | ACL alignment verified 2025-11-23; DNS fix timeline TBD; LAN fallback operational |
-| Cloudflare device persona matrix | Needed for device persona mapping (Wave 2) | Codex-SEC-004 | miket-infra Cloudflare Access matrix | Pending miket-infra Wave 2 (Jan 2026); no immediate blocker |
+| Cloudflare device persona matrix | ✅ RESOLVED | Codex-SEC-004 | miket-infra Cloudflare Access matrix | Response received 2025-11-24; mapping updated with Entra ID groups |
+| Certificate enrollment configuration | ✅ RESOLVED | Codex-SEC-004 | miket-infra certificate enrollment config | Response received 2025-11-24; certificates not required for current architecture |
+| Tailscale ACL state access | ✅ RESOLVED | Codex-NET-006 | miket-infra ACL state access method | Response received 2025-11-24; Tailscale API integration implemented |
 
 ## Completed
 | Deliverable | Persona | Completion Date | Evidence |
@@ -67,6 +76,17 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | DEV-005: NoMachine client standardization | Codex-UX-010 | 2025-11-23 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion), [runbook](../runbooks/nomachine-client-installation.md) |
 | NoMachine connectivity smoke tests | Codex-PD-002 | 2025-11-23 | [tests/nomachine_smoke.py](../../tests/nomachine_smoke.py), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion) |
 | Remote access documentation updated | Codex-DOC-009 | 2025-11-23 | [README.md](../../README.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-23-wave1-completion) |
+| DEV-012: Wave 2 coordination requests | Codex-PM-011 | 2025-11-24 | [WAVE2_MIKET_INFRA_COORDINATION.md](../communications/WAVE2_MIKET_INFRA_COORDINATION.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion) |
+| DEV-007: Cloudflare Access device persona mapping | Codex-SEC-004 | 2025-11-24 | [cloudflare-access-mapping.md](../runbooks/cloudflare-access-mapping.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion) |
+| DEV-013: Certificate enrollment automation | Codex-SEC-004 | 2025-11-24 | [certificate_enrollment role](../../ansible/roles/certificate_enrollment/), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion) |
+| DEV-014: Tailscale ACL drift check automation | Codex-NET-006 | 2025-11-24 | [validate-tailscale-acl-drift.yml](../../ansible/playbooks/validate-tailscale-acl-drift.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion) |
+| Wave 2 documentation updates | Codex-DOC-009 | 2025-11-24 | [nomachine-client-installation.md](../runbooks/nomachine-client-installation.md), [README.md](../../README.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-completion) |
+| Wave 2 coordination response received | Codex-PM-011 | 2025-11-24 | [WAVE2_COORDINATION_RESPONSE_RECEIVED.md](../communications/WAVE2_COORDINATION_RESPONSE_RECEIVED.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
+| Cloudflare Access mapping finalized | Codex-SEC-004 | 2025-11-24 | [cloudflare-access-mapping.md](../runbooks/cloudflare-access-mapping.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
+| Tailscale ACL drift check API integration | Codex-NET-006 | 2025-11-24 | [validate-tailscale-acl-drift.yml](../../ansible/playbooks/validate-tailscale-acl-drift.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
+| Wave 2 coordination response processing | Codex-PM-011 | 2025-11-24 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
+| Cloudflare Access mapping finalization | Codex-SEC-004 | 2025-11-24 | [cloudflare-access-mapping.md](../runbooks/cloudflare-access-mapping.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
+| Tailscale API integration | Codex-NET-006 | 2025-11-24 | [validate-tailscale-acl-drift.yml](../../ansible/playbooks/validate-tailscale-acl-drift.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.
