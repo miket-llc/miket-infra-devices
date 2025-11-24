@@ -1,0 +1,66 @@
+---
+# macOS Codex CLI installation
+# Requires Node.js 18+ (installed via Homebrew or nvm)
+
+- name: Check if Node.js is installed
+  ansible.builtin.command: node --version
+  register: node_check
+  changed_when: false
+  failed_when: false
+
+- name: Check Node.js version
+  ansible.builtin.set_fact:
+    node_version_ok: "{{ node_check.stdout | regex_search('v(\\d+)') | int >= codex_node_version | int }}"
+  when: node_check.rc == 0
+
+- name: Check if Homebrew is installed
+  ansible.builtin.command: brew --version
+  register: brew_check
+  changed_when: false
+  failed_when: false
+  when: node_check.rc != 0 or not (node_version_ok | default(false))
+
+- name: Install Node.js via Homebrew
+  ansible.builtin.homebrew:
+    name: node@{{ codex_node_version }}
+    state: present
+  when:
+    - brew_check.rc == 0
+    - (node_check.rc != 0 or not (node_version_ok | default(false)))
+
+- name: Verify Node.js installation
+  ansible.builtin.command: node --version
+  register: node_verify
+  changed_when: false
+
+- name: Verify npm installation
+  ansible.builtin.command: npm --version
+  register: npm_verify
+  changed_when: false
+
+- name: Check if Codex CLI is installed
+  ansible.builtin.command: codex --version
+  register: codex_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Codex CLI globally
+  ansible.builtin.shell: npm install -g {{ codex_cli_package }}
+  args:
+    creates: /usr/local/bin/codex
+  when: codex_check.rc != 0
+
+- name: Verify Codex CLI installation
+  ansible.builtin.command: codex --version
+  register: codex_verify
+  changed_when: false
+  failed_when: false
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Codex CLI installed on {{ inventory_hostname }}"
+      - "Node.js: {{ node_verify.stdout }}"
+      - "npm: {{ npm_verify.stdout }}"
+      - "Codex CLI: {{ codex_verify.stdout | default('Installed') }}"
+      - "Run 'codex' to authenticate and start using"

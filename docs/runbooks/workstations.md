@@ -4,6 +4,8 @@ This guide explains how to prepare a Python environment for the automation
 helpers in this repository and how to run the command line interface (CLI) and
 Textual dashboard on the three major desktop platforms.
 
+**Note:** Tailnet CLI installation is a **manual prerequisite** that must be completed before automated Codex CLI deployment. Follow the instructions below to install Tailnet CLI manually on each device.
+
 ## Repository layout
 
 * `tools/cli/tailnet.py` – Typer CLI with commands for querying status,
@@ -132,3 +134,16 @@ python -m tools.cli.tailnet monitor --refresh 15
 
 The Textual UI shows a live view of the tailnet and refreshes automatically at
 the chosen interval. Use `r` to trigger a manual refresh and `q` to quit.
+
+---
+
+## Codex CLI Deployment
+
+After Tailnet CLI is manually installed, Codex CLI can be deployed automatically using Ansible:
+
+```bash
+cd /path/to/miket-infra-devices/ansible
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml
+```
+
+Codex CLI will be installed globally via npm and configured automatically. See the [Codex CLI deployment playbook](../../ansible/playbooks/deploy-codex-cli.yml) for details.

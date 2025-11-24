@@ -1,0 +1,27 @@
+---
+# Defaults for codex_cli role
+# Deploys OpenAI Codex CLI to all nodes
+
+# Codex CLI npm package
+codex_cli_package: "@openai/codex"
+
+# Codex config directory (platform-specific)
+codex_cli_config_dir: "{{ ansible_env.HOME | default(ansible_env.USERPROFILE | default('/root')) }}/.codex"
+
+# Codex config file
+codex_cli_config_file: "{{ codex_cli_config_dir }}/config.toml"
+
+# Default model
+codex_cli_default_model: "gpt-4o"
+
+# Approval policy: "always", "on-request", "never"
+codex_cli_approval_policy: "on-request"
+
+# Sandbox mode: "read-only", "workspace-read", "workspace-write", "full"
+codex_cli_sandbox_mode: "workspace-write"
+
+# OpenAI API key (should come from Azure Key Vault)
+codex_cli_api_key: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name openai-api-key --query value -o tsv') | trim | default('') }}"
+
+# Node.js version requirement
+codex_cli_nodejs_version: "18"

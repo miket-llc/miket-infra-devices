@@ -1,0 +1,96 @@
+---
+# Windows-specific tasks for codex_cli role
+# Codex CLI on Windows is experimental - supports WSL2 and PowerShell
+
+- name: Check if WSL2 is available
+  win_shell: wsl --list --verbose
+  register: wsl_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if Node.js is installed (Windows)
+  win_shell: node --version
+  register: node_check_win
+  changed_when: false
+  failed_when: false
+
+- name: Check if npm is installed (Windows)
+  win_shell: npm --version
+  register: npm_check_win
+  changed_when: false
+  failed_when: false
+
+- name: Install Node.js via Chocolatey if not available (Windows)
+  win_chocolatey:
+    name: nodejs
+    state: present
+  when: node_check_win is failed or npm_check_win is failed
+
+- name: Install Codex CLI globally (Windows PowerShell)
+  win_shell: npm install -g {{ codex_cli_package }}
+  when: node_check_win.rc == 0 or npm_check_win.rc == 0
+
+- name: Set Windows Codex config directory
+  set_fact:
+    codex_cli_config_dir: "{{ ansible_env.USERPROFILE }}\\.codex"
+
+- name: Ensure Codex config directory exists (Windows)
+  win_file:
+    path: "{{ codex_cli_config_dir }}"
+    state: directory
+
+- name: Create Codex config file (Windows)
+  win_template:
+    src: config.toml.j2
+    dest: "{{ codex_cli_config_file }}"
+
+- name: Set OpenAI API key in environment (Windows PowerShell profile)
+  win_shell: |
+    $profilePath = $PROFILE.CurrentUserAllHosts
+    $profileDir = Split-Path $profilePath -Parent
+    if (-not (Test-Path $profileDir)) {
+      New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
+    }
+    $apiKeyLine = '$env:OPENAI_API_KEY="{{ codex_cli_api_key }}"'
+    if (-not (Test-Path $profilePath) -or -not (Select-String -Path $profilePath -Pattern "OPENAI_API_KEY")) {
+      Add-Content -Path $profilePath -Value $apiKeyLine
+    }
+  when: codex_cli_api_key | length > 0
+  no_log: true
+
+- name: Install Codex CLI in WSL2 (if WSL2 is available)
+  win_shell: wsl bash -c "npm install -g {{ codex_cli_package }}"
+  when: wsl_check.rc == 0
+  register: wsl_codex_install
+  changed_when: false
+  failed_when: false
+  ignore_errors: yes
+
+- name: Create Codex config directory in WSL2
+  win_shell: wsl bash -c "mkdir -p ~/.codex"
+  when: wsl_check.rc == 0
+  ignore_errors: yes
+
+- name: Create Codex config file in WSL2 (optional - requires Node.js in WSL2)
+  win_shell: |
+    wsl bash -c "echo model = '{{ codex_cli_default_model }}' > ~/.codex/config.toml"
+    wsl bash -c "echo approval_policy = '{{ codex_cli_approval_policy }}' >> ~/.codex/config.toml"
+    wsl bash -c "echo sandbox_mode = '{{ codex_cli_sandbox_mode }}' >> ~/.codex/config.toml"
+  when: wsl_check.rc == 0
+  ignore_errors: yes
+  failed_when: false
+
+- name: Verify Codex CLI installation (Windows)
+  win_shell: codex --version
+  register: codex_verify_win
+  changed_when: false
+  failed_when: false
+  ignore_errors: yes
+
+- name: Display Codex CLI verification result
+  debug:
+    msg: |
+      Codex CLI installation attempted on Windows.
+      - PowerShell: {{ 'Installed' if codex_verify_win.rc == 0 else 'Failed or not verified' }}
+      - WSL2: {{ 'Available' if wsl_check.rc == 0 else 'Not available' }}
+      Note: Windows support is experimental. WSL2 recommended for best experience.
