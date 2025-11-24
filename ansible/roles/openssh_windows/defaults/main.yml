@@ -1,0 +1,11 @@
+---
+# Windows OpenSSH Server defaults
+
+# SSH configuration
+openssh_password_auth: yes
+openssh_pubkey_auth: yes
+openssh_permit_root_login: "prohibit-password"
+
+# Service settings
+openssh_service_startup: auto
+

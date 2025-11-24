@@ -1,0 +1,8 @@
+---
+# Handlers for Windows OpenSSH
+
+- name: Restart sshd Windows
+  win_service:
+    name: sshd
+    state: restarted
+

@@ -1,0 +1,56 @@
+---
+# Windows OpenSSH Server configuration
+# Ensures OpenSSH is installed, configured, and accessible via Tailscale
+
+- name: Check if OpenSSH Server is installed
+  win_shell: |
+    $cap = Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH.Server*'
+    if ($cap.State -eq 'Installed') { 'INSTALLED' } else { 'NOT_INSTALLED' }
+  register: openssh_status
+  changed_when: false
+
+- name: Install OpenSSH Server
+  win_shell: |
+    Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+  when: "'NOT_INSTALLED' in openssh_status.stdout"
+  register: openssh_install
+
+- name: Ensure sshd service is running and enabled
+  win_service:
+    name: sshd
+    start_mode: "{{ openssh_service_startup }}"
+    state: started
+
+- name: Configure PasswordAuthentication
+  win_lineinfile:
+    path: C:\ProgramData\ssh\sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: "PasswordAuthentication {{ 'yes' if openssh_password_auth else 'no' }}"
+  notify: Restart sshd Windows
+
+- name: Configure PubkeyAuthentication
+  win_lineinfile:
+    path: C:\ProgramData\ssh\sshd_config
+    regexp: '^#?PubkeyAuthentication'
+    line: "PubkeyAuthentication {{ 'yes' if openssh_pubkey_auth else 'no' }}"
+  notify: Restart sshd Windows
+
+- name: Ensure firewall allows SSH from Tailscale network
+  win_shell: |
+    $rule = Get-NetFirewallRule -DisplayName 'OpenSSH-Tailscale' -ErrorAction SilentlyContinue
+    if (-not $rule) {
+      New-NetFirewallRule -DisplayName 'OpenSSH-Tailscale' -Direction Inbound -Protocol TCP -LocalPort 22 -RemoteAddress 100.64.0.0/10 -Action Allow
+      'CREATED'
+    } else {
+      'EXISTS'
+    }
+  register: firewall_rule
+  changed_when: "'CREATED' in firewall_rule.stdout"
+
+- name: Display SSH connection info
+  ansible.builtin.debug:
+    msg:
+      - "✅ OpenSSH Server configured on {{ inventory_hostname }}"
+      - "Connect via: ssh mdt@{{ inventory_hostname }}.pangolin-vega.ts.net"
+      - "Password auth: {{ 'enabled' if openssh_password_auth else 'disabled' }}"
+
