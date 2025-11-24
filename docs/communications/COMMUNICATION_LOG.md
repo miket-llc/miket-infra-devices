@@ -1,3 +1,43 @@
+## 2025-11-24 – Canonical duplicate guardrails for reconciliation {#2025-11-24-duplicate-guardrails}
+
+### Context
+User asked for proof that reconciliation understands the difference between backups, archives, camera ingests, working assets, and art, and that only intentional duplicates will persist.
+
+### Actions Taken
+- Defined canonical content classes and the allowed duplicate budget in the migration plan and reconciliation prompt (primary, archive, camera, playground/device evidence, backups).
+- Updated `reconcile-multi-source-transfers.sh` to tag sources with classes, enforce `/space` target guardrails, and log permitted duplicate locations in each run summary.
+
+### Next Steps
+- Run reconciliation with `--checksum` and confirm the summary shows classes + duplicate allowances before promoting.
+- After conflict triage, archive backups to `/space/archive/reconciliation/<run-id>/` and leave device evidence untouched.
+
+### Deliverables
+- Plan: [Migration Plan](../initiatives/onedrive-to-space-migration/MIGRATION_PLAN.md#canonical-content-classes--duplicate-budget)
+- Prompt: [Reconciliation Prompt](../initiatives/onedrive-to-space-migration/RECONCILIATION_PROMPT.md#canonical-roles-keep-only-intended-duplicates)
+- Script: [reconcile-multi-source-transfers.sh](../../scripts/reconcile-multi-source-transfers.sh)
+
+---
+
+## 2025-11-24 – Multi-Source Data Reconciliation Plan {#2025-11-24-data-reconciliation-plan}
+
+### Context
+Codex-CA-001 prepared a one-time reconciliation approach to merge fragmented transfers from count-zero, M365, and wintermute into the canonical `/space/mike` tree without data loss.
+
+### Actions Taken
+- Collapsed reconciliation guidance into the migration plan with a single execution recipe and guardrails.
+- Added execution script `scripts/reconcile-multi-source-transfers.sh` with default source map and backup paths under `/space/inbox/reconciliation`.
+
+### Next Steps
+- Run dry-run then production reconciliation with `--checksum` enabled.
+- Log file counts/conflicts in the run folder; promote only after manual conflict review.
+- Archive conflict backups after triage to `/space/archive/reconciliation/<run-id>/`.
+
+### Deliverables
+- Script: [scripts/reconcile-multi-source-transfers.sh](../../scripts/reconcile-multi-source-transfers.sh)
+- Plan: [Migration Plan](../initiatives/onedrive-to-space-migration/MIGRATION_PLAN.md#one-time-reconciliation-count-zero--m365--wintermute)
+
+---
+
 ## 2025-11-24 – NoMachine Keystroke Dropping Investigation {#2025-11-24-nomachine-keystroke-investigation}
 
 ### Context
@@ -1776,3 +1816,23 @@ Deployed OpenAI Codex CLI to all nodes on the tailnet. Refactored Tailnet CLI to
 **Status:** Production Ready
 
 ---
+## 2025-11-24 – Canonical duplicate guardrails for reconciliation {#2025-11-24-duplicate-guardrails}
+
+### Context
+User asked for proof that reconciliation understands the difference between backups, archives, camera ingests, working assets, and art, and that only intentional duplicates will persist.
+
+### Actions Taken
+- Defined canonical content classes and the allowed duplicate budget in the migration plan and reconciliation prompt (primary, archive, camera, playground/device evidence, backups).
+- Updated `reconcile-multi-source-transfers.sh` to tag sources with classes, enforce `/space` target guardrails, and log permitted duplicate locations in each run summary.
+
+### Next Steps
+- Run reconciliation with `--checksum` and confirm the summary shows classes + duplicate allowances before promoting.
+- After conflict triage, archive backups to `/space/archive/reconciliation/<run-id>/` and leave device evidence untouched.
+
+### Deliverables
+- Plan: [Migration Plan](../initiatives/onedrive-to-space-migration/MIGRATION_PLAN.md#canonical-content-classes--duplicate-budget)
+- Prompt: [Reconciliation Prompt](../initiatives/onedrive-to-space-migration/RECONCILIATION_PROMPT.md#canonical-roles-keep-only-intended-duplicates)
+- Script: [reconcile-multi-source-transfers.sh](../../scripts/reconcile-multi-source-transfers.sh)
+
+---
+

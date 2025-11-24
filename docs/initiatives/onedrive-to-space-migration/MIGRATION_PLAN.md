@@ -80,6 +80,15 @@ After migration, OneDrive content will be organized under `/space` as follows:
 - OneDrive/Pictures → `/space/mike/Pictures/`
 - OneDrive/Shared → `/space/shared/` (if applicable)
 
+## Canonical Content Classes & Duplicate Budget
+
+- **Primary work/assets/art** → `/space/mike/` (one canonical copy only). Working folders (`work/`, `assets/`, `art/`, `_MAIN_FILES/`, `Documents/`, `Desktop/`) live here; conflict backups are quarantined in run folders until curated.
+- **Archives (deep but thawable)** → `/space/mike/archives/` (read-mostly). Duplicates are allowed only as part of intentional archive sets; the canonical pointer remains in `/space/mike/archives/`.
+- **Camera/field captures** → `/space/devices/<host>/<user>/camera/` for raw offloads; curated/edited exports graduate to `/space/mike/assets/camera/` or `/space/mike/art/` with exactly one kept copy.
+- **Device playgrounds (OS clouds, downloads)** → `/space/devices/<host>/<user>/` (ingest evidence only). Content is promoted to `/space/mike` after review; device folders remain untouched as provenance.
+- **Backups/snapshots** → `/space/journal/**` and reconciliation backup dirs (`/space/inbox/reconciliation/runs/<id>/conflicts`, `/space/archive/reconciliation/<id>/`). These are the only approved persistent duplicate copies beyond the canonical tree.
+- **Prohibited:** New ad-hoc duplicates in `/space/mike` or `/space/devices` outside the paths above. Reconciliation must either promote, quarantine, or archive; nothing is silently multiplied.
+
 **PHC Compliance:**
 - `/space` is the System of Record (SoR) - OneDrive is collaboration surface only
 - OS cloud sync continues to `/space/devices/<host>/<user>/` for ongoing ingestion
@@ -94,6 +103,16 @@ After migration, OneDrive content will be organized under `/space` as follows:
 1. **Phase 1:** Transfer from count-zero local OneDrive sync to `/space` (no cloud access needed)
 2. **Phase 2:** Compare cloud (M365) with local transfer, merge cloud-only files
 3. **Phase 3:** Resume/coordinate with hoover/rclone processes
+
+### One-Time Reconciliation (count-zero + M365 + wintermute)
+- **Why:** Multiple partially transferred sources exist; we need a single merge into `/space/mike` without losing device-ingest evidence.
+- **How:** Run `scripts/reconcile-multi-source-transfers.sh --target /space/mike --run-root /space/inbox/reconciliation --checksum`.
+- **Rules:**
+  - No deletes; rsync with backups for every overwrite.
+  - Source evidence kept under `/space/inbox/reconciliation/runs/<timestamp>/sources/`.
+  - Device ingests remain under `/space/devices/<host>/<user>/`; only curated content lands in `/space/mike`.
+  - Conflicts are diverted to `conflicts/` for manual review before final placement.
+
 
 ### Phase 0: Pre-Migration Coordination
 1. **Identify Conflicting Processes**
@@ -205,6 +224,26 @@ After migration, OneDrive content will be organized under `/space` as follows:
    - Keep OneDrive as read-only backup for 90 days
    - Document archive location
    - Schedule cleanup after validation period
+
+### Phase 6: Multi-Source Reconciliation (One-Time)
+1. **Run Reconciliation Plan**
+   - Execute `scripts/reconcile-multi-source-transfers.sh --target /space/mike --run-root /space/inbox/reconciliation --checksum`
+   - Sources merged: count-zero `_MAIN_FILES`/`dev`/`archives`, M365 `_MAIN_FILES`, iCloud/Downloads captures under `/space/devices/count-zero/`, and `wintermute-mdt_` inbox staging
+
+2. **Conflict Handling**
+   - All overwrites backed up to `/space/inbox/reconciliation/runs/<run-id>/conflicts/target/`
+   - Aggregate conflicts preserved per-source in `/space/inbox/reconciliation/runs/<run-id>/aggregate_conflicts/`
+   - Priority order: local ingests (`count-zero`) > cloud (`m365-mike`) > historical inbox artifacts
+
+3. **Verification & Reporting**
+   - Keep checksum manifests inside `/space/inbox/reconciliation/runs/<run-id>/manifests/`
+   - Spot-check final `/space/mike` tree for `_MAIN_FILES`, `dev`, and `archives` completeness
+   - Update `COMMUNICATION_LOG.md` and `EXECUTION_TRACKER.md` with results
+
+### AI Usage & Guardrails
+- **No autonomous moves:** Data copy, merge, and conflict handling are deterministic shell utilities (rsync/rclone) to avoid AI-side mutation risk.
+- **Optional assistance only:** LiteLLM may summarize reconciliation manifests or highlight likely duplicates after runs, but it never writes to `/space`.
+- **Data-loss prevention:** Every overwrite is backed up, checksum verification is enabled on reconciliation runs, and conflicting payloads are quarantined for human decisioning rather than AI guesses.
 
 ---
 
