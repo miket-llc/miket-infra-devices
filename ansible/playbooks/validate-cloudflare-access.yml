@@ -1,0 +1,158 @@
+---
+# Cloudflare Access Validation Playbook
+# Validates device personas mapped to Cloudflare Access groups
+# Tests access from each device persona to remote applications
+
+- name: Validate Cloudflare Access mapping
+  hosts: all
+  gather_facts: true
+  
+  vars:
+    cloudflare_access_validation_enabled: true
+    
+  tasks:
+    - name: Load device persona mapping
+      set_fact:
+        device_personas:
+          motoko:
+            persona: server
+            cloudflare_group: server-devices  # TBD - awaiting miket-infra confirmation
+            tags:
+              - tag:server
+              - tag:linux
+              - tag:ansible
+          wintermute:
+            persona: workstation
+            cloudflare_group: workstation-devices  # TBD - awaiting miket-infra confirmation
+            tags:
+              - tag:workstation
+              - tag:windows
+              - tag:gaming
+          armitage:
+            persona: workstation
+            cloudflare_group: workstation-devices  # TBD - awaiting miket-infra confirmation
+            tags:
+              - tag:workstation
+              - tag:windows
+              - tag:gaming
+          count-zero:
+            persona: workstation
+            cloudflare_group: workstation-devices  # TBD - awaiting miket-infra confirmation
+            tags:
+              - tag:workstation
+              - tag:macos
+    
+    - name: Verify device persona mapping
+      debug:
+        msg: |
+          Device: {{ inventory_hostname }}
+          Persona: {{ device_personas[inventory_hostname].persona }}
+          Cloudflare Group: {{ device_personas[inventory_hostname].cloudflare_group }}
+          Tags: {{ device_personas[inventory_hostname].tags | join(', ') }}
+      when: inventory_hostname in device_personas
+      tags:
+        - cloudflare_access
+        - validation
+        - wave2
+    
+    - name: Check certificate enrollment status
+      block:
+        - name: Check Cloudflare WARP status (macOS)
+          command: /usr/local/bin/warp-cli status
+          register: warp_status_macos
+          failed_when: false
+          changed_when: false
+          when: ansible_os_family == "Darwin"
+          tags:
+            - cloudflare_access
+            - validation
+            - certificate
+        
+        - name: Check Cloudflare WARP status (Windows)
+          win_shell: |
+            & "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe" status
+          register: warp_status_windows
+          failed_when: false
+          changed_when: false
+          when: ansible_os_family == "Windows"
+          tags:
+            - cloudflare_access
+            - validation
+            - certificate
+        
+        - name: Check Cloudflare WARP status (Linux)
+          command: warp-cli status
+          register: warp_status_linux
+          failed_when: false
+          changed_when: false
+          when: ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+          tags:
+            - cloudflare_access
+            - validation
+            - certificate
+        
+        - name: Report certificate enrollment status
+          debug:
+            msg: |
+              Certificate Enrollment Status:
+              {% if ansible_os_family == "Darwin" %}
+              {{ warp_status_macos.stdout | default('NOT INSTALLED') if warp_status_macos is defined and warp_status_macos.stdout is defined else 'NOT INSTALLED' }}
+              {% elif ansible_os_family == "Windows" %}
+              {{ warp_status_windows.stdout | default('NOT INSTALLED') if warp_status_windows is defined and warp_status_windows.stdout is defined else 'NOT INSTALLED' }}
+              {% elif ansible_os_family == "Debian" or ansible_os_family == "RedHat" %}
+              {{ warp_status_linux.stdout | default('NOT INSTALLED') if warp_status_linux is defined and warp_status_linux.stdout is defined else 'NOT INSTALLED' }}
+              {% else %}
+              NOT REQUIRED (current Cloudflare Access architecture uses Entra ID OIDC)
+              {% endif %}
+          tags:
+            - cloudflare_access
+            - validation
+            - certificate
+    
+    - name: Test NoMachine connectivity (placeholder)
+      debug:
+        msg: |
+          NoMachine connectivity test placeholder.
+          Will test access to NoMachine servers via Cloudflare Access once configured.
+          Expected: Access to motoko, wintermute, armitage on port 4000
+      tags:
+        - cloudflare_access
+        - validation
+        - nomachine
+    
+    - name: Test SSH connectivity (placeholder)
+      debug:
+        msg: |
+          SSH connectivity test placeholder.
+          Will test SSH access via Cloudflare Access once configured.
+          Expected: tag:ansible → tag:linux, tag:macos (port 22)
+      tags:
+        - cloudflare_access
+        - validation
+        - ssh
+    
+    - name: Generate validation report
+      debug:
+        msg: |
+          ========================================
+          Cloudflare Access Validation Report
+          ========================================
+          
+          Device: {{ inventory_hostname }}
+          Persona: {{ device_personas[inventory_hostname].persona if inventory_hostname in device_personas else 'UNKNOWN' }}
+          Cloudflare Group: {{ device_personas[inventory_hostname].cloudflare_group if inventory_hostname in device_personas else 'UNKNOWN' }}
+          
+          Status: PLACEHOLDER - Awaiting miket-infra Cloudflare Access configuration
+          
+          Next Steps:
+          1. Update Cloudflare Access group names once miket-infra provides persona matrix
+          2. Configure access policies for NoMachine, SSH, admin tools
+          3. Enroll devices with certificates
+          4. Test access from each persona
+          
+          See: docs/runbooks/cloudflare-access-mapping.md
+      tags:
+        - cloudflare_access
+        - validation
+        - reporting
+

@@ -1,0 +1,23 @@
+---
+# Certificate Enrollment Role Defaults
+# Cloudflare WARP/Gateway certificate enrollment for Cloudflare Access
+
+# Cloudflare WARP configuration
+cloudflare_warp_enabled: true
+cloudflare_warp_organization: ""  # TBD - awaiting miket-infra configuration
+cloudflare_warp_enrollment_key: ""  # TBD - awaiting miket-infra enrollment key
+
+# Certificate enrollment settings
+certificate_enrollment_enabled: true
+certificate_enrollment_ca: ""  # TBD - awaiting miket-infra CA details
+certificate_enrollment_url: ""  # TBD - awaiting miket-infra enrollment URL
+
+# Platform-specific settings
+certificate_enrollment_macos_enabled: true
+certificate_enrollment_windows_enabled: true
+certificate_enrollment_linux_enabled: true
+
+# Validation settings
+certificate_validation_enabled: true
+certificate_validation_interval: 86400  # 24 hours in seconds
+

@@ -1,0 +1,112 @@
+---
+# Certificate Enrollment - Linux (Cloudflare WARP)
+
+- name: Check if Cloudflare WARP is installed (Linux)
+  command: warp-cli --version
+  register: warp_version_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Add Cloudflare WARP repository (Debian/Ubuntu)
+  apt_repository:
+    repo: "deb https://pkg.cloudflareclient.com/ {{ ansible_distribution_release }} main"
+    state: present
+    filename: cloudflare-warp
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - ansible_os_family == "Debian"
+    - warp_version_check.rc != 0
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Add Cloudflare WARP GPG key (Debian/Ubuntu)
+  apt_key:
+    url: https://pkg.cloudflareclient.com/pubkey.gpg
+    state: present
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - ansible_os_family == "Debian"
+    - warp_version_check.rc != 0
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Install Cloudflare WARP (Debian/Ubuntu)
+  apt:
+    name: cloudflare-warp
+    state: present
+    update_cache: true
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - ansible_os_family == "Debian"
+    - warp_version_check.rc != 0
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Register Cloudflare WARP (Linux)
+  command: warp-cli register
+  register: warp_register_result
+  changed_when: "'Successfully registered' in warp_register_result.stdout"
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - cloudflare_warp_enabled | bool
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Set Cloudflare WARP mode (Linux)
+  command: warp-cli set-mode warp
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - cloudflare_warp_organization | length > 0
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Connect Cloudflare WARP (Linux)
+  command: warp-cli connect
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - cloudflare_warp_enabled | bool
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+
+- name: Verify Cloudflare WARP status (Linux)
+  command: warp-cli status
+  register: warp_status
+  changed_when: false
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - cloudflare_warp_enabled | bool
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+    - validation
+
+- name: Display Cloudflare WARP status (Linux)
+  debug:
+    msg: "{{ warp_status.stdout }}"
+  when:
+    - certificate_enrollment_linux_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - warp_status is defined
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - linux
+

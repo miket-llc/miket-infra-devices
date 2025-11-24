@@ -1,0 +1,102 @@
+---
+# Certificate Enrollment - Windows (Cloudflare WARP)
+
+- name: Check if Cloudflare WARP is installed (Windows)
+  win_stat:
+    path: C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe
+  register: warp_installed
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+
+- name: Download Cloudflare WARP installer (Windows)
+  win_get_url:
+    url: https://pkg.cloudflareclient.com/packages/cloudflare-warp-2023.8.597-1-x86_64.msi
+    dest: C:\Windows\Temp\cloudflare-warp.msi
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - not warp_installed.stat.exists
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+
+- name: Install Cloudflare WARP (Windows)
+  win_package:
+    path: C:\Windows\Temp\cloudflare-warp.msi
+    state: present
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - not warp_installed.stat.exists
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+
+- name: Register Cloudflare WARP (Windows)
+  win_shell: |
+    & "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe" register
+  register: warp_register_result
+  changed_when: "'Successfully registered' in warp_register_result.stdout"
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - warp_installed.stat.exists
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+
+- name: Set Cloudflare WARP mode (Windows)
+  win_shell: |
+    & "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe" set-mode warp
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - cloudflare_warp_organization | length > 0
+    - warp_installed.stat.exists
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+
+- name: Connect Cloudflare WARP (Windows)
+  win_shell: |
+    & "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe" connect
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - warp_installed.stat.exists
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+
+- name: Verify Cloudflare WARP status (Windows)
+  win_shell: |
+    & "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe" status
+  register: warp_status
+  changed_when: false
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - warp_installed.stat.exists
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+    - validation
+
+- name: Display Cloudflare WARP status (Windows)
+  debug:
+    msg: "{{ warp_status.stdout }}"
+  when:
+    - certificate_enrollment_windows_enabled | bool
+    - cloudflare_warp_enabled | bool
+    - warp_status is defined
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - windows
+

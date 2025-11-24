@@ -1,0 +1,19 @@
+---
+# Certificate Enrollment Playbook
+# Enrolls all devices with Cloudflare WARP/Gateway for Cloudflare Access authentication
+
+- name: Enroll certificates for all devices
+  hosts: all
+  become: false  # Cloudflare WARP runs as user
+  gather_facts: true
+  
+  roles:
+    - role: ../roles/certificate_enrollment
+      vars:
+        certificate_enrollment_enabled: false  # NOT REQUIRED for current architecture
+  
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+    - wave2
+

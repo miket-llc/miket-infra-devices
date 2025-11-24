@@ -1,0 +1,51 @@
+---
+# Certificate Enrollment Validation
+
+- name: Validate certificate enrollment status
+  block:
+    - name: Check certificate enrollment (macOS)
+      command: /usr/local/bin/warp-cli status
+      register: cert_status_macos
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "Darwin"
+      tags:
+        - certificate_enrollment
+        - validation
+
+    - name: Check certificate enrollment (Windows)
+      win_shell: |
+        & "C:\Program Files\Cloudflare\Cloudflare WARP\warp-cli.exe" status
+      register: cert_status_windows
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "Windows"
+      tags:
+        - certificate_enrollment
+        - validation
+
+    - name: Check certificate enrollment (Linux)
+      command: warp-cli status
+      register: cert_status_linux
+      failed_when: false
+      changed_when: false
+      when: ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+      tags:
+        - certificate_enrollment
+        - validation
+
+    - name: Report certificate enrollment status
+      debug:
+        msg: |
+          Certificate Enrollment Status:
+          {% if ansible_os_family == "Darwin" %}
+          {{ cert_status_macos.stdout }}
+          {% elif ansible_os_family == "Windows" %}
+          {{ cert_status_windows.stdout }}
+          {% elif ansible_os_family == "Debian" or ansible_os_family == "RedHat" %}
+          {{ cert_status_linux.stdout }}
+          {% endif %}
+      tags:
+        - certificate_enrollment
+        - validation
+

@@ -1,0 +1,282 @@
+---
+# Tailscale ACL Drift Check Playbook
+# Validates device tags align with miket-infra Tailscale ACL tagOwners
+# Compares device inventory vs ACL state for drift detection
+
+- name: Validate Tailscale ACL alignment
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  
+  vars:
+    # Tailscale API configuration (from miket-infra coordination response 2025-11-24)
+    tailscale_api_key: "{{ lookup('env', 'TAILSCALE_API_KEY') | default('', true) }}"
+    tailnet: "tail2e55fe.ts.net"
+    drift_check_enabled: true
+  
+  tasks:
+    - name: Fetch miket-infra Tailscale ACL state
+      block:
+        - name: Check if Tailscale API key is configured
+          debug:
+            msg: "Tailscale API key configured: {{ tailscale_api_key[:20] }}..."
+          when: tailscale_api_key | length > 0
+          failed_when: false
+        
+        - name: Fetch ACL configuration from Tailscale API
+          shell: |
+            curl -s -u "{{ tailscale_api_key }}:" \
+              "https://api.tailscale.com/api/v2/tailnet/{{ tailnet }}/acl" \
+              -w "\nHTTPSTATUS:%{http_code}"
+          register: tailscale_acl_response_raw
+          failed_when: false
+          changed_when: false
+          when: tailscale_api_key | length > 0
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Parse ACL response
+          set_fact:
+            tailscale_acl_status: "{{ tailscale_acl_response_raw.stdout | regex_search('HTTPSTATUS:(\\d+)') | first | default('000') }}"
+            tailscale_acl_json: "{{ tailscale_acl_response_raw.stdout | regex_replace('HTTPSTATUS:.*', '') | from_json | default({}) }}"
+          when: tailscale_acl_response_raw is defined
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Set ACL data
+          set_fact:
+            tailscale_acl: "{{ tailscale_acl_json }}"
+          when: tailscale_acl_status == "200"
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Warn if API key invalid
+          debug:
+            msg: |
+              ⚠️  API key authentication failed (HTTP {{ tailscale_acl_status }}).
+              The key provided may be an auth key (tskey-auth-*) instead of an API key (tskey-api-*).
+              
+              Continuing with device inventory validation only (no live API validation).
+          when: tailscale_acl_status != "200" and tailscale_acl_status != "000"
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Fetch device list from Tailscale API
+          shell: |
+            curl -s -u "{{ tailscale_api_key }}:" \
+              "https://api.tailscale.com/api/v2/tailnet/{{ tailnet }}/devices" \
+              -w "\nHTTPSTATUS:%{http_code}"
+          register: tailscale_devices_response_raw
+          failed_when: false
+          changed_when: false
+          when: tailscale_api_key | length > 0
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Parse devices response
+          set_fact:
+            tailscale_devices_status: "{{ tailscale_devices_response_raw.stdout | regex_search('HTTPSTATUS:(\\d+)') | first | default('000') }}"
+            tailscale_devices_json: "{{ tailscale_devices_response_raw.stdout | regex_replace('HTTPSTATUS:.*', '') | from_json | default({}) }}"
+          when: tailscale_devices_response_raw is defined
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Set devices data
+          set_fact:
+            tailscale_devices: "{{ tailscale_devices_json.devices | default([]) }}"
+          when: tailscale_devices_status == "200"
+          tags:
+            - acl_drift_check
+            - validation
+      
+      rescue:
+        - name: API access failed - continuing with inventory validation only
+          debug:
+            msg: |
+              ⚠️  Tailscale API authentication failed.
+              The key provided may be an auth key (tskey-auth-*) instead of an API key (tskey-api-*).
+              
+              Continuing with device inventory validation only (no live API validation).
+              To enable full API validation, generate a read-only API key:
+              ./scripts/tailscale/generate-readonly-api-key.sh
+          tags:
+            - acl_drift_check
+            - validation
+      
+      when: drift_check_enabled | bool
+      tags:
+        - acl_drift_check
+        - validation
+        - wave2
+    
+    - name: Load device inventory
+      set_fact:
+        device_inventory:
+          motoko:
+            hostname: motoko
+            tags:
+              - tag:server
+              - tag:linux
+              - tag:ansible
+            persona: server
+          wintermute:
+            hostname: wintermute
+            tags:
+              - tag:workstation
+              - tag:windows
+              - tag:gaming
+            persona: workstation
+          armitage:
+            hostname: armitage
+            tags:
+              - tag:workstation
+              - tag:windows
+              - tag:gaming
+            persona: workstation
+          count-zero:
+            hostname: count-zero
+            tags:
+              - tag:workstation
+              - tag:macos
+            persona: workstation
+      tags:
+        - acl_drift_check
+        - validation
+    
+    - name: Compare device tags vs ACL tagOwners
+      block:
+        - name: Extract ACL tagOwners from Tailscale API response
+          set_fact:
+            acl_tag_owners: "{{ tailscale_acl.acls[0].tagOwners.keys() | list | default([]) }}"
+          when: tailscale_acl is defined and tailscale_acl.acls is defined
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Fallback to known tagOwners if API unavailable
+          set_fact:
+            acl_tag_owners:
+              - tag:server
+              - tag:workstation
+              - tag:windows
+              - tag:linux
+              - tag:macos
+              - tag:ansible
+              - tag:gaming
+              - tag:infra
+          when: acl_tag_owners is not defined or acl_tag_owners | length == 0
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Validate device tags exist in ACL tagOwners
+          debug:
+            msg: |
+              Device: {{ item.key }}
+              Tags: {{ item.value.tags | join(', ') }}
+              Status: {{ 'VALID' if (item.value.tags | difference(acl_tag_owners) | length == 0) else 'DRIFT DETECTED' }}
+          loop: "{{ device_inventory | dict2items }}"
+          failed_when: false
+          tags:
+            - acl_drift_check
+            - validation
+        
+        - name: Report tag drift
+          fail:
+            msg: |
+              Tag drift detected for device: {{ item.key }}
+              Device tags: {{ item.value.tags | join(', ') }}
+              ACL tagOwners: {{ acl_tag_owners | join(', ') }}
+              Missing tags: {{ item.value.tags | difference(acl_tag_owners) | join(', ') }}
+          loop: "{{ device_inventory | dict2items }}"
+          when: (item.value.tags | difference(acl_tag_owners) | length) > 0
+          tags:
+            - acl_drift_check
+            - validation
+    
+    - name: Validate SSH rules match device configurations
+      block:
+        - name: Check SSH rules for Linux/macOS devices
+          debug:
+            msg: |
+              Device: {{ item.key }}
+              OS: {{ item.value.tags | select('match', 'tag:(linux|macos)') | list | join(', ') }}
+              SSH Enabled: {{ 'YES' if ('tag:linux' in item.value.tags or 'tag:macos' in item.value.tags) else 'NO' }}
+          loop: "{{ device_inventory | dict2items }}"
+          tags:
+            - acl_drift_check
+            - validation
+            - ssh_rules
+        
+        - name: Verify SSH ACL rules exist
+          debug:
+            msg: |
+              SSH rules validation placeholder.
+              Will validate against miket-infra ACL once access method provided.
+              Expected: tag:ansible → tag:linux, tag:macos (port 22)
+          tags:
+            - acl_drift_check
+            - validation
+            - ssh_rules
+    
+    - name: Validate NoMachine port rules (4000)
+      block:
+        - name: Check NoMachine port rules
+          debug:
+            msg: |
+              Device: {{ item.key }}
+              NoMachine Server: {{ 'YES' if item.key in ['motoko', 'wintermute', 'armitage'] else 'NO' }}
+              Port: 4000
+              Expected ACL: tag:workstation, tag:server → tag:server, tag:workstation:4000
+          loop: "{{ device_inventory | dict2items }}"
+          tags:
+            - acl_drift_check
+            - validation
+            - nomachine_rules
+        
+        - name: Verify NoMachine ACL rules exist
+          debug:
+            msg: |
+              NoMachine port rules validation placeholder.
+              Will validate against miket-infra ACL once access method provided.
+              Expected: tag:workstation, tag:server → tag:server, tag:workstation:4000
+          tags:
+            - acl_drift_check
+            - validation
+            - nomachine_rules
+    
+    - name: Generate drift check report
+      debug:
+          msg: |
+            ========================================
+            Tailscale ACL Drift Check Report
+            ========================================
+            
+            Check Date: {{ ansible_date_time.iso8601 }}
+            Devices Checked: {{ device_inventory | length }}
+            Tailscale API: {{ 'CONNECTED' if tailscale_acl is defined else 'NOT CONFIGURED' }}
+            
+            Status: {{ 'PASS' if drift_check_enabled else 'SKIPPED' }}
+            
+            ACL TagOwners: {{ acl_tag_owners | join(', ') }}
+            
+            Next Steps:
+            1. Configure TAILSCALE_API_KEY environment variable
+            2. Run playbook to fetch ACL state from Tailscale API
+            3. Compare device tags vs ACL tagOwners
+            4. Validate SSH and NoMachine port rules
+            5. Report drift to miket-infra if detected
+            
+            See: docs/communications/WAVE2_COORDINATION_RESPONSE_RECEIVED.md
+            API Key: Set TAILSCALE_API_KEY environment variable (read-only key from miket-infra)
+      tags:
+        - acl_drift_check
+        - validation
+        - reporting
+

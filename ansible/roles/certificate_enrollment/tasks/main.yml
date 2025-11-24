@@ -1,0 +1,17 @@
+---
+# Certificate Enrollment Role - Main Tasks
+
+- name: Include platform-specific enrollment tasks
+  include_tasks: "{{ ansible_os_family | lower }}.yml"
+  when: certificate_enrollment_enabled | bool
+  tags:
+    - certificate_enrollment
+    - cloudflare_access
+
+- name: Validate certificate enrollment
+  include_tasks: validate.yml
+  when: certificate_validation_enabled | bool
+  tags:
+    - certificate_enrollment
+    - validation
+
