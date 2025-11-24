@@ -1,7 +1,7 @@
 ---
 document_title: "Data Reconciliation Prompt - Multi-Source Transfer Merge"
 author: "Codex-CA-001"
-last_updated: 2025-11-24
+last_updated: 2025-11-25
 status: Draft
 related_initiatives:
   - initiatives/onedrive-to-space-migration
@@ -197,6 +197,18 @@ Multiple parallel data transfers have been executed from various sources to `/sp
 5. **Uses AI in assist-only mode:**
    - LiteLLM may summarize manifests or flag likely duplicates for human review.
    - All copy/merge actions remain deterministic shell tooling; AI outputs are never applied automatically.
+
+### Deterministic Execution Steps (one-time reconciliation)
+
+1. **Stage sources under `/space/inbox/reconciliation/runs/<id>/sources/`**, preserving provenance per label and source class.
+2. **Generate manifests** for each staged source with `size`, `mtime`, and optional `sha256` when `--checksum` is enabled.
+3. **Compute a merge plan** that selects a single winner for every target-relative path using class priority (primary → archive → camera → playground → inbox → unspecified), newest `mtime`, then largest `size` as tie-breakers.
+4. **Apply the plan**:
+   - Copy only the winning file into `/aggregate/`.
+   - If checksums agree, record losers as "skip-duplicate" (no extra copy).
+   - If content diverges or checksums are missing, quarantine alternates to `/aggregate_conflicts/<label>/` for review.
+5. **Promote aggregate to target** with `rsync --backup`, storing overwrite backups under `/conflicts/target/` and writing a run summary with action counts and plan location.
+6. **AI involvement:** Optional manifest summarization only; no copy/move/delete actions are delegated to AI.
 
 6. **Optimizes for maintainability:**
    - Single script/playbook that can be re-run idempotently

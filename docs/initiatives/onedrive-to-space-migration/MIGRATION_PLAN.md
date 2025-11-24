@@ -1,7 +1,7 @@
 ---
 document_title: "OneDrive to /space Migration Plan"
 author: "Codex-CA-001"
-last_updated: 2025-11-24
+last_updated: 2025-11-25
 status: Published
 related_initiatives:
   - initiatives/onedrive-to-space-migration
@@ -107,6 +107,11 @@ After migration, OneDrive content will be organized under `/space` as follows:
 ### One-Time Reconciliation (count-zero + M365 + wintermute)
 - **Why:** Multiple partially transferred sources exist; we need a single merge into `/space/mike` without losing device-ingest evidence.
 - **How:** Run `scripts/reconcile-multi-source-transfers.sh --target /space/mike --run-root /space/inbox/reconciliation --checksum`.
+- **Execution mechanics (deterministic + reviewable):**
+  - Stage all default and custom sources into `/space/inbox/reconciliation/runs/<id>/sources/`.
+  - Build per-source manifests (size, mtime, optional checksum) and a merge plan that ranks files by class priority (primary → archive → camera → playground → inbox → unspecified), newest mtime, then size.
+  - Copy only the plan-selected winner for each path into `/aggregate/`; quarantine any conflicting alternates under `/aggregate_conflicts/<label>/` and log checksum-matched duplicates as skips.
+  - Promote the aggregate into the target with `rsync --backup`, writing conflict backups under `/conflicts/target/`.
 - **Rules:**
   - No deletes; rsync with backups for every overwrite.
   - Source evidence kept under `/space/inbox/reconciliation/runs/<timestamp>/sources/`.

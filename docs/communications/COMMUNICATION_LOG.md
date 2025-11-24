@@ -1836,3 +1836,24 @@ User asked for proof that reconciliation understands the difference between back
 
 ---
 
+## 2025-11-25 – Deterministic merge plan + manifest-backed reconciliation {#2025-11-25-deterministic-merge-plan}
+
+### Context
+User requested execution that follows the documented reconciliation prompt while preventing unintended duplicates and making conflict decisions auditable.
+
+### Actions Taken
+- Upgraded the reconciliation script to stage sources, build manifests, and generate a merge plan that ranks files by content class priority, mtime, then size.
+- Implemented plan-driven copying that keeps one winner per path, quarantines conflicting alternates, and records duplicate skips when checksums match.
+- Documented the deterministic steps in the migration plan and reconciliation prompt for repeatability.
+
+### Next Steps
+- Run with `--checksum` to maximize duplicate detection accuracy and review `merge-plan.tsv` plus conflict folders before final promotion.
+- Archive conflict evidence to `/space/archive/reconciliation/<run-id>/` after triage, leaving device ingests untouched under `/space/devices/<host>/<user>/`.
+
+### Deliverables
+- Script: [reconcile-multi-source-transfers.sh](../../scripts/reconcile-multi-source-transfers.sh)
+- Plan: [Migration Plan](../initiatives/onedrive-to-space-migration/MIGRATION_PLAN.md#one-time-reconciliation-count-zero--m365--wintermute)
+- Prompt: [Reconciliation Prompt](../initiatives/onedrive-to-space-migration/RECONCILIATION_PROMPT.md#deterministic-execution-steps-one-time-reconciliation)
+
+---
+
