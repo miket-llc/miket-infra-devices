@@ -36,6 +36,35 @@ Follow each phase in order. Do not advance until the preceding phase is validate
 - Publish available services and APIs through the catalog.
 - Annotate operational runbooks, SLOs, and ownership metadata.
 - Confirm service discovery works from approved client paths.
+- Prepend each entry with a schema block capturing the required fields below so new services stay discoverable and recoverable:
+
+  ```yaml
+  name: <service-name>
+  owner: <team-or-individual>
+  host: <hostname-or-fqdn>
+  ingress: <tls/ports/dns>
+  auth: <sso/mechanism/scopes>
+  data_tier: <storage-layer-and-class>
+  backup_policy: <rpo/rto/schedule>
+  health_check_url: <http(s)://...>
+  status: <green|yellow|red>
+  ```
+
+- Example (follow existing YAML indentation/field casing for this repo):
+
+  ```yaml
+  name: lite-llm-proxy
+  owner: ai-platform
+  host: motoko.pangolin-vega.ts.net
+  ingress: https://motoko.pangolin-vega.ts.net:4000
+  auth: tailscale-identity + api-key
+  data_tier: local-ssd (/space) with encrypted-at-rest mount
+  backup_policy: restic daily @02:00 with 30d retention
+  health_check_url: https://motoko.pangolin-vega.ts.net:4000/health
+  status: green
+  ```
+
+- Mirror the catalog slices in `docs/product/STATUS.md` with a concise ✅/⚠️/❌ row per component so stakeholders can scan readiness at a glance.
 
 ### 5) Ingress/SSO POC
 - Prototype ingress with enforced TLS and rate controls.
