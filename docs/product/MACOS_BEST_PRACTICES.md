@@ -21,11 +21,11 @@
 - **Configures:** /etc/resolver for MagicDNS (Homebrew limitation fix)
 - **Usage:** `curl -fsSL https://raw.githubusercontent.com/.../bootstrap-macos.sh | bash`
 
-**Ansible Role** (`tailscale_macos`):
+**Unified Tailscale Role** (`tailscale`):
 - **Purpose:** Ongoing configuration management (run from motoko)
-- **Handles:** /etc/resolver persistence, drift detection
+- **Handles:** /etc/resolver persistence, drift detection, all platforms
 - **Validates:** DNS resolution, Tailscale status
-- **Usage:** `ansible-playbook setup-macos-tailscale.yml`
+- **Usage:** `ansible-playbook deploy-tailscale-and-codex.yml`
 
 **Why This Pattern:**
 - ✅ Used by Puppet, Chef, Salt, Ansible (industry standard)
@@ -138,7 +138,7 @@ macos:
 ### Step 3: Run Ansible Configuration
 ```bash
 # From motoko
-ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml -l new-device
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml -l new-device
 ```
 
 **Result:** Device is now managed, MagicDNS persists, configuration is in git.

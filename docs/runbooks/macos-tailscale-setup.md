@@ -17,7 +17,7 @@ macOS devices require special configuration for Tailscale MagicDNS when installe
 
 **What:** Configuration management and drift detection
 **When:** After bootstrap, for ongoing management
-**How:** Run `setup-macos-tailscale.yml` from motoko
+**How:** Run `deploy-tailscale-and-codex.yml` from motoko
 **Why:** Ensures /etc/resolver stays configured, validates Tailscale status
 
 ## Best Practices
@@ -42,7 +42,7 @@ This handles:
 ```bash
 # From motoko after bootstrap
 cd /home/mdt/miket-infra-devices/ansible
-ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml -l count-zero
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml -l count-zero
 ```
 
 This handles:
@@ -134,7 +134,7 @@ macos:
 ```bash
 # From motoko
 cd /home/mdt/miket-infra-devices/ansible
-ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml -l device-name
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml -l device-name
 ```
 
 **Step 6: Install Microsoft Remote Desktop (if needed)**
@@ -277,7 +277,7 @@ ssh miket@count-zero.pangolin-vega.ts.net hostname
 ansible macos -i inventory/hosts.yml -m ping
 
 # Full validation
-ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml
 ```
 
 **Common Drift Scenarios:**
@@ -301,7 +301,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml
 ## Related Documentation
 
 - [Bootstrap Script](../../scripts/bootstrap-macos.sh)
-- [Ansible Role](../../ansible/roles/tailscale_macos/)
+- [Unified Tailscale Role](../../ansible/roles/tailscale/)
 - [Count-Zero Setup](../../devices/count-zero/ENABLE_REMOTE_MANAGEMENT.md)
 - [Tailnet Architecture](../architecture/tailnet.md)
 - [IaC/CaC Principles](../architecture/iac-cac-principles.md)

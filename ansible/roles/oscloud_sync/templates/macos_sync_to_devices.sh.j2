@@ -83,9 +83,17 @@ else
 fi
 
 # OneDrive Business (dynamic discovery)
+# Prioritize active accounts and skip .old folders
 for ONEDRIVE_BIZ in "${HOME}/Library/CloudStorage/OneDrive-"*; do
     if [ -d "$ONEDRIVE_BIZ" ]; then
         ORG_NAME=$(basename "$ONEDRIVE_BIZ" | sed 's/OneDrive-//')
+        
+        # Skip .old folders
+        if [[ "$ORG_NAME" == *.old ]]; then
+            log "Skipping OneDrive Business (${ORG_NAME}) - marked as old"
+            continue
+        fi
+        
         log "Syncing OneDrive Business (${ORG_NAME})..."
         
         ONEDRIVE_BIZ_TARGET="${MOUNTED_TARGET}/onedrive-business"
@@ -96,7 +104,7 @@ for ONEDRIVE_BIZ in "${HOME}/Library/CloudStorage/OneDrive-"*; do
             "$ONEDRIVE_BIZ_TARGET/" 2>&1 | tee -a ~/.scripts/oscloud-sync/sync.log || log "OneDrive Business sync completed with warnings"
         
         log "OneDrive Business sync complete."
-        break  # Only sync first business account found
+        break  # Only sync first active business account found
     fi
 done
 

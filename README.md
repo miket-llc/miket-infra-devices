@@ -150,7 +150,7 @@ This will:
 **Post-Bootstrap: Run Ansible from motoko:**
 ```bash
 cd /home/mdt/miket-infra-devices/ansible
-ansible-playbook -i inventory/hosts.yml playbooks/setup-macos-tailscale.yml -l count-zero
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml -l count-zero
 ```
 
 **For RDP client:** Install Microsoft Remote Desktop from Mac App Store and enable Local Network Access in Privacy settings.
