@@ -1,7 +1,7 @@
 ---
 document_title: "miket-infra-devices DAY0 Backlog"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-23
+last_updated: 2025-11-25
 status: Draft
 related_initiatives:
   - initiatives/device-onboarding
@@ -9,6 +9,8 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-creation
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-windows-smoke
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-24-duplicate-guardrails
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-25-deterministic-merge-plan
 ---
 
 # DAY0 Backlog (Wave 1 Oriented)
@@ -28,3 +30,4 @@ linked_communications:
 | DEV-010 | Remove RDP/VNC fallback paths from remote access playbooks and documentation | Codex-NET-006 | None | 🚧 **In Progress** | Align with miket-infra architecture decision (RDP/VNC fully retired 2025-11-22); NoMachine is SOLE remote desktop solution |
 | DEV-011 | Test macOS NoMachine client connectivity from count-zero | Codex-MAC-012 | DEV-005 (server baseline) | ✅ **Done** | All connections PASS: count-zero → motoko/wintermute/armitage on port 4000 via Tailscale (2025-11-23) |
 | DEV-012 | Coordinate NoMachine client testing and MagicDNS fix timeline with miket-infra | Codex-PM-011 | None | 🚧 **In Progress** | Request MagicDNS fix ETA, coordinate client testing, request Wave 2 deliverables timeline |
+| DEV-015 | Execute multi-source reconciliation into `/space/mike` (count-zero + M365 + wintermute) | Codex-CA-001 | Reconciliation guidance + script | 🚧 In Progress | Run `reconcile-multi-source-transfers.sh --checksum`; review merge-plan + quarantine folders before promotion; archive conflict evidence post-triage |

@@ -1,12 +1,15 @@
 ---
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-24
+last_updated: 2025-11-25
 version: v1.8.0
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
 linked_communications:
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-25-deterministic-merge-plan
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-24-duplicate-guardrails
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-24-data-reconciliation-plan
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-creation
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-alignment-protocol
@@ -24,7 +27,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 ## Agent Status
 | Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |---------|----------------|-----------------------------|-------------|---------------|
-| **Codex-CA-001** (Chief Architect) | 🚧 Active | NoMachine keystroke dropping investigation; troubleshooting guide + diagnostic script created | Execute diagnostic script during active session; test quick fixes; document findings | 2025-11-24 |
+| **Codex-CA-001** (Chief Architect) | 🚧 Active | Deterministic reconciliation plan with manifest-driven winner selection and conflict quarantine | Execute reconciliation with `--checksum`, review merge-plan + conflicts before promotion | 2025-11-25 |
 | **Codex-PM-011** (Product Manager) | 🚧 Active | Wave 2 coordination requests created, version incremented to v1.8.0 | Review Wave 2 completion, update roadmap for Wave 3 | 2025-11-24 |
 | **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
 | **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |

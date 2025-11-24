@@ -1,7 +1,7 @@
 ---
 document_title: "Data Reconciliation Prompt - Multi-Source Transfer Merge"
 author: "Codex-CA-001"
-last_updated: 2025-11-24
+last_updated: 2025-11-25
 status: Draft
 related_initiatives:
   - initiatives/onedrive-to-space-migration
@@ -174,6 +174,14 @@ Multiple parallel data transfers have been executed from various sources to `/sp
      - `/space/devices/<hostname>/<username>/` - device-specific captures
      - `/space/inbox/` - staging for reconciliation
 
+   **Canonical roles (keep only intended duplicates):**
+   - **Primary work/assets/art:** `/space/mike/` (single canonical copy; conflict backups stay in run folders until curated).
+   - **Archives:** `/space/mike/archives/` (read-mostly; duplicates allowed only as part of archive sets).
+   - **Camera/field captures:** `/space/devices/<host>/<user>/camera/` raw → `/space/mike/assets/camera/` or `/space/mike/art/` after curation (one promoted copy).
+   - **Device playgrounds:** `/space/devices/<host>/<user>/` for OS-cloud/download evidence; do not co-mingle with `/space/mike` until reviewed.
+   - **Backups/snapshots:** `/space/journal/**`, `/space/inbox/reconciliation/runs/<id>/conflicts`, `/space/archive/reconciliation/<id>/` are the only long-lived duplicate locations.
+   - **Forbidden:** New duplicate working trees under `/space/mike` or `/space/devices` outside these roles; route anything uncertain to `conflicts/` for human sort.
+
 3. **Handles edge cases:**
    - Cloud-only placeholders (0-byte files that couldn't be downloaded)
    - TCC-blocked directories (macOS privacy restrictions)
@@ -186,7 +194,23 @@ Multiple parallel data transfers have been executed from various sources to `/sp
    - Maintains audit trail of all decisions
    - Provides rollback capability
 
-5. **Optimizes for maintainability:**
+5. **Uses AI in assist-only mode:**
+   - LiteLLM may summarize manifests or flag likely duplicates for human review.
+   - All copy/merge actions remain deterministic shell tooling; AI outputs are never applied automatically.
+
+### Deterministic Execution Steps (one-time reconciliation)
+
+1. **Stage sources under `/space/inbox/reconciliation/runs/<id>/sources/`**, preserving provenance per label and source class.
+2. **Generate manifests** for each staged source with `size`, `mtime`, and optional `sha256` when `--checksum` is enabled.
+3. **Compute a merge plan** that selects a single winner for every target-relative path using class priority (primary → archive → camera → playground → inbox → unspecified), newest `mtime`, then largest `size` as tie-breakers.
+4. **Apply the plan**:
+   - Copy only the winning file into `/aggregate/`.
+   - If checksums agree, record losers as "skip-duplicate" (no extra copy).
+   - If content diverges or checksums are missing, quarantine alternates to `/aggregate_conflicts/<label>/` for review.
+5. **Promote aggregate to target** with `rsync --backup`, storing overwrite backups under `/conflicts/target/` and writing a run summary with action counts and plan location.
+6. **AI involvement:** Optional manifest summarization only; no copy/move/delete actions are delegated to AI.
+
+6. **Optimizes for maintainability:**
    - Single script/playbook that can be re-run idempotently
    - Clear logging and progress reporting
    - Error handling with graceful degradation
@@ -199,21 +223,9 @@ Multiple parallel data transfers have been executed from various sources to `/sp
    - Must be idempotent and resumable
    - Must produce detailed logs
 
-2. **Reconciliation Plan Document:**
-   - Location: `docs/initiatives/onedrive-to-space-migration/RECONCILIATION_PLAN.md`
-   - Documents strategy, decisions, and edge cases
-   - Includes rollback procedures
-
-3. **Verification Report:**
-   - Location: `docs/reports/data-reconciliation-verification-YYYY-MM-DD.md`
-   - File counts before/after
-   - Duplicate detection results
-   - Conflict resolution log
-   - Integrity verification results
-
-4. **Updated Migration Documentation:**
-   - Update `MIGRATION_PLAN.md` with reconciliation phase
-   - Update `COMMUNICATION_LOG.md` with reconciliation decisions
+2. **Updated Migration Documentation:**
+   - Capture reconciliation guardrails in `MIGRATION_PLAN.md`
+   - Log execution details in `COMMUNICATION_LOG.md`
 
 ### Success Criteria
 
