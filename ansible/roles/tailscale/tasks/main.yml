@@ -1,0 +1,25 @@
+---
+# Unified Tailscale configuration role
+# Assumes Tailscale is already installed via bootstrap scripts
+# This role ensures proper configuration: tags, DNS, SSH
+
+- name: Set device tags based on hostname
+  ansible.builtin.set_fact:
+    tailscale_tags_raw: "{{ tailscale_device_tags[inventory_hostname] | default('tag:workstation') }}"
+
+- name: Split and sort tags for comparison
+  ansible.builtin.set_fact:
+    tailscale_tags: "{{ tailscale_tags_raw.split(',') | map('trim') | sort | join(',') }}"
+
+- name: Include Linux tasks
+  ansible.builtin.include_tasks: linux.yml
+  when: ansible_os_family in ['Debian', 'RedHat', 'Suse', 'Archlinux']
+
+- name: Include macOS tasks
+  ansible.builtin.include_tasks: darwin.yml
+  when: ansible_os_family == 'Darwin'
+
+- name: Include Windows tasks
+  ansible.builtin.include_tasks: windows.yml
+  when: ansible_system == 'Win32NT'
+

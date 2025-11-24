@@ -1,0 +1,30 @@
+---
+# Defaults for tailnet_cli role
+# Deploys the tailnet CLI tools to all nodes
+
+# Base directory for CLI tools installation
+tailnet_cli_base_dir: "{{ ansible_env.HOME }}/.local/miket-infra-devices"
+
+# Virtual environment path
+tailnet_cli_venv_path: "{{ tailnet_cli_base_dir }}/.venv"
+
+# Repository path (if already cloned)
+tailnet_cli_repo_path: "{{ tailnet_cli_base_dir }}"
+
+# Git repository URL
+tailnet_cli_repo_url: "https://github.com/miket-io/miket-infra-devices.git"
+
+# Git branch to use
+tailnet_cli_repo_branch: "main"
+
+# Python version requirement
+tailnet_cli_python_version: "3.11"
+
+# Whether to create a wrapper script in PATH
+tailnet_cli_create_wrapper: true
+
+# Wrapper script location (platform-specific)
+tailnet_cli_wrapper_path_linux: "/usr/local/bin/tailnet"
+tailnet_cli_wrapper_path_macos: "{{ ansible_env.HOME }}/.local/bin/tailnet"
+tailnet_cli_wrapper_path_windows: "C:\\Scripts\\tailnet.ps1"
+

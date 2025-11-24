@@ -1,0 +1,27 @@
+---
+# Defaults for unified Tailscale role
+# Assumes Tailscale is already installed via bootstrap scripts
+# This role only CONFIGURES Tailscale (tags, DNS, SSH settings)
+
+# Device-specific tags (must match miket-infra ACL tagOwners)
+tailscale_device_tags:
+  motoko: "tag:server,tag:linux,tag:ansible"
+  wintermute: "tag:workstation,tag:windows,tag:gaming"
+  armitage: "tag:workstation,tag:windows,tag:gaming"
+  count-zero: "tag:workstation,tag:macos"
+
+# Tailscale configuration flags
+tailscale_accept_dns: true  # REQUIRED for MagicDNS
+tailscale_accept_routes: true
+tailscale_ssh_enabled: true  # For Linux/macOS only
+
+# macOS-specific MagicDNS resolver
+tailscale_magicdns_resolver: "100.100.100.100"
+tailscale_magicdns_suffix: "pangolin-vega.ts.net"  # Default, will be auto-detected
+
+# Exit node configuration (motoko only)
+tailscale_exit_node: false  # Set to true for motoko
+
+# Device-specific overrides
+tailscale_exit_node_motoko: true
+

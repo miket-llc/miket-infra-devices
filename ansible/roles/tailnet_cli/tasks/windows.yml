@@ -1,0 +1,127 @@
+---
+# Windows-specific tasks for tailnet_cli role
+
+- name: Check if Python 3.11+ is available
+  win_shell: python --version
+  register: python_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if Python 3.11 is available via py launcher
+  win_shell: py -3.11 --version
+  register: py_launcher_check
+  changed_when: false
+  failed_when: false
+
+- name: Set Python command based on availability
+  set_fact:
+    python_cmd: "{{ 'py -3.11' if py_launcher_check.rc == 0 else 'python' }}"
+  when: python_check.rc != 0 or py_launcher_check.rc == 0
+
+- name: Set Python command to default if py launcher not available
+  set_fact:
+    python_cmd: "python"
+  when: python_check.rc == 0 and py_launcher_check.rc != 0
+
+- name: Ensure base directory exists
+  win_file:
+    path: "{{ tailnet_cli_base_dir }}"
+    state: directory
+
+- name: Check if Git is available
+  win_shell: git --version
+  register: git_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if repository is already cloned
+  win_stat:
+    path: "{{ tailnet_cli_repo_path }}\\.git"
+  register: repo_exists
+  changed_when: false
+
+- name: Clone repository if not present (using git command)
+  win_shell: |
+    git clone -b {{ tailnet_cli_repo_branch }} {{ tailnet_cli_repo_url }} {{ tailnet_cli_repo_path }}
+  args:
+    creates: "{{ tailnet_cli_repo_path }}\\.git"
+  when: not repo_exists.stat.exists and git_check.rc == 0
+
+- name: Update repository if already cloned (using git command)
+  win_shell: |
+    cd {{ tailnet_cli_repo_path }}
+    git fetch origin
+    git checkout {{ tailnet_cli_repo_branch }}
+    git pull origin {{ tailnet_cli_repo_branch }}
+  when: repo_exists.stat.exists and git_check.rc == 0
+
+- name: Ensure tools directory structure exists (fallback if git unavailable)
+  win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - "{{ tailnet_cli_repo_path }}/tools"
+    - "{{ tailnet_cli_repo_path }}/tools/cli"
+  when: git_check.rc != 0
+
+- name: Get absolute path to repo root
+  set_fact:
+    repo_root_abs: "{{ lookup('pipe', 'cd {{ playbook_dir }}/../.. && pwd') }}"
+
+- name: Copy CLI files from control node (fallback if git unavailable)
+  win_copy:
+    src: "{{ repo_root_abs }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
+  loop:
+    - { src: "tools/cli/tailnet.py", dest: "{{ tailnet_cli_repo_path }}/tools/cli/tailnet.py" }
+    - { src: "tools/cli/requirements.txt", dest: "{{ tailnet_cli_repo_path }}/tools/cli/requirements.txt" }
+    - { src: "tools/__init__.py", dest: "{{ tailnet_cli_repo_path }}/tools/__init__.py" }
+    - { src: "tools/cli/__init__.py", dest: "{{ tailnet_cli_repo_path }}/tools/cli/__init__.py" }
+  when: git_check.rc != 0
+
+- name: Ensure virtual environment directory exists
+  win_file:
+    path: "{{ tailnet_cli_venv_path }}"
+    state: directory
+
+- name: Create virtual environment
+  win_shell: "{{ python_cmd }} -m venv {{ tailnet_cli_venv_path }}"
+  args:
+    creates: "{{ tailnet_cli_venv_path }}\\Scripts\\activate.ps1"
+
+- name: Upgrade pip in virtual environment
+  win_pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ tailnet_cli_venv_path }}"
+    virtualenv_python: "{{ python_cmd }}"
+
+- name: Install CLI requirements
+  win_pip:
+    requirements: "{{ tailnet_cli_repo_path }}\\tools\\cli\\requirements.txt"
+    virtualenv: "{{ tailnet_cli_venv_path }}"
+    virtualenv_python: "{{ python_cmd }}"
+
+- name: Ensure Scripts directory exists for wrapper
+  win_file:
+    path: "C:\\Scripts"
+    state: directory
+  when: tailnet_cli_create_wrapper | bool
+
+- name: Create wrapper PowerShell script
+  win_template:
+    src: tailnet_wrapper.ps1.j2
+    dest: "{{ tailnet_cli_wrapper_path_windows }}"
+  when: tailnet_cli_create_wrapper | bool
+
+- name: Verify CLI installation
+  win_shell: "{{ tailnet_cli_venv_path }}\\Scripts\\python.exe -m tools.cli.tailnet --help"
+  environment:
+    PYTHONPATH: "{{ tailnet_cli_repo_path }};{{ ansible_env.PYTHONPATH | default('') }}"
+  register: cli_verify
+  changed_when: false
+
+- name: Display CLI verification result
+  debug:
+    msg: "CLI tools installed successfully. Run 'tailnet' or '{{ tailnet_cli_venv_path }}\\Scripts\\python.exe -m tools.cli.tailnet --help'"
+

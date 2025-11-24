@@ -1,8 +1,0 @@
----
-# Defaults for tailscale_macos role
-
-tailscale_tags: "tag:workstation,tag:macos"
-tailscale_accept_dns: true
-tailscale_ssh_enabled: true
-tailscale_magicdns_resolver: "100.100.100.100"
-

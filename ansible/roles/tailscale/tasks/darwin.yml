@@ -1,0 +1,100 @@
+---
+# macOS Tailscale configuration
+# Handles MagicDNS resolver configuration for Homebrew Tailscale
+
+- name: Check if Tailscale is installed (ARM)
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/tailscale
+  register: tailscale_homebrew_arm
+
+- name: Check if Tailscale is installed (Intel)
+  ansible.builtin.stat:
+    path: /usr/local/bin/tailscale
+  register: tailscale_homebrew_intel
+  when: not tailscale_homebrew_arm.stat.exists
+
+- name: Fail if Tailscale not installed
+  ansible.builtin.fail:
+    msg: |
+      Tailscale is not installed on {{ inventory_hostname }}.
+      Run bootstrap script first:
+      curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-macos.sh | bash
+  when:
+    - not tailscale_homebrew_arm.stat.exists
+    - not (tailscale_homebrew_intel.stat.exists | default(false))
+
+- name: Get Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
+  when: tailscale_status_raw.rc == 0
+
+- name: Get MagicDNS suffix from status
+  ansible.builtin.set_fact:
+    magicdns_suffix: "{{ tailscale_status.MagicDNSSuffix | default(tailscale_magicdns_suffix) }}"
+  when: tailscale_status is defined
+
+- name: Get current tags (sorted for comparison)
+  ansible.builtin.set_fact:
+    current_tags: "{{ (tailscale_status.Self.Tags | default([]) | sort) | join(',') }}"
+  when: tailscale_status is defined
+
+- name: Ensure /etc/resolver directory exists
+  ansible.builtin.file:
+    path: /etc/resolver
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: Configure MagicDNS resolver (CRITICAL for Homebrew Tailscale)
+  ansible.builtin.shell: |
+    echo "nameserver {{ tailscale_magicdns_resolver }}" | sudo tee /etc/resolver/{{ magicdns_suffix }} > /dev/null
+    sudo chmod 644 /etc/resolver/{{ magicdns_suffix }}
+    sudo chown root:wheel /etc/resolver/{{ magicdns_suffix }}
+  become: true
+  notify: flush dns cache
+  when: magicdns_suffix is defined
+  args:
+    executable: /bin/bash
+
+- name: Build tailscale up command
+  ansible.builtin.set_fact:
+    tailscale_cmd: >
+      tailscale up
+      --advertise-tags={{ tailscale_tags }}
+      {% if tailscale_accept_dns %}--accept-dns{% endif %}
+      {% if tailscale_accept_routes %}--accept-routes{% endif %}
+      {% if tailscale_ssh_enabled %}--ssh{% endif %}
+
+- name: Configure Tailscale (if tags changed or not connected)
+  ansible.builtin.command: "{{ tailscale_cmd }}"
+  become: true
+  register: tailscale_up
+  changed_when: >
+    current_tags | default('') != tailscale_tags or
+    tailscale_status_raw.rc != 0 or
+    'Success' in tailscale_up.stdout
+  when: >
+    current_tags | default('') != tailscale_tags or
+    tailscale_status_raw.rc != 0
+
+- name: Verify Tailscale is running
+  ansible.builtin.command: tailscale status
+  register: tailscale_verify
+  changed_when: false
+  failed_when: tailscale_verify.rc != 0 and 'stopped' not in tailscale_verify.stderr | default('', true) | lower
+
+- name: Display Tailscale configuration
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale configured on {{ inventory_hostname }}"
+      - "Tags: {{ tailscale_tags }}"
+      - "MagicDNS suffix: {{ magicdns_suffix | default('unknown') }}"
+      - "Resolver file: /etc/resolver/{{ magicdns_suffix | default('N/A') }}"
+      - "SSH: {{ 'Enabled' if tailscale_ssh_enabled else 'Disabled' }}"
+

@@ -1,96 +1,144 @@
 ---
-# Windows-specific tasks for codex_cli role
-# Codex CLI on Windows is experimental - supports WSL2 and PowerShell
+# Windows Codex CLI installation (via WSL2 Ubuntu)
+# WSL2 with Ubuntu is a prerequisite for Windows nodes (required for Docker)
 
-- name: Check if WSL2 is available
-  win_shell: wsl --list --verbose
+- name: Check if WSL2 is installed
+  ansible.builtin.win_shell: |
+    $distros = wsl --list --verbose 2>&1
+    if ($LASTEXITCODE -eq 0 -and $distros -match '\S') {
+      Write-Output "INSTALLED"
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
   register: wsl_check
   changed_when: false
   failed_when: false
 
-- name: Check if Node.js is installed (Windows)
-  win_shell: node --version
-  register: node_check_win
-  changed_when: false
-  failed_when: false
-
-- name: Check if npm is installed (Windows)
-  win_shell: npm --version
-  register: npm_check_win
-  changed_when: false
-  failed_when: false
-
-- name: Install Node.js via Chocolatey if not available (Windows)
-  win_chocolatey:
-    name: nodejs
-    state: present
-  when: node_check_win is failed or npm_check_win is failed
-
-- name: Install Codex CLI globally (Windows PowerShell)
-  win_shell: npm install -g {{ codex_cli_package }}
-  when: node_check_win.rc == 0 or npm_check_win.rc == 0
-
-- name: Set Windows Codex config directory
-  set_fact:
-    codex_cli_config_dir: "{{ ansible_env.USERPROFILE }}\\.codex"
-
-- name: Ensure Codex config directory exists (Windows)
-  win_file:
-    path: "{{ codex_cli_config_dir }}"
-    state: directory
-
-- name: Create Codex config file (Windows)
-  win_template:
-    src: config.toml.j2
-    dest: "{{ codex_cli_config_file }}"
-
-- name: Set OpenAI API key in environment (Windows PowerShell profile)
-  win_shell: |
-    $profilePath = $PROFILE.CurrentUserAllHosts
-    $profileDir = Split-Path $profilePath -Parent
-    if (-not (Test-Path $profileDir)) {
-      New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-    }
-    $apiKeyLine = '$env:OPENAI_API_KEY="{{ codex_cli_api_key }}"'
-    if (-not (Test-Path $profilePath) -or -not (Select-String -Path $profilePath -Pattern "OPENAI_API_KEY")) {
-      Add-Content -Path $profilePath -Value $apiKeyLine
-    }
-  when: codex_cli_api_key | length > 0
-  no_log: true
-
-- name: Install Codex CLI in WSL2 (if WSL2 is available)
-  win_shell: wsl bash -c "npm install -g {{ codex_cli_package }}"
-  when: wsl_check.rc == 0
-  register: wsl_codex_install
-  changed_when: false
-  failed_when: false
-  ignore_errors: yes
-
-- name: Create Codex config directory in WSL2
-  win_shell: wsl bash -c "mkdir -p ~/.codex"
-  when: wsl_check.rc == 0
-  ignore_errors: yes
-
-- name: Create Codex config file in WSL2 (optional - requires Node.js in WSL2)
-  win_shell: |
-    wsl bash -c "echo model = '{{ codex_cli_default_model }}' > ~/.codex/config.toml"
-    wsl bash -c "echo approval_policy = '{{ codex_cli_approval_policy }}' >> ~/.codex/config.toml"
-    wsl bash -c "echo sandbox_mode = '{{ codex_cli_sandbox_mode }}' >> ~/.codex/config.toml"
-  when: wsl_check.rc == 0
-  ignore_errors: yes
-  failed_when: false
-
-- name: Verify Codex CLI installation (Windows)
-  win_shell: codex --version
-  register: codex_verify_win
-  changed_when: false
-  failed_when: false
-  ignore_errors: yes
-
-- name: Display Codex CLI verification result
-  debug:
+- name: Fail if WSL2 not installed
+  ansible.builtin.fail:
     msg: |
-      Codex CLI installation attempted on Windows.
-      - PowerShell: {{ 'Installed' if codex_verify_win.rc == 0 else 'Failed or not verified' }}
-      - WSL2: {{ 'Available' if wsl_check.rc == 0 else 'Not available' }}
-      Note: Windows support is experimental. WSL2 recommended for best experience.
+      WSL2 is not installed on {{ inventory_hostname }}.
+      WSL2 with Ubuntu is a prerequisite for Windows nodes (required for Docker).
+      Run the WSL2 configuration playbook first:
+      ansible-playbook -i inventory/hosts.yml playbooks/configure-wsl2-windows.yml --limit {{ inventory_hostname }}
+  when: "'NOT_INSTALLED' in wsl_check.stdout"
+
+- name: Determine WSL Ubuntu distribution
+  ansible.builtin.set_fact:
+    wsl_distro: "{{ wsl2.default_distro | default('Ubuntu') }}-{{ wsl2.version | default('24.04') }}"
+
+- name: Try Ubuntu-24.04 first
+  ansible.builtin.win_shell: wsl -d Ubuntu-24.04 -- bash -c "echo test" 2>&1
+  register: ubuntu_24_04_test
+  changed_when: false
+  failed_when: false
+  ignore_errors: yes
+
+- name: Try Ubuntu-22.04 if 24.04 fails
+  ansible.builtin.win_shell: wsl -d Ubuntu-22.04 -- bash -c "echo test" 2>&1
+  register: ubuntu_22_04_test
+  changed_when: false
+  failed_when: false
+  ignore_errors: yes
+  when: ubuntu_24_04_test.rc != 0
+
+- name: Try Ubuntu if others fail
+  ansible.builtin.win_shell: wsl -d Ubuntu -- bash -c "echo test" 2>&1
+  register: ubuntu_test
+  changed_when: false
+  failed_when: false
+  ignore_errors: yes
+  when: ubuntu_24_04_test.rc != 0 and ubuntu_22_04_test.rc != 0
+
+- name: Set actual WSL distribution to use
+  ansible.builtin.set_fact:
+    wsl_distro_actual: "{{ 'Ubuntu-24.04' if ubuntu_24_04_test.rc == 0 else ('Ubuntu-22.04' if ubuntu_22_04_test.rc | default(1) == 0 else ('Ubuntu' if ubuntu_test.rc | default(1) == 0 else 'NOT_FOUND')) }}"
+
+- name: Fail if Ubuntu distribution not found
+  ansible.builtin.fail:
+    msg: |
+      No Ubuntu distribution found in WSL2 on {{ inventory_hostname }}.
+      WSL2 with Ubuntu is a prerequisite for Windows nodes (required for Docker).
+      Run the WSL2 configuration playbook to install Ubuntu:
+      ansible-playbook -i inventory/hosts.yml playbooks/configure-wsl2-windows.yml --limit {{ inventory_hostname }}
+  when: wsl_distro_actual == "NOT_FOUND"
+
+- name: Get WSL2 username
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- whoami
+  register: wsl_username
+  changed_when: false
+
+- name: Check if passwordless sudo is configured in WSL2
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- bash -c "sudo -n echo test 2>&1 || echo 'NEEDS_PASSWORD'"
+  register: sudo_check
+  changed_when: false
+  failed_when: false
+
+- name: Configure passwordless sudo in WSL2 (required for automated Node.js installation)
+  ansible.builtin.win_shell: |
+    wsl -d {{ wsl_distro_actual }} -u root -- bash -c "echo '{{ wsl_username.stdout | trim }} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/{{ wsl_username.stdout | trim }} && chmod 440 /etc/sudoers.d/{{ wsl_username.stdout | trim }}"
+  when: "'NEEDS_PASSWORD' in sudo_check.stdout"
+  register: sudo_config
+
+- name: Check if Node.js is installed in WSL2
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- bash -c "node --version 2>/dev/null || echo 'NOT_INSTALLED'"
+  register: node_check
+  changed_when: false
+  failed_when: false
+
+- name: Check Node.js version in WSL2
+  ansible.builtin.set_fact:
+    node_version_ok: "{{ node_check.stdout | regex_search('v(\\d+)') | int >= codex_node_version | int }}"
+  when: node_check.rc == 0 and 'NOT_INSTALLED' not in node_check.stdout
+
+- name: Add NodeSource repository in WSL2
+  ansible.builtin.win_shell: |
+    wsl -d {{ wsl_distro_actual }} -- bash -c "curl -fsSL {{ codex_nodejs_repo }} | sudo -E bash -"
+  when: node_check.rc != 0 or 'NOT_INSTALLED' in node_check.stdout or not (node_version_ok | default(false))
+  register: nodesource_repo
+  failed_when: nodesource_repo.rc != 0
+
+- name: Install or upgrade Node.js in WSL2
+  ansible.builtin.win_shell: |
+    wsl -d {{ wsl_distro_actual }} -- bash -c "sudo apt-get update && sudo apt-get install -y nodejs"
+  when: node_check.rc != 0 or 'NOT_INSTALLED' in node_check.stdout or not (node_version_ok | default(false))
+  register: node_install
+
+- name: Verify Node.js installation in WSL2
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- bash -c "node --version"
+  register: node_verify
+  changed_when: false
+
+- name: Verify npm installation in WSL2
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- bash -c "npm --version"
+  register: npm_verify
+  changed_when: false
+
+- name: Check if Codex CLI is installed in WSL2
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- bash -c "codex --version 2>/dev/null || echo 'NOT_INSTALLED'"
+  register: codex_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Codex CLI globally in WSL2
+  ansible.builtin.win_shell: |
+    wsl -d {{ wsl_distro_actual }} -- bash -c "sudo npm install -g {{ codex_cli_package }}"
+  when: codex_check.rc != 0 or 'NOT_INSTALLED' in codex_check.stdout
+  register: codex_install
+
+- name: Verify Codex CLI installation in WSL2
+  ansible.builtin.win_shell: wsl -d {{ wsl_distro_actual }} -- bash -c "codex --version"
+  register: codex_verify
+  changed_when: false
+  failed_when: false
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Codex CLI installed in WSL2 on {{ inventory_hostname }}"
+      - "WSL Distribution: {{ wsl_distro_actual }}"
+      - "Node.js: {{ node_verify.stdout | trim }}"
+      - "npm: {{ npm_verify.stdout | trim }}"
+      - "Codex CLI: {{ codex_verify.stdout | default('Installed') | trim }}"
+      - "Usage: wsl -d {{ wsl_distro_actual }} -- codex <command>"
+      - "Or: wsl -d {{ wsl_distro_actual }} to enter WSL2 shell, then run 'codex'"

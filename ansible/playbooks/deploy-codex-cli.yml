@@ -1,53 +1,39 @@
 ---
-# Deploy OpenAI Codex CLI to all nodes on the tailnet
+# Deploy OpenAI Codex CLI to all nodes
 # 
-# This playbook deploys Codex CLI to all nodes:
-# - motoko (Linux)
-# - wintermute (Windows - PowerShell + WSL2)
-# - armitage (Windows - PowerShell + WSL2)
-# - count-zero (macOS)
-#
 # Prerequisites:
-# - Tailnet CLI must be manually installed first (see docs/runbooks/workstations.md)
-# - Node.js/npm will be installed automatically if not present
+# - Tailscale must be installed and connected (manual prerequisite)
+# - WSL2 with Ubuntu required for Windows nodes (manual prerequisite)
 #
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml
 #
 #   # Deploy to specific host
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit motoko
+#
+#   # Test with timeout
+#   timeout 300 ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit motoko
 
-- name: Deploy Codex CLI
+- name: Deploy OpenAI Codex CLI
   hosts: tailnet_all
   gather_facts: yes
   
   pre_tasks:
     - name: Display deployment info
-      debug:
+      ansible.builtin.debug:
         msg: |
           Deploying Codex CLI to {{ inventory_hostname }}
           - OS: {{ ansible_os_family }}
-          - Config directory: {{ codex_cli_config_dir }}
-          - Config file: {{ codex_cli_config_file }}
-          - Default model: {{ codex_cli_default_model }}
+          - Node.js 18+ required
+          - Windows: Will install in WSL2 Ubuntu
   
   roles:
     - codex_cli
   
   post_tasks:
     - name: Deployment complete
-      debug:
+      ansible.builtin.debug:
         msg: |
-          Codex CLI deployment completed for {{ inventory_hostname }}!
-          
-          To use Codex CLI:
-          {% if ansible_os_family == "Windows" %}
-          - PowerShell: codex
-          - WSL2: wsl codex
-          {% else %}
-          - Run: codex
-          {% endif %}
-          
-          Configuration: {{ codex_cli_config_file }}
-          Note: First run will prompt for authentication if API key not set.
-
+          ✅ Codex CLI deployment complete on {{ inventory_hostname }}!
+          - Run 'codex' to authenticate and start using
+          - Windows: Use 'wsl -d Ubuntu-24.04 -- codex' or enter WSL2 shell first

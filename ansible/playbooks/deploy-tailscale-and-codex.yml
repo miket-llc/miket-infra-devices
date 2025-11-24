@@ -1,0 +1,61 @@
+---
+# Unified deployment playbook for Tailscale configuration and Codex CLI
+# 
+# This playbook:
+# 1. Configures Tailscale on all nodes (assumes already installed via bootstrap)
+# 2. Installs OpenAI Codex CLI with Node.js/npm prerequisites
+#
+# Prerequisites:
+# - Tailscale must be installed and connected on all devices (via bootstrap scripts)
+# - Ansible must be able to connect via Tailscale hostnames
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml
+#
+#   # Deploy to specific host
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml --limit motoko
+#
+#   # Deploy only Tailscale config
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml --tags tailscale
+#
+#   # Deploy only Codex CLI
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml --tags codex
+
+- name: Deploy Tailscale Configuration and Codex CLI
+  hosts: tailnet_all
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          Deploying to {{ inventory_hostname }}
+          - OS: {{ ansible_os_family }}
+          - Tailscale: Configuration only (must be pre-installed)
+          - Codex CLI: Full installation with Node.js/npm
+  
+  roles:
+    - role: tailscale
+      tags:
+        - tailscale
+        - always
+    
+    - role: codex_cli
+      tags:
+        - codex
+        - codex_cli
+  
+  post_tasks:
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ Deployment complete on {{ inventory_hostname }}!
+          
+          Tailscale:
+          - Tags configured: {{ tailscale_device_tags[inventory_hostname] | default('N/A') }}
+          - MagicDNS: {{ 'Enabled' if tailscale_accept_dns else 'Disabled' }}
+          
+          Codex CLI:
+          - Run 'codex' to authenticate and start using
+          - First run will prompt for authentication
+

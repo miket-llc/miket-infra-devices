@@ -1,0 +1,89 @@
+---
+# Windows Tailscale configuration
+
+- name: Get ProgramFiles paths
+  ansible.builtin.set_fact:
+    program_files_x86: "{{ ansible_env['ProgramFiles(x86)'] | default('C:\\Program Files (x86)') }}"
+    program_files: "{{ ansible_env['ProgramFiles'] | default('C:\\Program Files') }}"
+
+- name: Check if Tailscale is installed (x86)
+  ansible.builtin.win_stat:
+    path: "{{ program_files_x86 }}\\Tailscale\\tailscale.exe"
+  register: tailscale_x86
+
+- name: Check if Tailscale is installed (x64)
+  ansible.builtin.win_stat:
+    path: "{{ program_files }}\\Tailscale\\tailscale.exe"
+  register: tailscale_x64
+  when: not tailscale_x86.stat.exists
+
+- name: Set Tailscale path
+  ansible.builtin.set_fact:
+    tailscale_path: >-
+      {% if tailscale_x86.stat.exists %}
+      {{ program_files_x86 }}\Tailscale\tailscale.exe
+      {% elif tailscale_x64.stat.exists %}
+      {{ program_files }}\Tailscale\tailscale.exe
+      {% else %}
+      tailscale.exe
+      {% endif %}
+
+- name: Fail if Tailscale not installed
+  ansible.builtin.fail:
+    msg: |
+      Tailscale is not installed on {{ inventory_hostname }}.
+      Run bootstrap script first:
+      .\scripts\bootstrap-armitage.ps1
+  when:
+    - not tailscale_x86.stat.exists
+    - not (tailscale_x64.stat.exists | default(false))
+
+- name: Get Tailscale status
+  ansible.builtin.win_shell: "& '{{ tailscale_path }}' status --json"
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
+  when: tailscale_status_raw.rc == 0
+
+- name: Get current tags (sorted for comparison)
+  ansible.builtin.set_fact:
+    current_tags: "{{ (tailscale_status.Self.Tags | default([]) | sort) | join(',') }}"
+  when: tailscale_status is defined
+
+- name: Build tailscale up command (for display only)
+  ansible.builtin.set_fact:
+    tailscale_cmd_display: >-
+      {{ tailscale_path }} up
+      --advertise-tags={{ tailscale_tags }}
+      {% if tailscale_accept_dns %}--accept-dns{% endif %}
+      {% if tailscale_accept_routes %}--accept-routes{% endif %}
+
+- name: Configure Tailscale (if tags changed or not connected)
+  ansible.builtin.win_shell: "& '{{ tailscale_path }}' up --advertise-tags={{ tailscale_tags }}{% if tailscale_accept_dns %} --accept-dns{% endif %}{% if tailscale_accept_routes %} --accept-routes{% endif %}"
+  register: tailscale_up
+  changed_when: >
+    current_tags | default('') != tailscale_tags or
+    (tailscale_status_raw is not skipped and tailscale_status_raw.rc is defined and tailscale_status_raw.rc != 0) or
+    (tailscale_up.stdout is defined and 'Success' in tailscale_up.stdout)
+  when: >
+    (current_tags | default('') != tailscale_tags) or
+    (tailscale_status_raw is not skipped and tailscale_status_raw.rc is defined and tailscale_status_raw.rc != 0)
+
+- name: Verify Tailscale is running
+  ansible.builtin.win_shell: "& '{{ tailscale_path }}' status"
+  register: tailscale_verify
+  changed_when: false
+  failed_when: tailscale_verify.rc != 0
+
+- name: Display Tailscale configuration
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale configured on {{ inventory_hostname }}"
+      - "Tags: {{ tailscale_tags }}"
+      - "MagicDNS: {{ 'Enabled' if tailscale_accept_dns else 'Disabled' }}"
+      - "Note: Windows uses WinRM, not Tailscale SSH"
+

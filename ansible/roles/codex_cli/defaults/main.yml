@@ -23,5 +23,8 @@ codex_cli_sandbox_mode: "workspace-write"
 # OpenAI API key (should come from Azure Key Vault)
 codex_cli_api_key: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name openai-api-key --query value -o tsv') | trim | default('') }}"
 
-# Node.js version requirement
-codex_cli_nodejs_version: "18"
+# Node.js version requirement (Codex CLI requires Node.js 18+)
+codex_node_version: "18"
+
+# Linux: NodeSource repository URL
+codex_nodejs_repo: "https://deb.nodesource.com/setup_{{ codex_node_version }}.x"

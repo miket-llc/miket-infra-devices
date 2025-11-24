@@ -1,0 +1,145 @@
+---
+# macOS-specific tasks for tailnet_cli role
+
+- name: Check if Python 3.11+ is available
+  command: python3.11 --version
+  register: python_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if Homebrew Python is available
+  command: /opt/homebrew/bin/python3.11 --version
+  register: homebrew_python_check
+  changed_when: false
+  failed_when: false
+
+- name: Set Python command based on availability
+  set_fact:
+    python_cmd: "{{ '/opt/homebrew/bin/python3.11' if homebrew_python_check.rc == 0 else 'python3.11' }}"
+  when: python_check.rc != 0 or homebrew_python_check.rc == 0
+
+- name: Set Python command to system default if Homebrew not available
+  set_fact:
+    python_cmd: "python3.11"
+  when: python_check.rc == 0 and homebrew_python_check.rc != 0
+
+- name: Ensure base directory exists
+  file:
+    path: "{{ tailnet_cli_base_dir }}"
+    state: directory
+    mode: '0755'
+  become: false
+
+- name: Check if repository is already cloned
+  stat:
+    path: "{{ tailnet_cli_repo_path }}/.git"
+  register: repo_exists
+  changed_when: false
+  become: false
+
+- name: Clone repository if not present
+  git:
+    repo: "{{ tailnet_cli_repo_url }}"
+    dest: "{{ tailnet_cli_repo_path }}"
+    version: "{{ tailnet_cli_repo_branch }}"
+    update: yes
+  when: not repo_exists.stat.exists
+  ignore_errors: yes
+  register: git_clone_result
+  become: false
+
+- name: Update repository if already cloned
+  git:
+    repo: "{{ tailnet_cli_repo_url }}"
+    dest: "{{ tailnet_cli_repo_path }}"
+    version: "{{ tailnet_cli_repo_branch }}"
+    update: yes
+  when: repo_exists.stat.exists
+  ignore_errors: yes
+  register: git_update_result
+  become: false
+
+- name: Ensure tools directory structure exists (fallback if git fails)
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ tailnet_cli_repo_path }}/tools"
+    - "{{ tailnet_cli_repo_path }}/tools/cli"
+  when: (git_clone_result is defined and git_clone_result.failed) or (git_update_result is defined and git_update_result.failed)
+  become: false
+
+- name: Get absolute path to repo root
+  set_fact:
+    repo_root_abs: "{{ lookup('pipe', 'cd {{ playbook_dir }}/../.. && pwd') }}"
+
+- name: Copy CLI files from control node (fallback if git fails)
+  copy:
+    src: "{{ repo_root_abs }}/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode | default('0644') }}"
+  loop:
+    - { src: "tools/cli/tailnet.py", dest: "{{ tailnet_cli_repo_path }}/tools/cli/tailnet.py", mode: '0644' }
+    - { src: "tools/cli/requirements.txt", dest: "{{ tailnet_cli_repo_path }}/tools/cli/requirements.txt", mode: '0644' }
+    - { src: "tools/__init__.py", dest: "{{ tailnet_cli_repo_path }}/tools/__init__.py", mode: '0644' }
+    - { src: "tools/cli/__init__.py", dest: "{{ tailnet_cli_repo_path }}/tools/cli/__init__.py", mode: '0644' }
+  when: (git_clone_result is defined and git_clone_result.failed) or (git_update_result is defined and git_update_result.failed)
+  become: false
+
+- name: Ensure virtual environment directory exists
+  file:
+    path: "{{ tailnet_cli_venv_path }}"
+    state: directory
+    mode: '0755'
+  become: false
+
+- name: Create virtual environment
+  command: "{{ python_cmd }} -m venv {{ tailnet_cli_venv_path }}"
+  args:
+    creates: "{{ tailnet_cli_venv_path }}/bin/activate"
+  become: false
+
+- name: Upgrade pip in virtual environment
+  pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ tailnet_cli_venv_path }}"
+    virtualenv_python: "{{ python_cmd }}"
+  become: false
+
+- name: Install CLI requirements
+  pip:
+    requirements: "{{ tailnet_cli_repo_path }}/tools/cli/requirements.txt"
+    virtualenv: "{{ tailnet_cli_venv_path }}"
+    virtualenv_python: "{{ python_cmd }}"
+  become: false
+
+- name: Ensure wrapper script directory exists
+  file:
+    path: "{{ tailnet_cli_wrapper_path_macos | dirname }}"
+    state: directory
+    mode: '0755'
+  when: tailnet_cli_create_wrapper | bool
+  become: false
+
+- name: Create wrapper script
+  template:
+    src: tailnet_wrapper.sh.j2
+    dest: "{{ tailnet_cli_wrapper_path_macos }}"
+    mode: '0755'
+  when: tailnet_cli_create_wrapper | bool
+  become: false
+
+- name: Verify CLI installation
+  command: "{{ tailnet_cli_venv_path }}/bin/python -m tools.cli.tailnet --help"
+  environment:
+    PYTHONPATH: "{{ tailnet_cli_repo_path }}:{{ ansible_env.PYTHONPATH | default('') }}"
+  register: cli_verify
+  changed_when: false
+  become: false
+
+- name: Display CLI verification result
+  debug:
+    msg: "CLI tools installed successfully. Run 'tailnet --help' or '{{ tailnet_cli_venv_path }}/bin/python -m tools.cli.tailnet --help'"
+

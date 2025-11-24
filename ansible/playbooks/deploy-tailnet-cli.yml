@@ -1,0 +1,57 @@
+---
+# Deploy tailnet CLI tools to all nodes on the tailnet
+# 
+# This playbook deploys the tailnet CLI tools (tailnet.py) to all nodes:
+# - motoko (Linux)
+# - wintermute (Windows)
+# - armitage (Windows)
+# - count-zero (macOS)
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml
+#
+#   # Deploy to specific host
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml --limit motoko
+#
+#   # Skip wrapper script creation
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml -e tailnet_cli_create_wrapper=false
+
+- name: Deploy Tailnet CLI Tools
+  hosts: tailnet_all
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Display deployment info
+      debug:
+        msg: |
+          Deploying tailnet CLI tools to {{ inventory_hostname }}
+          - OS: {{ ansible_os_family }}
+          - Base directory: {{ tailnet_cli_base_dir }}
+          - Virtual environment: {{ tailnet_cli_venv_path }}
+          - Wrapper script: {{ tailnet_cli_create_wrapper | ternary('Yes', 'No') }}
+  
+  roles:
+    - tailnet_cli
+  
+  post_tasks:
+    - name: Deployment complete
+      debug:
+        msg: |
+          Tailnet CLI tools deployed successfully to {{ inventory_hostname }}!
+          
+          To use the CLI:
+          {% if ansible_os_family == "Windows" %}
+          - Run: tailnet --help
+          - Or: {{ tailnet_cli_venv_path }}\Scripts\python.exe -m tools.cli.tailnet --help
+          {% else %}
+          - Run: tailnet --help
+          - Or: {{ tailnet_cli_venv_path }}/bin/python -m tools.cli.tailnet --help
+          {% endif %}
+          
+          Available commands:
+          - tailnet status          # Show tailnet status
+          - tailnet switch-mode     # Switch workstation mode
+          - tailnet wake            # Send Wake-on-LAN packet
+          - tailnet deploy          # Run Ansible playbook
+          - tailnet monitor        # Launch Textual monitor UI
+

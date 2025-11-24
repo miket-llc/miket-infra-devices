@@ -1,0 +1,89 @@
+---
+# Linux Tailscale configuration
+
+- name: Check if Tailscale is installed
+  ansible.builtin.command: which tailscale
+  register: tailscale_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Fail if Tailscale not installed
+  ansible.builtin.fail:
+    msg: |
+      Tailscale is not installed on {{ inventory_hostname }}.
+      Run bootstrap script first:
+      curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-motoko.sh | bash
+  when: tailscale_check is failed or (tailscale_check.rc is defined and tailscale_check.rc != 0)
+
+- name: Get current Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
+  when: tailscale_status_raw is not skipped and (tailscale_status_raw.rc is defined and tailscale_status_raw.rc == 0)
+
+- name: Get current tags (sorted for comparison)
+  ansible.builtin.set_fact:
+    current_tags: "{{ (tailscale_status.Self.Tags | default([]) | sort) | join(',') }}"
+  when: tailscale_status is defined and tailscale_status.Self is defined and tailscale_status.Self.Tags is defined
+
+- name: Set exit node flag for motoko
+  ansible.builtin.set_fact:
+    use_exit_node: "{{ (inventory_hostname == 'motoko' and tailscale_exit_node_motoko | default(true)) or tailscale_exit_node | default(false) }}"
+
+- name: Enable IP forwarding (required for exit node on motoko)
+  ansible.builtin.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    state: present
+    reload: yes
+  become: true
+  loop:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+  when: use_exit_node | bool
+
+- name: Build tailscale up command
+  ansible.builtin.set_fact:
+    tailscale_cmd: >
+      tailscale up
+      --advertise-tags={{ tailscale_tags }}
+      {% if tailscale_accept_dns %}--accept-dns{% endif %}
+      {% if tailscale_accept_routes %}--accept-routes{% endif %}
+      {% if tailscale_ssh_enabled %}--ssh{% endif %}
+      {% if use_exit_node %}--advertise-exit-node{% endif %}
+
+- name: Configure Tailscale (if tags changed or not connected)
+  ansible.builtin.command: "{{ tailscale_cmd }}"
+  become: true
+  register: tailscale_up
+  check_mode: false
+  changed_when: >
+    (current_tags | default('') != tailscale_tags) or
+    (tailscale_status_raw is not skipped and tailscale_status_raw.rc is defined and tailscale_status_raw.rc != 0) or
+    (tailscale_up.stdout is defined and 'Success' in tailscale_up.stdout)
+  when: >
+    (current_tags | default('') != tailscale_tags) or
+    (tailscale_status_raw is not skipped and tailscale_status_raw.rc is defined and tailscale_status_raw.rc != 0)
+
+- name: Verify Tailscale is running
+  ansible.builtin.command: tailscale status
+  register: tailscale_verify
+  changed_when: false
+  failed_when: tailscale_verify.rc != 0
+
+- name: Display Tailscale configuration
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale configured on {{ inventory_hostname }}"
+      - "Tags: {{ tailscale_tags }}"
+      - "MagicDNS: {{ 'Enabled' if tailscale_accept_dns else 'Disabled' }}"
+      - "SSH: {{ 'Enabled' if tailscale_ssh_enabled else 'Disabled' }}"
+      - "Exit Node: {{ 'Enabled' if use_exit_node else 'Disabled' }}"
+
