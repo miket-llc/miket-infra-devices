@@ -11,7 +11,7 @@ display_server: "Xorg"  # Will be auto-detected
 session_sharing: true  # Share existing session, don't create new one
 
 # NoMachine specific settings
-nomachine_version: "8.11.3"
+nomachine_version: "9.2.18"
 nomachine_port: 4000
 
 # USB Storage Configuration

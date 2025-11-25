@@ -78,22 +78,45 @@
   changed_when: false
   failed_when: false
 
-- name: Download NoMachine installer (.run format)
-  ansible.builtin.shell: |
-    cd /tmp
-    curl -L -f -o nomachine_{{ nomachine_version }}_4_x86_64.run "https://download.nomachine.com/download/8.x/Linux/nomachine_{{ nomachine_version }}_4_x86_64.run" || \
-    wget -O nomachine_{{ nomachine_version }}_4_x86_64.run "https://download.nomachine.com/download/8.x/Linux/nomachine_{{ nomachine_version }}_4_x86_64.run"
-    chmod +x nomachine_{{ nomachine_version }}_4_x86_64.run
-  args:
-    creates: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run"
+# NoMachine installation from apt.iteas.at mirror (official packages)
+# See: docs/runbooks/nomachine-installer-sources.md for source documentation
+# Primary: https://apt.iteas.at/iteas/pool/main/n/nomachine/
+# Fallback: /space/installers/ (local cache per PHC storage invariants)
+- name: Check for cached installer in /space/installers (.deb)
+  ansible.builtin.stat:
+    path: "/space/installers/nomachine_{{ nomachine_version }}_3_amd64.deb"
+  register: cached_deb_installer
+
+- name: Download NoMachine .deb from iteas.at mirror if not cached
+  ansible.builtin.get_url:
+    url: "https://apt.iteas.at/iteas/pool/main/n/nomachine/nomachine_{{ nomachine_version }}_3_amd64.deb"
+    dest: "/tmp/nomachine_{{ nomachine_version }}_3_amd64.deb"
+    mode: '0644'
+    timeout: 60
   become: true
+  when: not cached_deb_installer.stat.exists
   register: nomachine_download
 
-- name: Install NoMachine
-  ansible.builtin.command:
-    cmd: "/tmp/nomachine_{{ nomachine_version }}_4_x86_64.run install"
-    creates: "/usr/NX/bin/nxserver"
+- name: Copy cached installer to /tmp if available
+  ansible.builtin.copy:
+    src: "/space/installers/nomachine_{{ nomachine_version }}_3_amd64.deb"
+    dest: "/tmp/nomachine_{{ nomachine_version }}_3_amd64.deb"
+    mode: '0644'
+    remote_src: yes
   become: true
+  when: cached_deb_installer.stat.exists
+
+- name: Install NoMachine via dpkg
+  ansible.builtin.apt:
+    deb: "/tmp/nomachine_{{ nomachine_version }}_3_amd64.deb"
+  become: true
+
+- name: Fix any missing dependencies
+  ansible.builtin.apt:
+    name: []
+    state: fixed
+  become: true
+  failed_when: false
 
 - name: Get Tailscale IP address
   ansible.builtin.command:
@@ -126,6 +149,33 @@
     path: /usr/NX/etc/server.cfg
     regexp: '^#?EnableNXDisplayOutput='
     line: 'EnableNXDisplayOutput=1'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+- name: Enable new session creation
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableNewSession='
+    line: 'EnableNewSession 1'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+- name: Enable console session sharing
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableConsoleSessionSharing='
+    line: 'EnableConsoleSessionSharing 1'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+- name: Enable session sharing
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?EnableSessionSharing='
+    line: 'EnableSessionSharing 1'
     backup: yes
   become: true
   notify: restart nxserver
