@@ -85,9 +85,10 @@
   register: nx_display_config_updated
 
 - name: Restart NoMachine server if configuration changed
-  ansible.builtin.command: /usr/NX/bin/nxserver --restart
+  ansible.builtin.command: /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver --restart
   become: true
   when: nx_config_updated.changed or nx_console_config_updated.changed or nx_session_config_updated.changed or nx_display_config_updated.changed
+  failed_when: false
 
 - name: Display connection information
   ansible.builtin.debug:

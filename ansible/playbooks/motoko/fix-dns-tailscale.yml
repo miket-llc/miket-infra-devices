@@ -1,0 +1,143 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fix DNS and Tailscale on Motoko
+# Handles resolv.conf symlink issue properly
+# Usage: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/fix-dns-tailscale.yml --connection=local
+
+- name: Fix DNS and Tailscale on Motoko
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Find network interface
+      ansible.builtin.shell: ip route | grep default | awk '{print $5}' | head -1
+      register: network_interface
+      changed_when: false
+
+    - name: Display network interface
+      ansible.builtin.debug:
+        msg: "Found interface: {{ network_interface.stdout }}"
+
+    - name: Configure DNS via systemd-resolved (handles symlink)
+      ansible.builtin.shell: |
+        resolvectl dns {{ network_interface.stdout }} 1.1.1.1 1.0.0.1
+        resolvectl flush-caches
+      when: 
+        - ansible_facts['system'] == 'Linux'
+        - ansible_facts['distribution'] == 'Pop'
+      register: dns_config_resolved
+      changed_when: true
+      failed_when: false
+
+    - name: Configure DNS via NetworkManager (fallback)
+      ansible.builtin.shell: |
+        CONNECTION=$(nmcli -t -f NAME connection show --active | head -1)
+        nmcli connection modify "$CONNECTION" ipv4.dns "1.1.1.1 1.0.0.1"
+        nmcli connection up "$CONNECTION"
+      when: dns_config_resolved is failed or dns_config_resolved.rc != 0
+      register: dns_config_nm
+      changed_when: true
+      failed_when: false
+
+    - name: Test DNS resolution
+      ansible.builtin.command: ping -c 1 -W 2 google.com
+      register: dns_test
+      changed_when: false
+      failed_when: false
+
+    - name: Display DNS test result
+      ansible.builtin.debug:
+        msg: "{{ '✓ DNS working' if dns_test.rc == 0 else '⚠ DNS test failed' }}"
+
+    - name: Check if Tailscale is installed
+      ansible.builtin.command: which tailscale
+      register: tailscale_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install Tailscale if missing
+      ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+      when: tailscale_check.rc != 0
+      changed_when: true
+
+    - name: Enable Tailscale service
+      ansible.builtin.systemd:
+        name: tailscaled
+        enabled: true
+        state: started
+      register: tailscale_service
+
+    - name: Wait for Tailscale service to be ready
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Reconfigure Tailscale with DNS acceptance
+      ansible.builtin.shell: |
+        tailscale up \
+          --advertise-tags=tag:server,tag:linux,tag:ansible \
+          --accept-dns \
+          --accept-routes \
+          --ssh \
+          --advertise-routes=192.168.1.0/24 \
+          --advertise-exit-node
+      register: tailscale_up
+      changed_when: "'Success' in tailscale_up.stdout or tailscale_up.rc == 0"
+      failed_when: false
+
+    - name: Wait for Tailscale connection
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Configure DNS to use Tailscale DNS
+      ansible.builtin.shell: |
+        resolvectl dns {{ network_interface.stdout }} 100.100.100.100 1.1.1.1 1.0.0.1
+        resolvectl flush-caches
+      when: 
+        - ansible_facts['system'] == 'Linux'
+        - ansible_facts['distribution'] == 'Pop'
+      register: tailscale_dns_config
+      changed_when: true
+      failed_when: false
+
+    - name: Configure DNS via NetworkManager (fallback for Tailscale DNS)
+      ansible.builtin.shell: |
+        CONNECTION=$(nmcli -t -f NAME connection show --active | head -1)
+        nmcli connection modify "$CONNECTION" ipv4.dns "100.100.100.100 1.1.1.1"
+        nmcli connection up "$CONNECTION"
+      when: tailscale_dns_config is failed or tailscale_dns_config.rc != 0
+      register: tailscale_dns_nm
+      changed_when: true
+      failed_when: false
+
+    - name: Verify Tailscale status
+      ansible.builtin.command: tailscale status
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+
+    - name: Display Tailscale status
+      ansible.builtin.debug:
+        msg: "{{ tailscale_status.stdout_lines }}"
+
+    - name: Test regular DNS
+      ansible.builtin.command: ping -c 1 -W 2 google.com
+      register: regular_dns_test
+      changed_when: false
+      failed_when: false
+
+    - name: Test MagicDNS
+      ansible.builtin.command: ping -c 1 -W 2 motoko.pangolin-vega.ts.net
+      register: magicdns_test
+      changed_when: false
+      failed_when: false
+
+    - name: Display test results
+      ansible.builtin.debug:
+        msg:
+          - "Regular DNS: {{ '✓ Working' if regular_dns_test.rc == 0 else '✗ Failed' }}"
+          - "MagicDNS: {{ '✓ Working' if magicdns_test.rc == 0 else '⚠ May need a moment' }}"
+
