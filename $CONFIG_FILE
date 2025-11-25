@@ -1,6 +1,0 @@
-
-# NoMachine UI rendering settings - added $(date)
-EnableConsoleSessionSharing=1
-EnableSessionSharing=1
-EnableNXDisplayOutput=1
-EnableNewSession=1
