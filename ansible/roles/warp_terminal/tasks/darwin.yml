@@ -1,0 +1,31 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS Warp Terminal installation
+# Warp is a modern Rust-based terminal with AI features
+# https://www.warp.dev/
+
+- name: Check if Warp Terminal is installed (macOS)
+  ansible.builtin.stat:
+    path: /Applications/Warp.app
+  register: warp_installed
+
+- name: Install Warp Terminal via Homebrew
+  community.general.homebrew_cask:
+    name: warp
+    state: present
+  when: not warp_installed.stat.exists
+
+- name: Verify Warp Terminal installation (macOS)
+  ansible.builtin.stat:
+    path: /Applications/Warp.app
+  register: warp_verify
+  failed_when: not warp_verify.stat.exists
+
+- name: Display installation summary (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "✅ Warp Terminal installed on {{ inventory_hostname }}"
+      - "Location: /Applications/Warp.app"
+      - "Note: First launch will prompt for Warp account sign-in"
+

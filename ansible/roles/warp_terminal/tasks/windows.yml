@@ -1,0 +1,26 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows Warp Terminal installation
+# Warp is a modern Rust-based terminal with AI features
+# https://www.warp.dev/
+#
+# NOTE: Warp for Windows is currently in beta
+# This task file is a placeholder for future Windows support
+
+- name: Display Windows support status
+  ansible.builtin.debug:
+    msg:
+      - "⚠️ Warp Terminal Windows support is in beta"
+      - "Manual installation recommended: https://www.warp.dev/download"
+      - "Skipping automated installation on {{ inventory_hostname }}"
+
+- name: Check if Warp Terminal is installed (Windows)
+  ansible.windows.win_stat:
+    path: "{{ ansible_env.LOCALAPPDATA }}\\Programs\\Warp\\Warp.exe"
+  register: warp_installed
+
+- name: Display Warp installation status (Windows)
+  ansible.builtin.debug:
+    msg: "Warp Terminal {{ 'is installed' if warp_installed.stat.exists else 'is NOT installed - install manually from warp.dev' }}"
+

@@ -7,6 +7,7 @@ status: Active
 related_initiatives:
   - initiatives/device-onboarding
 linked_communications:
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-25-warp-terminal-deployment
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-deterministic-merge-plan
   - docs/communications/COMMUNICATION_LOG.md#2025-11-24-duplicate-guardrails
   - docs/communications/COMMUNICATION_LOG.md#2025-11-24-data-reconciliation-plan
@@ -96,6 +97,8 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | Tailscale API integration | Codex-NET-006 | 2025-11-24 | [validate-tailscale-acl-drift.yml](../../ansible/playbooks/validate-tailscale-acl-drift.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-wave2-coordination-response) |
 || NoMachine keystroke dropping troubleshooting guide | Codex-CA-001 | 2025-11-24 | [nomachine-keystroke-dropping-troubleshooting.md](../guides/nomachine-keystroke-dropping-troubleshooting.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-nomachine-keystroke-investigation) |
 || NoMachine keystroke diagnostic script | Codex-CA-001 | 2025-11-24 | [diagnose-nomachine-keystrokes.sh](../../scripts/diagnose-nomachine-keystrokes.sh), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-nomachine-keystroke-investigation) |
+|| Warp Terminal Ansible role and deployment | Codex-PD-002 | 2025-11-25 | [warp_terminal role](../../ansible/roles/warp_terminal/), [deploy-warp-terminal.yml](../../ansible/playbooks/deploy-warp-terminal.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-warp-terminal-deployment) |
+|| Warp Terminal installed on motoko | Codex-PD-002 | 2025-11-25 | v0.2025.11.19.08.12.stable.03, `/usr/bin/warp-terminal` |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

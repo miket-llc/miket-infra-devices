@@ -1,0 +1,15 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Default variables for warp_terminal role
+
+# Warp Terminal installation settings
+warp_terminal_enabled: true
+
+# Warp apt repository for Linux (Debian/Ubuntu)
+warp_apt_key_url: "https://releases.warp.dev/linux/keys/warp.asc"
+warp_apt_repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/warp-keyring.gpg] https://releases.warp.dev/linux/deb stable main"
+
+# Warp package name
+warp_package_name: "warp-terminal"
+

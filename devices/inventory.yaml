@@ -31,6 +31,7 @@ devices:
         ssh_enabled: true
         ssh_auth: key_only
         tailscale: enabled
+      terminal: WarpTerminal
       notes: |
         Primary infrastructure server
         Hosts Docker containers with NVIDIA runtime

@@ -1,0 +1,18 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Main tasks for warp_terminal role
+# Platform-specific tasks are included based on OS
+
+- name: Include Linux tasks for Debian/Ubuntu
+  include_tasks: linux.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Include macOS tasks for Darwin
+  include_tasks: darwin.yml
+  when: ansible_os_family == 'Darwin'
+
+- name: Include Windows tasks
+  include_tasks: windows.yml
+  when: ansible_system == 'Win32NT'
+

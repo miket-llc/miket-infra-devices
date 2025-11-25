@@ -1,0 +1,109 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux Warp Terminal installation (Debian/Ubuntu)
+# Warp is a modern Rust-based terminal with AI features
+# https://www.warp.dev/
+
+- name: Check if Warp Terminal is installed
+  ansible.builtin.command: which warp-terminal
+  register: warp_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Check Warp Terminal version if installed
+  ansible.builtin.command: warp-terminal --version
+  register: warp_version_check
+  changed_when: false
+  failed_when: false
+  when: warp_check.rc == 0
+
+- name: Display current Warp installation status
+  ansible.builtin.debug:
+    msg: "Warp Terminal {{ 'is installed: ' + warp_version_check.stdout | default('') if warp_check.rc == 0 else 'is not installed' }}"
+
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - wget
+      - gpg
+      - ca-certificates
+    state: present
+    update_cache: yes
+  become: true
+  when: warp_check.rc != 0
+
+- name: Remove stale Warp GPG key if exists
+  ansible.builtin.file:
+    path: /usr/share/keyrings/warp-keyring.gpg
+    state: absent
+  become: true
+  when: warp_check.rc != 0
+
+- name: Download and install Warp GPG key
+  ansible.builtin.shell: |
+    wget -qO- {{ warp_apt_key_url }} | gpg --dearmor --yes -o /usr/share/keyrings/warp-keyring.gpg && \
+    chmod 644 /usr/share/keyrings/warp-keyring.gpg
+  become: true
+  when: warp_check.rc != 0
+  register: gpg_key_result
+
+- name: Verify GPG key was installed
+  ansible.builtin.stat:
+    path: /usr/share/keyrings/warp-keyring.gpg
+  register: gpg_key_stat
+  failed_when: not gpg_key_stat.stat.exists
+  when: warp_check.rc != 0
+
+- name: Remove any existing Warp repository file
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/warp.list
+    state: absent
+  become: true
+  when: warp_check.rc != 0
+
+- name: Add Warp apt repository
+  ansible.builtin.copy:
+    content: "{{ warp_apt_repo }}"
+    dest: /etc/apt/sources.list.d/warp.list
+    mode: '0644'
+  become: true
+  when: warp_check.rc != 0
+
+- name: Update apt cache after adding repository
+  ansible.builtin.apt:
+    update_cache: yes
+  become: true
+  when: warp_check.rc != 0
+
+- name: Install Warp Terminal
+  ansible.builtin.apt:
+    name: "{{ warp_package_name }}"
+    state: present
+    update_cache: yes
+  become: true
+  register: warp_install
+  when: warp_check.rc != 0
+
+- name: Verify Warp Terminal installation
+  ansible.builtin.command: which warp-terminal
+  register: warp_verify
+  changed_when: false
+  failed_when: warp_verify.rc != 0
+
+- name: Get installed Warp version
+  ansible.builtin.command: warp-terminal --version
+  register: warp_version_final
+  changed_when: false
+  failed_when: false
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Warp Terminal installed on {{ inventory_hostname }}"
+      - "Version: {{ warp_version_final.stdout | default('Installed') }}"
+      - "Binary: {{ warp_verify.stdout }}"
+      - "Launch with: warp-terminal"
+      - "Note: First launch will prompt for Warp account sign-in"
+

@@ -1,3 +1,54 @@
+## 2025-11-25 – Warp Terminal Deployment to motoko {#2025-11-25-warp-terminal-deployment}
+
+### Context
+User requested Warp Terminal (warp.dev) installation on motoko after system upgrades. Multi-persona team activated to ensure proper Ansible role creation and deployment.
+
+### Actions Taken
+
+**Team Activation:**
+- Codex-CA-001 (Chief Architect): Led initiative and coordinated team
+- Codex-PD-002 (Platform DevOps): Created Ansible role and deployment playbook
+- Codex-DOC-009 (DocOps): Updated device inventory and documentation
+
+**Deliverables Created:**
+- ✅ Ansible role `warp_terminal` with multi-platform support:
+  - Linux (Debian/Ubuntu): Full support via apt repository
+  - macOS: Homebrew Cask installation
+  - Windows: Placeholder (beta status documented)
+- ✅ Deployment playbook: `ansible/playbooks/deploy-warp-terminal.yml`
+- ✅ Role documentation: `ansible/roles/warp_terminal/README.md`
+- ✅ Device inventory updated with `terminal: WarpTerminal` for motoko
+
+**Deployment Results:**
+- ✅ Warp Terminal v0.2025.11.19.08.12.stable.03 installed on motoko
+- ✅ Binary location: `/usr/bin/warp-terminal`
+- ✅ APT repository configured for automatic updates
+
+### Usage
+
+```bash
+# Deploy to motoko
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml --limit motoko
+
+# Deploy to all Linux servers
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml --limit linux
+
+# Deploy to all supported hosts (Linux + macOS)
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml
+```
+
+### Next Steps
+- First launch of Warp Terminal requires sign-in to Warp account
+- Consider adding warp_terminal role to baseline device deployment playbooks
+- Monitor for macOS deployment on count-zero if needed
+
+### Deliverables
+- Role: [ansible/roles/warp_terminal/](../../ansible/roles/warp_terminal/)
+- Playbook: [ansible/playbooks/deploy-warp-terminal.yml](../../ansible/playbooks/deploy-warp-terminal.yml)
+- Inventory: [devices/inventory.yaml](../../devices/inventory.yaml)
+
+---
+
 ## 2025-11-24 – Canonical duplicate guardrails for reconciliation {#2025-11-24-duplicate-guardrails}
 
 ### Context

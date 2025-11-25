@@ -1,0 +1,56 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deployment playbook for Warp Terminal
+#
+# This playbook installs Warp Terminal (https://warp.dev) on PHC endpoints.
+# Warp is a modern Rust-based terminal with AI features.
+#
+# Prerequisites:
+# - Ansible must be able to connect to target hosts
+# - Linux: apt package manager (Debian/Ubuntu)
+# - macOS: Homebrew installed
+#
+# Usage:
+#   # Deploy to motoko only
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml --limit motoko
+#
+#   # Deploy to all Linux servers
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml --limit linux
+#
+#   # Deploy to all supported hosts
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml
+
+- name: Deploy Warp Terminal
+  hosts: linux:macos
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          Deploying Warp Terminal to {{ inventory_hostname }}
+          - OS Family: {{ ansible_os_family }}
+          - Distribution: {{ ansible_distribution | default('N/A') }}
+          - Architecture: {{ ansible_architecture }}
+
+  roles:
+    - role: warp_terminal
+      tags:
+        - warp
+        - warp_terminal
+        - terminal
+
+  post_tasks:
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ Warp Terminal deployment complete on {{ inventory_hostname }}!
+          
+          Next Steps:
+          - Launch Warp Terminal: warp-terminal (Linux) or Warp.app (macOS)
+          - Sign in with your Warp account
+          - Configure your preferences
+          
+          Warp integrates with Tailscale SSH for seamless PHC access.
+
