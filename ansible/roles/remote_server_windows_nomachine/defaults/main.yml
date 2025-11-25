@@ -2,7 +2,7 @@
 
 ---
 # NoMachine version for Windows
-nomachine_version: "8.15.3"
+nomachine_version: "9.2.18"
 nomachine_port: 4000
 
 # NoMachine download URL for Windows (64-bit)
