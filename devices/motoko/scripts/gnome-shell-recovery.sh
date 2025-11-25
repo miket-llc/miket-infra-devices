@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # GNOME Shell Emergency Recovery Script
 # Run this script if GNOME Shell is frozen or unresponsive
 # Location: devices/motoko/scripts/gnome-shell-recovery.sh

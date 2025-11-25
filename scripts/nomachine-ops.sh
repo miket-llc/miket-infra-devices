@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # nomachine-ops.sh
 # Quick operations script for NoMachine stack
 # Common administrative tasks for daily operations

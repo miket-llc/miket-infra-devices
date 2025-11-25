@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Quick deployment script for Armitage when it comes online
 # Run from motoko: ./scripts/deploy-armitage-when-online.sh
 

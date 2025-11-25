@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Ansible role: remote_client_linux_nomachine
 # Installs NoMachine client on Linux hosts for accessing remote NoMachine servers

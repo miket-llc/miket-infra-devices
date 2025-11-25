@@ -1,0 +1,76 @@
+NoMachine UI Rendering Issue - Root Cause Analysis
+Generated: $(date)
+From: motoko
+
+=== CONFIRMED FACTS ===
+
+✅ Screen Recording Permission: ENABLED (verified via System Settings screenshot)
+✅ NoMachine Server: RUNNING (v9.2.18)
+✅ Port 4000: LISTENING and reachable
+✅ WindowServer: RUNNING (display server active)
+✅ User Session: ACTIVE (miket logged in)
+✅ Available Session Types: unix-remote,physical-desktop,vpn
+
+=== OBSERVED BEHAVIOR ===
+
+1. Connections from armitage (100.72.64.90) are ACCEPTED
+2. Session processes START (e.g., PID 30209)
+3. Process gets stuck in login state: `--login -H 12`
+4. Process eventually DIES (connection closes)
+5. NO ERROR MESSAGES in server logs
+6. UI NEVER RENDERS on client side
+
+=== ROOT CAUSE HYPOTHESIS ===
+
+Since Screen Recording is enabled, the issue is likely:
+
+**PRIMARY SUSPECT: Missing Console Session Configuration**
+
+The server config at `/etc/NX/server/localhost/server.cfg` is minimal (only 20 lines, 14 non-comment).
+It does NOT contain:
+- EnableNewSession
+- EnableConsoleSessionSharing  
+- EnableSessionSharing
+- EnableNXDisplayOutput
+- DefaultSessionType
+
+The `AvailableSessionTypes` includes `physical-desktop` (console session), but without explicit
+configuration, the session may not be able to attach to the existing display.
+
+**SECONDARY POSSIBILITIES:**
+1. Client requesting wrong session type
+2. Display attachment failure (even with Screen Recording enabled)
+3. Session migration/attachment timeout
+4. macOS-specific display server communication issue
+
+=== REQUIRED FIX ===
+
+Add to `/etc/NX/server/localhost/server.cfg`:
+```
+EnableNewSession 1
+EnableConsoleSessionSharing 1
+EnableSessionSharing 1
+EnableNXDisplayOutput 1
+DefaultSessionType physical-desktop
+```
+
+Then restart: `sudo /etc/NX/nxserver --restart`
+
+=== TESTING PLAN ===
+
+1. Add configuration settings above
+2. Restart NoMachine server
+3. Test connection from armitage
+4. Try both "Console Session" and "New Session" in client
+5. Monitor logs during connection attempt
+6. Check if process progresses past login state
+
+=== CONFIDENCE LEVEL ===
+
+Medium-High: Configuration issue is most likely given:
+- Screen Recording already enabled
+- Server running and accepting connections
+- Process starts but doesn't progress
+- Minimal configuration present
+
+

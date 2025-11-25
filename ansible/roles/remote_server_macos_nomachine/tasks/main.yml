@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 - name: Check if NoMachine is already installed
   ansible.builtin.stat:
@@ -52,10 +54,40 @@
   when: nx_cfg_path.stat.exists
   register: nx_config_updated
 
-- name: Restart NoMachine server
+- name: Enable console session sharing for macOS (required for UI rendering)
+  ansible.builtin.lineinfile:
+    path: "{{ nx_cfg_path.stat.path }}"
+    regexp: '^#?EnableConsoleSessionSharing='
+    line: 'EnableConsoleSessionSharing=1'
+    backup: yes
+  become: true
+  when: nx_cfg_path.stat.exists
+  register: nx_console_config_updated
+
+- name: Enable session sharing for macOS
+  ansible.builtin.lineinfile:
+    path: "{{ nx_cfg_path.stat.path }}"
+    regexp: '^#?EnableSessionSharing='
+    line: 'EnableSessionSharing=1'
+    backup: yes
+  become: true
+  when: nx_cfg_path.stat.exists
+  register: nx_session_config_updated
+
+- name: Enable NX display output for macOS
+  ansible.builtin.lineinfile:
+    path: "{{ nx_cfg_path.stat.path }}"
+    regexp: '^#?EnableNXDisplayOutput='
+    line: 'EnableNXDisplayOutput=1'
+    backup: yes
+  become: true
+  when: nx_cfg_path.stat.exists
+  register: nx_display_config_updated
+
+- name: Restart NoMachine server if configuration changed
   ansible.builtin.command: /usr/NX/bin/nxserver --restart
   become: true
-  when: nx_config_updated.changed
+  when: nx_config_updated.changed or nx_console_config_updated.changed or nx_session_config_updated.changed or nx_display_config_updated.changed
 
 - name: Display connection information
   ansible.builtin.debug:

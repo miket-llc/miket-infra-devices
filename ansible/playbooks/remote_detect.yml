@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Playbook: remote_detect.yml
 # Detects NoMachine server status on Linux hosts (primarily Motoko)

@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Unified vLLM deployment playbook for Windows workstations
 # Deploys vLLM configuration, scripts, and Docker containers to wintermute and armitage

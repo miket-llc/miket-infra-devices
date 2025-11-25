@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # ============================================================================
 # macOS Bootstrap Script for Tailscale + Remote Management
 # ============================================================================

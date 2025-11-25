@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Install NVIDIA Container Toolkit in WSL2 Ubuntu
 # This script is host-specific but uses the same logic as the shared script
 # For new hosts, use scripts/shared/Install-NvidiaContainerToolkit.sh instead

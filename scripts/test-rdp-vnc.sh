@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Test RDP and VNC connections across the tailnet
 # Verifies connectivity and port accessibility for remote desktop protocols
 

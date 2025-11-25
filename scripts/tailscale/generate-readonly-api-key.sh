@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Generate Tailscale Read-Only API Key for ACL Drift Detection
 # Wave 2: Tailscale ACL drift check automation
 

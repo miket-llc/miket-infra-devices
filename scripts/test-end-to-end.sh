@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # End-to-end test script that works with local services
 # Tests LiteLLM proxy and validates configuration
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # test-nomachine-connectivity.sh
 # Comprehensive NoMachine connectivity test suite
 # Run after Tailscale ACL is applied

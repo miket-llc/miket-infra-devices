@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Playbook to create local automation account (mdt) on Windows devices
 # This follows IaC/CaC principles - all account creation via Ansible

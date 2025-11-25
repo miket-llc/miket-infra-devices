@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Docker Image Updates Playbook
 # Purpose: Update Docker images and containers for all services

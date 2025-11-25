@@ -21,3 +21,5 @@ Or use the unified playbook:
 ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml
 ```
 
+
+

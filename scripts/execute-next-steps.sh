@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Complete deployment and validation script
 # Executes all next steps in sequence
 

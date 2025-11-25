@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Unified Tailscale configuration role
 # Assumes Tailscale is already installed via bootstrap scripts

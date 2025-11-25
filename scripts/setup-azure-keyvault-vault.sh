@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Setup script for Azure Key Vault integration with Ansible Vault
 # This script helps configure Azure Key Vault as the source for Ansible vault password
 

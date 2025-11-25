@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Ansible role: remote_detect_linux
 # Detects existing remote desktop servers and system configuration on Linux hosts

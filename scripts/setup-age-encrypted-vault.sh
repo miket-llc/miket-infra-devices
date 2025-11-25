@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Setup script for age-encrypted Ansible vault password
 # Uses age encryption with SSH keys - fully automation-friendly, no external services
 

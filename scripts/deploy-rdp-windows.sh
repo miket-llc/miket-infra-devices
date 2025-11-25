@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Deploy RDP configuration to Windows devices
 # This script deploys the RDP configuration with Group Policy settings
 

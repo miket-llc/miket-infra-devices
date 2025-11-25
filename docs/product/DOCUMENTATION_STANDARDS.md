@@ -29,6 +29,7 @@ Every Markdown file MUST start with:
 
 ```yaml
 ---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
 document_title: "<title>"
 author: "<role or name>"
 last_updated: YYYY-MM-DD
@@ -39,6 +40,8 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#YYYY-MM-DD-<anchor>
 ---
 ```
+
+**Copyright Notice**: All documentation files must include the copyright notice as the first line of front matter: `# Copyright (c) 2025 MikeT LLC. All rights reserved.`
 
 ## Consolidation Rules
 - Single source of truth per topic; link instead of duplicate.

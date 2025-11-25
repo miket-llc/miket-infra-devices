@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Setup TigerVNC on motoko to share GNOME session
 # UPDATED: Includes headless laptop (lid closed) configuration
 # Run this directly on motoko

@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Debug playbook to test vault variable loading
 - name: Debug Vault Variables

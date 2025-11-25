@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Fix Cloudflare Challenge Blocking Issue
 # This script fixes the "Please unblock challenges.cloudflare.com" error

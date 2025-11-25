@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Master Cloudflare Challenge Fix Script
 # This script applies multiple fixes to resolve Cloudflare challenge blocking

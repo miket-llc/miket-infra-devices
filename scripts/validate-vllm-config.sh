@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Quick validation script for vLLM configuration updates
 # Validates configuration files and provides deployment checklist
 

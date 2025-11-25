@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Tailscale ACL Drift Check Playbook
 # Validates device tags align with miket-infra Tailscale ACL tagOwners

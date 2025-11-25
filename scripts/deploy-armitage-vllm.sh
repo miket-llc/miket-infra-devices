@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Deploy vLLM to Armitage using proper Ansible architecture
 # Uses: windows-vllm-deploy.yml playbook with windows-vllm-deploy role
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 """
 Context window smoke test for vLLM deployments.
 Tests that models can handle requests near their max context limits without OOM.

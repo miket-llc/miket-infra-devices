@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
 # space-mirror.sh
 # 1:1 Mirror of /space to B2
 # Per DATA_LIFECYCLE_SPEC.md

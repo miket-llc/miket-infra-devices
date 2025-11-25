@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # transfer-onedrive-simple.sh
 # Simple OneDrive transfer using ditto (macOS native, handles OneDrive better)
 # Usage: Run on count-zero: ./transfer-onedrive-simple.sh
@@ -80,4 +82,6 @@ ditto -V "$SOURCE" "$DEST" 2>&1 | tee -a "$LOG_FILE" || {
 log "Transfer completed successfully"
 log "Final size: $(du -sh "$DEST" | cut -f1)"
 log "Log file: $LOG_FILE"
+
+
 

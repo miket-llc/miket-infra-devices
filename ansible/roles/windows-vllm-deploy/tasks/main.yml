@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Shared tasks for Windows vLLM deployments
 # Used by both armitage and wintermute playbooks

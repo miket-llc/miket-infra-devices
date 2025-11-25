@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Defaults for tailnet_cli role
 # Deploys the tailnet CLI tools to all nodes
@@ -27,4 +29,6 @@ tailnet_cli_create_wrapper: true
 tailnet_cli_wrapper_path_linux: "/usr/local/bin/tailnet"
 tailnet_cli_wrapper_path_macos: "{{ ansible_env.HOME }}/.local/bin/tailnet"
 tailnet_cli_wrapper_path_windows: "C:\\Scripts\\tailnet.ps1"
+
+
 

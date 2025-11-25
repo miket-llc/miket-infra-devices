@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 #
 # NoMachine Keystroke Dropping Diagnostic Script
 # 
@@ -162,4 +164,6 @@ echo "=========================================" | tee -a "${REPORT_FILE}"
 echo ""
 echo "Diagnostic report generated: ${REPORT_FILE}"
 echo "Review the report and share with the team for analysis."
+
+
 

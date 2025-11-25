@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Location for data lifecycle service credentials
 data_lifecycle_env_file: "/etc/miket/storage-credentials.env"

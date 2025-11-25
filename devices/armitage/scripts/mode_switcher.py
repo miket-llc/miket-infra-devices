@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 """Mode switcher utility for the Armitage workstation.
 
 This script toggles between productivity and gaming profiles by

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Run Armitage vLLM deployment with real-time monitoring
 set -euo pipefail
 

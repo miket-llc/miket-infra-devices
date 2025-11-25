@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Comprehensive validation script for Armitage vLLM → LiteLLM → Ansible control flow
 # Run from Motoko (Ansible control node)
 #

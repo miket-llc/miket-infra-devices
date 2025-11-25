@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Deploy updated vLLM configuration to Armitage from Motoko control node
 # This script can be run from Windows (via WSL/Git Bash) or from Motoko directly
 

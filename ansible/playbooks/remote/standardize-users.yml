@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Ansible playbook to standardize user accounts across infrastructure
 # This creates consistent usernames without full SSO

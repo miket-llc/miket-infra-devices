@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # transfer-tcc-blocked.sh
 # Transfer TCC-protected directories that SSH cannot access
 # Run this ON count-zero as miket user

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Use Tailscale Exit Node to Bypass Router Filtering
 # This routes all traffic through motoko server, bypassing local router

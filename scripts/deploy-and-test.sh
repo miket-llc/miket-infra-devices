@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Deployment automation script with monitoring and validation
 # Handles deployment, monitoring, testing, and troubleshooting
 

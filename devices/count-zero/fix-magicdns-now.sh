@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Quick MagicDNS fix for Count-Zero
 echo "Fixing MagicDNS on Count-Zero..."
 tailscale up --advertise-tags=tag:workstation,tag:macos --accept-dns --ssh

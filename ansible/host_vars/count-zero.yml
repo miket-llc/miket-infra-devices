@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Remote desktop configuration for count-zero (macOS workstation)
 remote_protocol: vnc  # macOS uses VNC/Screen Sharing

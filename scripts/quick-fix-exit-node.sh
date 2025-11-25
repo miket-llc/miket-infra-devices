@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Quick Fix for Cloudflare Challenge Issue
 # Enables Tailscale exit node to bypass Verizon network issue

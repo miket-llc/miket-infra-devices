@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # flux-graduate.sh
 # Graduating cold data from /flux to /space
 # Per DATA_LIFECYCLE_SPEC.md

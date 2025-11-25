@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Remote desktop configuration for motoko (Linux server)
 # Uses VNC to share the existing mdt kiosk session (not create a new one)

@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Prometheus configuration for the device fleet
 # Replace `tailnet-name` with the actual tailnet domain or override via file_sd targets.
 

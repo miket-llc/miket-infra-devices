@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # GNOME Health Monitor and Auto-Recovery Script
 # Monitors GNOME Shell health and prevents crash loops
 # Location: devices/motoko/scripts/gnome-health-monitor.sh

@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Configure Windows Firewall for vLLM API access
 # Allows inbound connections on port 8000 for vLLM containers

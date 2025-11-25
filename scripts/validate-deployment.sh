@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Comprehensive validation and troubleshooting script
 # Tests deployment readiness and provides diagnostics
 

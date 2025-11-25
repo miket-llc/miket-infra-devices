@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Setup remote management on count-zero (macOS)
 # Run this locally on count-zero
 

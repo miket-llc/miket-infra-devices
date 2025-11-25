@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Detect USB drive and partitions for 20TB drive setup
 # Run this script on motoko to identify partitions before running Ansible playbook
 

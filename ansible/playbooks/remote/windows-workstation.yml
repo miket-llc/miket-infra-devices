@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Ansible playbook for managing Windows workstations (Armitage, Wintermute)
 # Run from Linux control node (motoko) with: ansible-playbook -i inventory/hosts.yml playbooks/remote/windows-workstation.yml --limit windows_workstations --ask-vault-pass

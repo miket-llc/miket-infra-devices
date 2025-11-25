@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # GPU Validation Task for Windows vLLM Deployment
 # Checks Docker Desktop GPU passthrough before attempting container deployment

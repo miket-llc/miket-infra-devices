@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Playbook: validate_nomachine_deployment.yml
 # Validates that NoMachine is properly deployed (RDP/VNC architecturally retired)

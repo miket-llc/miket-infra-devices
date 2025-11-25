@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # m365-migrate-to-space.sh
 # Migrate all content from OneDrive for Business to /space drive
 # Usage: m365-migrate-to-space.sh --account <account> --dest <destination> [options]

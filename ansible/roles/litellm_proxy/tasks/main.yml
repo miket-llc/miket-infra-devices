@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # LiteLLM Proxy Deployment Tasks
 # Idempotent tasks to deploy and manage LiteLLM proxy on Motoko

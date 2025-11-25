@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # transfer-onedrive-to-space.sh
 # Transfer OneDrive content from client devices to /space on motoko
 # Usage: transfer-onedrive-to-space.sh --source <source> --dest <destination> [options]

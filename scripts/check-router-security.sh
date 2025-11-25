@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Check Verizon FiOS Router Security Settings
 # This script helps diagnose router-level blocks of Cloudflare

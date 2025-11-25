@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # vLLM management script for Linux/WSL2
 # Matches architecture pattern: direct docker run commands (like systemd template)
 # Optimized for 12GB VRAM (RTX 4070 Super)

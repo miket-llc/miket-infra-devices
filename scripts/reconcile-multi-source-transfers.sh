@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Reconcile multi-source transfers into /space/mike with backups and manifests
 
 set -euo pipefail

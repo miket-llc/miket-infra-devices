@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Fast deployment - just vLLM scripts and config
 # Assumes Docker Desktop is already set up manually
 

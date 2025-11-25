@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # USB Storage Management Tasks
 # Handles 20TB USB drive - Reformat to ext4 for Time Machine and Space

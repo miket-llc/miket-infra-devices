@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Remote desktop defaults for Windows servers
 remote_protocol: rdp

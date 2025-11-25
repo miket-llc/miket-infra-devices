@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Validation script for Armitage vLLM deployment
 # Verifies Qwen2.5-7B-Instruct (fp16/bf16) is deployed correctly
 

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Fix Wintermute model name configuration
 # This script helps identify and fix the model name mismatch
 

@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # merge-main-files-to-space.sh
 # Merge _MAIN_FILES contents into /space/mike after migration
 # Handles conflicts by merging directories and renaming files if needed

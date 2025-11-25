@@ -527,3 +527,5 @@ chmod +x ~/monitor-nomachine-input.sh
 
 **End of Troubleshooting Guide**
 
+
+

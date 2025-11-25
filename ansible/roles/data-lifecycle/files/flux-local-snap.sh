@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # flux-local-snap.sh
 # Hourly local snapshots of /flux
 # Per DATA_LIFECYCLE_SPEC.md

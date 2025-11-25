@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # migrate-onedrive-phased.sh
 # Phased migration: count-zero local → /space, then merge cloud-only files
 # Ensures no conflicts with hoover/rclone processes
@@ -316,4 +318,6 @@ main() {
 
 # Run main function
 main "$@"
+
+
 

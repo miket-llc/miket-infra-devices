@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
 # flux-backup.sh
 # Encrypted, deduplicated backup of /flux to B2
 # Per DATA_LIFECYCLE_SPEC.md

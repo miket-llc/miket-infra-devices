@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # deploy-nomachine-stack.sh
 # Complete NoMachine deployment script for MikeT LLC infrastructure
 # Replaces VNC (Linux) and RDP (Windows) with unified NoMachine stack

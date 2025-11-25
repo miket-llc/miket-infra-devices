@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 """
 NoMachine connectivity smoke test.
 Tests that NoMachine servers are reachable and responsive on port 4000.

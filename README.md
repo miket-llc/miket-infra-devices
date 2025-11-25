@@ -1003,7 +1003,10 @@ Tests validate:
 2. Test changes on non-production devices first
 3. Document all changes in commit messages
 4. Update device-specific documentation when making changes
+5. **Copyright headers**: All code files must include copyright headers. See [Copyright Headers Guide](docs/guides/copyright-headers.md) for automation and best practices.
 
 ## License
 
-Private repository - All rights reserved
+Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+See [LICENSE](LICENSE) for full license text. All code files include copyright headers. Documentation files reference the LICENSE file.

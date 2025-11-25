@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Test RDP connectivity to Windows devices
 # This script tests if RDP is accessible on the configured port
 

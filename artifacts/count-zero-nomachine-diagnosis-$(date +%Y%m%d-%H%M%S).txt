@@ -1,0 +1,64 @@
+NoMachine UI Rendering Issue - count-zero Diagnosis
+Generated: $(date)
+From: motoko
+
+=== FINDINGS ===
+
+✅ NoMachine server is RUNNING
+   - Process: /etc/NX/nxserver --daemon (PID 552)
+   - Port 4000: LISTENING on both IPv4 and IPv6
+   - Network connectivity: ✅ Port 4000 reachable from motoko
+
+✅ Display server is RUNNING
+   - WindowServer process active (PID 413)
+   - User session active: miket logged in on console
+
+✅ User session exists
+   - Console session: miket (Nov 21 14:41)
+   - Active terminal sessions present
+
+❌ CRITICAL ISSUE: Screen Recording Permission
+   - TCC database query failed or permission not granted
+   - This is the MOST LIKELY cause of blank screen
+   - NoMachine cannot capture display without this permission
+
+⚠️  Server Configuration
+   - Config file: /etc/NX/server/localhost/server.cfg
+   - Missing settings: EnableConsoleSessionSharing, EnableSessionSharing, EnableNXDisplayOutput
+   - These settings need to be added (requires sudo)
+
+=== ROOT CAUSE ===
+
+The UI not rendering is almost certainly due to:
+1. Screen Recording permission not granted to NoMachine
+2. Missing console session sharing configuration
+
+=== REQUIRED FIXES ===
+
+1. GRANT SCREEN RECORDING PERMISSION (REQUIRES GUI ACCESS):
+   - Open System Preferences → Security & Privacy → Privacy
+   - Select "Screen Recording" from left sidebar
+   - Click "+" and add: /usr/NX/bin/nxserver
+   - OR add: /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver
+   - Check the box to enable
+   - Restart NoMachine server
+
+2. ADD SERVER CONFIGURATION (REQUIRES SUDO):
+   Add these lines to /etc/NX/server/localhost/server.cfg:
+   EnableNewSession 1
+   EnableConsoleSessionSharing 1
+   EnableSessionSharing 1
+   EnableNXDisplayOutput 1
+   
+   Then restart: sudo /etc/NX/nxserver --restart
+
+=== NEXT STEPS ===
+
+Since sudo access requires password and Screen Recording requires GUI:
+- These fixes must be done directly on count-zero with user access
+- Or use Ansible with proper credentials/vault
+
+The diagnostic script can be run to verify fixes:
+  ./scripts/diagnose-nomachine-macos-ui.sh
+
+

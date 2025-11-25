@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Enable Tailscale Exit Node and Test Cloudflare Access
 # This script waits for exit node approval and then tests the fix

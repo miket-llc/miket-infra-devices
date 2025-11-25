@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Monitor armitage connectivity and deploy Docker configuration when online
 # This script will retry until armitage is reachable, then deploy
 

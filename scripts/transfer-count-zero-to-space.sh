@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # transfer-count-zero-to-space.sh
 # Transfer all user data from count-zero to /space via SMB mount
 # Run this ON count-zero as miket user

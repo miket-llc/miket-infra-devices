@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Install PowerShell Core on Motoko (Linux)
 # Run from motoko with: ansible-playbook -i inventory/hosts.yml playbooks/motoko/install-powershell.yml --limit motoko --connection=local

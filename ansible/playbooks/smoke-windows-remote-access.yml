@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Smoke test for Windows remote-access readiness (mounts + scheduled tasks)
 # Usage: ansible-playbook -i inventory/hosts.yml playbooks/smoke-windows-remote-access.yml --limit wintermute

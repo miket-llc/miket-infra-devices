@@ -1,0 +1,16 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Pre-commit hooks configuration
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  - repo: local
+    hooks:
+      - id: copyright-header
+        name: Check copyright headers
+        entry: scripts/pre-commit-copyright-check.sh
+        language: system
+        types: [text]
+        pass_filenames: true
+        always_run: false
+
+

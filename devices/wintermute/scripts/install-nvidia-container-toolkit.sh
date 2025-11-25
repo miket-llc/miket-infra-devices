@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # NVIDIA Container Toolkit installation script for WSL2 Ubuntu 24.04
 # Run this inside WSL2 Ubuntu 24.04: wsl -d Ubuntu-24.04 < install-nvidia-container-toolkit.sh
 # Or copy into WSL2 and run: bash install-nvidia-container-toolkit.sh

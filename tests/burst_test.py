@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 """
 Burst load test for vLLM deployments.
 Tests concurrent request handling and queueing behavior.

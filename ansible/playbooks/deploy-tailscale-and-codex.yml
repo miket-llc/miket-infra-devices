@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Unified deployment playbook for Tailscale configuration and Codex CLI
 # 
@@ -58,4 +60,6 @@
           Codex CLI:
           - Run 'codex' to authenticate and start using
           - First run will prompt for authentication
+
+
 

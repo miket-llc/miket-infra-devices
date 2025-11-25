@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 
 # Fix Cloudflare Challenge by Overriding DNS for Cloudflare domains
 # This creates /etc/resolver entries to bypass router DNS filtering

@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 """Tailnet operations CLI.
 
 This module exposes a Typer-based command line interface for day-to-day

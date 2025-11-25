@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Ensure SSH Agent is Running and Key is Loaded
 # Starts ssh-agent if not running and adds the SSH key for Ansible connections
 # Key location: ~/.ssh/id_ed25519 (or id_rsa as fallback)

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # troubleshoot-wintermute.sh
 # Comprehensive connectivity troubleshooting script for wintermute
 # Tests Tailscale, DNS, ports, and Ansible connectivity

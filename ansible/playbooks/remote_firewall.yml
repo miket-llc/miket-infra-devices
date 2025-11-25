@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 ---
 # Playbook: remote_firewall.yml
 # Configures firewall rules for NoMachine remote desktop access (idempotent)

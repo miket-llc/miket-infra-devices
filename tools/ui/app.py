@@ -1,3 +1,5 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 """Textual application for monitoring the workstation tailnet."""
 from __future__ import annotations
 

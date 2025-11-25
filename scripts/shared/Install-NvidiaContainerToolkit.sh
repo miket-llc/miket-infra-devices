@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Shared NVIDIA Container Toolkit Installation Script
 # Works for any Linux/WSL2 system
 # Usage: Run from WSL2 Ubuntu or any Debian-based Linux distribution

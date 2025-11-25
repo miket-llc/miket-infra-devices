@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
 # Ansible Vault Helper Script
 # Provides convenient commands for managing Ansible Vault files
 
