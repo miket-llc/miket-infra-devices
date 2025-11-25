@@ -1,0 +1,94 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Configure Motoko for Headless Operation, Wake-on-LAN, and Display Configuration
+# Complete boot configuration for lid-closed operation with HDMI primary display
+# Usage: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/configure-headless-boot.yml --connection=local
+
+- name: Configure Motoko for Headless Boot Operation
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    lid_autologin_enabled: true  # Enable autologin for mdt user
+    lid_autologin_user: mdt  # User to autologin
+
+  tasks:
+    - name: Gather system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - 'all'
+
+    - name: Verify motoko is in wol_enabled group
+      ansible.builtin.assert:
+        that:
+          - "'motoko' in groups['wol_enabled']"
+        fail_msg: "motoko must be in wol_enabled group in inventory"
+        quiet: true
+
+    - name: Check for VNC services (should not be running)
+      ansible.builtin.shell: |
+        systemctl list-units --type=service --state=running | grep -E '(vnc|tigervnc|x11vnc)' || echo "OK: No VNC services running"
+      register: vnc_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display VNC check result
+      ansible.builtin.debug:
+        msg: "{{ vnc_check.stdout }}"
+
+    - name: Check for NoMachine service
+      ansible.builtin.shell: |
+        systemctl is-active nxserver 2>/dev/null && echo "NoMachine is running" || echo "NoMachine is not running (may need installation)"
+      register: nomachine_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display NoMachine status
+      ansible.builtin.debug:
+        msg: "{{ nomachine_check.stdout }}"
+
+    - name: Configure lid for headless operation
+      ansible.builtin.include_role:
+        name: lid_configuration
+
+    - name: Configure Wake-on-LAN
+      ansible.builtin.include_role:
+        name: wake_on_lan
+
+    # NOTE: Display configuration is handled by COSMIC desktop settings
+    # Pop!_OS with COSMIC uses Wayland, not Xorg - configure displays via Settings app
+    # Do NOT deploy Xorg configs as they interfere with cosmic-greeter
+
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ Motoko headless boot configuration complete"
+          - ""
+          - "Lid Configuration:"
+          - "  ✓ Lid switch actions disabled"
+          - "  ✓ Kernel parameter set (reboot required)"
+          - "  ✓ cosmic-greeter configured for lid-closed operation"
+          - ""
+          - "Wake-on-LAN Configuration:"
+          - "  ✓ WOL enabled via ethtool"
+          - "  ✓ NetworkManager WOL configured"
+          - "  ✓ Persistent WOL service enabled"
+          - ""
+          - "Display Configuration:"
+          - "  ⚠ Handled by COSMIC desktop settings (not Ansible)"
+          - "  ⚠ Pop!_OS uses Wayland via cosmic-greeter"
+          - "  ⚠ Configure display preferences in Settings > Displays"
+          - ""
+          - "Remote Desktop:"
+          - "  ✓ NoMachine is the sole remote desktop solution"
+          - "  ✓ VNC has been architecturally retired"
+          - ""
+          - "Next Steps:"
+          - "  1. Reboot motoko for lid/WOL changes to take effect"
+          - "  2. Test WOL: tools/cli/tailnet.py wake --host motoko"
+          - "  3. Verify lid-closed operation after reboot"
+          - "  4. Configure displays via COSMIC Settings app"
+          - "  5. Verify NoMachine connection works"
+

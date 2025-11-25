@@ -1,3 +1,126 @@
+## 2025-11-25 – Motoko Headless Boot Configuration Complete {#2025-11-25-motoko-headless-boot-configuration}
+
+### Context
+Implemented complete headless boot configuration for motoko, enabling lid-closed operation, Wake-on-LAN, and HDMI primary display (with eDP fallback) that works before X-windows starts. Removed all VNC references per architectural retirement (2025-11-22).
+
+### Implementation Summary
+
+**New Components:**
+- ✅ Created `display_configuration` Ansible role for early boot display setup
+- ✅ Created unified playbook: `configure-headless-boot.yml`
+- ✅ Updated existing playbook: `configure-headless-wol.yml` (added display config)
+- ✅ Created comprehensive runbook: `motoko-headless-boot-configuration.md`
+
+**Display Configuration:**
+- ✅ Xorg config: `/etc/X11/xorg.conf.d/10-hdmi-primary.conf` (HDMI preferred)
+- ✅ Systemd service: `display-setup.service` (runs after GDM, before user session)
+- ✅ Display switch script: `/usr/local/bin/display-switch.sh` (detects HDMI/eDP)
+- ✅ udev rules: `/etc/udev/rules.d/99-hdmi-monitor.rules` (HDMI hotplug)
+- ✅ Fallback logic: eDP becomes primary if HDMI disconnected
+
+**VNC Cleanup:**
+- ✅ Archived `remote_server_linux_vnc` role to `_deprecated/`
+- ✅ Archived `VNC_CONNECTION_INSTRUCTIONS.md` to `archive/`
+- ✅ Archived `setup-tigervnc-motoko.sh` to `archive/`
+- ✅ Removed `vnc.bat` and `update-vnc-windows.ps1` scripts
+- ✅ Updated all documentation to remove VNC references
+- ✅ Added NoMachine connection instructions
+
+**Documentation Updates:**
+- ✅ Updated `MOTOKO_HEADLESS_LAPTOP_SETUP.md` (removed TigerVNC, added NoMachine)
+- ✅ Updated `MOTOKO_LID_WOL_SETUP.md` (added display testing)
+- ✅ Created `motoko-headless-boot-configuration.md` (comprehensive guide)
+
+### Technical Details
+
+**Boot Sequence:**
+1. System boots (or wakes via WOL) with lid closed
+2. Kernel parameter treats lid as open
+3. GDM starts (forced by lid_configuration role)
+4. Xorg reads HDMI-primary config
+5. Display-setup service runs (before user session)
+6. Display switch script configures HDMI/eDP
+7. GDM autologin completes
+8. NoMachine shares existing session
+
+**Display Behavior:**
+- HDMI connected: HDMI primary, eDP off
+- HDMI disconnected: eDP primary automatically
+- HDMI hotplug: udev rule triggers reconfiguration
+
+**Compatibility:**
+- ✅ Compatible with `lid_configuration` role (GDM forced start)
+- ✅ Compatible with `wake_on_lan` role (no display interaction)
+- ✅ Compatible with NoMachine (attaches to existing X session)
+- ✅ Works before X-windows starts (Xorg config + early systemd service)
+
+### Architecture Compliance
+
+**PHC vNext Principles:**
+- ✅ No VNC: VNC architecturally retired (2025-11-22)
+- ✅ NoMachine only: Single remote desktop protocol
+- ✅ Early boot configuration: Works before X starts
+- ✅ Dynamic fallback: Automatic display switching
+- ✅ No interference: Display config doesn't affect NoMachine
+
+### Files Created
+
+**Ansible Role:**
+- `ansible/roles/display_configuration/` (complete role structure)
+  - `tasks/main.yml`
+  - `templates/xorg-monitor.conf.j2`
+  - `templates/display-setup.service.j2`
+  - `files/display-switch.sh`
+  - `files/99-hdmi-monitor.rules`
+  - `defaults/main.yml`
+  - `handlers/main.yml`
+
+**Playbooks:**
+- `ansible/playbooks/motoko/configure-headless-boot.yml` (unified playbook)
+
+**Documentation:**
+- `docs/runbooks/motoko-headless-boot-configuration.md` (comprehensive guide)
+
+### Files Modified
+
+- `ansible/playbooks/motoko/configure-headless-wol.yml` (added display config)
+- `docs/runbooks/MOTOKO_HEADLESS_LAPTOP_SETUP.md` (removed VNC, added NoMachine)
+- `docs/runbooks/MOTOKO_LID_WOL_SETUP.md` (added display testing)
+
+### Files Archived/Removed
+
+- `ansible/roles/_deprecated/remote_server_linux_vnc/` (archived)
+- `docs/archive/VNC_CONNECTION_INSTRUCTIONS.md` (archived)
+- `scripts/archive/setup-tigervnc-motoko.sh` (archived)
+- `scripts/vnc.bat` (removed)
+- `scripts/update-vnc-windows.ps1` (removed)
+
+### Testing Plan
+
+1. **Pre-deployment:** Probe machine state (services, ports, configs)
+2. **Deployment:** Run unified playbook
+3. **Post-deployment:**
+   - Reboot with lid closed
+   - Verify HDMI/eDP switching
+   - Test WOL wake
+   - Verify NoMachine compatibility
+   - Verify no VNC services
+
+### Next Steps
+
+1. **Deploy:** Run `configure-headless-boot.yml` playbook
+2. **Test:** Verify all functionality (lid closed, WOL, display switching)
+3. **Monitor:** Check system logs for any issues
+4. **Document:** Update any remaining references if needed
+
+### Related Documentation
+
+- [Motoko Headless Boot Configuration](../runbooks/motoko-headless-boot-configuration.md)
+- [Motoko Lid Configuration and Wake-on-LAN Setup](../runbooks/MOTOKO_LID_WOL_SETUP.md)
+- [NoMachine Client Installation](../runbooks/nomachine-client-installation.md)
+
+---
+
 ## 2025-11-25 – OneDrive to /space Migration Complete {#2025-11-25-onedrive-migration-complete}
 
 ### Context

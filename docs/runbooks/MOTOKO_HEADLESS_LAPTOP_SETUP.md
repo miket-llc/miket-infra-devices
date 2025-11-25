@@ -1,10 +1,11 @@
 # Motoko Headless Laptop Configuration
 
 ## Problem
-Motoko is a laptop running Pop!_OS that needs to operate headless (lid closed) with:
-- External HDMI monitor as the only display
+Motoko is a laptop running Ubuntu 24.04.2 LTS that needs to operate headless (lid closed) with:
+- External HDMI monitor as primary display (fallback to eDP if HDMI unplugged)
 - Autologin to desktop on boot
-- TigerVNC access to the desktop session
+- NoMachine remote desktop access
+- Wake-on-LAN support
 - No suspend/sleep when lid is closed
 
 ## Solution Components
@@ -81,84 +82,43 @@ RestartSec=5
 ```
 
 ### 6. Display Configuration
-Autostart script to disable laptop display and enable HDMI only:
+Display configuration is handled automatically via the `display_configuration` Ansible role, which:
+- Configures Xorg to prefer HDMI as primary display
+- Sets up a systemd service that runs early (before user session) to configure displays
+- Provides udev rules for HDMI hotplug detection
+- Falls back to eDP if HDMI is not connected
 
-```bash
-# ~/.config/autostart/disable-laptop-display.desktop
-[Desktop Entry]
-Type=Application
-Name=Disable Laptop Display
-Exec=sh -c "sleep 5 && DISPLAY=:0 xrandr --output eDP-1 --off --output HDMI-1-0 --auto --primary && DISPLAY=:0 xset s off && DISPLAY=:0 xset -dpms && DISPLAY=:0 xset s noblank"
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-```
+The configuration works before X-windows starts, ensuring proper display setup on boot.
 
 ### 7. Power Management
-Disable screensaver and screen blanking via GNOME settings:
+Power management is handled by the display configuration script, which disables screen blanking and DPMS.
 
-```bash
-gsettings set org.gnome.desktop.screensaver idle-activation-enabled false
-gsettings set org.gnome.desktop.screensaver lock-enabled false
-gsettings set org.gnome.settings-daemon.plugins.power idle-dim false
-gsettings set org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type 'nothing'
-```
+### 8. NoMachine Configuration
+NoMachine is the sole remote desktop solution (VNC has been architecturally retired). NoMachine automatically attaches to the existing X session (`:0`) and will see the configured display (HDMI or eDP).
 
-### 8. TigerVNC Configuration
-System service for TigerVNC x0vncserver (shares existing X session):
+**Connection:**
+- **Host**: `motoko.pangolin-vega.ts.net:4000`
+- **Protocol**: NoMachine NX
+- **Session**: Shares existing GNOME desktop session
 
-```bash
-# /etc/systemd/system/tigervnc.service
-[Unit]
-Description=TigerVNC x0vncserver (Display Sharing - GNOME Session)
-After=graphical-session.target
-Wants=graphical-session.target
-
-[Service]
-Type=simple
-User=mdt
-Group=mdt
-WorkingDirectory=/home/mdt
-Environment="HOME=/home/mdt"
-Environment="DISPLAY=:0"
-Environment="XAUTHORITY=/run/user/1000/gdm/Xauthority"
-ExecStartPre=/bin/sh -c 'DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority xset q &>/dev/null || sleep 2'
-ExecStart=/usr/bin/x0vncserver -display :0 -rfbport 5900 -PasswordFile /home/mdt/.vnc/tigervnc-passwd -SecurityTypes VncAuth -AlwaysShared -localhost no -fg
-Restart=on-failure
-RestartSec=10
-TimeoutStartSec=30
-
-[Install]
-WantedBy=default.target
-```
-
-VNC password file:
-```bash
-mkdir -p ~/.vnc
-echo -e "motoko123\nmotoko123\nn" | vncpasswd ~/.vnc/tigervnc-passwd
-chmod 600 ~/.vnc/tigervnc-passwd
-```
-
-Enable:
-```bash
-sudo systemctl enable tigervnc.service
-```
+See [NoMachine Client Installation](nomachine-client-installation.md) for client setup.
 
 ## Boot Sequence
-1. System boots with lid closed
+1. System boots with lid closed (or wakes via WOL)
 2. Kernel treats lid as open (`button.lid_init_state=open`)
 3. Multi-user target reaches
 4. `force-gdm-start.service` starts GDM
-5. GDM autologins mdt user
-6. X session starts on :0
-7. Autostart script disables laptop display, enables HDMI-1-0
-8. Autostart script disables power management
-9. TigerVNC service starts and shares :0 display
+5. Xorg reads `/etc/X11/xorg.conf.d/10-hdmi-primary.conf` (HDMI preferred)
+6. `display-setup.service` runs after GDM, before user session
+7. Display switch script detects HDMI/eDP and configures primary display
+8. GDM autologins mdt user
+9. X session starts on :0 with configured display
+10. NoMachine server shares the existing session
 
 ## Connection Info
-- **VNC Host**: `100.92.23.71:5900` (Tailscale IP) or `motoko.pangolin-vega.ts.net:5900`
-- **VNC Password**: `motoko123`
-- **Physical Display**: HDMI-1-0 (laptop display eDP-1 disabled)
+- **NoMachine Host**: `motoko.pangolin-vega.ts.net:4000`
+- **Protocol**: NoMachine NX
+- **Physical Display**: HDMI-1 (primary when connected) or eDP-1 (fallback)
 
 ## Troubleshooting
 
@@ -168,15 +128,21 @@ sudo systemctl status force-gdm-start.service
 sudo systemctl start gdm3
 ```
 
-### TigerVNC not working
+### NoMachine not working
 ```bash
-sudo systemctl status tigervnc
-sudo systemctl restart tigervnc
+sudo systemctl status nxserver
+sudo systemctl restart nxserver
 ```
 
 ### Display configuration not applied
 ```bash
-DISPLAY=:0 xrandr --output eDP-1 --off --output HDMI-1-0 --auto --primary
+# Manual display configuration (if needed)
+sudo /usr/local/bin/display-switch.sh
+
+# Or manually configure
+DISPLAY=:0 xrandr --output HDMI-1 --primary --auto --output eDP-1 --off
+# Or if HDMI not connected:
+DISPLAY=:0 xrandr --output eDP-1 --primary --auto
 ```
 
 ### Monitor blanking

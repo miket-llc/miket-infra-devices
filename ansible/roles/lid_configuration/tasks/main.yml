@@ -8,7 +8,7 @@
 - name: Check if running on Pop!_OS or Ubuntu
   ansible.builtin.assert:
     that:
-      - ansible_distribution in ['Ubuntu', 'Pop']
+      - ansible_distribution in ['Ubuntu', 'Pop!_OS']
     fail_msg: "This role is designed for Pop!_OS/Ubuntu systems"
     quiet: true
 
@@ -102,7 +102,7 @@
   loop:
     - { key: "WaylandEnable", value: "false" }
     - { key: "AutomaticLoginEnable", value: "true" }
-    - { key: "AutomaticLogin", value: "{{ ansible_user_id }}" }
+    - { key: "AutomaticLogin", value: "{{ lid_autologin_user | default('mdt') }}" }
   when: lid_autologin_enabled | default(false)
   notify: restart gdm
 

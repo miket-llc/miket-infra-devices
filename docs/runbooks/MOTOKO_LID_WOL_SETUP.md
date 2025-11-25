@@ -82,8 +82,15 @@ poetry run python tools/cli/tailnet.py wake --host motoko
 ### Test Lid-Closed Operation
 1. Close laptop lid
 2. Verify system continues operating
-3. Check external display is primary
-4. Verify NoMachine/Tailscale SSH still works
+3. Check external display is primary (HDMI if connected, eDP if not)
+4. Verify NoMachine remote desktop still works
+5. Verify Tailscale SSH still works
+
+### Test Display Configuration
+1. With HDMI connected: Verify HDMI is primary display
+2. Unplug HDMI: Verify eDP becomes primary automatically
+3. Plug HDMI back in: Verify HDMI becomes primary again
+4. Connect via NoMachine: Verify you see the configured display
 
 ## Troubleshooting
 

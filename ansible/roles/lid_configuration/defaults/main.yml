@@ -6,4 +6,7 @@
 # Enable GDM autologin (set to false to disable)
 lid_autologin_enabled: false
 
+# User for autologin (defaults to mdt)
+lid_autologin_user: mdt
+
 

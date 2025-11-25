@@ -27,6 +27,9 @@
       ansible.builtin.include_role:
         name: wake_on_lan
 
+    # NOTE: Display configuration is handled by COSMIC desktop settings
+    # Pop!_OS with COSMIC uses Wayland - configure displays via Settings app
+
     - name: Verify motoko is in wol_enabled group
       ansible.builtin.assert:
         that:
@@ -42,18 +45,21 @@
           - "Lid Configuration:"
           - "  ✓ Lid switch actions disabled"
           - "  ✓ Kernel parameter set (reboot required)"
-          - "  ✓ GDM configured for lid-closed operation"
+          - "  ✓ cosmic-greeter configured for lid-closed operation"
           - ""
           - "Wake-on-LAN Configuration:"
           - "  ✓ WOL enabled via ethtool"
           - "  ✓ NetworkManager WOL configured"
           - "  ✓ Persistent WOL service enabled"
           - ""
+          - "Display Configuration:"
+          - "  ⚠ Handled by COSMIC desktop settings (not Ansible)"
+          - "  ⚠ Configure display preferences in Settings > Displays"
+          - ""
           - "Next Steps:"
           - "  1. Reboot motoko for kernel parameter to take effect"
           - "  2. Test WOL: tools/cli/tailnet.py wake --host motoko"
           - "  3. Verify lid-closed operation after reboot"
-          - ""
-          - "Note: Check miket-infra repo for Tailscale ACL updates if needed"
+          - "  4. Configure displays via COSMIC Settings app"
 
 
