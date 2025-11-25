@@ -194,17 +194,30 @@ This checks:
 
 **Important:** Tailscale ACLs are defined in `miket-infra`, not this repo.
 
-Verify ACLs are up to date:
+**Status:** ✅ miket-infra team has completed ACL review (2025-01-27)
+- Code review complete - All changes approved
+- Deployment pending Azure CLI authentication
+- See: `docs/communications/COMMUNICATION_LOG.md#2025-01-27-miket-infra-acl-review`
+
+**After ACL Deployment:**
+
+Verify ACLs are deployed:
 
 ```bash
 cd ~/miket-infra/infra/tailscale/entra-prod
-terraform plan
+terraform plan  # Should show no changes if deployed
 ```
 
 Ensure motoko has:
 - Tags: `tag:server`, `tag:linux`, `tag:ansible`
 - Exit node capability (if needed)
 - Proper ACL rules for access
+
+**ACL Changes Include:**
+- Exit node rules for motoko
+- Route advertisement rules (192.168.1.0/24)
+- SSH, WinRM, and NoMachine access rules
+- MagicDNS configuration
 
 ### 6. Reboot and Verify
 

@@ -28,7 +28,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 ## Agent Status
 | Persona | Current Status | Latest Output / Deliverable | Next Action | Check-in Date |
 |---------|----------------|-----------------------------|-------------|---------------|
-| **Codex-CA-001** (Chief Architect) | 🚧 Active | Deterministic reconciliation plan with manifest-driven winner selection and conflict quarantine | Execute reconciliation with `--checksum`, review merge-plan + conflicts before promotion | 2025-11-25 |
+| **Codex-CA-001** (Chief Architect) | ✅ Complete | OneDrive to /space migration complete (232GB), m365-publish disabled per PHC invariants | Monitor B2 backup, archive OneDrive after 90 days | 2025-11-25 |
 | **Codex-PM-011** (Product Manager) | 🚧 Active | Wave 2 coordination requests created, version incremented to v1.8.0 | Review Wave 2 completion, update roadmap for Wave 3 | 2025-11-24 |
 | **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
 | **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
@@ -99,6 +99,8 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || NoMachine keystroke diagnostic script | Codex-CA-001 | 2025-11-24 | [diagnose-nomachine-keystrokes.sh](../../scripts/diagnose-nomachine-keystrokes.sh), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-24-nomachine-keystroke-investigation) |
 || Warp Terminal Ansible role and deployment | Codex-PD-002 | 2025-11-25 | [warp_terminal role](../../ansible/roles/warp_terminal/), [deploy-warp-terminal.yml](../../ansible/playbooks/deploy-warp-terminal.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-warp-terminal-deployment) |
 || Warp Terminal installed on motoko | Codex-PD-002 | 2025-11-25 | v0.2025.11.19.08.12.stable.03, `/usr/bin/warp-terminal` |
+|| OneDrive to /space migration complete | Codex-CA-001 | 2025-11-25 | [Migration Complete](../initiatives/onedrive-to-space-migration/MIGRATION_COMPLETE.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-onedrive-migration-complete) |
+|| m365-publish.timer disabled (PHC compliance) | Codex-CA-001 | 2025-11-25 | Eliminated circular sync loop, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-onedrive-migration-complete) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

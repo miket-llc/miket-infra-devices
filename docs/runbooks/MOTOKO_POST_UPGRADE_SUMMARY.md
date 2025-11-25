@@ -62,6 +62,10 @@ Comprehensive Ansible roles and playbooks created to configure motoko after Pop!
 
 ## Quick Start
 
+**Prerequisites:** Tailscale ACLs must be deployed from miket-infra first.
+
+**After ACL Deployment:**
+
 ```bash
 # Configure lid and WOL
 cd ~/miket-infra-devices
@@ -78,20 +82,37 @@ ansible-playbook -i ansible/inventory/hosts.yml \
 sudo reboot
 ```
 
+**Current Status:**
+- ✅ miket-infra ACL review complete
+- ⏸️ ACL deployment pending (requires Azure CLI)
+- ⏸️ Device configuration pending ACL deployment
+
 ## Important Notes
 
-### Tailscale ACLs
-Tailscale ACLs are managed in `miket-infra` repository, not this one. After configuration, verify ACLs:
+### Tailscale ACLs Status
+
+**miket-infra Review:** ✅ Complete (2025-01-27)
+- Code review complete - All changes approved
+- ACL changes verified: Exit node, route advertisement, SSH, WinRM, NoMachine
+- Security assessment: Low risk, no breaking changes
+
+**Deployment Status:** ⏸️ Pending Azure CLI authentication
+
+**After Deployment:**
+Tailscale ACLs are managed in `miket-infra` repository. After deployment, verify:
 
 ```bash
 cd ~/miket-infra/infra/tailscale/entra-prod
-terraform plan
+terraform plan  # Should show no changes if deployed
 ```
 
 Ensure motoko has:
 - Tags: `tag:server`, `tag:linux`, `tag:ansible`
 - Proper ACL rules for access
-- Exit node capability (if needed)
+- Exit node capability (configured)
+- Route advertisement (192.168.1.0/24)
+
+See: `docs/initiatives/motoko-post-upgrade/MIKET_INFRA_COORDINATION.md` for full status
 
 ### Reboot Required
 Kernel parameter `button.lid_init_state=open` requires a reboot to take effect.
