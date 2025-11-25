@@ -64,3 +64,5 @@
           - mount_shares roles (SMB credentials)
           - Ansible inventory (WinRM password lookup)
 
+
+

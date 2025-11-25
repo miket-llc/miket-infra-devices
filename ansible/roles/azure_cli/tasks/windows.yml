@@ -66,3 +66,5 @@
       - "Key Vault: {{ azure_keyvault_name }}"
       - "Note: Run 'az login' to authenticate before accessing Key Vault"
 
+
+
