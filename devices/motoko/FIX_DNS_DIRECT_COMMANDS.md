@@ -195,3 +195,4 @@ ping -c 1 motoko.pangolin-vega.ts.net && echo "✓ MagicDNS works" || echo "Magi
 '
 ```
 
+

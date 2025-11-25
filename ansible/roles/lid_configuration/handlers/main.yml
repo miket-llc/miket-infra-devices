@@ -1,0 +1,24 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for lid configuration role
+
+- name: restart systemd-logind
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: restarted
+
+- name: reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: update grub
+  ansible.builtin.shell: update-grub
+  when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Pop'
+
+- name: restart gdm
+  ansible.builtin.systemd:
+    name: gdm3
+    state: restarted
+
+

@@ -169,3 +169,4 @@ Run this comprehensive search:
 sudo grep -r "restore-popos-desktop\|ansible.*restore" /etc/systemd/ /home/mdt/.config/systemd/ /home/mdt/.config/autostart/ 2>/dev/null
 ```
 
+

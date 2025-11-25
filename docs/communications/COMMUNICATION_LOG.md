@@ -49,6 +49,66 @@ ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml
 
 ---
 
+## 2025-11-25 – NoMachine count-zero Config Fix (SIP Workaround) {#2025-11-25-nomachine-count-zero-fix}
+
+### Context
+NoMachine on count-zero (macOS) was running but UI rendering failed. Investigation revealed missing config settings. macOS System Integrity Protection (SIP) blocked writes to `/Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg`.
+
+### Root Cause
+Config settings required for session sharing were missing:
+- `EnableConsoleSessionSharing`
+- `EnableSessionSharing`
+- `EnableNXDisplayOutput`
+- `EnableNewSession`
+- `DefaultSessionType`
+
+SIP prevented modification of files inside the app bundle, even with admin privileges.
+
+### Solution
+Discovered NoMachine uses `/etc/NX/server/localhost/server.cfg` as an override config location (outside SIP protection). Added settings there:
+
+```
+EnableConsoleSessionSharing 1
+EnableSessionSharing 1
+EnableNXDisplayOutput 1
+EnableNewSession 1
+DefaultSessionType physical-desktop
+```
+
+### Actions Taken
+- ✅ **Identified SIP-safe config path:** `/etc/NX/server/localhost/server.cfg`
+- ✅ **Added session sharing settings** via osascript with admin privileges
+- ✅ **Restarted NoMachine server** to apply changes
+- ✅ **Verified connectivity:** Port 4000 listening, server running
+- ✅ **User confirmed:** Connection from remote client successful, UI renders correctly
+- ✅ **Updated Ansible role:** `remote_server_macos_nomachine` now uses override config path
+
+### Ansible Role Updates
+Updated `ansible/roles/remote_server_macos_nomachine/tasks/main.yml`:
+- Changed to use `/etc/NX/server/localhost/server.cfg` (SIP-safe) instead of app bundle config
+- Added `EnableNewSession` and `DefaultSessionType` settings
+- Fixed config setting format (space-separated, not `=`)
+- Updated restart condition to include new settings
+
+### motoko Status
+- NoMachine was removed during Pop!_OS upgrade (dpkg shows `rc` status)
+- Reinstallation blocked: `download.nomachine.com` unreachable from both count-zero and motoko
+- Updated `host_vars/motoko.yml` to use NoMachine instead of VNC (for when download becomes available)
+
+### Outcomes
+- ✅ **count-zero:** NoMachine fully operational, UI rendering fixed
+- ⏸️ **motoko:** Pending NoMachine download server availability
+- ✅ **Ansible role:** Updated for SIP compatibility on macOS
+
+### Files Modified
+- `ansible/host_vars/motoko.yml` - Changed from VNC to NoMachine config
+- `ansible/roles/remote_server_macos_nomachine/tasks/main.yml` - SIP workaround for config path
+
+### Sign-Off
+**Codex-CA-001 (Chief Architect):** ✅ **COUNT-ZERO NOMACHINE FIX COMPLETE**
+**Date:** November 25, 2025
+**Status:** count-zero operational; motoko pending download availability---
+
 ## 2025-11-24 – Canonical duplicate guardrails for reconciliation {#2025-11-24-duplicate-guardrails}
 
 ### Context

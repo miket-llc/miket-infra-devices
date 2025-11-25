@@ -83,3 +83,4 @@ echo "2. If configuration wasn't applied automatically, run the manual command s
 echo "3. Test connection from remote client"
 echo "4. Try both 'Console Session' and 'New Session' options"
 
+

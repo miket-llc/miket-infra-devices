@@ -157,3 +157,4 @@
     var: validation_result.stdout_lines
   when: not (onedrive_migration_dry_run | default(false) | bool)
 
+

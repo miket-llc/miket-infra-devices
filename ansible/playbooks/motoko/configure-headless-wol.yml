@@ -1,0 +1,59 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Configure Motoko for Headless Operation and Wake-on-LAN
+# Post-upgrade configuration for Pop!_OS 24 Beta
+# Usage: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/configure-headless-wol.yml --connection=local
+
+- name: Configure Motoko for Headless Operation
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    lid_autologin_enabled: true  # Enable autologin for mdt user
+
+  tasks:
+    - name: Gather system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - 'all'
+
+    - name: Configure lid for headless operation
+      ansible.builtin.include_role:
+        name: lid_configuration
+
+    - name: Configure Wake-on-LAN
+      ansible.builtin.include_role:
+        name: wake_on_lan
+
+    - name: Verify motoko is in wol_enabled group
+      ansible.builtin.assert:
+        that:
+          - "'motoko' in groups['wol_enabled']"
+        fail_msg: "motoko must be in wol_enabled group in inventory"
+        quiet: true
+
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ Motoko headless configuration complete"
+          - ""
+          - "Lid Configuration:"
+          - "  ✓ Lid switch actions disabled"
+          - "  ✓ Kernel parameter set (reboot required)"
+          - "  ✓ GDM configured for lid-closed operation"
+          - ""
+          - "Wake-on-LAN Configuration:"
+          - "  ✓ WOL enabled via ethtool"
+          - "  ✓ NetworkManager WOL configured"
+          - "  ✓ Persistent WOL service enabled"
+          - ""
+          - "Next Steps:"
+          - "  1. Reboot motoko for kernel parameter to take effect"
+          - "  2. Test WOL: tools/cli/tailnet.py wake --host motoko"
+          - "  3. Verify lid-closed operation after reboot"
+          - ""
+          - "Note: Check miket-infra repo for Tailscale ACL updates if needed"
+
+

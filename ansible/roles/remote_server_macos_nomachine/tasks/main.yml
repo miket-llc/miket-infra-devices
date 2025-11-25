@@ -39,55 +39,95 @@
   become: true
   failed_when: false
 
-- name: Find NoMachine server config
+# Note: On macOS, SIP (System Integrity Protection) blocks writes to
+# /Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg
+# Use the override config at /etc/NX/server/localhost/server.cfg instead
+
+- name: Find NoMachine override config (SIP-safe location)
+  ansible.builtin.stat:
+    path: /etc/NX/server/localhost/server.cfg
+  register: nx_cfg_override
+
+- name: Fall back to app bundle config if override doesn't exist
   ansible.builtin.stat:
     path: /Applications/NoMachine.app/Contents/Frameworks/etc/server.cfg
-  register: nx_cfg_path
+  register: nx_cfg_bundle
+  when: not nx_cfg_override.stat.exists
+
+- name: Set config path (prefer override location)
+  ansible.builtin.set_fact:
+    nx_config_path: "{{ nx_cfg_override.stat.path if nx_cfg_override.stat.exists else (nx_cfg_bundle.stat.path if nx_cfg_bundle.stat.exists else '') }}"
 
 - name: Configure NoMachine to accept connections from Tailscale subnet only
   ansible.builtin.lineinfile:
-    path: "{{ nx_cfg_path.stat.path }}"
+    path: "{{ nx_config_path }}"
     regexp: '^AcceptFrom'
     line: 'AcceptFrom 100.64.0.0/10'
     backup: yes
   become: true
-  when: nx_cfg_path.stat.exists
+  when: nx_config_path != ''
   register: nx_config_updated
 
 - name: Enable console session sharing for macOS (required for UI rendering)
   ansible.builtin.lineinfile:
-    path: "{{ nx_cfg_path.stat.path }}"
-    regexp: '^#?EnableConsoleSessionSharing='
-    line: 'EnableConsoleSessionSharing=1'
+    path: "{{ nx_config_path }}"
+    regexp: '^#?EnableConsoleSessionSharing'
+    line: 'EnableConsoleSessionSharing 1'
     backup: yes
   become: true
-  when: nx_cfg_path.stat.exists
+  when: nx_config_path != ''
   register: nx_console_config_updated
 
 - name: Enable session sharing for macOS
   ansible.builtin.lineinfile:
-    path: "{{ nx_cfg_path.stat.path }}"
-    regexp: '^#?EnableSessionSharing='
-    line: 'EnableSessionSharing=1'
+    path: "{{ nx_config_path }}"
+    regexp: '^#?EnableSessionSharing'
+    line: 'EnableSessionSharing 1'
     backup: yes
   become: true
-  when: nx_cfg_path.stat.exists
+  when: nx_config_path != ''
   register: nx_session_config_updated
 
 - name: Enable NX display output for macOS
   ansible.builtin.lineinfile:
-    path: "{{ nx_cfg_path.stat.path }}"
-    regexp: '^#?EnableNXDisplayOutput='
-    line: 'EnableNXDisplayOutput=1'
+    path: "{{ nx_config_path }}"
+    regexp: '^#?EnableNXDisplayOutput'
+    line: 'EnableNXDisplayOutput 1'
     backup: yes
   become: true
-  when: nx_cfg_path.stat.exists
+  when: nx_config_path != ''
   register: nx_display_config_updated
+
+- name: Enable new session creation for macOS
+  ansible.builtin.lineinfile:
+    path: "{{ nx_config_path }}"
+    regexp: '^#?EnableNewSession'
+    line: 'EnableNewSession 1'
+    backup: yes
+  become: true
+  when: nx_config_path != ''
+  register: nx_newsession_config_updated
+
+- name: Set default session type to physical desktop
+  ansible.builtin.lineinfile:
+    path: "{{ nx_config_path }}"
+    regexp: '^#?DefaultSessionType'
+    line: 'DefaultSessionType physical-desktop'
+    backup: yes
+  become: true
+  when: nx_config_path != ''
+  register: nx_sessiontype_config_updated
 
 - name: Restart NoMachine server if configuration changed
   ansible.builtin.command: /Applications/NoMachine.app/Contents/Frameworks/bin/nxserver --restart
   become: true
-  when: nx_config_updated.changed or nx_console_config_updated.changed or nx_session_config_updated.changed or nx_display_config_updated.changed
+  when: >
+    (nx_config_updated.changed | default(false)) or
+    (nx_console_config_updated.changed | default(false)) or
+    (nx_session_config_updated.changed | default(false)) or
+    (nx_display_config_updated.changed | default(false)) or
+    (nx_newsession_config_updated.changed | default(false)) or
+    (nx_sessiontype_config_updated.changed | default(false))
   failed_when: false
 
 - name: Display connection information

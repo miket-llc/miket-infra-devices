@@ -1,0 +1,10 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for wake-on-lan role
+
+- name: reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+

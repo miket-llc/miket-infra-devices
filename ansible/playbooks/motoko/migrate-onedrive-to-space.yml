@@ -50,3 +50,4 @@
           - "3. Test Samba access: smbclient //motoko/space"
           - "4. Verify B2 backup includes migrated content"
 
+

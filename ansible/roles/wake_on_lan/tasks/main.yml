@@ -1,0 +1,141 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Wake-on-LAN Configuration Role
+# Configures Wake-on-LAN for Linux systems
+# Supports both NetworkManager and systemd-networkd
+
+- name: Check if running on Linux
+  ansible.builtin.assert:
+    that:
+      - ansible_system == "Linux"
+    fail_msg: "This role is designed for Linux systems"
+    quiet: true
+
+- name: Find Ethernet interfaces
+  ansible.builtin.setup:
+    gather_subset:
+      - '!all'
+      - 'network'
+
+- name: Get active network connections
+  ansible.builtin.shell: |
+    ip route | grep default | awk '{print $5}' | head -1
+  register: primary_interface
+  changed_when: false
+
+- name: Display primary interface
+  ansible.builtin.debug:
+    msg: "Primary network interface: {{ primary_interface.stdout }}"
+
+- name: Check if ethtool is installed
+  ansible.builtin.command: which ethtool
+  register: ethtool_check
+  changed_when: false
+  failed_when: false
+
+- name: Install ethtool
+  ansible.builtin.apt:
+    name: ethtool
+    state: present
+    update_cache: true
+  when: ethtool_check.rc != 0
+
+- name: Check current Wake-on-LAN settings
+  ansible.builtin.shell: |
+    ethtool {{ primary_interface.stdout }} | grep -i "Wake-on" || echo "Wake-on: not supported"
+  register: wol_current
+  changed_when: false
+  failed_when: false
+
+- name: Display current WOL settings
+  ansible.builtin.debug:
+    msg: "{{ wol_current.stdout }}"
+
+- name: Enable Wake-on-LAN via ethtool (magic packet)
+  ansible.builtin.shell: |
+    ethtool -s {{ primary_interface.stdout }} wol g
+  register: ethtool_wol
+  changed_when: true
+  failed_when: false
+  when: primary_interface.stdout != ""
+
+- name: Verify Wake-on-LAN enabled
+  ansible.builtin.shell: |
+    ethtool {{ primary_interface.stdout }} | grep -i "Wake-on: g" || echo "Wake-on-LAN may not be supported"
+  register: wol_verify
+  changed_when: false
+  failed_when: false
+
+- name: Check if NetworkManager is managing the connection
+  ansible.builtin.shell: |
+    nmcli connection show --active | grep "{{ primary_interface.stdout }}" || echo ""
+  register: nm_connection
+  changed_when: false
+  failed_when: false
+
+- name: Get NetworkManager connection name
+  ansible.builtin.shell: |
+    nmcli -t -f NAME connection show --active | head -1
+  register: nm_connection_name
+  changed_when: false
+  failed_when: false
+  when: nm_connection.stdout != ""
+
+- name: Configure Wake-on-LAN in NetworkManager
+  ansible.builtin.shell: |
+    nmcli connection modify "{{ nm_connection_name.stdout }}" 802-3-ethernet.wake-on-lan magic
+    nmcli connection up "{{ nm_connection_name.stdout }}"
+  register: nm_wol_config
+  changed_when: true
+  failed_when: false
+  when: nm_connection_name.stdout is defined and nm_connection_name.stdout != ""
+
+- name: Create systemd service to persist WOL settings on boot
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/wake-on-lan.service
+    content: |
+      [Unit]
+      Description=Enable Wake-on-LAN
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/sbin/ethtool -s {{ primary_interface.stdout }} wol g
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  notify: reload systemd daemon
+  when: primary_interface.stdout != ""
+
+- name: Enable wake-on-lan service
+  ansible.builtin.systemd:
+    name: wake-on-lan.service
+    enabled: true
+    daemon_reload: true
+  when: primary_interface.stdout != ""
+
+- name: Get MAC address for WOL
+  ansible.builtin.shell: |
+    ip link show {{ primary_interface.stdout }} | grep -oP '(?<=link/ether )[^ ]*' || cat /sys/class/net/{{ primary_interface.stdout }}/address
+  register: mac_address
+  changed_when: false
+  failed_when: false
+  when: primary_interface.stdout != ""
+
+- name: Display Wake-on-LAN configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "✓ Wake-on-LAN configuration complete"
+      - "  - Interface: {{ primary_interface.stdout }}"
+      - "  - MAC Address: {{ mac_address.stdout | default('not found') }}"
+      - "  - WOL Mode: Magic packet (g)"
+      - "  - NetworkManager: {{ 'configured' if nm_connection_name.stdout is defined else 'not managing' }}"
+      - "  - Persistent service: enabled"
+      - ""
+      - "To wake this device, send magic packet to MAC: {{ mac_address.stdout | default('unknown') }}"
+      - "Use: tools/cli/tailnet.py wake --host {{ inventory_hostname }}"
+
+

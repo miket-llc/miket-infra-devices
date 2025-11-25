@@ -86,3 +86,4 @@ echo "1. Verify Screen Recording permission in System Preferences > Security & P
 echo "2. Test connection from remote client"
 echo "3. Try both 'Console Session' and 'New Session' options"
 
+

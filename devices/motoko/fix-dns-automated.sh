@@ -125,3 +125,4 @@ resolvectl status 2>/dev/null | head -20 || nmcli dev show | grep DNS || cat /et
 echo ""
 echo "=== Done ==="
 
+

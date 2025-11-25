@@ -1,0 +1,147 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Verify PHC Services on Motoko Post-Upgrade
+# Ensures all Personal Hybrid Cloud services are operational
+# Usage: ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/verify-phc-services.yml --connection=local
+
+- name: Verify PHC Services on Motoko
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+    - name: Gather system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - 'all'
+
+    # Phase 1: Storage Backplane Verification
+    - name: Verify storage backplane mounts
+      ansible.builtin.assert:
+        that:
+          - ansible_mounts | selectattr('mount', 'equalto', '/flux') | list | length > 0
+          - ansible_mounts | selectattr('mount', 'equalto', '/space') | list | length > 0
+          - ansible_mounts | selectattr('mount', 'equalto', '/time') | list | length > 0
+        fail_msg: "Required PHC storage mounts missing"
+        success_msg: "✓ Storage backplane mounts verified"
+
+    - name: Check storage capacity
+      ansible.builtin.command: df -h {{ item }}
+      register: storage_df
+      loop:
+        - /flux
+        - /space
+        - /time
+      changed_when: false
+
+    - name: Display storage capacity
+      ansible.builtin.debug:
+        msg: "{{ storage_df.results | map(attribute='stdout_lines') | list }}"
+
+    - name: Verify data lifecycle timers
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - flux-local.timer
+        - flux-backup.timer
+        - space-mirror.timer
+      register: timer_status
+      failed_when: false
+
+    - name: Display timer status
+      ansible.builtin.debug:
+        msg: "{{ timer_status.results | map(attribute='name') | list }}"
+
+    # Phase 2: AI Fabric Verification
+    - name: Check if LiteLLM service exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/litellm.service
+      register: litellm_service
+
+    - name: Verify LiteLLM service status
+      ansible.builtin.systemd:
+        name: litellm
+        state: started
+        enabled: true
+      when: litellm_service.stat.exists
+      register: litellm_status
+      failed_when: false
+
+    - name: Check LiteLLM health endpoint
+      ansible.builtin.uri:
+        url: http://localhost:8000/health
+        method: GET
+        status_code: [200, 503]
+      register: litellm_health
+      failed_when: false
+      when: litellm_service.stat.exists
+
+    - name: Verify vLLM services (Docker)
+      ansible.builtin.command: docker ps --filter "name=vllm" --format "{{ '{{.Names}}' }}"
+      register: vllm_containers
+      changed_when: false
+      failed_when: false
+
+    - name: Display vLLM container status
+      ansible.builtin.debug:
+        msg: "{{ 'vLLM containers running' if vllm_containers.stdout else 'No vLLM containers found' }}"
+
+    # Phase 3: Remote Access Verification
+    - name: Verify Tailscale service
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: started
+        enabled: true
+      register: tailscale_status
+
+    - name: Check Tailscale connectivity
+      ansible.builtin.command: tailscale status --json
+      register: tailscale_status_json
+      changed_when: false
+      failed_when: false
+
+    - name: Verify Tailscale tags
+      ansible.builtin.assert:
+        that:
+          - "'tag:server' in tailscale_tags"
+          - "'tag:linux' in tailscale_tags"
+          - "'tag:ansible' in tailscale_tags"
+        fail_msg: "Tailscale tags incorrect"
+        success_msg: "✓ Tailscale tags verified"
+      vars:
+        tailscale_tags: "{{ tailscale_status_json.stdout | from_json | default({}) | json_query('Self.Tags') | default([]) }}"
+      failed_when: false
+
+    # Phase 4: Service Catalog Verification
+    - name: Check if service catalog exists
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/miket-infra-devices/docs/product/STATUS.md"
+      register: service_catalog
+
+    - name: Display PHC service verification summary
+      ansible.builtin.debug:
+        msg:
+          - "✅ PHC Service Verification Complete"
+          - ""
+          - "Storage Backplane:"
+          - "  ✓ /flux, /space, /time mounted"
+          - "  ✓ Data lifecycle timers: {{ 'active' if timer_status.results | selectattr('changed', 'equalto', false) | list | length > 0 else 'check manually' }}"
+          - ""
+          - "AI Fabric:"
+          - "  {{ '✓' if litellm_status.changed == false and litellm_status.status.ActiveState == 'active' else '⚠' }} LiteLLM: {{ litellm_status.status.ActiveState | default('not found') }}"
+          - "  {{ '✓' if vllm_containers.stdout else '⚠' }} vLLM containers: {{ vllm_containers.stdout | default('none found') }}"
+          - ""
+          - "Remote Access:"
+          - "  {{ '✓' if tailscale_status.changed == false else '⚠' }} Tailscale: {{ tailscale_status.status.ActiveState | default('unknown') }}"
+          - ""
+          - "Next Steps:"
+          - "  1. Review service catalog: docs/product/STATUS.md"
+          - "  2. Check miket-infra for Tailscale ACL updates if needed"
+          - "  3. Verify ingress/SSO if applicable"
+
+

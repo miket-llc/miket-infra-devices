@@ -276,3 +276,4 @@ echo -e "  3. Verify DNS: ${CYAN}tailscale status --json | jq '.Self.DNS'${NC}"
 echo -e "  4. Check service: ${CYAN}systemctl status tailscaled${NC}"
 echo
 
+

@@ -1,0 +1,123 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Lid Configuration Role
+# Configures system to operate safely with lid closed (headless laptop operation)
+# Supports Pop!_OS and other systemd-based Linux distributions
+
+- name: Check if running on Pop!_OS or Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in ['Ubuntu', 'Pop']
+    fail_msg: "This role is designed for Pop!_OS/Ubuntu systems"
+    quiet: true
+
+- name: Configure systemd-logind for lid-closed operation
+  ansible.builtin.lineinfile:
+    path: /etc/systemd/logind.conf
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    backup: yes
+  loop:
+    - { key: "HandleLidSwitch", value: "ignore" }
+    - { key: "HandleLidSwitchExternalPower", value: "ignore" }
+    - { key: "HandleLidSwitchDocked", value: "ignore" }
+  notify: restart systemd-logind
+
+- name: Check if kernelstub is available (Pop!_OS)
+  ansible.builtin.command: which kernelstub
+  register: kernelstub_check
+  changed_when: false
+  failed_when: false
+
+- name: Add kernel parameter for lid-closed operation (Pop!_OS)
+  ansible.builtin.shell: kernelstub -a 'button.lid_init_state=open'
+  when: kernelstub_check.rc == 0
+  register: kernelstub_result
+  changed_when: "'already' not in kernelstub_result.stdout | default('')"
+  failed_when: false
+
+- name: Add kernel parameter via GRUB (fallback for non-Pop!_OS)
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+    line: "GRUB_CMDLINE_LINUX_DEFAULT=\"{{ ansible_facts['grub_cmdline_linux_default'] | default('') }} button.lid_init_state=open\""
+    backup: yes
+  when: kernelstub_check.rc != 0
+  notify: update grub
+
+- name: Create GDM service override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/gdm.service.d
+    state: directory
+    mode: '0755'
+
+- name: Configure GDM service override for lid-closed operation
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/gdm.service.d/override.conf
+    content: |
+      [Unit]
+      # Force GDM to start even with lid closed
+      ConditionPathExists=
+      ConditionPathExists=/usr/sbin/gdm3
+
+      [Service]
+      # Restart if it fails
+      Restart=always
+      RestartSec=5
+    mode: '0644'
+  notify: reload systemd daemon
+
+- name: Create force-gdm-start service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/force-gdm-start.service
+    content: |
+      [Unit]
+      Description=Force GDM to start
+      After=multi-user.target
+      Wants=multi-user.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/systemctl start gdm3
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  notify: reload systemd daemon
+
+- name: Enable force-gdm-start service
+  ansible.builtin.systemd:
+    name: force-gdm-start.service
+    enabled: true
+    daemon_reload: true
+
+- name: Configure GDM autologin (if enabled)
+  ansible.builtin.lineinfile:
+    path: /etc/pop-os/gdm3/custom.conf
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    backup: yes
+  loop:
+    - { key: "WaylandEnable", value: "false" }
+    - { key: "AutomaticLoginEnable", value: "true" }
+    - { key: "AutomaticLogin", value: "{{ ansible_user_id }}" }
+  when: lid_autologin_enabled | default(false)
+  notify: restart gdm
+
+- name: Display configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "✓ Lid switch configuration complete"
+      - "  - HandleLidSwitch=ignore"
+      - "  - HandleLidSwitchExternalPower=ignore"
+      - "  - HandleLidSwitchDocked=ignore"
+      - "✓ Kernel parameter: button.lid_init_state=open"
+      - "✓ GDM service override configured"
+      - "✓ Force-GDM-start service enabled"
+      - ""
+      - "System will operate normally with lid closed"
+      - "Reboot required for kernel parameter to take effect"
+
+

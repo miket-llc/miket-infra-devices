@@ -2,13 +2,17 @@
 
 ---
 # Remote desktop configuration for motoko (Linux server)
-# Uses VNC to share the existing mdt kiosk session (not create a new one)
-remote_protocol: vnc
-remote_port: 5900
+# Uses NoMachine to share the existing mdt kiosk session (not create a new one)
+remote_protocol: nomachine
+remote_port: 4000
 restrict_to_tailscale: true
 desktop_env: "GNOME"
 display_server: "Xorg"  # Will be auto-detected
 session_sharing: true  # Share existing session, don't create new one
+
+# NoMachine specific settings
+nomachine_version: "8.11.3"
+nomachine_port: 4000
 
 # USB Storage Configuration
 usb_timemachine_filesystem: ext4

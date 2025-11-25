@@ -141,3 +141,4 @@
           - "Regular DNS: {{ '✓ Working' if regular_dns_test.rc == 0 else '✗ Failed' }}"
           - "MagicDNS: {{ '✓ Working' if magicdns_test.rc == 0 else '⚠ May need a moment' }}"
 
+

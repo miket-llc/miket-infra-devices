@@ -39,3 +39,4 @@ echo "  cd /Users/miket/dev/miket-infra-devices/ansible"
 echo "  ansible-playbook -i inventory/hosts.yml playbooks/nomachine_deploy.yml --limit count-zero --ask-become-pass"
 echo ""
 
+
