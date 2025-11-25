@@ -1,0 +1,66 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deployment playbook for Azure CLI
+#
+# Azure CLI is REQUIRED for all PHC devices to access Azure Key Vault secrets.
+# This is a prerequisite for many other roles and should be deployed first.
+#
+# Prerequisites:
+# - Ansible must be able to connect to target hosts
+# - Linux: apt package manager (Debian/Ubuntu)
+# - macOS: Homebrew installed
+# - Windows: winget preferred, MSI fallback available
+#
+# Usage:
+#   # Deploy to all devices
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml
+#
+#   # Deploy to motoko only
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit motoko
+#
+#   # Deploy to all Linux servers
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit linux
+#
+#   # Deploy to Windows workstations
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit windows
+
+- name: Deploy Azure CLI
+  hosts: all
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          Deploying Azure CLI to {{ inventory_hostname }}
+          - OS Family: {{ ansible_os_family }}
+          - Distribution: {{ ansible_distribution | default('N/A') }}
+          - Architecture: {{ ansible_architecture }}
+          
+          Azure CLI is required for Key Vault secret access.
+
+  roles:
+    - role: azure_cli
+      tags:
+        - azure
+        - azure_cli
+        - cli
+        - prerequisites
+
+  post_tasks:
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ Azure CLI deployment complete on {{ inventory_hostname }}!
+          
+          Next Steps:
+          1. Run 'az login' to authenticate with Azure
+          2. Verify Key Vault access:
+             az keyvault secret list --vault-name kv-miket-ops --query "[].name" -o tsv
+          
+          Azure CLI is now available for:
+          - secrets_sync role (Key Vault → local env files)
+          - mount_shares roles (SMB credentials)
+          - Ansible inventory (WinRM password lookup)
+

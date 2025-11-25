@@ -1,0 +1,97 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy Baseline Tools to All PHC Devices
+#
+# This playbook installs the standard toolset required on all PHC devices:
+# 1. Azure CLI - Required for Key Vault secret access (prerequisite for many roles)
+# 2. Tailscale - Already installed via bootstrap, this configures it
+# 3. Warp Terminal - Modern terminal (Linux/macOS)
+# 4. Codex CLI - AI-powered CLI assistant
+#
+# Usage:
+#   # Deploy to all devices
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml
+#
+#   # Deploy to specific host
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --limit motoko
+#
+#   # Deploy only Azure CLI (prerequisite)
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --tags azure
+#
+#   # Deploy only terminal tools
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --tags terminal
+
+- name: Deploy Baseline Tools to PHC Devices
+  hosts: all
+  gather_facts: yes
+
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          PHC Baseline Tools Deployment
+          ═══════════════════════════════════════════════════════════════
+          Host: {{ inventory_hostname }}
+          OS: {{ ansible_os_family }} ({{ ansible_distribution | default('Unknown') }})
+          Architecture: {{ ansible_architecture }}
+          
+          Tools to install:
+          • Azure CLI (required for Key Vault access)
+          • Tailscale configuration
+          • Warp Terminal (Linux/macOS only)
+          • Codex CLI (AI assistant)
+          ═══════════════════════════════════════════════════════════════
+
+  roles:
+    # Azure CLI MUST be first - other roles depend on it for Key Vault access
+    - role: azure_cli
+      tags:
+        - azure
+        - azure_cli
+        - prerequisites
+
+    # Tailscale configuration (assumes already installed via bootstrap)
+    - role: tailscale
+      tags:
+        - tailscale
+        - network
+
+    # Warp Terminal (Linux and macOS only)
+    - role: warp_terminal
+      tags:
+        - warp
+        - terminal
+      when: ansible_os_family in ['Debian', 'Darwin']
+
+    # Codex CLI (all platforms)
+    - role: codex_cli
+      tags:
+        - codex
+        - terminal
+        - ai
+
+  post_tasks:
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ✅ Baseline Tools Deployment Complete: {{ inventory_hostname }}
+          ═══════════════════════════════════════════════════════════════
+          
+          Installed Tools:
+          • Azure CLI - Run 'az login' to authenticate
+          • Tailscale - Configured with PHC tags
+          • Warp Terminal - Launch with 'warp-terminal'{{ ' (Linux/macOS only)' if ansible_os_family == 'Win32NT' else '' }}
+          • Codex CLI - Run 'codex' to start
+          
+          Next Steps:
+          1. az login (authenticate with Azure)
+          2. Verify Key Vault access:
+             az keyvault secret list --vault-name kv-miket-ops -o table
+          3. Launch Warp Terminal for modern shell experience
+          4. Use 'codex' for AI-assisted commands
+          
+          ═══════════════════════════════════════════════════════════════
+

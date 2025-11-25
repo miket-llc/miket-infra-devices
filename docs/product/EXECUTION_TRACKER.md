@@ -7,6 +7,7 @@ status: Active
 related_initiatives:
   - initiatives/device-onboarding
 linked_communications:
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-25-azure-cli-baseline
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-warp-terminal-deployment
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-deterministic-merge-plan
   - docs/communications/COMMUNICATION_LOG.md#2025-11-24-duplicate-guardrails
@@ -101,6 +102,8 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || Warp Terminal installed on motoko | Codex-PD-002 | 2025-11-25 | v0.2025.11.19.08.12.stable.03, `/usr/bin/warp-terminal` |
 || OneDrive to /space migration complete | Codex-CA-001 | 2025-11-25 | [Migration Complete](../initiatives/onedrive-to-space-migration/MIGRATION_COMPLETE.md), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-onedrive-migration-complete) |
 || m365-publish.timer disabled (PHC compliance) | Codex-CA-001 | 2025-11-25 | Eliminated circular sync loop, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-onedrive-migration-complete) |
+|| Azure CLI Ansible role and baseline tools playbook | Codex-PD-002 | 2025-11-25 | [azure_cli role](../../ansible/roles/azure_cli/), [deploy-baseline-tools.yml](../../ansible/playbooks/deploy-baseline-tools.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-azure-cli-baseline) |
+|| Azure CLI verified on motoko | Codex-PD-002 | 2025-11-25 | v2.80.0, `/usr/bin/az` |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Main tasks for azure_cli role
+# Platform-specific tasks are included based on OS
+# Azure CLI is required for Key Vault secret access across all PHC devices
+
+- name: Include Linux tasks for Debian/Ubuntu
+  include_tasks: linux.yml
+  when: ansible_os_family == 'Debian'
+
+- name: Include macOS tasks for Darwin
+  include_tasks: darwin.yml
+  when: ansible_os_family == 'Darwin'
+
+- name: Include Windows tasks
+  include_tasks: windows.yml
+  when: ansible_system == 'Win32NT'
+

@@ -1,0 +1,104 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux Azure CLI installation (Debian/Ubuntu)
+# Azure CLI is required for Key Vault secret access
+# https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux
+
+- name: Check if Azure CLI is installed
+  ansible.builtin.command: which az
+  register: az_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Check Azure CLI version if installed
+  ansible.builtin.command: az version --output json
+  register: az_version_check
+  changed_when: false
+  failed_when: false
+  when: az_check.rc == 0
+
+- name: Display current Azure CLI installation status
+  ansible.builtin.debug:
+    msg: "Azure CLI {{ 'is installed' if az_check.rc == 0 else 'is not installed' }}"
+
+- name: Install prerequisites for Azure CLI
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - apt-transport-https
+      - lsb-release
+      - gnupg
+    state: present
+    update_cache: yes
+  become: true
+  when: az_check.rc != 0
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+  when: az_check.rc != 0
+
+- name: Download Microsoft signing key
+  ansible.builtin.shell: |
+    curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/microsoft.gpg
+    chmod go+r /etc/apt/keyrings/microsoft.gpg
+  args:
+    creates: /etc/apt/keyrings/microsoft.gpg
+  become: true
+  when: az_check.rc != 0
+
+- name: Get OS codename
+  ansible.builtin.command: lsb_release -cs
+  register: os_codename
+  changed_when: false
+  when: az_check.rc != 0
+
+- name: Add Azure CLI repository
+  ansible.builtin.copy:
+    content: |
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ {{ os_codename.stdout }} main
+    dest: /etc/apt/sources.list.d/azure-cli.list
+    mode: '0644'
+  become: true
+  when: az_check.rc != 0
+
+- name: Update apt cache after adding repository
+  ansible.builtin.apt:
+    update_cache: yes
+  become: true
+  when: az_check.rc != 0
+
+- name: Install Azure CLI
+  ansible.builtin.apt:
+    name: azure-cli
+    state: present
+  become: true
+  register: az_install
+  when: az_check.rc != 0
+
+- name: Verify Azure CLI installation
+  ansible.builtin.command: az version --output json
+  register: az_verify
+  changed_when: false
+  failed_when: az_verify.rc != 0
+
+- name: Parse Azure CLI version
+  ansible.builtin.set_fact:
+    az_version: "{{ (az_verify.stdout | from_json)['azure-cli'] }}"
+  when: az_verify.rc == 0
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Azure CLI installed on {{ inventory_hostname }}"
+      - "Version: {{ az_version | default('Unknown') }}"
+      - "Binary: {{ azure_cli_binary }}"
+      - "Key Vault: {{ azure_keyvault_name }}"
+      - "Note: Run 'az login' to authenticate before accessing Key Vault"
+

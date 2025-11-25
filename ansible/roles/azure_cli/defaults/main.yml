@@ -1,0 +1,17 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Default variables for azure_cli role
+
+# Azure CLI installation settings
+azure_cli_enabled: true
+
+# Azure CLI binary path (used for verification)
+azure_cli_binary: /usr/bin/az
+
+# Key Vault used for PHC secrets
+azure_keyvault_name: "kv-miket-ops"
+
+# Whether to verify Key Vault connectivity after install
+azure_cli_verify_keyvault: false
+

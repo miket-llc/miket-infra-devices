@@ -1,0 +1,64 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS Azure CLI installation
+# Azure CLI is required for Key Vault secret access
+# https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos
+
+- name: Check if Azure CLI is installed (macOS)
+  ansible.builtin.command: which az
+  register: az_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Check Azure CLI version if installed (macOS)
+  ansible.builtin.command: az version --output json
+  register: az_version_check
+  changed_when: false
+  failed_when: false
+  when: az_check.rc == 0
+
+- name: Display current Azure CLI installation status (macOS)
+  ansible.builtin.debug:
+    msg: "Azure CLI {{ 'is installed' if az_check.rc == 0 else 'is not installed' }}"
+
+- name: Check if Homebrew is installed
+  ansible.builtin.command: which brew
+  register: brew_check
+  changed_when: false
+  failed_when: false
+  when: az_check.rc != 0
+
+- name: Fail if Homebrew is not installed
+  ansible.builtin.fail:
+    msg: |
+      Homebrew is not installed on {{ inventory_hostname }}.
+      Install Homebrew first: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when: az_check.rc != 0 and brew_check.rc != 0
+
+- name: Install Azure CLI via Homebrew
+  community.general.homebrew:
+    name: azure-cli
+    state: present
+  when: az_check.rc != 0 and brew_check.rc == 0
+
+- name: Verify Azure CLI installation (macOS)
+  ansible.builtin.command: az version --output json
+  register: az_verify
+  changed_when: false
+  failed_when: az_verify.rc != 0
+
+- name: Parse Azure CLI version (macOS)
+  ansible.builtin.set_fact:
+    az_version: "{{ (az_verify.stdout | from_json)['azure-cli'] }}"
+  when: az_verify.rc == 0
+
+- name: Display installation summary (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "✅ Azure CLI installed on {{ inventory_hostname }}"
+      - "Version: {{ az_version | default('Unknown') }}"
+      - "Key Vault: {{ azure_keyvault_name }}"
+      - "Note: Run 'az login' to authenticate before accessing Key Vault"
+

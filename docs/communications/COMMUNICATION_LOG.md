@@ -165,6 +165,56 @@ terraform apply  # Deploy ACL updates
 
 ---
 
+## 2025-11-25 – Azure CLI Role for Baseline Device Deployment {#2025-11-25-azure-cli-baseline}
+
+### Context
+Per PHC invariant #3, Azure Key Vault is the system of record for automation secrets. Azure CLI is required on all devices to access Key Vault. Created a standardized Ansible role to ensure Azure CLI is installed on every device by default.
+
+### Actions Taken
+
+**Team Activation:**
+- Codex-CA-001 (Chief Architect): Led initiative, defined requirement alignment with secrets architecture
+- Codex-PD-002 (Platform DevOps): Created Ansible role with multi-platform support
+- Codex-SEC-004 (Security/IAM): Validated Key Vault access patterns
+
+**Deliverables Created:**
+- ✅ Ansible role `azure_cli` with multi-platform support:
+  - Linux (Debian/Ubuntu): Microsoft apt repository
+  - macOS: Homebrew installation
+  - Windows: winget (preferred) or MSI fallback
+- ✅ Deployment playbook: `ansible/playbooks/deploy-azure-cli.yml`
+- ✅ Baseline tools playbook: `ansible/playbooks/deploy-baseline-tools.yml`
+- ✅ Role documentation: `ansible/roles/azure_cli/README.md`
+
+**Deployment Results:**
+- ✅ Azure CLI v2.80.0 verified on motoko
+- ✅ Role correctly detects existing installation and skips reinstall
+
+### PHC Integration
+
+Azure CLI is a **prerequisite** for:
+- `secrets_sync` role - syncs secrets from Key Vault to local env files
+- `mount_shares_*` roles - retrieves SMB credentials
+- `codex_cli` role - retrieves OpenAI API key
+- Ansible inventory - WinRM password lookup for Windows hosts
+
+### Usage
+
+```bash
+# Deploy Azure CLI to all devices
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml
+
+# Deploy all baseline tools (Azure CLI, Tailscale, Warp Terminal, Codex CLI)
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml
+```
+
+### Deliverables
+- Role: [ansible/roles/azure_cli/](../../ansible/roles/azure_cli/)
+- Playbook: [ansible/playbooks/deploy-azure-cli.yml](../../ansible/playbooks/deploy-azure-cli.yml)
+- Baseline: [ansible/playbooks/deploy-baseline-tools.yml](../../ansible/playbooks/deploy-baseline-tools.yml)
+
+---
+
 ## 2025-11-25 – Warp Terminal Deployment to motoko {#2025-11-25-warp-terminal-deployment}
 
 ### Context

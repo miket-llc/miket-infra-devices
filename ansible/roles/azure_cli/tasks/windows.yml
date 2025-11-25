@@ -1,0 +1,68 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows Azure CLI installation
+# Azure CLI is required for Key Vault secret access
+# https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-windows
+
+- name: Check if Azure CLI is installed (Windows)
+  ansible.windows.win_command: az version --output json
+  register: az_check
+  changed_when: false
+  failed_when: false
+
+- name: Display current Azure CLI installation status (Windows)
+  ansible.builtin.debug:
+    msg: "Azure CLI {{ 'is installed' if az_check.rc == 0 else 'is not installed' }}"
+
+- name: Check if winget is available
+  ansible.windows.win_command: winget --version
+  register: winget_check
+  changed_when: false
+  failed_when: false
+  when: az_check.rc != 0
+
+- name: Install Azure CLI via winget
+  ansible.windows.win_command: winget install --id Microsoft.AzureCLI --accept-source-agreements --accept-package-agreements --silent
+  register: az_winget_install
+  when: az_check.rc != 0 and winget_check.rc == 0
+  changed_when: az_winget_install.rc == 0
+
+- name: Download Azure CLI MSI installer (fallback)
+  ansible.windows.win_get_url:
+    url: https://aka.ms/installazurecliwindows
+    dest: C:\Windows\Temp\azure-cli.msi
+  when: az_check.rc != 0 and winget_check.rc != 0
+
+- name: Install Azure CLI via MSI (fallback)
+  ansible.windows.win_package:
+    path: C:\Windows\Temp\azure-cli.msi
+    state: present
+    arguments: /quiet /norestart
+  when: az_check.rc != 0 and winget_check.rc != 0
+
+- name: Refresh environment variables
+  ansible.windows.win_command: refreshenv
+  changed_when: false
+  failed_when: false
+  when: az_check.rc != 0
+
+- name: Verify Azure CLI installation (Windows)
+  ansible.windows.win_command: az version --output json
+  register: az_verify
+  changed_when: false
+  failed_when: false
+
+- name: Parse Azure CLI version (Windows)
+  ansible.builtin.set_fact:
+    az_version: "{{ (az_verify.stdout | from_json)['azure-cli'] }}"
+  when: az_verify.rc == 0 and az_verify.stdout is defined
+
+- name: Display installation summary (Windows)
+  ansible.builtin.debug:
+    msg:
+      - "✅ Azure CLI installed on {{ inventory_hostname }}"
+      - "Version: {{ az_version | default('Unknown - may need shell restart') }}"
+      - "Key Vault: {{ azure_keyvault_name }}"
+      - "Note: Run 'az login' to authenticate before accessing Key Vault"
+
