@@ -12,7 +12,7 @@
 
 - name: Deploy migration script
   copy:
-    src: ../../scripts/m365-migrate-to-space.sh
+    src: "{{ playbook_dir }}/../scripts/m365-migrate-to-space.sh"
     dest: /usr/local/bin/m365-migrate-to-space.sh
     mode: '0755'
     owner: root
@@ -156,5 +156,6 @@
   debug:
     var: validation_result.stdout_lines
   when: not (onedrive_migration_dry_run | default(false) | bool)
+
 
 

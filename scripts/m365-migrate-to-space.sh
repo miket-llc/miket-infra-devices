@@ -12,6 +12,7 @@ ACCOUNT=""
 DEST=""
 DRY_RUN=false
 RESUME=false
+VALIDATE_ONLY=false
 CONFLICT_RESOLUTION="rename"
 TRANSFERS=8
 VERBOSE=false
@@ -56,6 +57,10 @@ parse_args() {
                 VERBOSE=true
                 shift
                 ;;
+            --validate-only)
+                VALIDATE_ONLY=true
+                shift
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -82,6 +87,7 @@ Required:
 Options:
   --dry-run              Perform dry run without copying files
   --resume               Resume interrupted migration
+  --validate-only        Only validate existing migration (no transfer)
   --conflict-resolution <mode>
                          How to handle conflicts: rename (default), skip, or overwrite
   --transfers <num>      Number of parallel transfers (default: 8)
@@ -367,13 +373,20 @@ main() {
     validate_args
     init_logging
     check_prerequisites
-    execute_migration
-    validate_migration
-
-    log_success "=== Migration completed ==="
+    
+    if [[ "$VALIDATE_ONLY" == true ]]; then
+        log_info "=== Validation only mode ==="
+        validate_migration
+        log_success "=== Validation completed ==="
+    else
+        execute_migration
+        validate_migration
+        log_success "=== Migration completed ==="
+    fi
+    
     log_info "Log file: $LOG_FILE"
     
-    if [[ "$DRY_RUN" == false ]]; then
+    if [[ "$DRY_RUN" == false ]] && [[ "$VALIDATE_ONLY" == false ]]; then
         log_info "Next steps:"
         log_info "1. Verify migrated content: ls -la $DEST"
         log_info "2. Test Samba access: smbclient //motoko/space"
@@ -383,5 +396,6 @@ main() {
 
 # Run main function
 main "$@"
+
 
 

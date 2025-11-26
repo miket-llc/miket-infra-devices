@@ -1,3 +1,65 @@
+## 2025-11-26 – Code Consolidation and Merge to Main {#2025-11-26-code-consolidation}
+
+### Context
+Chief Architect team performed comprehensive review and consolidation of 20 modified files before merging to main branch. This included PHC compliance review, script consolidation, and Ansible role fixes.
+
+### Actions Taken
+
+**Codex-CA-001 (Chief Architect):**
+- ✅ Reviewed all 20 modified files for PHC invariant compliance
+- ✅ Verified OneDrive migration documentation follows doc taxonomy
+- ✅ Confirmed migration architecture maintains /space as SoR, no circular sync
+
+**Codex-PD-002 (Platform DevOps):**
+- ✅ Consolidated 8 redundant NoMachine fix scripts into single canonical script
+- ✅ Created `scripts/fix-nomachine-macos.sh` with unified functionality
+- ✅ Removed redundant scripts: `fix-nomachine-comprehensive.sh`, `fix-nomachine-config-manual.sh`, `fix-nomachine-count-zero-automated.sh`, `fix-nomachine-count-zero-v2.sh`, `fix-nomachine-count-zero.sh`, `fix-nomachine-final-attempt.sh`, `fix-nomachine-gui-approach.sh`, `fix-nomachine-sip-workaround.sh`
+
+**Codex-IAC-003 (IaC Engineer):**
+- ✅ Fixed Ansible role path issue in `onedrive-migration/tasks/main.yml`
+- ✅ Added `--validate-only` flag to migration script for Ansible integration
+
+**Codex-DOC-009 (DocOps):**
+- ✅ Updated COMMUNICATION_LOG.md with consolidation entry
+- ✅ Updated EXECUTION_TRACKER.md with completed work
+
+### Deliverables
+
+| Deliverable | Status | Evidence |
+|-------------|--------|----------|
+| Script consolidation | ✅ Complete | `scripts/fix-nomachine-macos.sh` |
+| Ansible role fix | ✅ Complete | `ansible/roles/onedrive-migration/tasks/main.yml` |
+| Migration script enhancement | ✅ Complete | `scripts/m365-migrate-to-space.sh` |
+| Documentation updates | ✅ Complete | Communication log, Execution tracker |
+
+### Files Changed
+
+**New Files:**
+- `scripts/fix-nomachine-macos.sh` - Consolidated NoMachine fix script
+
+**Modified Files:**
+- `ansible/roles/onedrive-migration/tasks/main.yml` - Fixed script path
+- `scripts/m365-migrate-to-space.sh` - Added --validate-only flag
+
+**Deleted Files (consolidation):**
+- `scripts/fix-nomachine-comprehensive.sh`
+- `scripts/fix-nomachine-config-manual.sh`
+- `scripts/fix-nomachine-count-zero-automated.sh`
+- `scripts/fix-nomachine-count-zero-v2.sh`
+- `scripts/fix-nomachine-count-zero.sh`
+- `scripts/fix-nomachine-final-attempt.sh`
+- `scripts/fix-nomachine-gui-approach.sh`
+- `scripts/fix-nomachine-sip-workaround.sh`
+
+### PHC Compliance
+
+- ✅ All changes follow PHC vNext architecture patterns
+- ✅ No new secrets in code (using env vars/placeholders)
+- ✅ Documentation follows required taxonomy
+- ✅ No circular sync loops introduced
+
+---
+
 ## 2025-11-25 – Motoko Headless Boot Configuration Complete {#2025-11-25-motoko-headless-boot-configuration}
 
 ### Context

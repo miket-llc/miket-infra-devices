@@ -1,8 +1,8 @@
 ---
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-25
-version: v1.8.0
+last_updated: 2025-11-26
+version: v1.8.1
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
@@ -31,8 +31,8 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 |---------|----------------|-----------------------------|-------------|---------------|
 | **Codex-CA-001** (Chief Architect) | ✅ Complete | OneDrive to /space migration complete (232GB), m365-publish disabled per PHC invariants | Monitor B2 backup, archive OneDrive after 90 days | 2025-11-25 |
 | **Codex-PM-011** (Product Manager) | 🚧 Active | Wave 2 coordination requests created, version incremented to v1.8.0 | Review Wave 2 completion, update roadmap for Wave 3 | 2025-11-24 |
-| **Codex-PD-002** (Platform DevOps) | ✅ Complete | Created NoMachine connectivity smoke tests (`tests/nomachine_smoke.py`) | Monitor test execution, add to CI pipeline | 2025-11-27 |
-| **Codex-IAC-003** (IaC Engineer) | ⏸️ Standby | Awaiting Wave 1 tasks | Model device onboarding/offboarding module structure | 2025-11-27 |
+| **Codex-PD-002** (Platform DevOps) | ✅ Complete | Consolidated 8 NoMachine scripts into `fix-nomachine-macos.sh` | Monitor usage, gather feedback | 2025-11-26 |
+| **Codex-IAC-003** (IaC Engineer) | ✅ Complete | Fixed onedrive-migration Ansible role path issue | Standby for next Ansible tasks | 2025-11-26 |
 | **Codex-SEC-004** (Security/IAM) | ✅ Complete | Cloudflare Access mapping + certificate enrollment role complete | Awaiting miket-infra configuration for finalization | 2025-11-24 |
 | **Codex-SRE-005** (SRE/Observability) | 🚧 Active | Network diagnostics for NoMachine keystroke issue (0% packet loss, ~4ms latency verified) | Monitor system resources during active session; analyze diagnostic output | 2025-11-24 |
 | **Codex-NET-006** (Networking) | 🚧 Active | Tailscale connectivity analysis for NoMachine (direct connection verified) | Monitor network during active session; check for buffer/packet issues | 2025-11-24 |
@@ -104,6 +104,9 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || m365-publish.timer disabled (PHC compliance) | Codex-CA-001 | 2025-11-25 | Eliminated circular sync loop, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-onedrive-migration-complete) |
 || Azure CLI Ansible role and baseline tools playbook | Codex-PD-002 | 2025-11-25 | [azure_cli role](../../ansible/roles/azure_cli/), [deploy-baseline-tools.yml](../../ansible/playbooks/deploy-baseline-tools.yml), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-25-azure-cli-baseline) |
 || Azure CLI verified on motoko | Codex-PD-002 | 2025-11-25 | v2.80.0, `/usr/bin/az` |
+|| NoMachine scripts consolidated | Codex-PD-002 | 2025-11-26 | [fix-nomachine-macos.sh](../../scripts/fix-nomachine-macos.sh), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-code-consolidation) |
+|| OneDrive migration Ansible role fixed | Codex-IAC-003 | 2025-11-26 | [onedrive-migration role](../../ansible/roles/onedrive-migration/), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-code-consolidation) |
+|| Code consolidation and merge to main | Codex-CA-001 | 2025-11-26 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-code-consolidation) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.
