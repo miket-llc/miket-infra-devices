@@ -1,0 +1,56 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS OBS Studio installation
+# https://obsproject.com/download
+
+- name: Check if OBS Studio is installed (macOS)
+  ansible.builtin.stat:
+    path: /Applications/OBS.app
+  register: obs_check
+
+- name: Display current OBS Studio installation status (macOS)
+  ansible.builtin.debug:
+    msg: "OBS Studio {{ 'is installed' if obs_check.stat.exists else 'is not installed' }}"
+
+- name: Check if Homebrew is installed
+  ansible.builtin.command: which brew
+  register: brew_check
+  changed_when: false
+  failed_when: false
+  when: not obs_check.stat.exists
+
+- name: Fail if Homebrew is not installed
+  ansible.builtin.fail:
+    msg: |
+      Homebrew is not installed on {{ inventory_hostname }}.
+      Install Homebrew first: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  when: not obs_check.stat.exists and brew_check.rc != 0
+
+- name: Install OBS Studio via Homebrew cask
+  community.general.homebrew_cask:
+    name: obs
+    state: present
+  when: not obs_check.stat.exists and brew_check.rc == 0
+
+- name: Verify OBS Studio installation (macOS)
+  ansible.builtin.stat:
+    path: /Applications/OBS.app
+  register: obs_verify
+
+- name: Get OBS Studio version (macOS)
+  ansible.builtin.shell: |
+    /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" /Applications/OBS.app/Contents/Info.plist 2>/dev/null || echo "Unknown"
+  register: obs_version_check
+  changed_when: false
+  when: obs_verify.stat.exists
+
+- name: Display installation summary (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "✅ OBS Studio installed on {{ inventory_hostname }}"
+      - "Version: {{ obs_version_check.stdout | default('Unknown') }}"
+      - "Launch: /Applications/OBS.app"
+      - "Virtual camera: Install via OBS Tools menu if needed"
+      - "Note: Grant screen recording permission in System Preferences > Privacy"
+

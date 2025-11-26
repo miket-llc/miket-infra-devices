@@ -1,61 +1,72 @@
 # Remote Desktop Connection Cheatsheet
 
-Generated: 2025-11-09T00:05:27Z
+Generated: 2025-11-26
+Updated: VNC/RDP retired, NoMachine standardized
 
 ## Overview
 
-This cheatsheet provides quick connection information for all hosts in the tailnet. All connections use Tailscale MagicDNS and are restricted to the Tailscale network (100.64.0.0/10).
+**NoMachine is the sole remote desktop solution.** VNC and RDP were architecturally retired on 2025-11-22. All hosts use NoMachine on port 4000 over Tailscale.
 
 ## Connection Methods
 
-### Linux Clients
-- **GUI**: `remmina` (Remmina Remote Desktop Client)
-- **CLI**: `rdp HOSTNAME` or `xfreerdp /v:HOSTNAME.pangolin-vega.ts.net:3389`
-- **Example**: `rdp motoko`
+### All Platforms
+- **GUI**: NoMachine client application
+- **Port**: 4000 (NoMachine default)
+- **Authentication**: System credentials via NoMachine
 
-### Windows Clients
-- **GUI**: `mstsc` (Remote Desktop Connection)
-- **CLI**: `rdp HOSTNAME` or `mstsc /v:HOSTNAME.pangolin-vega.ts.net:3389`
-- **Example**: `rdp motoko`
+### Installation
 
-### macOS Clients
-- **RDP**: Microsoft Remote Desktop (App Store) or `rdp HOSTNAME`
-- **VNC**: Screen Sharing (built-in) or `vnc HOSTNAME`
-- **Example**: `rdp motoko` or `vnc motoko`
+**Linux:**
+```bash
+# Installed via Ansible role: remote_client_linux_nomachine
+ansible-playbook playbooks/remote_clients_nomachine.yml -l linux
+```
+
+**Windows:**
+```bash
+# Installed via Ansible role: remote_client_windows_nomachine
+ansible-playbook playbooks/remote_clients_nomachine.yml -l windows
+```
+
+**macOS:**
+```bash
+# Installed via Ansible role: remote_client_macos_nomachine
+ansible-playbook playbooks/remote_clients_nomachine.yml -l macos
+```
 
 ## Host Connections
 
-### MOTOKO
+### MOTOKO (Linux Server)
 
 - **Hostname**: `motoko.pangolin-vega.ts.net` (MagicDNS)
-- **Protocol**: RDP
-- **Port**: 3389
-- **Connection**: `rdp://motoko.pangolin-vega.ts.net:3389`
-- **Quick Connect**: `rdp motoko`
+- **Protocol**: NoMachine
+- **Port**: 4000
+- **Session**: Shares existing GNOME kiosk session
+- **Quick Connect**: Open NoMachine → Select "motoko" from saved connections
 
-### WINTERMUTE
+### WINTERMUTE (Windows Workstation)
 
 - **Hostname**: `wintermute.pangolin-vega.ts.net` (MagicDNS)
-- **Protocol**: RDP
-- **Port**: 3389
-- **Connection**: `rdp://wintermute.pangolin-vega.ts.net:3389`
-- **Quick Connect**: `rdp wintermute`
+- **Protocol**: NoMachine
+- **Port**: 4000
+- **Session**: Shares existing Windows desktop
+- **Quick Connect**: Open NoMachine → Select "wintermute" from saved connections
 
-### ARMITAGE
+### ARMITAGE (Windows Laptop)
 
 - **Hostname**: `armitage.pangolin-vega.ts.net` (MagicDNS)
-- **Protocol**: RDP
-- **Port**: 3389
-- **Connection**: `rdp://armitage.pangolin-vega.ts.net:3389`
-- **Quick Connect**: `rdp armitage`
+- **Protocol**: NoMachine
+- **Port**: 4000
+- **Session**: Shares existing Windows desktop
+- **Quick Connect**: Open NoMachine → Select "armitage" from saved connections
 
-### COUNT-ZERO
+### COUNT-ZERO (macOS Laptop)
 
 - **Hostname**: `count-zero.pangolin-vega.ts.net` (MagicDNS)
-- **Protocol**: RDP
-- **Port**: 3389
-- **Connection**: `rdp://count-zero.pangolin-vega.ts.net:3389`
-- **Quick Connect**: `rdp count-zero`
+- **Protocol**: NoMachine
+- **Port**: 4000
+- **Session**: Shares existing macOS desktop
+- **Quick Connect**: Open NoMachine → Select "count-zero" from saved connections
 
 
 ## Troubleshooting
@@ -67,45 +78,56 @@ This cheatsheet provides quick connection information for all hosts in the tailn
    ping HOSTNAME.pangolin-vega.ts.net
    ```
 
-2. **Check firewall rules**:
-   - Linux: `sudo ufw status` or `sudo firewall-cmd --list-all`
-   - Windows: `Get-NetFirewallRule -Name "*RDP*"`
+2. **Check NoMachine service status**:
+   - Linux: `systemctl status nxserver`
+   - Windows: Check NoMachine Server in system tray
+   - macOS: Check NoMachine Server in menu bar
 
-3. **Verify service is running**:
-   - Linux: `systemctl status xrdp`
-   - Windows: `Get-Service TermService`
+3. **Verify port 4000 is listening**:
+   ```bash
+   # From remote host
+   ss -tlnp | grep 4000  # Linux
+   netstat -an | findstr 4000  # Windows
+   ```
 
-### Wayland Issues (Linux)
+### Common Issues
 
-If you're on Wayland and RDP doesn't work:
-1. Switch to Xorg session at login
-2. Or configure xorgxrdp for Wayland compatibility
-3. See README for detailed instructions
+**Black screen or connection refused:**
+- Ensure NoMachine server is running on target host
+- Check if firewall allows port 4000 from Tailscale subnet
+- Verify nxserver is configured: `/usr/NX/bin/nxserver --status`
 
-### Blank Screen Fixes
+**Slow performance:**
+- NoMachine auto-adjusts quality based on bandwidth
+- Check Tailscale connection quality: `tailscale status`
+- Consider enabling hardware encoding in NoMachine settings
 
-- Ensure desktop environment is running
-- Check xrdp logs: `sudo journalctl -u xrdp -n 50`
-- Verify Xorg session is configured: `/usr/share/xsessions/Xorg.desktop`
-
-### Firewall Checks
-
-- **Linux**: Ensure port 3389 (or configured port) is open on Tailscale interface
-- **Windows**: Verify RDP firewall rule allows Tailscale subnet (100.64.0.0/10)
+**Session not visible:**
+- NoMachine shares the existing physical session
+- Ensure user is logged in on the target host
+- Check display configuration: `/usr/NX/bin/nxserver --displaylist`
 
 ## Security Notes
 
 - All connections are restricted to Tailscale network (100.64.0.0/10)
 - No public ports are exposed
 - **MagicDNS**: Use `.pangolin-vega.ts.net` hostnames for automatic resolution
-- Network Level Authentication (NLA) enabled on Windows hosts
+- NoMachine uses NX protocol with built-in encryption
 
 ## Quick Reference
 
-| Host | Protocol | Port | Command |
-|------|----------|------|---------|
-| motoko | rdp | 3389 | `rdp motoko` |
-| wintermute | rdp | 3389 | `rdp wintermute` |
-| armitage | rdp | 3389 | `rdp armitage` |
-| count-zero | rdp | 3389 | `rdp count-zero` |
+| Host | Protocol | Port | Session Type |
+|------|----------|------|--------------|
+| motoko | NoMachine | 4000 | GNOME (Linux) |
+| wintermute | NoMachine | 4000 | Windows Desktop |
+| armitage | NoMachine | 4000 | Windows Desktop |
+| count-zero | NoMachine | 4000 | macOS Desktop |
 
+## Deprecated (Do Not Use)
+
+The following are **architecturally retired** as of 2025-11-22:
+- VNC (port 5900) - all servers, clients, and scripts removed
+- RDP (port 3389) - disabled on Windows hosts
+- xRDP - removed from Linux hosts
+
+Use NoMachine exclusively for all remote desktop access.

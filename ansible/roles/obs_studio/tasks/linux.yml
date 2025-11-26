@@ -1,0 +1,64 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux OBS Studio installation (Debian/Ubuntu)
+# https://obsproject.com/download
+
+- name: Check if OBS Studio is installed
+  ansible.builtin.command: which obs
+  register: obs_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Display current OBS Studio installation status
+  ansible.builtin.debug:
+    msg: "OBS Studio {{ 'is installed' if obs_check.rc == 0 else 'is not installed' }}"
+
+- name: Add OBS Studio PPA repository
+  ansible.builtin.apt_repository:
+    repo: ppa:obsproject/obs-studio
+    state: present
+    update_cache: yes
+  become: true
+  when: obs_check.rc != 0 and obs_use_ppa | default(true)
+
+- name: Install OBS Studio and dependencies
+  ansible.builtin.apt:
+    name:
+      - obs-studio
+      - ffmpeg
+      - v4l2loopback-dkms
+    state: present
+    update_cache: yes
+  become: true
+  register: obs_install
+  when: obs_check.rc != 0
+
+- name: Load v4l2loopback kernel module
+  ansible.builtin.modprobe:
+    name: v4l2loopback
+    state: present
+  become: true
+  failed_when: false
+  when: obs_check.rc != 0
+
+- name: Verify OBS Studio installation
+  ansible.builtin.command: obs --version
+  register: obs_verify
+  changed_when: false
+  failed_when: false
+
+- name: Parse OBS Studio version
+  ansible.builtin.set_fact:
+    obs_version: "{{ obs_verify.stdout | default('Unknown') }}"
+  when: obs_verify.rc == 0
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ OBS Studio installed on {{ inventory_hostname }}"
+      - "Version: {{ obs_version | default('Unknown') }}"
+      - "Launch: Applications menu > OBS Studio or run 'obs'"
+      - "Virtual camera: v4l2loopback module loaded"
+

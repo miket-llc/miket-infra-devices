@@ -3,170 +3,24 @@
 ---
 # Ansible role: remote_client_windows
 # DEPRECATED: This role is deprecated. Use remote_client_windows_nomachine instead.
-# RDP/VNC clients are no longer installed (architecturally retired 2025-11-22).
+# RDP/VNC clients are architecturally retired (2025-11-22).
 # NoMachine is the sole remote desktop solution.
 
-- name: Check if MSTSC is available
-  win_stat:
-    path: C:\Windows\System32\mstsc.exe
-  register: mstsc_check
-
-- name: Check if Chocolatey is installed
-  win_stat:
-    path: C:\ProgramData\chocolatey\choco.exe
-  register: chocolatey_check
-
-- name: Install Chocolatey if not present
-  win_chocolatey:
-    name: chocolatey
-    state: present
-  when: not chocolatey_check.stat.exists
-  tags: [updates, packages]
-
-- name: Check if TigerVNC viewer is installed
-  win_stat:
-    path: C:\Program Files\TigerVNC\vncviewer.exe
-  register: tigervnc_check
-
-- name: Install TigerVNC viewer via Chocolatey
-  win_chocolatey:
-    name: tigervnc
-    state: present
-  when: not tigervnc_check.stat.exists
-  tags: [updates, packages]
-
-- name: Find TigerVNC viewer executable (after install)
-  win_shell: |
-    $paths = @(
-      "C:\Program Files\TigerVNC\vncviewer.exe",
-      "C:\Program Files (x86)\TigerVNC\vncviewer.exe",
-      "$env:ProgramFiles\TigerVNC\vncviewer.exe",
-      "$env:ProgramFiles(x86)\TigerVNC\vncviewer.exe"
-    )
-    foreach ($path in $paths) {
-      if (Test-Path $path) {
-        Write-Output $path
-        exit 0
-      }
-    }
-    # Fallback: check Chocolatey install location
-    $chocoPath = "C:\ProgramData\chocolatey\lib\tigervnc\tools\vncviewer.exe"
-    if (Test-Path $chocoPath) {
-      Write-Output $chocoPath
-      exit 0
-    }
-    Write-Error "TigerVNC viewer not found"
-    exit 1
-  register: tigervnc_path
-  changed_when: false
-
-- name: Create RDP connection helper script
-  win_copy:
-    content: |
-      @echo off
-      REM RDP connection helper script
-      REM Usage: rdp HOSTNAME
-      
-      setlocal
-      set HOST=%~1
-      if "%HOST%"=="" set HOST=motoko
-      
-      REM Use Tailscale MagicDNS
-      ping -n 1 %HOST%.pangolin-vega.ts.net >nul 2>&1
-      if %errorlevel%==0 (
-          set TARGET=%HOST%.pangolin-vega.ts.net:3389
-      ) else (
-          set TARGET=%HOST%:3389
-      )
-      
-      REM Launch MSTSC
-      start mstsc /v:%TARGET%
-    dest: C:\Windows\System32\rdp.bat
-  when: mstsc_check.stat.exists
-
-- name: Create VNC connection helper script
-  win_copy:
-    content: |
-      @echo off
-      REM VNC connection helper script
-      REM Usage: vnc HOSTNAME [PORT]
-      
-      setlocal enabledelayedexpansion
-      set HOST=%~1
-      set PORT=%~2
-      if "!HOST!"=="" set HOST=motoko
-      if "!PORT!"=="" set PORT=5900
-      
-      REM Use Tailscale MagicDNS
-      ping -n 1 !HOST!.pangolin-vega.ts.net >nul 2>&1
-      if !errorlevel!==0 (
-          set TARGET=!HOST!.pangolin-vega.ts.net:!PORT!
-      ) else (
-          set TARGET=!HOST!:!PORT!
-      )
-      
-      REM Find TigerVNC viewer
-      set VNCVIEWER=
-      if exist "C:\Program Files\TigerVNC\vncviewer.exe" (
-          set "VNCVIEWER=C:\Program Files\TigerVNC\vncviewer.exe"
-      ) else if exist "C:\Program Files (x86)\TigerVNC\vncviewer.exe" (
-          set "VNCVIEWER=C:\Program Files (x86)\TigerVNC\vncviewer.exe"
-      ) else if exist "C:\ProgramData\chocolatey\lib\tigervnc\tools\vncviewer.exe" (
-          set "VNCVIEWER=C:\ProgramData\chocolatey\lib\tigervnc\tools\vncviewer.exe"
-      )
-      
-      if "!VNCVIEWER!"=="" (
-          echo Error: TigerVNC viewer not found. Install via: choco install tigervnc
-          exit /b 1
-      )
-      
-      REM Launch TigerVNC viewer
-      REM Password for motoko: motoko123 (will be prompted)
-      start "" "!VNCVIEWER!" "!TARGET!"
-    dest: C:\Windows\System32\vnc.bat
-
-- name: Verify MSTSC availability
-  win_shell: |
-    if (Test-Path C:\Windows\System32\mstsc.exe) {
-      Write-Output "MSTSC is available"
-      $version = (Get-Item C:\Windows\System32\mstsc.exe).VersionInfo.FileVersion
-      Write-Output "Version: $version"
-    } else {
-      Write-Error "MSTSC not found"
-      exit 1
-    }
-  register: mstsc_verify
-  changed_when: false
-
-- name: Verify TigerVNC viewer availability
-  win_shell: |
-    $paths = @(
-      "C:\Program Files\TigerVNC\vncviewer.exe",
-      "C:\Program Files (x86)\TigerVNC\vncviewer.exe",
-      "C:\ProgramData\chocolatey\lib\tigervnc\tools\vncviewer.exe"
-    )
-    foreach ($path in $paths) {
-      if (Test-Path $path) {
-        Write-Output "TigerVNC viewer found at: $path"
-        $version = (Get-Item $path).VersionInfo.FileVersion
-        Write-Output "Version: $version"
-        exit 0
-      }
-    }
-    Write-Error "TigerVNC viewer not found"
-    exit 1
-  register: tigervnc_verify
-  changed_when: false
-  failed_when: false
-
-- name: Display installation information
+- name: Display deprecation warning
   ansible.builtin.debug:
     msg:
-      - "✅ Remote desktop clients installed"
-      - "RDP: Use 'rdp HOSTNAME' or 'mstsc /v:HOSTNAME.pangolin-vega.ts.net:3389'"
-      - "VNC: Use 'vnc HOSTNAME' or launch TigerVNC viewer manually"
-      - "TigerVNC viewer location: {{ tigervnc_path.stdout | default('Check C:\\Program Files\\TigerVNC\\') }}"
-      - "Examples:"
-      - "  rdp wintermute  # Connect to Wintermute via RDP"
-      - "  vnc motoko      # Connect to Motoko via VNC (session sharing)"
+      - "⚠️  DEPRECATED ROLE: remote_client_windows"
+      - ""
+      - "This role is deprecated. RDP/VNC were retired on 2025-11-22."
+      - "NoMachine is the sole remote desktop solution."
+      - ""
+      - "Use instead: remote_client_windows_nomachine"
+      - ""
+      - "Example playbook:"
+      - "  roles:"
+      - "    - remote_client_windows_nomachine"
 
+- name: Fail with deprecation notice
+  ansible.builtin.fail:
+    msg: "This role is deprecated. Use remote_client_windows_nomachine instead."
+  when: remote_client_strict_deprecation | default(true)

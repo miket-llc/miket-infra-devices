@@ -1,0 +1,34 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy OBS Studio across all PHC devices
+# OBS is a baseline tool for streaming, recording, and screen capture
+
+- name: Deploy OBS Studio to Linux devices (motoko)
+  hosts: linux
+  become: true
+  gather_facts: true
+  roles:
+    - obs_studio
+  tags:
+    - obs
+    - linux
+
+- name: Deploy OBS Studio to Windows workstations (wintermute, armitage)
+  hosts: windows
+  gather_facts: true
+  roles:
+    - obs_studio
+  tags:
+    - obs
+    - windows
+
+- name: Deploy OBS Studio to macOS devices (count-zero)
+  hosts: macos
+  gather_facts: true
+  roles:
+    - obs_studio
+  tags:
+    - obs
+    - macos
+

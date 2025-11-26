@@ -43,9 +43,14 @@ roles:
   - docker-desktop
 
 # Remote desktop configuration
-remote_protocol: rdp
-remote_port: 3389
+# NoMachine is the standardized remote access protocol (RDP retired 2025-11-22)
+remote_protocol: nomachine
+remote_port: 4000
 restrict_to_tailscale: true
+
+# NoMachine settings
+nomachine_version: "9.2.18"
+nomachine_port: 4000
 
 # vLLM Configuration
 vllm:

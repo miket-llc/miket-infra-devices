@@ -2,7 +2,7 @@
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
 last_updated: 2025-11-26
-version: v1.8.1
+version: v1.9.0
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
@@ -60,6 +60,9 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 - ✅ **COMPLETE:** NoMachine connectivity smoke tests
 - ✅ **COMPLETE:** Documentation updates (NoMachine-only)
 - ✅ **COMPLETE:** NoMachine E2E testing from count-zero (DEV-011)
+- ✅ **COMPLETE:** VNC/RDP complete retirement - all deprecated files deleted (2025-11-26)
+- ✅ **COMPLETE:** All host_vars updated to NoMachine protocol (2025-11-26)
+- ✅ **COMPLETE:** OBS Studio role created and ready for deployment (2025-11-26)
 
 ## Blockers
 | Blocker | Impact | Owner | Dependency | Notes |
@@ -107,6 +110,10 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || NoMachine scripts consolidated | Codex-PD-002 | 2025-11-26 | [fix-nomachine-macos.sh](../../scripts/fix-nomachine-macos.sh), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-code-consolidation) |
 || OneDrive migration Ansible role fixed | Codex-IAC-003 | 2025-11-26 | [onedrive-migration role](../../ansible/roles/onedrive-migration/), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-code-consolidation) |
 || Code consolidation and merge to main | Codex-CA-001 | 2025-11-26 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-code-consolidation) |
+|| VNC/RDP complete retirement | Codex-NET-006 | 2025-11-26 | [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-26-vnc-retirement-obs) |
+|| All host_vars updated to NoMachine | Codex-NET-006 | 2025-11-26 | count-zero, wintermute, armitage |
+|| OBS Studio Ansible role created | Codex-IAC-003 | 2025-11-26 | [obs_studio role](../../ansible/roles/obs_studio/) |
+|| OBS Studio deployment playbook created | Codex-IAC-003 | 2025-11-26 | [deploy-obs-studio.yml](../../ansible/playbooks/deploy-obs-studio.yml) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

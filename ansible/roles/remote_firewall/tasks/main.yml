@@ -3,7 +3,8 @@
 ---
 # Ansible role: remote_firewall
 # Configures firewall rules for remote desktop access restricted to Tailscale interface/subnet
-# Supports NoMachine (4000), VNC (5900), RDP (3389), xRDP (3389)
+# NoMachine (port 4000) is the sole remote desktop solution
+# VNC/RDP were architecturally retired 2025-11-22
 
 - name: Detect Tailscale interface (Linux)
   ansible.builtin.command: ip -4 addr show tailscale0 | grep -oP 'inet \K[\d.]+'

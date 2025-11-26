@@ -3,75 +3,24 @@
 ---
 # Ansible role: remote_client_linux
 # DEPRECATED: This role is deprecated. Use remote_client_linux_nomachine instead.
-# RDP/VNC clients are no longer installed (architecturally retired 2025-11-22).
+# RDP/VNC clients are architecturally retired (2025-11-22).
 # NoMachine is the sole remote desktop solution.
 
-- name: Install Remmina and RDP plugin
-  ansible.builtin.apt:
-    name:
-      - remmina
-      - remmina-plugin-rdp
-      - remmina-plugin-vnc
-    state: present
-    update_cache: yes
-  become: yes
-  tags: [updates, packages]
-
-- name: Install FreeRDP CLI client
-  ansible.builtin.apt:
-    name:
-      - freerdp2-x11
-      - freerdp2-shadow-x11
-    state: present
-    update_cache: yes
-  become: yes
-  tags: [updates, packages]
-
-- name: Install VNC viewer (for VNC connections)
-  ansible.builtin.apt:
-    name:
-      - tigervnc-viewer
-      - xtightvncviewer
-    state: present
-    update_cache: yes
-  become: yes
-  tags: [updates, packages]
-
-- name: Create VNC connection helper script
-  ansible.builtin.template:
-    src: vnc_connect.sh.j2
-    dest: /usr/local/bin/vnc
-    mode: '0755'
-  become: yes
-
-- name: Create desktop shortcuts directory
-  ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/.local/share/applications"
-    state: directory
-    mode: '0755'
-
-- name: Create desktop shortcut for Remmina
-  ansible.builtin.copy:
-    dest: "{{ ansible_env.HOME }}/.local/share/applications/remmina.desktop"
-    content: |
-      [Desktop Entry]
-      Version=1.0
-      Type=Application
-      Name=Remmina Remote Desktop Client
-      Comment=Connect to remote desktops
-      Exec=remmina
-      Icon=remmina
-      Terminal=false
-      Categories=Network;RemoteAccess;
-    mode: '0644'
-
-- name: Display installation information
+- name: Display deprecation warning
   ansible.builtin.debug:
     msg:
-      - "✅ Remote desktop clients installed"
-      - "VNC: Use 'vnc HOSTNAME' or 'remmina' (for GUI)"
-      - "RDP: Use 'rdp HOSTNAME' or 'xfreerdp /v:HOSTNAME.pangolin-vega.ts.net:3389'"
-      - "Examples:"
-      - "  vnc motoko    # Connect to Motoko via VNC (session sharing)"
-      - "  rdp wintermute # Connect to Wintermute via RDP"
+      - "⚠️  DEPRECATED ROLE: remote_client_linux"
+      - ""
+      - "This role is deprecated. RDP/VNC were retired on 2025-11-22."
+      - "NoMachine is the sole remote desktop solution."
+      - ""
+      - "Use instead: remote_client_linux_nomachine"
+      - ""
+      - "Example playbook:"
+      - "  roles:"
+      - "    - remote_client_linux_nomachine"
 
+- name: Fail with deprecation notice
+  ansible.builtin.fail:
+    msg: "This role is deprecated. Use remote_client_linux_nomachine instead."
+  when: remote_client_strict_deprecation | default(true)

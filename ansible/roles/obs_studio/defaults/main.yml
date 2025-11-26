@@ -1,0 +1,18 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# OBS Studio default configuration
+# Cross-platform streaming/recording software
+
+# OBS is a baseline tool for all PHC devices
+obs_studio_enabled: true
+
+# Linux-specific: Use PPA for latest version
+obs_use_ppa: true
+
+# Windows-specific: Use winget as primary installer
+obs_windows_install_method: winget
+
+# macOS-specific: Use Homebrew cask
+obs_macos_cask: obs
+

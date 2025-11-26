@@ -2,10 +2,15 @@
 
 ---
 # Remote desktop defaults for Linux servers
-# Uses VNC for session sharing (access existing kiosk session)
-remote_protocol: vnc
-remote_port: 5900
+# NoMachine is the sole remote access protocol (VNC/RDP retired 2025-11-22)
+# Shares existing kiosk session, does not create new one
+remote_protocol: nomachine
+remote_port: 4000
 desktop_env: "GNOME"  # Default, can be overridden per host
-display_server: "Xorg"  # Prefer Xorg for VNC stability
+display_server: "Xorg"  # Prefer Xorg for NoMachine stability
 session_sharing: true  # Share existing session, don't create new one
+
+# NoMachine specific settings
+nomachine_version: "9.2.18"
+nomachine_port: 4000
 

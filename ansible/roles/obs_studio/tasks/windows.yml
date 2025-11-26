@@ -1,0 +1,77 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows OBS Studio installation
+# https://obsproject.com/download
+
+- name: Check if OBS Studio is installed (Windows)
+  ansible.windows.win_shell: |
+    if (Get-Command obs64 -ErrorAction SilentlyContinue) {
+      Write-Output "INSTALLED"
+    } elseif (Test-Path "C:\Program Files\obs-studio\bin\64bit\obs64.exe") {
+      Write-Output "INSTALLED"
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
+  register: obs_check
+  changed_when: false
+
+- name: Display current OBS Studio installation status (Windows)
+  ansible.builtin.debug:
+    msg: "OBS Studio {{ 'is installed' if 'INSTALLED' in obs_check.stdout else 'is not installed' }}"
+
+- name: Check if winget is available
+  ansible.windows.win_command: winget --version
+  register: winget_check
+  changed_when: false
+  failed_when: false
+  when: "'NOT_INSTALLED' in obs_check.stdout"
+
+- name: Install OBS Studio via winget
+  ansible.windows.win_command: winget install --id OBSProject.OBSStudio --accept-source-agreements --accept-package-agreements --silent
+  register: obs_winget_install
+  when: "'NOT_INSTALLED' in obs_check.stdout and winget_check.rc == 0"
+  changed_when: obs_winget_install.rc == 0
+
+- name: Check if Chocolatey is installed (fallback)
+  ansible.windows.win_shell: |
+    if (Get-Command choco -ErrorAction SilentlyContinue) {
+      Write-Output "INSTALLED"
+    } else {
+      Write-Output "NOT_INSTALLED"
+    }
+  register: choco_check
+  changed_when: false
+  when: "'NOT_INSTALLED' in obs_check.stdout and winget_check.rc != 0"
+
+- name: Install OBS Studio via Chocolatey (fallback)
+  win_chocolatey:
+    name: obs-studio
+    state: present
+  when: "'NOT_INSTALLED' in obs_check.stdout and winget_check.rc != 0 and 'INSTALLED' in choco_check.stdout"
+  register: obs_choco_install
+
+- name: Verify OBS Studio installation (Windows)
+  ansible.windows.win_shell: |
+    if (Test-Path "C:\Program Files\obs-studio\bin\64bit\obs64.exe") {
+      $version = (Get-Item "C:\Program Files\obs-studio\bin\64bit\obs64.exe").VersionInfo.FileVersion
+      Write-Output "INSTALLED:$version"
+    } else {
+      Write-Output "NOT_FOUND"
+    }
+  register: obs_verify
+  changed_when: false
+
+- name: Parse OBS Studio version (Windows)
+  ansible.builtin.set_fact:
+    obs_version: "{{ obs_verify.stdout.split(':')[1] | default('Unknown') }}"
+  when: "'INSTALLED' in obs_verify.stdout"
+
+- name: Display installation summary (Windows)
+  ansible.builtin.debug:
+    msg:
+      - "✅ OBS Studio installed on {{ inventory_hostname }}"
+      - "Version: {{ obs_version | default('Unknown - may need shell restart') }}"
+      - "Launch: Start Menu > OBS Studio"
+      - "Virtual camera: Install via OBS Tools menu if needed"
+

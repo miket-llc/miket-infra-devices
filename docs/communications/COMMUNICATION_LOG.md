@@ -1,3 +1,76 @@
+## 2025-11-26 – VNC/RDP Complete Retirement & OBS Studio Standardization {#2025-11-26-vnc-retirement-obs}
+
+### Context
+Chief Architect team executed complete retirement of all VNC/RDP references from active configuration and standardized OBS Studio installation across all PHC devices. This completes the remote access standardization initiative with NoMachine as the sole remote desktop solution.
+
+### Actions Taken
+
+**Codex-NET-006 (Networking):**
+- ✅ Deleted deprecated `_deprecated/remote_server_linux_vnc/` role (all files)
+- ✅ Deleted archived VNC documentation (`docs/archive/VNC_CONNECTION_INSTRUCTIONS.md`, `docs/archive/TIGERVNC_SETUP.md`)
+- ✅ Deleted archived VNC setup script (`scripts/archive/setup-tigervnc-motoko.sh`)
+- ✅ Updated `host_vars/count-zero.yml`: Changed from `vnc` to `nomachine` protocol
+- ✅ Updated `host_vars/wintermute.yml`: Changed from `rdp` to `nomachine` protocol
+- ✅ Updated `host_vars/armitage.yml`: Changed from `rdp` to `nomachine` protocol
+
+**Codex-IAC-003 (IaC Engineer):**
+- ✅ Created `obs_studio` Ansible role with cross-platform support:
+  - Linux: Installs via PPA, includes ffmpeg and v4l2loopback
+  - Windows: Installs via winget (fallback: Chocolatey)
+  - macOS: Installs via Homebrew cask
+- ✅ Created `deploy-obs-studio.yml` playbook for all devices
+
+**Codex-DOC-009 (DocOps):**
+- ✅ Updated COMMUNICATION_LOG.md with VNC retirement and OBS initiative
+- ✅ Updated EXECUTION_TRACKER.md with completed work
+- ✅ Created `ansible/roles/obs_studio/README.md`
+
+### Deliverables
+
+| Deliverable | Status | Evidence |
+|-------------|--------|----------|
+| VNC role deletion | ✅ Complete | `_deprecated/remote_server_linux_vnc/` removed |
+| VNC docs deletion | ✅ Complete | `docs/archive/VNC_CONNECTION_INSTRUCTIONS.md`, `TIGERVNC_SETUP.md` removed |
+| VNC script deletion | ✅ Complete | `scripts/archive/setup-tigervnc-motoko.sh` removed |
+| Host vars updated | ✅ Complete | count-zero, wintermute, armitage → nomachine |
+| OBS Studio role | ✅ Complete | `ansible/roles/obs_studio/` |
+| OBS deployment playbook | ✅ Complete | `ansible/playbooks/deploy-obs-studio.yml` |
+
+### Files Changed
+
+**Deleted Files:**
+- `ansible/roles/_deprecated/remote_server_linux_vnc/tasks/main.yml`
+- `ansible/roles/_deprecated/remote_server_linux_vnc/defaults/main.yml`
+- `ansible/roles/_deprecated/remote_server_linux_vnc/handlers/main.yml`
+- `ansible/roles/_deprecated/remote_server_linux_vnc/templates/tigervnc.service.j2`
+- `ansible/roles/_deprecated/remote_server_linux_vnc/templates/x11vnc.service.j2`
+- `docs/archive/VNC_CONNECTION_INSTRUCTIONS.md`
+- `docs/archive/TIGERVNC_SETUP.md`
+- `scripts/archive/setup-tigervnc-motoko.sh`
+
+**Modified Files:**
+- `ansible/host_vars/count-zero.yml` - Changed to NoMachine
+- `ansible/host_vars/wintermute.yml` - Changed to NoMachine
+- `ansible/host_vars/armitage.yml` - Changed to NoMachine
+
+**New Files:**
+- `ansible/roles/obs_studio/defaults/main.yml`
+- `ansible/roles/obs_studio/tasks/main.yml`
+- `ansible/roles/obs_studio/tasks/linux.yml`
+- `ansible/roles/obs_studio/tasks/windows.yml`
+- `ansible/roles/obs_studio/tasks/darwin.yml`
+- `ansible/roles/obs_studio/README.md`
+- `ansible/playbooks/deploy-obs-studio.yml`
+
+### PHC Compliance
+
+- ✅ All devices now use NoMachine exclusively (no VNC/RDP)
+- ✅ OBS role follows existing cross-platform patterns (azure_cli, codex_cli)
+- ✅ No secrets in code
+- ✅ Documentation follows required taxonomy
+
+---
+
 ## 2025-11-26 – Code Consolidation and Merge to Main {#2025-11-26-code-consolidation}
 
 ### Context

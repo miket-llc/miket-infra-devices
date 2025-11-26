@@ -2,7 +2,13 @@
 
 ---
 # Defaults for remote_client_windows role
+# DEPRECATED: Use remote_client_windows_nomachine instead
 
-remote_protocol: rdp
-remote_port: 3389
+# This role is deprecated - RDP/VNC retired 2025-11-22
+# NoMachine is the sole remote desktop solution
+remote_protocol: nomachine
+remote_port: 4000
+
+# Strict deprecation mode - set to false to suppress failure
+remote_client_strict_deprecation: true
 
