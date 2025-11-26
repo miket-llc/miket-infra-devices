@@ -3,6 +3,7 @@
 ---
 # Linux OBS Studio installation (Debian/Ubuntu)
 # https://obsproject.com/download
+# OBS is available in Ubuntu 22.04+ standard repos, no PPA needed
 
 - name: Check if OBS Studio is installed
   ansible.builtin.command: which obs
@@ -15,22 +16,20 @@
   ansible.builtin.debug:
     msg: "OBS Studio {{ 'is installed' if obs_check.rc == 0 else 'is not installed' }}"
 
-- name: Add OBS Studio PPA repository
-  ansible.builtin.apt_repository:
-    repo: ppa:obsproject/obs-studio
-    state: present
+- name: Update apt cache
+  ansible.builtin.apt:
     update_cache: yes
+    cache_valid_time: 3600
   become: true
-  when: obs_check.rc != 0 and obs_use_ppa | default(true)
+  when: obs_check.rc != 0
 
-- name: Install OBS Studio and dependencies
+- name: Install OBS Studio and dependencies from standard repos
   ansible.builtin.apt:
     name:
       - obs-studio
       - ffmpeg
       - v4l2loopback-dkms
     state: present
-    update_cache: yes
   become: true
   register: obs_install
   when: obs_check.rc != 0
