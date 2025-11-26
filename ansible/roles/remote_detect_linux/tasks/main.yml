@@ -3,6 +3,8 @@
 ---
 # Ansible role: remote_detect_linux
 # Detects existing remote desktop servers and system configuration on Linux hosts
+# Note: VNC/RDP are architecturally retired (2025-11-22). This role detects
+# legacy services for removal validation. NoMachine is the sole solution.
 
 - name: Check if xrdp service exists
   ansible.builtin.command: systemctl list-unit-files xrdp.service
@@ -167,9 +169,11 @@
         detected: "{{ ((tailscale_interface_check.rc | default(1)) == 0) or ((wg0_check.rc | default(1)) == 0) }}"
 
 - name: Determine recommended server type
+  # NoMachine is the sole remote desktop solution (VNC/RDP retired 2025-11-22)
+  # Legacy VNC/RDP detection preserved for removal validation only
   ansible.builtin.set_fact:
     remote_detection:
-      "{{ remote_detection | combine({'recommended_server': 'vnc' if (remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active) else ('keep_vnc' if remote_detection.vnc.x11vnc.installed else ('xrdp' if (remote_detection.xrdp.installed and remote_detection.xrdp.active) else 'vnc'))}) }}"
+      "{{ remote_detection | combine({'recommended_server': 'nomachine', 'legacy_vnc_detected': (remote_detection.vnc.x11vnc.active or remote_detection.vnc.tigervnc.active or remote_detection.vnc.gnome_remote_desktop.active), 'legacy_rdp_detected': remote_detection.xrdp.active}) }}"
 
 - name: Display detection results
   ansible.builtin.debug:
