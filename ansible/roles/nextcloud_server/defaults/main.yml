@@ -34,7 +34,9 @@ nextcloud_redis_image: redis:7-alpine
 
 # Network / Ports
 nextcloud_port: 8080
-nextcloud_internal_hostname: nextcloud.motoko
+# NOTE: Internal access uses Tailscale MagicDNS hostname (not nextcloud.motoko)
+# Tailscale HTTPS serves certs for *.pangolin-vega.ts.net
+nextcloud_internal_hostname: motoko.pangolin-vega.ts.net
 nextcloud_external_hostname: nextcloud.miket.io
 
 # Database configuration
@@ -42,12 +44,13 @@ nextcloud_db_name: nextcloud
 nextcloud_db_user: nextcloud  # Actual value from AKV
 
 # Trusted domains (Tailscale + Cloudflare Access)
+# IMPORTANT: These must match the Entra OIDC redirect URIs in miket-infra
+# See: miket-infra/docs/reference/NEXTCLOUD_PLATFORM_CONTRACT.md v2.1
 nextcloud_trusted_domains:
   - localhost
   - motoko
-  - motoko.pangolin-vega.ts.net
-  - nextcloud.motoko
-  - nextcloud.miket.io
+  - motoko.pangolin-vega.ts.net   # Internal: Tailscale MagicDNS (REQUIRED)
+  - nextcloud.miket.io            # External: Cloudflare Tunnel (REQUIRED)
   - 127.0.0.1
 
 # Admin user (from AKV)

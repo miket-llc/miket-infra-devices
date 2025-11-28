@@ -95,7 +95,10 @@ Nextcloud provides:
 | Type | URL | Protection |
 |------|-----|------------|
 | External | `https://nextcloud.miket.io` | Cloudflare Access (Entra IdP) |
-| Internal | `http://nextcloud.motoko:8080` | Tailscale only |
+| Internal | `https://motoko.pangolin-vega.ts.net` | Tailscale + OIDC (Entra) |
+
+> **Note**: The hostname `nextcloud.motoko` is NOT valid. Use the Tailscale MagicDNS 
+> hostname `motoko.pangolin-vega.ts.net`. Tailscale provisions HTTPS certs automatically.
 
 Cloudflare Access App ID: `e49a8197-8500-4ef1-9fc3-410d77cf861a`
 

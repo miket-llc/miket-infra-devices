@@ -85,8 +85,11 @@ ansible-playbook playbooks/motoko/deploy-nextcloud.yml --limit motoko --tags val
 
 ## Endpoints
 
-- **Internal**: `http://nextcloud.motoko:8080` (via Tailscale)
+- **Internal**: `https://motoko.pangolin-vega.ts.net` (via Tailscale MagicDNS + HTTPS)
 - **External**: `https://nextcloud.miket.io` (via Cloudflare Access)
+
+> **Note**: The hostname `nextcloud.motoko` is NOT valid. Tailscale MagicDNS uses
+> `<hostname>.<tailnet>.ts.net` format. Use `motoko.pangolin-vega.ts.net` for internal access.
 
 ## Scheduled Jobs
 

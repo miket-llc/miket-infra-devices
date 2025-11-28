@@ -60,8 +60,8 @@
           /flux:          {{ 'Available' if flux_mount.stat.exists else 'MISSING' }}
           
           Endpoints:
-          - Internal:     http://nextcloud.motoko:8080
-          - External:     https://nextcloud.miket.io
+          - Internal:     https://motoko.pangolin-vega.ts.net (Tailscale)
+          - External:     https://nextcloud.miket.io (Cloudflare Access)
           
           PHC Invariants:
           ✅ /space is System of Record
@@ -84,7 +84,7 @@
           ═══════════════════════════════════════════════════════════
           
           Access URLs:
-          - Internal (Tailscale): http://nextcloud.motoko:8080
+          - Internal (Tailscale): https://motoko.pangolin-vega.ts.net
           - External (Cloudflare): https://nextcloud.miket.io
           
           Admin Login:

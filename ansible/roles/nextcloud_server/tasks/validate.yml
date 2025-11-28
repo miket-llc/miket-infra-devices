@@ -118,6 +118,5 @@
       redis={{ 'Running' if 'Up' in redis_status.stdout else 'FAILED' }}.
       Pure Façade: skeleton={{ 'DISABLED' if (skeleton_dir_check.stdout | trim == '' or skeleton_dir_check.rc != 0) else 'ENABLED (warning)' }},
       sweeper={{ 'Active' if sweeper_timer.stdout | default('') == 'active' else 'INACTIVE' }}.
-      Endpoints: internal=http://nextcloud.motoko:{{ nextcloud_port }},
+      Endpoints: internal=https://{{ nextcloud_internal_hostname }},
       external=https://{{ nextcloud_external_hostname }}
-
