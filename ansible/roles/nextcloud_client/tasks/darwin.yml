@@ -2,46 +2,47 @@
 
 ---
 # macOS Nextcloud Client Installation
+# If brew install fails (permissions, etc.), user must install manually
 
 - name: Check if Nextcloud.app is already installed
   ansible.builtin.stat:
     path: /Applications/Nextcloud.app
   register: nextcloud_app
 
-- name: Check if Homebrew is installed (Apple Silicon)
-  ansible.builtin.stat:
-    path: /opt/homebrew/bin/brew
-  register: homebrew_arm_check
-  when: not nextcloud_app.stat.exists
+- name: Skip installation if already present
+  ansible.builtin.debug:
+    msg: "Nextcloud.app already installed, skipping brew install"
+  when: nextcloud_app.stat.exists
 
-- name: Check if Homebrew is installed (Intel)
-  ansible.builtin.stat:
-    path: /usr/local/bin/brew
-  register: homebrew_intel_check
+- name: Set Homebrew path (Apple Silicon)
+  ansible.builtin.set_fact:
+    brew_path: /opt/homebrew/bin/brew
+  when: 
+    - not nextcloud_app.stat.exists
+    - ansible_machine == 'arm64'
+
+- name: Set Homebrew path (Intel)
+  ansible.builtin.set_fact:
+    brew_path: /usr/local/bin/brew
   when:
     - not nextcloud_app.stat.exists
-    - not (homebrew_arm_check.stat.exists | default(false))
+    - ansible_machine != 'arm64'
 
-- name: Set Homebrew path
-  ansible.builtin.set_fact:
-    brew_path: "{{ '/opt/homebrew/bin/brew' if (homebrew_arm_check.stat.exists | default(false)) else '/usr/local/bin/brew' }}"
-  when: not nextcloud_app.stat.exists
-
-- name: Install Nextcloud client via brew (shell command - more reliable)
+- name: Attempt Nextcloud install via brew (non-blocking)
   ansible.builtin.shell: |
-    {{ brew_path }} install --cask nextcloud 2>&1 || true
+    {{ brew_path }} install --cask nextcloud 2>&1
   args:
     creates: /Applications/Nextcloud.app
   become: false
   register: brew_install
-  changed_when: "'Installing' in brew_install.stdout or 'Downloading' in brew_install.stdout"
+  changed_when: "'Downloading' in brew_install.stdout or 'Installing' in brew_install.stdout"
+  failed_when: false
+  timeout: 180
   when:
     - not nextcloud_app.stat.exists
     - brew_path is defined
-  async: 300
-  poll: 10
 
-- name: Verify Nextcloud.app is installed (post-install)
+- name: Check Nextcloud.app after install attempt
   ansible.builtin.stat:
     path: /Applications/Nextcloud.app
   register: nextcloud_app_final
@@ -53,11 +54,17 @@
     mode: "0755"
   become: false
 
-- name: Report macOS installation status
+- name: Report installation status
   ansible.builtin.debug:
     msg: |
-      macOS Nextcloud Client:
-      - App: {{ 'Installed' if nextcloud_app_final.stat.exists else 'NOT INSTALLED - run: brew install --cask nextcloud' }}
-      - Sync Root: {{ nextcloud_sync_root }}
-      - Server: {{ nextcloud_server_url }}
+      macOS Nextcloud Client Status:
+      {% if nextcloud_app_final.stat.exists %}
+      ✅ App: INSTALLED at /Applications/Nextcloud.app
+      {% else %}
+      ❌ App: NOT INSTALLED
+         Manual install required: brew install --cask nextcloud
+         Or download from: https://nextcloud.com/install/#install-clients
+      {% endif %}
+      ✅ Sync Root: {{ nextcloud_sync_root }}
+      🔗 Server: {{ nextcloud_server_url }}
 
