@@ -57,9 +57,9 @@
       ansible.builtin.include_role:
         name: wake_on_lan
 
-    # NOTE: Display configuration is handled by COSMIC desktop settings
-    # Pop!_OS with COSMIC uses Wayland, not Xorg - configure displays via Settings app
-    # Do NOT deploy Xorg configs as they interfere with cosmic-greeter
+    # NOTE: Display configuration is handled by KDE Plasma system settings
+    # KDE Plasma on X11 - configure displays via Settings app
+    # Do NOT deploy Xorg configs as they interfere with sddm
 
     - name: Display configuration summary
       ansible.builtin.debug:
@@ -69,7 +69,7 @@
           - "Lid Configuration:"
           - "  ✓ Lid switch actions disabled"
           - "  ✓ Kernel parameter set (reboot required)"
-          - "  ✓ cosmic-greeter configured for lid-closed operation"
+          - "  ✓ sddm configured for lid-closed operation"
           - ""
           - "Wake-on-LAN Configuration:"
           - "  ✓ WOL enabled via ethtool"
@@ -77,8 +77,8 @@
           - "  ✓ Persistent WOL service enabled"
           - ""
           - "Display Configuration:"
-          - "  ⚠ Handled by COSMIC desktop settings (not Ansible)"
-          - "  ⚠ Pop!_OS uses Wayland via cosmic-greeter"
+          - "  ⚠ Handled by KDE Plasma system settings (not Ansible)"
+          - "  ⚠ Pop!_OS uses Wayland via sddm"
           - "  ⚠ Configure display preferences in Settings > Displays"
           - ""
           - "Remote Desktop:"
@@ -89,6 +89,6 @@
           - "  1. Reboot motoko for lid/WOL changes to take effect"
           - "  2. Test WOL: tools/cli/tailnet.py wake --host motoko"
           - "  3. Verify lid-closed operation after reboot"
-          - "  4. Configure displays via COSMIC Settings app"
+          - "  4. Configure displays via KDE System Settings"
           - "  5. Verify NoMachine connection works"
 

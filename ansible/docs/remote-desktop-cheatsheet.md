@@ -118,7 +118,7 @@ ansible-playbook playbooks/remote_clients_nomachine.yml -l macos
 
 | Host | Protocol | Port | Session Type |
 |------|----------|------|--------------|
-| motoko | NoMachine | 4000 | GNOME (Linux) |
+| motoko | NoMachine | 4000 | KDE Plasma (Linux) |
 | wintermute | NoMachine | 4000 | Windows Desktop |
 | armitage | NoMachine | 4000 | Windows Desktop |
 | count-zero | NoMachine | 4000 | macOS Desktop |

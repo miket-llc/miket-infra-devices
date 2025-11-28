@@ -315,7 +315,7 @@ linked_communications:
    - Save credentials for auto-connect (optional)
 
 3. **E2E Connection Tests:**
-   - Test motoko connection (Linux GNOME desktop)
+   - Test motoko connection (Linux KDE Plasma desktop)
    - Test wintermute connection (Windows desktop)
    - Test armitage connection (Windows desktop)
    - For each connection, verify:

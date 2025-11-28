@@ -21,7 +21,7 @@ linked_communications:
 - Deployed cross-platform mounts (macOS `~/.mkt/*` + symlinks, Windows `X:/S:/T:`) with loop prevention and OS cloud sync to `/space/devices`.
 - Server-side `/space/devices` structure live with user-facing symlinks; validation playbooks available.
 - Documentation standards established (single-source model, communication log discipline).
-- GNOME freeze remediation, watchdog deployment, and data lifecycle automation completed on motoko.
+- Desktop migration, watchdog deployment, and data lifecycle automation completed on motoko.
 - Lessons learned: enforce device credentials early (vault), use LAN/Tailscale fallback paths, keep remote access UX unified (NoMachine over RDP where possible).
 
 ## Objectives & Key Results (OKRs)
