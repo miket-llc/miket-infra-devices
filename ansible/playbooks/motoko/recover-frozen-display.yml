@@ -29,7 +29,7 @@
 
     - name: Check for crash-looping containers
       ansible.builtin.shell: |
-        docker ps -a --filter "status=restarting" --format "{{{{.Names}}}}" || echo ""
+        docker ps -a --filter "status=restarting" --format "{{"{{"}}.Names{{"}}"}}" || echo ""
       register: crashloop_containers
       changed_when: false
       failed_when: false
@@ -59,27 +59,14 @@
         state: restarted
       when: tailscale_cpu.stdout | float > 200
 
-    - name: Check GNOME Shell error rate
-      ansible.builtin.shell: |
-        journalctl -t gnome-shell --since "5 minutes ago" --no-pager 2>/dev/null | grep -c "Stack trace" || echo "0"
-      register: gnome_errors
-      changed_when: false
-      failed_when: false
-
-    - name: Display GNOME Shell error count
-      ansible.builtin.debug:
-        msg: "GNOME Shell errors in last 5 minutes: {{ gnome_errors.stdout }}"
-
-    - name: Restart GDM if GNOME Shell is in error storm
+    - name: Restart SDDM to recover display
       ansible.builtin.systemd:
-        name: gdm.service
+        name: sddm.service
         state: restarted
-      when: gnome_errors.stdout | int > 1000
 
-    - name: Wait for GDM to restart
+    - name: Wait for SDDM to restart
       ansible.builtin.wait_for:
         timeout: 10
-      when: gnome_errors.stdout | int > 1000
 
     - name: Restart NoMachine server to connect to fresh session
       ansible.builtin.systemd:
@@ -95,7 +82,7 @@
         name: "{{ item }}"
         state: started
       loop:
-        - gdm.service
+        - sddm.service
         - nxserver.service
         - tailscaled.service
         - docker.service
@@ -104,7 +91,7 @@
       ansible.builtin.shell: |
         uptime
         free -h
-        systemctl status gdm nxserver --no-pager | grep "Active:"
+        systemctl status sddm nxserver --no-pager | grep "Active:"
       register: final_status
       changed_when: false
 
@@ -118,7 +105,3 @@
         line: "[{{ ansible_date_time.iso8601 }}] Automated recovery executed via Ansible"
         create: true
         mode: '0644'
-
-
-
-

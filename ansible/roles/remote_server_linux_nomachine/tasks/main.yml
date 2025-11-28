@@ -223,6 +223,6 @@
 - name: Display connection information
   ansible.builtin.debug:
     msg:
-      - "✅ NoMachine server configured to share existing GNOME session"
+      - "✅ NoMachine server configured for X11 session sharing"
       - "VNC has been stopped and disabled"
       - "Connect via NoMachine to: {{ inventory_hostname }}.pangolin-vega.ts.net:{{ nomachine_port }}"

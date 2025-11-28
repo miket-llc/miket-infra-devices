@@ -1,3 +1,67 @@
+## 2025-11-28 – Motoko Desktop Migration to KDE Plasma {#2025-11-28-motoko-kde-migration}
+
+### Context
+NoMachine connections from macOS to motoko experienced color distortion and broken input due to COSMIC desktop's incomplete Wayland portal implementation. After attempting multiple fixes, decision was made to migrate to KDE Plasma on X11 for full NoMachine compatibility.
+
+### Root Cause
+COSMIC Desktop (Pop!_OS default) only implements ScreenCast portal - NOT RemoteDesktop or InputCapture. This fundamentally breaks remote input for any Wayland remote desktop solution. GNOME Shell also failed to start due to Pop!_OS session configuration incompatibilities.
+
+### Solution Applied
+Migrated motoko from COSMIC/Wayland to KDE Plasma on X11:
+
+| Component | Before | After |
+|-----------|--------|-------|
+| Desktop Environment | COSMIC | KDE Plasma |
+| Display Server | Wayland | X11 |
+| Display Manager | GDM | SDDM |
+| NoMachine Mode | DRM/Wayland workarounds | Standard X11 |
+
+### Actions Taken
+
+**Infrastructure:**
+- Installed KDE Plasma desktop and SDDM display manager
+- Configured SDDM autologin for user `mdt`
+- Set default session to Plasma (X11)
+- Updated NoMachine node.cfg for X11 mode
+
+**Documentation Cleanup:**
+- Deleted obsolete GNOME recovery scripts and docs
+- Deleted Pop!_OS specific troubleshooting docs
+- Updated device config to reflect Ubuntu + KDE
+- Updated Ansible host_vars for KDE/X11
+- Purged all COSMIC/Wayland-specific configurations
+
+### Files Deleted (Obsolete)
+- `devices/motoko/scripts/gnome-shell-recovery.sh`
+- `devices/motoko/scripts/gnome-health-monitor.sh`
+- `devices/motoko/QUICK_REFERENCE_GNOME_RECOVERY.md`
+- `devices/motoko/COMPLETE_ROOT_CAUSE_ANALYSIS.md`
+- `devices/motoko/FIX_DNS_POPOS.md`
+- `devices/motoko/DISABLE_DESKTOP_RESET.md`
+- `devices/motoko/PHYSICAL_ACCESS_FIX.md`
+- `devices/motoko/TROUBLESHOOTING_POST_UPGRADE.md`
+- `docs/guides/nomachine-linux-wayland-troubleshooting.md`
+- `docs/runbooks/MOTOKO_FROZEN_SCREEN_RECOVERY.md`
+- `docs/runbooks/MOTOKO_POST_UPGRADE_SUMMARY.md`
+- `docs/runbooks/motoko-post-upgrade-setup.md`
+- `ansible/playbooks/motoko/restore-popos-desktop.yml`
+
+### Files Modified
+- `devices/motoko/config.yml` - Updated OS, desktop, display server
+- `ansible/host_vars/motoko.yml` - Updated for KDE/X11
+- `ansible/playbooks/motoko/recover-frozen-display.yml` - Updated for SDDM
+- `ansible/roles/remote_server_linux_nomachine/tasks/main.yml` - Updated messaging
+- Various runbooks - Updated GNOME → KDE references
+
+### PHC Compliance
+- ✅ NoMachine remains sole remote desktop solution
+- ✅ Repository simplified - removed 15+ obsolete files
+- ✅ Device config accurately reflects current state
+- ✅ No secrets in code
+- ✅ Changes tracked in communication log
+
+---
+
 ## 2025-11-26 – VNC/RDP Complete Retirement & OBS Studio Standardization {#2025-11-26-vnc-retirement-obs}
 
 ### Context

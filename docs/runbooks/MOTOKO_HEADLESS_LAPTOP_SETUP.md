@@ -99,7 +99,7 @@ NoMachine is the sole remote desktop solution (VNC has been architecturally reti
 **Connection:**
 - **Host**: `motoko.pangolin-vega.ts.net:4000`
 - **Protocol**: NoMachine NX
-- **Session**: Shares existing GNOME desktop session
+- **Session**: Shares existing KDE Plasma desktop session
 
 See [NoMachine Client Installation](nomachine-client-installation.md) for client setup.
 

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 # Motoko - Primary Infrastructure Server
-# Last Updated: 2025-01-XX
+# Last Updated: 2025-11-28
 
 device:
   hostname: motoko
@@ -9,29 +9,32 @@ device:
   type: server
   location: primary
   primary_user: mdt
-  os: Ubuntu 24.04.2 LTS
+  os: "Ubuntu 24.04 LTS"
   codename: noble
+  desktop: "KDE Plasma"
+  display_server: "X11"
 
 hardware:
   manufacturer: Alienware
   model: Laptop (repurposed as server)
-  cpu: "AMD EPYC (placeholder - verify actual CPU)"
+  cpu: "Intel Core i7-8750H"
   gpu: "NVIDIA GeForce RTX 2080"
   gpu_driver: "535.230.02"
   cuda_version: "12.2"
-  memory_gb: 32  # Verify actual memory
+  memory_gb: 32
   storage:
-    - "/mnt/data/docker"  # Docker root
-    - "/mnt/lacie"  # Backup storage
-    - "/mnt/lacie/llama-model"  # Model storage
-    - "/mnt/usb-timemachine"  # Time Machine backup partition (APFS, read-only)
-    - "/mnt/usb-space"  # File cache partition (ext4, 20TB USB 3.0 drive)
+    - "/space"  # SoR - 20TB USB 3.0 drive
+    - "/flux"   # Runtime surface
+    - "/time"   # Time Machine backup target
 
 operating_system:
-  os: Ubuntu
-  version: "24.04.2 LTS"
+  os: "Ubuntu"
+  version: "24.04 LTS"
   codename: noble
-  kernel: "6.x"  # Verify actual kernel version
+  kernel: "6.x"
+  desktop_environment: "KDE Plasma"
+  display_server: "X11"
+  display_manager: "SDDM"
 
 network:
   tailscale_enabled: true
@@ -53,6 +56,7 @@ services:
   - Netatalk (AFP for macOS)
   - fail2ban (security)
   - postfix (mail)
+  - NoMachine (port 4000)
 
 vllm:
   reasoning:
@@ -81,32 +85,28 @@ litellm:
     - "Motoko (local/embed)"
     - "OpenAI (fallback)"
 
+remote_desktop:
+  protocol: nomachine
+  port: 4000
+  version: "9.2.18"
+  display_manager: sddm
+  session_type: plasma
+  # X11 provides full NoMachine compatibility - no portal limitations
+
 use_cases:
   - Primary Ansible control node
   - Docker container hosting
   - LLM inference (reasoning and embeddings)
   - LLM request routing (LiteLLM proxy)
   - Backup storage server (Time Machine for count-zero)
-  - Enterprise file cache storage (20TB USB 3.0)
+  - PHC storage backplane (/space, /flux, /time)
   - File sharing (Samba/AFP)
-  - Knowledge graph building (with vLLM models)
 
 notes:
   - Primary infrastructure server and Ansible control node
   - Hosts Docker containers with NVIDIA GPU runtime
   - Provides backup services via Samba/AFP
   - Routes LLM requests via LiteLLM proxy
-  - GPU memory allocation: 45% reasoning, 30% embeddings, 25% headroom
+  - GPU memory allocation - 45% reasoning, 30% embeddings, 25% headroom
   - Connected to Tailnet for secure remote access
-  - Self-managed via Ansible playbooks in `ansible/playbooks/motoko/`
-
-troubleshooting:
-  gnome_ui_freeze:
-    last_incident: "2025-11-21"
-    status: "Resolved"
-    root_cause: "GNOME Shell crash loop due to stuck gnome-shell-disable-extensions file"
-    solution: "Remove /run/user/1000/gnome-shell-disable-extensions and restart gnome-shell"
-    recovery_script: "devices/motoko/scripts/gnome-shell-recovery.sh"
-    monitoring_script: "devices/motoko/scripts/gnome-health-monitor.sh"
-    documentation: "devices/motoko/GNOME_UI_FREEZE_INCIDENT_REPORT.md"
-    quick_reference: "devices/motoko/QUICK_REFERENCE_GNOME_RECOVERY.md"
+  - Self-managed via Ansible playbooks

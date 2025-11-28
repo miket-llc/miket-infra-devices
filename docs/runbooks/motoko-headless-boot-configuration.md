@@ -88,7 +88,7 @@ ansible-playbook -i ansible/inventory/hosts.yml \
 **NoMachine** is the sole remote desktop solution:
 - **Host**: `motoko.pangolin-vega.ts.net:4000`
 - **Protocol**: NoMachine NX
-- **Session**: Shares existing GNOME desktop session
+- **Session**: Shares existing KDE Plasma desktop session
 - **Display**: Sees configured display (HDMI or eDP)
 
 **VNC has been architecturally retired** (2025-11-22). All VNC services, scripts, and documentation have been removed or archived.

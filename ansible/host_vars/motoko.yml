@@ -2,22 +2,21 @@
 
 ---
 # Remote desktop configuration for motoko (Linux server)
-# Uses NoMachine to share the existing mdt kiosk session (not create a new one)
+# Uses NoMachine to share the existing KDE Plasma session
 remote_protocol: nomachine
 remote_port: 4000
 restrict_to_tailscale: true
-desktop_env: "GNOME"
-display_server: "Xorg"  # Will be auto-detected
-session_sharing: true  # Share existing session, don't create new one
+desktop_env: "KDE"
+display_server: "X11"
+display_manager: "sddm"
+session_sharing: true
 
-# NoMachine specific settings
+# NoMachine specific settings - X11 provides full compatibility
 nomachine_version: "9.2.18"
 nomachine_port: 4000
 
-# USB Storage Configuration
-usb_timemachine_filesystem: ext4
-usb_timemachine_fstab_options: "defaults,noatime"
-usb_space_filesystem: ext4
-usb_backup_before_format: false
-usb_timemachine_mount: /time
+# PHC Storage Configuration (per PHC invariants)
+# /space = SoR, /flux = runtime, /time = Time Machine
 usb_space_mount: /space
+usb_flux_mount: /flux
+usb_timemachine_mount: /time
