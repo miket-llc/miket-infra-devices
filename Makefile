@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -30,7 +30,12 @@ help:
 	@echo "  validate-nomachine         - Validate NoMachine deployment (test all servers)"
 	@echo "  rollback-nomachine         - Emergency rollback (re-enable RDP on Windows)"
 	@echo ""
-	@echo "Utility:"
+	@echo "Nextcloud:"
+	@echo "  deploy-nextcloud           - Deploy Nextcloud stack on motoko"
+	@echo "  validate-nextcloud         - Validate Nextcloud pure façade compliance"
+	@echo "  test-nextcloud             - Run Nextcloud smoke tests"
+	@echo ""
+	@echo "Utility:
 	@echo "  backup-configs          - Backup current configurations"
 	@echo "  health-check            - Check health of all services"
 	@echo "  test-context            - Run context window smoke tests"
@@ -278,4 +283,61 @@ rollback-nomachine:
 	fi
 	@echo ""
 	@echo "✅ Rollback complete. RDP is re-enabled on Windows."
+
+# ========================================
+# Nextcloud Deployment
+# ========================================
+
+# Run Nextcloud smoke tests
+test-nextcloud: $(ARTIFACTS_DIR)
+	@echo "Running Nextcloud pure façade smoke tests..."
+	@python3 $(TESTS_DIR)/nextcloud_smoke.py || echo "Nextcloud tests failed - check $(ARTIFACTS_DIR)/nextcloud_smoke_test_results.json"
+
+# Deploy Nextcloud stack on motoko
+deploy-nextcloud:
+	@echo "========================================"
+	@echo "Nextcloud Stack Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy Nextcloud as a pure façade over /space:"
+	@echo "  ✓ Docker Compose stack (Nextcloud + PostgreSQL + Redis)"
+	@echo "  ✓ External storage mounts to /space/mike"
+	@echo "  ✓ Skeleton files disabled (no welcome content)"
+	@echo "  ✓ Home sweeper for stray file detection"
+	@echo "  ✓ M365 sync and database backup timers"
+	@echo ""
+	@read -p "Continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "Deploying Nextcloud..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-nextcloud.yml --limit motoko --ask-vault-pass; \
+	else \
+		echo "Deployment cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Nextcloud deployed!"
+	@echo "Run 'make validate-nextcloud' to verify pure façade compliance"
+
+# Validate Nextcloud pure façade compliance
+validate-nextcloud:
+	@echo "========================================"
+	@echo "Nextcloud Pure Façade Validation"
+	@echo "========================================"
+	@echo ""
+	@echo "Checking Nextcloud container status..."
+	@docker ps --filter "name=nextcloud-app" --format "Status: {{.Status}}"
+	@echo ""
+	@echo "Checking skeleton directory configuration..."
+	@docker exec nextcloud-app php occ config:system:get skeletondirectory 2>/dev/null || echo "(empty - correct for pure façade)"
+	@echo ""
+	@echo "Listing external storage mounts..."
+	@docker exec nextcloud-app php occ files_external:list
+	@echo ""
+	@echo "Checking systemd timers..."
+	@systemctl is-active nextcloud-home-sweeper.timer || echo "home-sweeper: inactive"
+	@systemctl is-active nextcloud-m365-sync.timer || echo "m365-sync: inactive"
+	@systemctl is-active nextcloud-db-backup.timer || echo "db-backup: inactive"
+	@echo ""
+	@echo "Running smoke tests..."
+	@python3 $(TESTS_DIR)/nextcloud_smoke.py
 

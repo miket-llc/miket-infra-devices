@@ -1,0 +1,15 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+[Unit]
+Description=Daily sweep of Nextcloud internal user homes for stray files
+Documentation=file:///home/mdt/miket-infra-devices/docs/guides/nextcloud_on_motoko.md
+
+[Timer]
+OnCalendar=*-*-* {{ nextcloud_home_sweeper_schedule }}
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+

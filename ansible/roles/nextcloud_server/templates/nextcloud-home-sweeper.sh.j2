@@ -1,0 +1,119 @@
+#!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+# Nextcloud Home Sweeper
+# Detects stray files in internal Nextcloud user homes that should be in /space
+# Part of PHC "pure façade" architecture: Nextcloud internal homes must be empty
+
+set -euo pipefail
+
+NEXTCLOUD_DATA="{{ nextcloud_data_path }}/data"
+QUARANTINE_DIR="{{ nextcloud_home_sweeper_quarantine }}"
+LOG_FILE="{{ nextcloud_log_path }}/home-sweeper.log"
+ALERT_ONLY="{{ 'true' if nextcloud_home_sweeper_alert_only else 'false' }}"
+MANAGED_USERS=({{ nextcloud_managed_users | join(' ') }})
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# Directories that are part of Nextcloud internal structure (not stray files)
+INTERNAL_DIRS=(
+    "cache"
+    "files_encryption"
+    "files_external"
+    "files_trashbin"
+    "files_versions"
+    "uploads"
+    ".htaccess"
+    ".ocdata"
+)
+
+log() {
+    echo "[$(date -Iseconds)] $*" | tee -a "$LOG_FILE"
+}
+
+is_internal() {
+    local path="$1"
+    local basename=$(basename "$path")
+    for internal in "${INTERNAL_DIRS[@]}"; do
+        if [[ "$basename" == "$internal" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+quarantine_file() {
+    local src="$1"
+    local user="$2"
+    local dest_dir="$QUARANTINE_DIR/$user/$TIMESTAMP"
+    
+    if [[ "$ALERT_ONLY" == "true" ]]; then
+        log "ALERT: Would quarantine: $src"
+        return 0
+    fi
+    
+    mkdir -p "$dest_dir"
+    cp -a "$src" "$dest_dir/"
+    log "QUARANTINED: $src -> $dest_dir/"
+}
+
+main() {
+    log "===== Nextcloud Home Sweeper Started ====="
+    log "Mode: $( [[ "$ALERT_ONLY" == "true" ]] && echo 'ALERT_ONLY' || echo 'QUARANTINE' )"
+    
+    mkdir -p "$(dirname "$LOG_FILE")"
+    
+    local stray_count=0
+    
+    for user in "${MANAGED_USERS[@]}"; do
+        local user_home="$NEXTCLOUD_DATA/$user"
+        local user_files="$user_home/files"
+        
+        if [[ ! -d "$user_home" ]]; then
+            log "User home not found: $user_home (skipping)"
+            continue
+        fi
+        
+        if [[ ! -d "$user_files" ]]; then
+            log "User files dir not found: $user_files (expected for pure façade)"
+            continue
+        fi
+        
+        log "Scanning: $user_files"
+        
+        # Find all files and directories in user's files directory
+        while IFS= read -r -d '' item; do
+            # Skip the files directory itself
+            if [[ "$item" == "$user_files" ]]; then
+                continue
+            fi
+            
+            # Skip internal directories
+            if is_internal "$item"; then
+                continue
+            fi
+            
+            # This is a stray file/directory
+            local relative_path="${item#$user_files/}"
+            log "STRAY DETECTED: $user -> $relative_path"
+            ((stray_count++))
+            
+            quarantine_file "$item" "$user"
+            
+        done < <(find "$user_files" -maxdepth 1 -mindepth 1 -print0 2>/dev/null || true)
+    done
+    
+    log "===== Sweeper Complete: $stray_count stray item(s) found ====="
+    
+    if [[ $stray_count -gt 0 ]]; then
+        log "WARNING: User content found in internal homes!"
+        log "PHC architecture requires all user files to be in /space via external mounts."
+        log "Review quarantine: $QUARANTINE_DIR"
+        exit 1
+    fi
+    
+    exit 0
+}
+
+main "$@"
+

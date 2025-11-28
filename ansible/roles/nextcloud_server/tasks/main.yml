@@ -4,6 +4,7 @@
 # Nextcloud Server Deployment Tasks
 # Idempotent deployment of Nextcloud stack on motoko
 # Respects PHC invariants: /space is SoR, /flux is runtime
+# Implements "pure façade" architecture: user content on /space only
 
 - name: Include directory setup tasks
   ansible.builtin.include_tasks: directories.yml
@@ -18,6 +19,9 @@
   ansible.builtin.include_tasks: oidc.yml
   when: nextcloud_oidc_enabled | default(true)
 
+- name: Include skeleton/pure façade configuration tasks
+  ansible.builtin.include_tasks: skeleton_config.yml
+
 - name: Include external storage configuration tasks
   ansible.builtin.include_tasks: external_storage.yml
 
@@ -26,6 +30,10 @@
 
 - name: Include database backup tasks
   ansible.builtin.include_tasks: db_backup.yml
+
+- name: Include home sweeper tasks
+  ansible.builtin.include_tasks: home_sweeper.yml
+  when: nextcloud_home_sweeper_enabled | default(true)
 
 - name: Include validation tasks
   ansible.builtin.include_tasks: validate.yml

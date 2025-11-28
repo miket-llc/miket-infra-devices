@@ -2,7 +2,7 @@
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
 last_updated: 2025-11-28
-version: v1.10.0
+version: v1.11.0
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
@@ -58,6 +58,8 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 - ✅ **DEPLOYED:** Cloudflare Tunnel (b8073aa7-...) + cloudflared role
 - ✅ **DEPLOYED:** Entra ID OIDC SSO (client ID: 474bfcfe-...)
 - ✅ **DEPLOYED:** Server operational at https://nextcloud.miket.io
+- ✅ **COMPLETE:** Pure façade implementation (skeleton disabled, home sweeper)
+- ✅ **COMPLETE:** Smoke tests (tests/nextcloud_smoke.py)
 - 🔜 **PENDING:** External storage admin UI configuration
 - 🔜 **PENDING:** Client deployment to endpoints
 
@@ -139,6 +141,10 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || Nextcloud on Motoko guide | Codex-DOC-009 | 2025-11-28 | [nextcloud_on_motoko.md](../guides/nextcloud_on_motoko.md) |
 || Nextcloud client usage guide | Codex-DOC-009 | 2025-11-28 | [nextcloud_client_usage.md](../guides/nextcloud_client_usage.md) |
 || Nextcloud M365 sync runbook | Codex-DOC-009 | 2025-11-28 | [nextcloud_m365_sync.md](../runbooks/nextcloud_m365_sync.md) |
+|| Nextcloud pure façade implementation | Codex-IAC-003 | 2025-11-28 | skeleton_config.yml, home_sweeper.yml, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-28-nextcloud-pure-facade) |
+|| Nextcloud home sweeper timer | Codex-PD-002 | 2025-11-28 | nextcloud-home-sweeper.{sh,service,timer} |
+|| Nextcloud smoke tests | Codex-PD-002 | 2025-11-28 | [tests/nextcloud_smoke.py](../../tests/nextcloud_smoke.py) |
+|| Pure façade documentation | Codex-DOC-009 | 2025-11-28 | [nextcloud_on_motoko.md](../guides/nextcloud_on_motoko.md) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

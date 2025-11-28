@@ -26,6 +26,17 @@ Nextcloud provides file sync between your devices and `/space` on motoko. This g
 - Recommended sync folders
 - What NOT to sync
 
+### Pure Façade Architecture
+
+Nextcloud on motoko is configured as a **pure façade** over `/space`:
+
+- **All your files live on `/space`** - the System of Record
+- **Nextcloud provides access** - via external storage mounts
+- **No internal storage used** - skeleton/welcome files are disabled
+- **Stray file detection** - daily sweeper checks for misplaced files
+
+This means the folders you see in Nextcloud (work, media, finance, etc.) are actually your `/space/mike` directories, not copies.
+
 ## Quick Start
 
 ### 1. Install Client

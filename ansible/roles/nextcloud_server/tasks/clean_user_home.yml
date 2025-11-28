@@ -1,0 +1,55 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Clean User Home Directory
+# Removes skeleton/welcome files from internal Nextcloud user home
+# Preserves app-required structure (files/, cache/, etc.)
+# Per PHC invariants: NEVER touches /space - only internal /mnt/data/nextcloud/data
+
+- name: Check if user home exists in Nextcloud data
+  ansible.builtin.stat:
+    path: "{{ nextcloud_data_path }}/data/{{ nc_user }}"
+  register: user_home
+
+- name: List skeleton files in user home (files directory)
+  ansible.builtin.find:
+    paths: "{{ nextcloud_data_path }}/data/{{ nc_user }}/files"
+    file_type: any
+    patterns:
+      - "*.pdf"  # Nextcloud Manual.pdf
+      - "*.txt"  # README, welcome
+      - "*.md"   # README.md
+      - "Photos"  # Sample photos folder
+      - "Documents"  # Sample docs folder
+      - "Nextcloud*"  # Any Nextcloud default content
+    recurse: false
+  register: skeleton_files
+  when: user_home.stat.exists | default(false)
+  failed_when: false
+
+- name: Remove skeleton files from user home
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ skeleton_files.files | default([]) }}"
+  when:
+    - user_home.stat.exists | default(false)
+    - skeleton_files.files | default([]) | length > 0
+
+- name: Check for non-empty files directory
+  ansible.builtin.find:
+    paths: "{{ nextcloud_data_path }}/data/{{ nc_user }}/files"
+    file_type: any
+    recurse: true
+  register: remaining_files
+  when: user_home.stat.exists | default(false)
+  failed_when: false
+
+- name: Report user home status
+  ansible.builtin.debug:
+    msg: >-
+      User '{{ nc_user }}' home: 
+      {{ 'cleaned' if (skeleton_files.files | default([]) | length > 0) else 'already clean' }}
+      ({{ remaining_files.matched | default(0) }} items remain in internal files dir)
+  when: user_home.stat.exists | default(false)
+

@@ -1,0 +1,57 @@
+{
+  "timestamp": "2025-11-28T16:50:24.998875",
+  "server": "motoko",
+  "overall_passed": true,
+  "results": [
+    {
+      "test": "Container",
+      "passed": true,
+      "message": "Container running: Up 30 minutes (healthy)"
+    },
+    {
+      "test": "API Status",
+      "passed": true,
+      "message": "Nextcloud 29.0.16 operational"
+    },
+    {
+      "test": "Skeleton Disabled",
+      "passed": true,
+      "message": "Skeleton directory disabled"
+    },
+    {
+      "test": "External Mounts",
+      "passed": true,
+      "message": "7 mounts configured"
+    },
+    {
+      "test": "/space Dirs",
+      "passed": true,
+      "message": "All 7 /space directories exist"
+    },
+    {
+      "test": "Home admin",
+      "passed": true,
+      "message": "Internal home is empty (pure fa\u00e7ade compliant)"
+    },
+    {
+      "test": "Home mike",
+      "passed": true,
+      "message": "User home not created yet (expected)"
+    },
+    {
+      "test": "nextcloud-m365-sync.timer",
+      "passed": true,
+      "message": "nextcloud-m365-sync.timer is active"
+    },
+    {
+      "test": "nextcloud-db-backup.timer",
+      "passed": true,
+      "message": "nextcloud-db-backup.timer is active"
+    },
+    {
+      "test": "nextcloud-home-sweeper.timer",
+      "passed": true,
+      "message": "nextcloud-home-sweeper.timer is active"
+    }
+  ]
+}

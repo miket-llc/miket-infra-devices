@@ -1,0 +1,81 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Skeleton Configuration for Nextcloud
+# Implements "pure façade" - no skeleton/welcome files for new users
+# Per PHC invariants: user content lives on /space only, not in internal homes
+
+- name: Check Nextcloud occ status (skip if not ready)
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ status --output=json
+  register: occ_status
+  changed_when: false
+  failed_when: false
+  when: nextcloud_is_ready | default(false)
+
+- name: Skip skeleton config if Nextcloud not ready
+  ansible.builtin.debug:
+    msg: "Skipping skeleton config - Nextcloud not ready yet. Re-run playbook after container is healthy."
+  when: not (nextcloud_is_ready | default(false))
+
+- name: Disable skeleton directory for new users
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ config:system:set skeletondirectory --value="{{ nextcloud_skeleton_directory }}"
+  register: skeleton_config
+  changed_when: "'System config value skeletondirectory set' in skeleton_config.stdout"
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Disable default files app initial content
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ config:app:set firstrunwizard show --value=0
+  register: firstrun_config
+  changed_when: "'Config value show for app firstrunwizard set' in firstrun_config.stdout"
+  failed_when: false
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Find skeleton directory location in container
+  ansible.builtin.command: >
+    docker exec nextcloud-app find /var/www/html -type d -name skeleton
+  register: skeleton_dirs
+  changed_when: false
+  failed_when: false
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Clear skeleton directory contents
+  ansible.builtin.command: >
+    docker exec nextcloud-app sh -c "rm -rf {{ item }}/*"
+  loop: "{{ skeleton_dirs.stdout_lines | default([]) }}"
+  changed_when: true
+  failed_when: false
+  when:
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+    - skeleton_dirs.stdout_lines | default([]) | length > 0
+
+- name: Clean existing user internal home directories
+  ansible.builtin.include_tasks: clean_user_home.yml
+  loop: "{{ nextcloud_managed_users }}"
+  loop_control:
+    loop_var: nc_user
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Report skeleton configuration
+  ansible.builtin.debug:
+    msg: |
+      Nextcloud Pure Façade Configuration Applied:
+      - Skeleton directory: {{ 'DISABLED' if nextcloud_skeleton_directory == '' else nextcloud_skeleton_directory }}
+      - First-run wizard: DISABLED
+      - Cleared skeleton dirs: {{ skeleton_dirs.stdout_lines | default(['none found']) | join(', ') }}
+      - Managed users: {{ nextcloud_managed_users | join(', ') }}
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+

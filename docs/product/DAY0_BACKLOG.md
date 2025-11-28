@@ -42,3 +42,5 @@ linked_communications:
 | DEV-022 | Configure Nextcloud external storage via admin UI | Codex-CA-001 | DEV-019 | 🔜 Planned | Admin UI configuration for /space/mike mounts |
 | DEV-023 | Configure M365 ingestion job | Codex-SRE-005 | DEV-019 | 🔜 Planned | Requires M365 app consent in Entra portal |
 | DEV-024 | Configure Nextcloud OIDC SSO | Codex-SEC-004 | miket-infra Entra app | ✅ Done | Entra ID OIDC: 474bfcfe-7fcb-4a51-9c87-4f9eadb3db2c |
+| DEV-025 | Implement Nextcloud pure façade (skeleton + home sweeper) | Codex-IAC-003 | DEV-019 | ✅ Done | skeleton_config.yml, home_sweeper.yml, smoke tests |
+| DEV-026 | Create Nextcloud smoke tests | Codex-PD-002 | DEV-025 | ✅ Done | tests/nextcloud_smoke.py |

@@ -36,6 +36,11 @@
     - /mnt/data/nextcloud
     - "{{ nextcloud_data_path }}"
 
+- name: Check if Postgres data directory exists
+  ansible.builtin.stat:
+    path: "{{ nextcloud_db_path }}/PG_VERSION"
+  register: pg_version_check
+
 - name: Create Nextcloud database directory on internal drive (Postgres)
   ansible.builtin.file:
     path: "{{ nextcloud_db_path }}"
@@ -43,6 +48,7 @@
     owner: "999"   # postgres UID in container
     group: "999"   # postgres GID in container
     mode: "0700"
+  when: not pg_version_check.stat.exists
 
 - name: Create Nextcloud backup directory on /space
   ansible.builtin.file:
@@ -62,6 +68,15 @@
     owner: mdt
     group: mdt
     mode: "0755"
+
+- name: Create home sweeper quarantine directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_home_sweeper_quarantine }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: nextcloud_home_sweeper_enabled | default(true)
 
 - name: Create Nextcloud log directory
   ansible.builtin.file:

@@ -5,76 +5,130 @@
 # Configures local mounts to /space/mike directories
 # Uses Nextcloud OCC (command line interface)
 
-- name: Wait for Nextcloud container to be fully ready
+- name: Skip external storage if Nextcloud not ready
+  ansible.builtin.debug:
+    msg: "Skipping external storage config - Nextcloud not ready. Re-run playbook after container is healthy."
+  when: not (nextcloud_is_ready | default(false))
+
+- name: Check Nextcloud occ status for external storage
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ status --output=json
+    docker exec -u 33 nextcloud-app php occ status --output=json
   register: occ_status
-  until: occ_status.rc == 0 and (occ_status.stdout | from_json).installed | default(false)
-  retries: 30
-  delay: 10
   changed_when: false
   failed_when: false
+  when: nextcloud_is_ready | default(false)
 
 - name: Check if External Storage app is enabled
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ app:list --output=json
+    docker exec -u 33 nextcloud-app php occ app:list --output=json
   register: app_list
   changed_when: false
-  when: occ_status.rc == 0
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
 
 - name: Enable External Storage app
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ app:enable files_external
+    docker exec -u 33 nextcloud-app php occ app:enable files_external
   register: enable_external
   changed_when: "'enabled' in enable_external.stdout"
   when:
-    - occ_status.rc == 0
-    - "'files_external' not in (app_list.stdout | from_json).enabled | default({})"
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+    - "'files_external' not in (app_list.stdout | default('{}') | from_json).enabled | default({})"
 
 - name: Check existing external mounts
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ files_external:list --output=json
+    docker exec -u 33 nextcloud-app php occ files_external:list --output=json
   register: existing_mounts
   changed_when: false
-  when: occ_status.rc == 0
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
 
 - name: Parse existing mount names
   ansible.builtin.set_fact:
-    existing_mount_names: "{{ (existing_mounts.stdout | from_json | default([])) | map(attribute='mount_point') | list }}"
-  when: occ_status.rc == 0
+    existing_mount_names: "{{ (existing_mounts.stdout | default('[]') | from_json | default([])) | map(attribute='mount_point') | list }}"
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
 
-- name: Configure external storage mounts for mike
+- name: Find OIDC user by email (mike@miket.io)
+  ansible.builtin.shell: |
+    docker exec -u 33 nextcloud-app php occ user:list --output=json | \
+    python3 -c "import json,sys; users=json.load(sys.stdin); [print(uid) for uid,name in users.items() if '@' not in uid]" | head -1
+  register: oidc_user_search
+  changed_when: false
+  failed_when: false
+  when:
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Get OIDC user info
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ files_external:create
+    docker exec -u 33 nextcloud-app php occ user:info "{{ oidc_user_search.stdout | trim }}" --output=json
+  register: oidc_user_info
+  changed_when: false
+  failed_when: false
+  when:
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+    - oidc_user_search.stdout | trim | length > 0
+
+- name: Set OIDC user ID fact
+  ansible.builtin.set_fact:
+    nextcloud_mike_uid: "{{ oidc_user_search.stdout | trim }}"
+  when:
+    - oidc_user_search.stdout | default('') | trim | length > 0
+    - oidc_user_info.rc | default(1) == 0
+
+- name: Configure external storage mounts for OIDC user
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ files_external:create
     "{{ item.name }}"
     local
     null::null
     --config datadir="{{ item.path }}"
-    --user mike
+    --user "{{ nextcloud_mike_uid }}"
   loop: "{{ nextcloud_external_mounts }}"
   register: create_mount
   changed_when: "'Storage created' in create_mount.stdout"
   failed_when: create_mount.rc != 0 and 'already exists' not in create_mount.stderr
   when:
-    - occ_status.rc == 0
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+    - nextcloud_mike_uid is defined
     - item.name not in existing_mount_names | default([])
+
+- name: Skip external storage if OIDC user not found
+  ansible.builtin.debug:
+    msg: >-
+      No OIDC user found in Nextcloud. External storage mounts will be configured
+      after first OIDC login. Re-run playbook after logging in as mike@miket.io.
+  when:
+    - nextcloud_is_ready | default(false)
+    - nextcloud_mike_uid is not defined
 
 - name: Set mount permissions (read/write)
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ files_external:option
+    docker exec -u 33 nextcloud-app php occ files_external:option
     "{{ item.name }}"
     enable_sharing true
   loop: "{{ nextcloud_external_mounts }}"
   changed_when: false
   failed_when: false
-  when: occ_status.rc == 0
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
 
 - name: Rescan files for user mike
   ansible.builtin.command: >
-    docker exec nextcloud-app php occ files:scan mike --path="/mike"
+    docker exec -u 33 nextcloud-app php occ files:scan mike --path="/mike"
   changed_when: false
   failed_when: false
-  when: occ_status.rc == 0
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
 
 - name: Report external storage status
   ansible.builtin.debug:
@@ -89,5 +143,7 @@
       - /space/mike/code
       - /space/mike/art
       - /space/projects/**
-  when: occ_status.rc == 0
+  when: 
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
 

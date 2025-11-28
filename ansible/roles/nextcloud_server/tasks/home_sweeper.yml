@@ -1,0 +1,71 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Home Sweeper Setup
+# Installs systemd timer to detect and quarantine stray files in internal user homes
+# Part of PHC "pure façade" architecture
+
+- name: Create home sweeper quarantine directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_home_sweeper_quarantine }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: nextcloud_home_sweeper_enabled | default(true)
+
+- name: Install home sweeper script
+  ansible.builtin.template:
+    src: nextcloud-home-sweeper.sh.j2
+    dest: "{{ nextcloud_bin_path }}/nextcloud-home-sweeper.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  when: nextcloud_home_sweeper_enabled | default(true)
+
+- name: Install home sweeper systemd service
+  ansible.builtin.template:
+    src: nextcloud-home-sweeper.service.j2
+    dest: /etc/systemd/system/nextcloud-home-sweeper.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+  when: nextcloud_home_sweeper_enabled | default(true)
+
+- name: Install home sweeper systemd timer
+  ansible.builtin.template:
+    src: nextcloud-home-sweeper.timer.j2
+    dest: /etc/systemd/system/nextcloud-home-sweeper.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+  when: nextcloud_home_sweeper_enabled | default(true)
+
+- name: Enable and start home sweeper timer
+  ansible.builtin.systemd:
+    name: nextcloud-home-sweeper.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: nextcloud_home_sweeper_enabled | default(true)
+
+- name: Run home sweeper once (initial scan)
+  ansible.builtin.command: "{{ nextcloud_bin_path }}/nextcloud-home-sweeper.sh"
+  register: initial_sweep
+  changed_when: false
+  failed_when: false
+  when: nextcloud_home_sweeper_enabled | default(true)
+
+- name: Report home sweeper status
+  ansible.builtin.debug:
+    msg: |
+      Home Sweeper Configuration:
+      - Enabled: {{ nextcloud_home_sweeper_enabled | default(true) }}
+      - Schedule: {{ nextcloud_home_sweeper_schedule }}
+      - Mode: {{ 'ALERT_ONLY' if nextcloud_home_sweeper_alert_only else 'QUARANTINE' }}
+      - Quarantine path: {{ nextcloud_home_sweeper_quarantine }}
+      - Initial scan result: {{ 'CLEAN (no strays)' if initial_sweep.rc == 0 else 'STRAYS DETECTED - check logs' }}
+  when: nextcloud_home_sweeper_enabled | default(true)
+

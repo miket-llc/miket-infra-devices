@@ -60,6 +60,9 @@ services:
       PHP_MEMORY_LIMIT: {{ nextcloud_php_memory_limit }}
       PHP_UPLOAD_LIMIT: {{ nextcloud_php_upload_max }}
       
+      # Pure façade: disable skeleton files for new users
+      NEXTCLOUD_DEFAULT_SKELETON_DIRECTORY: ""
+      
       # Overwrite settings for reverse proxy
       OVERWRITEPROTOCOL: https
       OVERWRITEHOST: {{ nextcloud_external_hostname }}

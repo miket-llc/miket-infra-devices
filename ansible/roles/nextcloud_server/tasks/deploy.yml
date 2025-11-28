@@ -68,7 +68,16 @@
     state: started
     daemon_reload: true
 
-- name: Wait for Nextcloud to be ready
+- name: Wait for Nextcloud container to start (max 60s)
+  ansible.builtin.command: docker ps --filter "name=nextcloud-app" --format "{{ '{{.Status}}' }}"
+  register: container_wait
+  until: "'Up' in container_wait.stdout"
+  retries: 12
+  delay: 5
+  changed_when: false
+  failed_when: false
+
+- name: Wait for Nextcloud to be ready (max 90s)
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ nextcloud_port }}/status.php"
     method: GET
@@ -76,12 +85,16 @@
     return_content: true
   register: nextcloud_status
   until: nextcloud_status.status == 200
-  retries: 30
+  retries: 9
   delay: 10
   failed_when: false
+
+- name: Set Nextcloud ready fact
+  ansible.builtin.set_fact:
+    nextcloud_is_ready: "{{ nextcloud_status.status | default(0) == 200 }}"
 
 - name: Report Nextcloud startup status
   ansible.builtin.debug:
     msg: >-
-      Nextcloud status: {{ 'READY' if nextcloud_status.status == 200 else 'STARTING (may take a few minutes for initial setup)' }}
+      Nextcloud status: {{ 'READY' if nextcloud_is_ready else 'NOT READY - check docker logs nextcloud-app' }}
 

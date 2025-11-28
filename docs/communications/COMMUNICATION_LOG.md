@@ -1,3 +1,76 @@
+## 2025-11-28 – Nextcloud Pure Façade Implementation {#2025-11-28-nextcloud-pure-facade}
+
+### Context
+Implemented Nextcloud as a "pure façade" over `/space` per PHC invariants. Nextcloud's internal user homes must be empty - all user content lives on `/space` via external storage mounts only.
+
+### Requirements Implemented
+1. **Skeleton files disabled**: New users don't receive Nextcloud Manual.pdf or sample folders
+2. **Home cleaning**: Existing user homes (admin, mike) have skeleton content removed
+3. **Home sweeper**: Daily systemd timer detects and logs stray files in internal homes
+4. **Validation**: Smoke tests verify pure façade compliance
+5. **Documentation**: Updated guides with architecture explanation
+
+### Actions Taken
+
+**Codex-IAC-003 (IaC Engineer):**
+- ✅ Added `skeleton_config.yml` tasks to disable skeleton directory via `occ config:system:set`
+- ✅ Added `clean_user_home.yml` to remove existing skeleton files from user homes
+- ✅ Created `nextcloud-home-sweeper.sh` script for stray file detection
+- ✅ Created systemd service/timer for daily sweeper runs at 03:00
+- ✅ Updated `docker-compose.yml.j2` with `NEXTCLOUD_DEFAULT_SKELETON_DIRECTORY: ""`
+- ✅ Extended `validate.yml` with pure façade compliance checks
+
+**Codex-PD-002 (Platform DevOps):**
+- ✅ Created `tests/nextcloud_smoke.py` for end-to-end validation
+- ✅ Tests: container status, API health, skeleton disabled, external mounts, internal homes empty, timers active
+
+**Codex-DOC-009 (DocOps):**
+- ✅ Updated `docs/guides/nextcloud_on_motoko.md` with pure façade architecture
+- ✅ Added skeleton configuration, home sweeper, and smoke test documentation
+
+### Files Changed
+
+**New Files:**
+- `ansible/roles/nextcloud_server/tasks/skeleton_config.yml`
+- `ansible/roles/nextcloud_server/tasks/clean_user_home.yml`
+- `ansible/roles/nextcloud_server/tasks/home_sweeper.yml`
+- `ansible/roles/nextcloud_server/templates/nextcloud-home-sweeper.sh.j2`
+- `ansible/roles/nextcloud_server/templates/nextcloud-home-sweeper.service.j2`
+- `ansible/roles/nextcloud_server/templates/nextcloud-home-sweeper.timer.j2`
+- `tests/nextcloud_smoke.py`
+
+**Modified Files:**
+- `ansible/roles/nextcloud_server/defaults/main.yml` - Added pure façade config
+- `ansible/roles/nextcloud_server/tasks/main.yml` - Added skeleton/sweeper includes
+- `ansible/roles/nextcloud_server/tasks/directories.yml` - Added quarantine dir
+- `ansible/roles/nextcloud_server/tasks/validate.yml` - Added façade checks
+- `ansible/roles/nextcloud_server/templates/docker-compose.yml.j2` - Added skeleton env var
+- `docs/guides/nextcloud_on_motoko.md` - Added pure façade section
+
+### PHC Compliance
+- ✅ All user content remains on `/space` (SoR)
+- ✅ Internal Nextcloud homes are empty (no skeleton files)
+- ✅ Home sweeper detects/logs any stray files
+- ✅ No data deleted from `/space` - only internal Nextcloud data modified
+- ✅ No circular sync loops introduced
+
+### Verification Commands
+```bash
+# Run smoke tests
+python3 tests/nextcloud_smoke.py
+
+# Check skeleton config
+docker exec nextcloud-app php occ config:system:get skeletondirectory
+
+# Check home sweeper
+systemctl status nextcloud-home-sweeper.timer
+
+# List external mounts
+docker exec nextcloud-app php occ files_external:list
+```
+
+---
+
 ## 2025-11-28 – Motoko Desktop Migration to KDE Plasma {#2025-11-28-motoko-kde-migration}
 
 ### Context
