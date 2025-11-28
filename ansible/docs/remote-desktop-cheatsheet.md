@@ -41,7 +41,7 @@ ansible-playbook playbooks/remote_clients_nomachine.yml -l macos
 - **Hostname**: `motoko.pangolin-vega.ts.net` (MagicDNS)
 - **Protocol**: NoMachine
 - **Port**: 4000
-- **Session**: Shares existing GNOME kiosk session
+- **Session**: Shares existing KDE Plasma session
 - **Quick Connect**: Open NoMachine → Select "motoko" from saved connections
 
 ### WINTERMUTE (Windows Workstation)
