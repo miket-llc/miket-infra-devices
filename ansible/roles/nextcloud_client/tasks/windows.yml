@@ -1,0 +1,38 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows Nextcloud Client Installation
+
+- name: Check if Chocolatey is available
+  ansible.windows.win_command: choco --version
+  register: choco_check
+  failed_when: false
+  changed_when: false
+  when: nextcloud_windows_install_method == 'chocolatey'
+
+- name: Install Nextcloud client via Chocolatey
+  chocolatey.chocolatey.win_chocolatey:
+    name: "{{ nextcloud_windows_choco }}"
+    state: present
+  when:
+    - nextcloud_windows_install_method == 'chocolatey'
+    - choco_check.rc == 0
+
+- name: Check if Nextcloud client is installed
+  ansible.windows.win_stat:
+    path: "C:\\Program Files\\Nextcloud\\nextcloud.exe"
+  register: nextcloud_exe
+
+- name: Create sync root directory
+  ansible.windows.win_file:
+    path: "{{ nextcloud_sync_root }}"
+    state: directory
+
+- name: Report Windows installation status
+  ansible.builtin.debug:
+    msg: |
+      Windows Nextcloud Client:
+      - Executable: {{ 'Installed' if nextcloud_exe.stat.exists else 'NOT INSTALLED' }}
+      - Sync Root: {{ nextcloud_sync_root }}
+      - Server: {{ nextcloud_server_url }}
+

@@ -1,0 +1,104 @@
+#!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# M365 Ingestion Sync Script
+# ONE-WAY SYNC: M365 → /space/mike/inbox/ms365
+# NEVER syncs back to M365 - this is ingestion only
+#
+# Usage: sync-m365.sh [--dry-run]
+
+set -euo pipefail
+
+# Configuration
+RCLONE_CONFIG="{{ nextcloud_config_path }}/rclone-m365.conf"
+TARGET_DIR="{{ nextcloud_m365_inbox }}"
+LOG_FILE="{{ nextcloud_log_path }}/m365-sync.log"
+LOCK_FILE="/var/run/nextcloud-m365-sync.lock"
+
+# Source secrets
+if [[ -f "{{ nextcloud_env_path }}" ]]; then
+    source "{{ nextcloud_env_path }}"
+else
+    echo "ERROR: Secrets file not found: {{ nextcloud_env_path }}" >&2
+    exit 1
+fi
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+# Lock to prevent concurrent runs
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    log "ERROR: Another sync is already running"
+    exit 1
+fi
+
+# Parse arguments
+DRY_RUN=""
+if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN="--dry-run"
+    log "DRY RUN MODE - no changes will be made"
+fi
+
+log "=========================================="
+log "M365 Ingestion Sync Started"
+log "Target: $TARGET_DIR"
+log "=========================================="
+
+# Ensure target directory exists
+mkdir -p "$TARGET_DIR"
+
+# Sync OneDrive (one-way, no deletions from target)
+log "Syncing OneDrive..."
+rclone copy \
+    --config "$RCLONE_CONFIG" \
+    --progress \
+    --log-file "$LOG_FILE" \
+    --log-level INFO \
+    --transfers 8 \
+    --checkers 16 \
+    --retries 3 \
+    --low-level-retries 10 \
+    --stats 30s \
+    --stats-one-line \
+    --ignore-existing \
+    $DRY_RUN \
+    "m365-onedrive:" \
+    "$TARGET_DIR/onedrive/"
+
+# Sync SharePoint Sites (one-way)
+log "Syncing SharePoint Sites..."
+rclone copy \
+    --config "$RCLONE_CONFIG" \
+    --progress \
+    --log-file "$LOG_FILE" \
+    --log-level INFO \
+    --transfers 8 \
+    --checkers 16 \
+    --retries 3 \
+    --low-level-retries 10 \
+    --stats 30s \
+    --stats-one-line \
+    --ignore-existing \
+    $DRY_RUN \
+    "m365-sharepoint:" \
+    "$TARGET_DIR/sharepoint/"
+
+# Set permissions
+log "Setting permissions..."
+chown -R mdt:mdt "$TARGET_DIR"
+chmod -R 755 "$TARGET_DIR"
+
+log "=========================================="
+log "M365 Ingestion Sync Completed"
+log "=========================================="
+
+# Trigger Nextcloud file scan
+log "Triggering Nextcloud file scan..."
+docker exec nextcloud-app php occ files:scan mike --path="/mike/files/ms365" 2>/dev/null || true
+
+log "Done."
+

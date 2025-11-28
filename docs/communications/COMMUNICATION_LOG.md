@@ -2443,3 +2443,80 @@ User requested execution that follows the documented reconciliation prompt while
 
 ---
 
+## 2025-11-28 – Nextcloud Deployment Initiative Complete {#2025-11-28-nextcloud-deployment}
+
+### Context
+Deploy and integrate Nextcloud on motoko without changing /space layout, per PHC invariants. Connect Nextcloud to /space as SoR, integrate M365 ingestion, and configure endpoint UX.
+
+### Actions Taken (Server-side on motoko)
+- Created `nextcloud_server` Ansible role with full containerized stack (Nextcloud + PostgreSQL + Redis)
+- Configured external storage mounts to existing `/space/mike` directories (work, media, finance, assets, camera, inbox, ms365)
+- Implemented M365 ingestion job (one-way sync from OneDrive/SharePoint to `/space/mike/inbox/ms365`)
+- Added database backup script with systemd timer (nightly at 02:00, before restic runs)
+- Created deployment playbook: `ansible/playbooks/motoko/deploy-nextcloud.yml`
+- Added Nextcloud secrets to `secrets-map.yml` for AKV integration
+
+### Actions Taken (Client/Endpoint)
+- Created `nextcloud_client` Ansible role for macOS, Windows, and Linux
+- Implemented sync root safety verification (prevents dangerous locations like home, iCloud, OneDrive)
+- Created sync exclusion list for DAW sessions, video projects, git repos, etc.
+- Created deployment playbook: `ansible/playbooks/deploy-nextcloud-client.yml`
+
+### Documentation Created
+- `docs/guides/nextcloud_on_motoko.md` - Server deployment and operations guide
+- `docs/guides/nextcloud_client_usage.md` - End-user client guide
+- `docs/runbooks/nextcloud_m365_sync.md` - M365 sync troubleshooting runbook
+- `ansible/roles/nextcloud_server/README.md` - Role documentation
+
+### PHC Invariant Compliance
+- ✅ **Invariant #1:** /space is SoR, no layout changes, external mounts to existing directories
+- ✅ **Invariant #2:** Uses existing Tailscale mesh + Cloudflare Access (app ID: e49a8197-8500-4ef1-9fc3-410d77cf861a)
+- ✅ **Invariant #3:** Secrets from Azure Key Vault via secrets_sync role
+- ✅ **Invariant #4:** Documentation in proper taxonomy (guides/, runbooks/)
+- ✅ **Invariant #5:** Execution tracked, version management ready
+- ✅ **Invariant #6:** Multi-persona protocol followed
+- ✅ **Invariant #7:** Aligns with miket-infra-devices scope (device provisioning, UX)
+
+### Excluded by Design (per initiative requirements)
+- `/space/mike/dev` - Development environments
+- `/space/mike/code` - Git repositories
+- `/space/mike/art` - Large creative projects (DAW, video)
+- `/space/projects/**` - Shared project workloads
+
+### Deployment Status (Updated 2025-11-28)
+1. ✅ AKV secrets provisioned (via miket-infra Terraform)
+2. ✅ Nextcloud stack deployed (Docker: nextcloud-app, nextcloud-db, nextcloud-redis)
+3. ✅ Cloudflare Tunnel configured (tunnel ID: b8073aa7-29ce-4bd9-8e9a-186ba69575b3)
+4. ✅ Cloudflare Access protecting nextcloud.miket.io
+5. ✅ Entra ID OIDC SSO configured (client ID: 474bfcfe-7fcb-4a51-9c87-4f9eadb3db2c)
+6. 🔜 External storage mounts pending admin UI configuration
+7. 🔜 Client deployment to endpoints pending
+
+### Additional Components Deployed
+- **cloudflared role**: `ansible/roles/cloudflared/` - Cloudflare Tunnel connector
+- **Playbook**: `ansible/playbooks/motoko/deploy-cloudflared.yml`
+- **miket-infra additions**:
+  - `infra/cloudflare/tunnel-motoko/` - Tunnel DNS management
+  - `infra/entra/` - Nextcloud OIDC app registration
+
+### Deliverables
+- Role: [nextcloud_server](../../ansible/roles/nextcloud_server/)
+- Role: [nextcloud_client](../../ansible/roles/nextcloud_client/)
+- Role: [cloudflared](../../ansible/roles/cloudflared/)
+- Playbook: [deploy-nextcloud.yml](../../ansible/playbooks/motoko/deploy-nextcloud.yml)
+- Playbook: [deploy-cloudflared.yml](../../ansible/playbooks/motoko/deploy-cloudflared.yml)
+- Playbook: [deploy-nextcloud-client.yml](../../ansible/playbooks/deploy-nextcloud-client.yml)
+- Guide: [Nextcloud on Motoko](../guides/nextcloud_on_motoko.md)
+- Guide: [Nextcloud Client Usage](../guides/nextcloud_client_usage.md)
+- Runbook: [M365 Sync](../runbooks/nextcloud_m365_sync.md)
+
+### Sign-Off
+
+**Codex-CA-001 (Chief Architect):** ✅ **DEPLOYED AND OPERATIONAL**  
+**Codex-SRE-008 (SRE):** ✅ Validated - containers healthy, tunnel active, OIDC configured  
+**Codex-PM-011 (Product Manager):** Version bump to v1.10.0  
+**Date:** November 28, 2025  
+**Status:** ✅ Deployed - Server operational, client deployment pending
+
+---
+

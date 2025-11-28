@@ -1,0 +1,71 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Verify Sync Root Safety
+# Ensures sync root is not in a dangerous location
+
+- name: Get sync root absolute path
+  ansible.builtin.set_fact:
+    sync_root_abs: "{{ nextcloud_sync_root | expanduser }}"
+
+- name: Get user home directory
+  ansible.builtin.set_fact:
+    user_home: "{{ ansible_user_dir }}"
+
+- name: Check sync root is not home directory
+  ansible.builtin.assert:
+    that:
+      - sync_root_abs != user_home
+      - sync_root_abs != user_home + '/'
+    fail_msg: "Sync root MUST NOT be the user's home directory!"
+    success_msg: "Sync root is not home directory"
+
+- name: Check sync root is not in iCloud (macOS)
+  ansible.builtin.assert:
+    that:
+      - "'iCloud' not in sync_root_abs"
+      - "'Mobile Documents' not in sync_root_abs"
+    fail_msg: "Sync root MUST NOT be in iCloud Drive!"
+    success_msg: "Sync root is not in iCloud"
+  when: ansible_system == 'Darwin'
+
+- name: Check sync root is not in OneDrive
+  ansible.builtin.assert:
+    that:
+      - "'OneDrive' not in sync_root_abs"
+    fail_msg: "Sync root MUST NOT be in OneDrive!"
+    success_msg: "Sync root is not in OneDrive"
+
+- name: Check sync root is not in Dropbox
+  ansible.builtin.assert:
+    that:
+      - "'Dropbox' not in sync_root_abs"
+    fail_msg: "Sync root MUST NOT be in Dropbox!"
+    success_msg: "Sync root is not in Dropbox"
+
+- name: Check sync root is not a /space SMB mount
+  ansible.builtin.assert:
+    that:
+      - "'/space' not in sync_root_abs"
+      - "'/mkt' not in sync_root_abs"
+      - "'\\\\motoko' not in sync_root_abs"
+    fail_msg: "Sync root MUST NOT be on a /space SMB mount!"
+    success_msg: "Sync root is not on SMB mount"
+
+- name: Sync root validation passed
+  ansible.builtin.debug:
+    msg: |
+      ✅ Sync root validated: {{ sync_root_abs }}
+      
+      Safe locations:
+      - ~/nc (recommended)
+      - ~/Nextcloud
+      - Local drive only
+      
+      FORBIDDEN locations:
+      - User home (~/)
+      - iCloud Drive
+      - OneDrive
+      - Dropbox
+      - /space SMB mounts
+

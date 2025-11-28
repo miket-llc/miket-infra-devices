@@ -1,11 +1,13 @@
 ---
 document_title: "miket-infra-devices DAY0 Backlog"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-25
+last_updated: 2025-11-28
 status: Draft
 related_initiatives:
   - initiatives/device-onboarding
+  - initiatives/nextcloud-deployment
 linked_communications:
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-28-nextcloud-deployment
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-roadmap-creation
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-wintermute-mounts
   - docs/communications/COMMUNICATION_LOG.md#2025-11-23-windows-smoke
@@ -13,7 +15,7 @@ linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-deterministic-merge-plan
 ---
 
-# DAY0 Backlog (Wave 1 Oriented)
+# DAY0 Backlog (Waves 1-3)
 
 | Task ID | Description | Owner | Dependency | Status | Notes |
 |---------|-------------|-------|------------|--------|-------|
@@ -31,3 +33,12 @@ linked_communications:
 | DEV-011 | Test macOS NoMachine client connectivity from count-zero | Codex-MAC-012 | DEV-005 (server baseline) | ✅ **Done** | All connections PASS: count-zero → motoko/wintermute/armitage on port 4000 via Tailscale (2025-11-23) |
 | DEV-012 | Coordinate NoMachine client testing and MagicDNS fix timeline with miket-infra | Codex-PM-011 | None | 🚧 **In Progress** | Request MagicDNS fix ETA, coordinate client testing, request Wave 2 deliverables timeline |
 | DEV-015 | Execute multi-source reconciliation into `/space/mike` (count-zero + M365 + wintermute) | Codex-CA-001 | Reconciliation guidance + script | 🚧 In Progress | Run `reconcile-multi-source-transfers.sh --checksum`; review merge-plan + quarantine folders before promotion; archive conflict evidence post-triage |
+| DEV-016 | Create Nextcloud server Ansible role | Codex-IAC-003 | None | ✅ Done | `nextcloud_server` role + `cloudflared` role |
+| DEV-017 | Create Nextcloud client Ansible role | Codex-IAC-003 | None | ✅ Done | `nextcloud_client` role for macOS/Windows/Linux |
+| DEV-018 | Provision Nextcloud AKV secrets | Codex-SEC-004 | miket-infra AKV access | ✅ Done | All secrets in kv-miket-ops (via miket-infra Terraform) |
+| DEV-019 | Deploy Nextcloud stack on motoko | Codex-IAC-003 | DEV-018 | ✅ Done | Stack deployed: nextcloud-app, nextcloud-db, nextcloud-redis |
+| DEV-020 | Configure Cloudflare Tunnel for nextcloud.miket.io | Codex-SEC-004 | miket-infra Cloudflare config | ✅ Done | Tunnel: b8073aa7-..., cloudflared service running |
+| DEV-021 | Deploy Nextcloud client to endpoints | Codex-UX-010 | DEV-019 | 🔜 Planned | Run `deploy-nextcloud-client.yml` |
+| DEV-022 | Configure Nextcloud external storage via admin UI | Codex-CA-001 | DEV-019 | 🔜 Planned | Admin UI configuration for /space/mike mounts |
+| DEV-023 | Configure M365 ingestion job | Codex-SRE-005 | DEV-019 | 🔜 Planned | Requires M365 app consent in Entra portal |
+| DEV-024 | Configure Nextcloud OIDC SSO | Codex-SEC-004 | miket-infra Entra app | ✅ Done | Entra ID OIDC: 474bfcfe-7fcb-4a51-9c87-4f9eadb3db2c |

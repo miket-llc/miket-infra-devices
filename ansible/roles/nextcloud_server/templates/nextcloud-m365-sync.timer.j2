@@ -1,0 +1,14 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+[Unit]
+Description=Nextcloud M365 Ingestion Sync Timer (Hourly)
+
+[Timer]
+OnCalendar={{ nextcloud_m365_sync_schedule }}
+RandomizedDelaySec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,63 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Deploy Cloudflare Tunnel connector on motoko
+#
+# This playbook installs and configures cloudflared to expose services
+# running on motoko to the internet via Cloudflare's network.
+#
+# Prerequisites:
+# - Tunnel created in Cloudflare (via miket-infra Terraform)
+# - Tunnel credentials stored in AKV
+# - Azure CLI authenticated
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/deploy-cloudflared.yml
+
+- name: Deploy Cloudflare Tunnel connector on motoko
+  hosts: motoko
+  become: true
+  
+  vars:
+    # Tunnel configuration (from miket-infra/infra/cloudflare/tunnel-motoko)
+    cloudflared_tunnel_id: "b8073aa7-29ce-4bd9-8e9a-186ba69575b3"
+    cloudflared_tunnel_name: "motoko-phc"
+    cloudflared_akv_secret_name: "cloudflare-tunnel-motoko-credentials"
+    
+    # Ingress rules - services exposed via tunnel
+    cloudflared_ingress_rules:
+      - hostname: nextcloud.miket.io
+        service: http://localhost:8080
+
+  roles:
+    - role: ../../roles/cloudflared
+
+  post_tasks:
+    - name: Verify tunnel is running
+      ansible.builtin.uri:
+        url: http://localhost:8080/status.php
+        return_content: false
+        status_code: [200, 302]
+      register: nextcloud_check
+      ignore_errors: true
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          
+          ═══════════════════════════════════════════════════════════════
+          Cloudflare Tunnel Deployment Complete
+          ═══════════════════════════════════════════════════════════════
+          
+          Tunnel ID:    {{ cloudflared_tunnel_id }}
+          Tunnel Name:  {{ cloudflared_tunnel_name }}
+          Service:      {{ 'Running' if cloudflared_service_status.status.ActiveState == 'active' else 'Not Running' }}
+          
+          Exposed Services:
+          {% for rule in cloudflared_ingress_rules %}
+            - https://{{ rule.hostname }} → {{ rule.service }}
+          {% endfor %}
+          
+          Test: curl -I https://nextcloud.miket.io
+          
+          ═══════════════════════════════════════════════════════════════
+

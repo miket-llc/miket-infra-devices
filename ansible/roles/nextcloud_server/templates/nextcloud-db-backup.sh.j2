@@ -1,0 +1,69 @@
+#!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# Nextcloud PostgreSQL Backup Script
+# Runs before restic snapshots to ensure DB is included
+
+set -euo pipefail
+
+# Configuration
+BACKUP_DIR="{{ nextcloud_db_backup_path }}"
+RETAIN_DAYS="{{ nextcloud_db_backup_retain_days }}"
+LOG_FILE="{{ nextcloud_log_path }}/db-backup.log"
+TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
+BACKUP_FILE="${BACKUP_DIR}/nextcloud_db_${TIMESTAMP}.sql.gz"
+
+# Source secrets for DB credentials
+source "{{ nextcloud_env_path }}"
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+log "=========================================="
+log "Nextcloud Database Backup Started"
+log "=========================================="
+
+# Ensure backup directory exists
+mkdir -p "$BACKUP_DIR"
+
+# Put Nextcloud in maintenance mode
+log "Enabling maintenance mode..."
+docker exec nextcloud-app php occ maintenance:mode --on 2>/dev/null || true
+
+# Dump database
+log "Dumping PostgreSQL database..."
+docker exec nextcloud-db pg_dump \
+    -U "${NEXTCLOUD_DB_USER}" \
+    -d nextcloud \
+    --clean \
+    --if-exists \
+    | gzip > "$BACKUP_FILE"
+
+# Disable maintenance mode
+log "Disabling maintenance mode..."
+docker exec nextcloud-app php occ maintenance:mode --off 2>/dev/null || true
+
+# Verify backup
+if [[ -s "$BACKUP_FILE" ]]; then
+    BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    log "Backup created successfully: $BACKUP_FILE ($BACKUP_SIZE)"
+else
+    log "ERROR: Backup file is empty or not created!"
+    exit 1
+fi
+
+# Cleanup old backups
+log "Cleaning up backups older than ${RETAIN_DAYS} days..."
+find "$BACKUP_DIR" -name "nextcloud_db_*.sql.gz" -mtime +${RETAIN_DAYS} -delete
+
+# List remaining backups
+BACKUP_COUNT=$(find "$BACKUP_DIR" -name "nextcloud_db_*.sql.gz" | wc -l)
+log "Remaining backups: $BACKUP_COUNT"
+
+log "=========================================="
+log "Nextcloud Database Backup Completed"
+log "=========================================="
+

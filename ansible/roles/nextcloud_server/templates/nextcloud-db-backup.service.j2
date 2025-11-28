@@ -1,0 +1,28 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+[Unit]
+Description=Nextcloud PostgreSQL Database Backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ nextcloud_bin_path }}/nextcloud-db-backup.sh
+EnvironmentFile={{ nextcloud_env_path }}
+
+# User context
+User=root
+Group=root
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nextcloud-db-backup
+
+# Timeout
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
+

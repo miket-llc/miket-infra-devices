@@ -1,0 +1,112 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Configure Nextcloud OIDC integration with Entra ID
+# 
+# Credentials flow:
+# 1. Terraform creates Entra app → stores in AKV (miket-infra)
+# 2. secrets_sync pulls from AKV → /flux/runtime/secrets/nextcloud.env (miket-infra-devices)
+# 3. This task reads env file and configures Nextcloud
+#
+# If env file doesn't have OIDC secrets yet, fetches directly from AKV
+
+- name: Install user_oidc app
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ app:install user_oidc
+  register: oidc_install
+  changed_when: "'installed' in oidc_install.stdout"
+  failed_when: false
+
+- name: Enable user_oidc app
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ app:enable user_oidc
+  register: oidc_enable
+  changed_when: "'enabled' in oidc_enable.stdout"
+  failed_when: oidc_enable.rc != 0 and 'already enabled' not in oidc_enable.stdout
+
+# Try to load from env file first
+- name: Check if env file has OIDC credentials
+  ansible.builtin.shell: |
+    grep -q 'NEXTCLOUD_OIDC_CLIENT_ID=' {{ nextcloud_env_path }} 2>/dev/null && echo "found" || echo "missing"
+  register: oidc_env_check
+  changed_when: false
+
+# Load from env file if present
+- name: Load OIDC credentials from env file
+  ansible.builtin.slurp:
+    src: "{{ nextcloud_env_path }}"
+  register: nextcloud_env_content
+  no_log: true
+  when: oidc_env_check.stdout == "found"
+
+- name: Parse OIDC credentials from env file
+  ansible.builtin.set_fact:
+    oidc_client_id: "{{ nextcloud_env_content.content | b64decode | regex_search('NEXTCLOUD_OIDC_CLIENT_ID=(.+)', '\\1') | first }}"
+    oidc_client_secret: "{{ nextcloud_env_content.content | b64decode | regex_search('NEXTCLOUD_OIDC_CLIENT_SECRET=(.+)', '\\1') | first }}"
+  no_log: true
+  when: oidc_env_check.stdout == "found"
+
+# Fallback: fetch from AKV directly if not in env file
+- name: Fetch OIDC client ID from AKV (fallback)
+  ansible.builtin.command: >
+    az keyvault secret show --vault-name {{ nextcloud_akv_vault_name | default('kv-miket-ops') }}
+    --name nextcloud-oidc-client-id --query value -o tsv
+  register: oidc_client_id_akv
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  no_log: true
+  when: oidc_env_check.stdout == "missing"
+
+- name: Fetch OIDC client secret from AKV (fallback)
+  ansible.builtin.command: >
+    az keyvault secret show --vault-name {{ nextcloud_akv_vault_name | default('kv-miket-ops') }}
+    --name nextcloud-oidc-client-secret --query value -o tsv
+  register: oidc_client_secret_akv
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  no_log: true
+  when: oidc_env_check.stdout == "missing"
+
+- name: Set OIDC credentials from AKV (fallback)
+  ansible.builtin.set_fact:
+    oidc_client_id: "{{ oidc_client_id_akv.stdout }}"
+    oidc_client_secret: "{{ oidc_client_secret_akv.stdout }}"
+  no_log: true
+  when: oidc_env_check.stdout == "missing"
+
+# Configure Nextcloud OIDC provider
+- name: Configure Entra ID OIDC provider
+  ansible.builtin.shell: |
+    docker exec -u 33 nextcloud-app php occ user_oidc:provider "Entra ID" \
+      --clientid="{{ oidc_client_id }}" \
+      --clientsecret="{{ oidc_client_secret }}" \
+      --discoveryuri="https://login.microsoftonline.com/{{ nextcloud_entra_tenant_id }}/v2.0/.well-known/openid-configuration" \
+      --unique-uid=1 \
+      --mapping-uid="preferred_username" \
+      --mapping-email="email" \
+      --mapping-display-name="name" \
+      --check-bearer=0
+  register: oidc_configure
+  changed_when: true  # Always report changed since we can't easily detect
+  no_log: true
+  when: 
+    - oidc_client_id is defined
+    - oidc_client_id | length > 0
+    - oidc_client_secret is defined
+    - oidc_client_secret | length > 0
+
+- name: Verify OIDC provider configuration
+  ansible.builtin.command: >
+    docker exec -u 33 nextcloud-app php occ user_oidc:provider "Entra ID" --output=json
+  register: oidc_verify
+  changed_when: false
+
+- name: Display OIDC configuration status
+  ansible.builtin.debug:
+    msg: |
+      ✅ OIDC Provider "Entra ID" configured
+      Client ID: {{ (oidc_verify.stdout | from_json).clientId }}
+      Discovery: {{ (oidc_verify.stdout | from_json).discoveryEndpoint }}
+      UID Mapping: {{ (oidc_verify.stdout | from_json).settings.mappingUid }}
+  when: oidc_verify.rc == 0

@@ -1,0 +1,87 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Docker Compose Deployment for Nextcloud Stack
+# Deploys: Nextcloud + PostgreSQL + Redis
+
+- name: Render Nextcloud docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ nextcloud_compose_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart nextcloud
+
+- name: Check if Docker is installed
+  ansible.builtin.command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker + Compose plugin (Debian/Ubuntu only)
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  when:
+    - ansible_os_family == "Debian"
+    - docker_check.rc != 0
+  tags: [packages]
+
+- name: Ensure Docker service is running
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  when: ansible_os_family == "Debian"
+
+- name: Pull Nextcloud stack images
+  ansible.builtin.command: docker compose -f "{{ nextcloud_compose_path }}" pull
+  args:
+    chdir: "{{ nextcloud_workdir }}"
+  register: docker_pull
+  changed_when: "'Pull complete' in docker_pull.stdout or 'Downloaded newer image' in docker_pull.stdout"
+
+- name: Start Nextcloud stack
+  ansible.builtin.command: docker compose -f "{{ nextcloud_compose_path }}" up -d
+  args:
+    chdir: "{{ nextcloud_workdir }}"
+  register: docker_compose_result
+  changed_when: "'Creating' in docker_compose_result.stdout or 'Starting' in docker_compose_result.stdout"
+
+- name: Create Nextcloud systemd service
+  ansible.builtin.template:
+    src: nextcloud.service.j2
+    dest: "/etc/systemd/system/{{ nextcloud_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Enable and start Nextcloud service
+  ansible.builtin.systemd:
+    name: "{{ nextcloud_service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for Nextcloud to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nextcloud_port }}/status.php"
+    method: GET
+    status_code: 200
+    return_content: true
+  register: nextcloud_status
+  until: nextcloud_status.status == 200
+  retries: 30
+  delay: 10
+  failed_when: false
+
+- name: Report Nextcloud startup status
+  ansible.builtin.debug:
+    msg: >-
+      Nextcloud status: {{ 'READY' if nextcloud_status.status == 200 else 'STARTING (may take a few minutes for initial setup)' }}
+

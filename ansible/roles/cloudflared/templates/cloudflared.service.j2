@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+# Cloudflared tunnel service for {{ inventory_hostname }}
+
+[Unit]
+Description=Cloudflare Tunnel - {{ cloudflared_tunnel_name }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/cloudflared tunnel --config {{ cloudflared_config_file }} run
+Restart=always
+RestartSec=5
+TimeoutStartSec=0
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{ cloudflared_config_dir }}
+
+[Install]
+WantedBy=multi-user.target
+

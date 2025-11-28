@@ -1,0 +1,109 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy Nextcloud Server Stack on Motoko
+#
+# Prerequisites:
+# 1. Run secrets-sync.yml first to populate /flux/runtime/secrets/nextcloud.env
+# 2. Ensure /space/mike directories exist
+#
+# Usage:
+#   ansible-playbook playbooks/motoko/deploy-nextcloud.yml --limit motoko
+#
+# Tags:
+#   - directories: Create directory structure only
+#   - secrets: Verify secrets only
+#   - deploy: Deploy containers only
+#   - external_storage: Configure external mounts only
+#   - m365_sync: Configure M365 sync job only
+#   - db_backup: Configure database backup only
+#   - validate: Run validation only
+
+- name: Deploy Nextcloud Server Stack
+  hosts: motoko
+  become: true
+  gather_facts: true
+
+  vars:
+    # Cloudflare Access app ID for external access
+    cloudflare_access_app_id: "e49a8197-8500-4ef1-9fc3-410d77cf861a"
+    
+  pre_tasks:
+    - name: Validate host is motoko
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == 'motoko'
+        fail_msg: "This playbook must only run on motoko"
+        success_msg: "Running on motoko"
+
+    - name: Check /space mount is available
+      ansible.builtin.stat:
+        path: /space
+      register: space_mount
+      failed_when: not space_mount.stat.exists
+
+    - name: Check /flux mount is available
+      ansible.builtin.stat:
+        path: /flux
+      register: flux_mount
+      failed_when: not flux_mount.stat.exists
+
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          NEXTCLOUD SERVER DEPLOYMENT
+          ═══════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          /space:         {{ 'Available' if space_mount.stat.exists else 'MISSING' }}
+          /flux:          {{ 'Available' if flux_mount.stat.exists else 'MISSING' }}
+          
+          Endpoints:
+          - Internal:     http://nextcloud.motoko:8080
+          - External:     https://nextcloud.miket.io
+          
+          PHC Invariants:
+          ✅ /space is System of Record
+          ✅ /flux is runtime surface
+          ✅ No changes to /space/mike layout
+          ✅ External storage mounts existing directories
+          ✅ M365 ingestion is ONE-WAY only
+          
+          ═══════════════════════════════════════════════════════════
+
+  roles:
+    - role: ../../roles/nextcloud_server
+
+  post_tasks:
+    - name: Display access information
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          NEXTCLOUD DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          Access URLs:
+          - Internal (Tailscale): http://nextcloud.motoko:8080
+          - External (Cloudflare): https://nextcloud.miket.io
+          
+          Admin Login:
+          - Username: From AKV (nextcloud-admin-user)
+          - Password: From AKV (nextcloud-admin-bootstrap-password)
+          - ⚠️  ROTATE AFTER FIRST LOGIN
+          
+          Next Steps:
+          1. Access Nextcloud at https://nextcloud.miket.io
+          2. Log in with admin credentials
+          3. Rotate admin password
+          4. Verify external storage mounts
+          5. Create user 'mike' if not exists
+          6. Test M365 sync: systemctl start nextcloud-m365-sync
+          
+          Monitoring:
+          - Logs: /space/_ops/logs/nextcloud/
+          - M365 sync: journalctl -u nextcloud-m365-sync
+          - DB backup: journalctl -u nextcloud-db-backup
+          
+          ═══════════════════════════════════════════════════════════
+

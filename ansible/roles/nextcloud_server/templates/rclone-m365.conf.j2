@@ -1,0 +1,21 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# rclone configuration for M365 ingestion
+# ONE-WAY SYNC ONLY: M365 → /space
+
+[m365-onedrive]
+type = onedrive
+client_id = {{ nextcloud_m365_client_id }}
+client_secret = ${M365_CLIENT_SECRET}
+token = {"access_token":"","token_type":"Bearer","refresh_token":"${M365_REFRESH_TOKEN}","expiry":"2025-01-01T00:00:00Z"}
+drive_type = business
+drive_id = 
+
+[m365-sharepoint]
+type = onedrive
+client_id = {{ nextcloud_m365_client_id }}
+client_secret = ${M365_CLIENT_SECRET}
+token = {"access_token":"","token_type":"Bearer","refresh_token":"${M365_REFRESH_TOKEN}","expiry":"2025-01-01T00:00:00Z"}
+drive_type = documentLibrary
+

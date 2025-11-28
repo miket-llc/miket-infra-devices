@@ -1,0 +1,93 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+services:
+  nextcloud-db:
+    image: {{ nextcloud_postgres_image }}
+    container_name: nextcloud-db
+    restart: unless-stopped
+    env_file:
+      - {{ nextcloud_env_path }}
+    environment:
+      POSTGRES_DB: {{ nextcloud_db_name }}
+    volumes:
+      - {{ nextcloud_db_path }}:/var/lib/postgresql/data
+    networks:
+      - nextcloud-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nextcloud -d {{ nextcloud_db_name }}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nextcloud-redis:
+    image: {{ nextcloud_redis_image }}
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    env_file:
+      - {{ nextcloud_env_path }}
+    networks:
+      - nextcloud-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nextcloud-app:
+    image: {{ nextcloud_image }}
+    container_name: nextcloud-app
+    restart: unless-stopped
+    env_file:
+      - {{ nextcloud_env_path }}
+    depends_on:
+      nextcloud-db:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+    environment:
+      # Database
+      POSTGRES_HOST: nextcloud-db
+      POSTGRES_DB: {{ nextcloud_db_name }}
+      
+      # Redis
+      REDIS_HOST: nextcloud-redis
+      
+      # Trusted domains
+      NEXTCLOUD_TRUSTED_DOMAINS: {{ nextcloud_trusted_domains | join(' ') }}
+      
+      # PHP tuning
+      PHP_MEMORY_LIMIT: {{ nextcloud_php_memory_limit }}
+      PHP_UPLOAD_LIMIT: {{ nextcloud_php_upload_max }}
+      
+      # Overwrite settings for reverse proxy
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: {{ nextcloud_external_hostname }}
+      TRUSTED_PROXIES: 127.0.0.1 172.16.0.0/12
+      
+    volumes:
+      # Nextcloud data (app data, not user files)
+      - {{ nextcloud_data_path }}:/var/www/html
+      
+      # External storage mounts (read/write to /space/mike)
+{% for mount in nextcloud_external_mounts %}
+      - {{ mount.path }}:/external/{{ mount.name }}:rw
+{% endfor %}
+      
+      # Logs
+      - {{ nextcloud_log_path }}:/var/log/nextcloud
+      
+    ports:
+      - "{{ nextcloud_port }}:80"
+    networks:
+      - nextcloud-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/status.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  nextcloud-net:
+    driver: bridge
+

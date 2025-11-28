@@ -1,0 +1,107 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Nextcloud Server Role Defaults
+# These values align with PHC invariants - do not modify paths without
+# reviewing docs/guides/nextcloud_on_motoko.md
+
+# Stack deployment location (runtime surface)
+nextcloud_workdir: /flux/apps/nextcloud
+nextcloud_compose_path: "{{ nextcloud_workdir }}/docker-compose.yml"
+nextcloud_config_path: "{{ nextcloud_workdir }}/config"
+nextcloud_bin_path: "{{ nextcloud_workdir }}/bin"
+
+# Secrets (generated from AKV via secrets_sync role)
+nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
+
+# Data locations
+# App data on internal NVMe (/mnt/data) for performance
+nextcloud_data_path: /mnt/data/nextcloud/data
+nextcloud_db_path: /mnt/data/nextcloud/db
+# Backups on /space (System of Record) for durability
+nextcloud_db_backup_path: /space/_services/nextcloud/db-backups
+
+# Log location
+nextcloud_log_path: /space/_ops/logs/nextcloud
+
+# M365 ingestion target (one-way sync FROM M365)
+nextcloud_m365_inbox: /space/mike/inbox/ms365
+
+# Container images
+nextcloud_image: nextcloud:29-apache
+nextcloud_postgres_image: postgres:16-alpine
+nextcloud_redis_image: redis:7-alpine
+
+# Network / Ports
+nextcloud_port: 8080
+nextcloud_internal_hostname: nextcloud.motoko
+nextcloud_external_hostname: nextcloud.miket.io
+
+# Database configuration
+nextcloud_db_name: nextcloud
+nextcloud_db_user: nextcloud  # Actual value from AKV
+
+# Trusted domains (Tailscale + Cloudflare Access)
+nextcloud_trusted_domains:
+  - localhost
+  - motoko
+  - motoko.pangolin-vega.ts.net
+  - nextcloud.motoko
+  - nextcloud.miket.io
+  - 127.0.0.1
+
+# Admin user (from AKV)
+nextcloud_admin_user: admin  # Actual value from AKV
+
+# External storage mounts for user mike
+# These paths point to existing /space/mike directories
+# DO NOT mount dev, code, art, or projects - those are excluded by design
+nextcloud_external_mounts:
+  - name: work
+    path: /space/mike/work
+  - name: media
+    path: /space/mike/media
+  - name: finance
+    path: /space/mike/finance
+  - name: assets
+    path: /space/mike/assets
+  - name: camera
+    path: /space/mike/camera
+  - name: inbox
+    path: /space/mike/inbox
+  - name: ms365
+    path: /space/mike/inbox/ms365
+
+# FORBIDDEN mounts - never wire these into Nextcloud
+# This is enforced via docs/guides/nextcloud_on_motoko.md
+# - /space/mike/dev
+# - /space/mike/code
+# - /space/mike/art
+# - /space/projects/**
+
+# Entra ID configuration (shared by OIDC and M365)
+nextcloud_entra_tenant_id: "cd6aed39-39c7-44ec-9eeb-6eb23f6dcad0"
+
+# OIDC SSO configuration
+# Client ID/secret fetched from AKV via nextcloud.env
+nextcloud_oidc_enabled: true
+
+# M365 sync configuration
+nextcloud_m365_sync_schedule: "*:00"  # hourly via systemd timer
+nextcloud_m365_client_id: "d30c794e-e5db-40eb-978f-b2f105c0601a"
+# Client secret fetched from AKV
+
+# Backup configuration
+nextcloud_db_backup_schedule: "02:00"  # nightly at 2am (before restic runs)
+nextcloud_db_backup_retain_days: 7
+
+# Service names
+nextcloud_service_name: nextcloud
+nextcloud_m365_sync_service: nextcloud-m365-sync
+nextcloud_db_backup_service: nextcloud-db-backup
+
+# PHP/Apache tuning for Nextcloud container
+nextcloud_php_memory_limit: 512M
+nextcloud_php_upload_max: 16G
+nextcloud_php_post_max: 16G
+

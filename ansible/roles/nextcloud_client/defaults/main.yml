@@ -1,0 +1,94 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Nextcloud Client Role Defaults
+# Configuration for desktop client installation and setup
+
+# Server URL (via Cloudflare Access)
+nextcloud_server_url: https://nextcloud.miket.io
+
+# Local sync root
+# Must NOT be:
+# - User's home directory
+# - Any OS cloud directory (iCloud, OneDrive, Dropbox)
+# - Any directory mapped to /space over SMB
+nextcloud_sync_root: "{{ ansible_user_dir }}/nc"
+
+# User to configure
+nextcloud_user: "{{ ansible_user | default('miket') }}"
+
+# Default folders to sync
+# These match the external storage mounts on the server
+nextcloud_default_sync_folders:
+  - work
+  - media
+  - finance
+  - inbox
+  - assets
+  - camera
+
+# Folders to set as "online-only" (large or infrequently accessed)
+nextcloud_online_only_folders:
+  - ms365
+
+# Client version (platform-specific)
+# macOS: installed via Homebrew
+# Windows: installed via Chocolatey or direct download
+# Linux: installed via apt/dnf
+nextcloud_client_version: latest
+
+# Installation method by platform
+nextcloud_macos_install_method: homebrew
+nextcloud_windows_install_method: chocolatey
+nextcloud_linux_install_method: package
+
+# Homebrew cask name
+nextcloud_macos_cask: nextcloud
+
+# Chocolatey package name
+nextcloud_windows_choco: nextcloud-client
+
+# Linux package name (apt/dnf)
+nextcloud_linux_package: nextcloud-desktop
+
+# Auto-start on login
+nextcloud_autostart: true
+
+# Conflict resolution policy
+nextcloud_conflict_policy: rename_local
+
+# Bandwidth limits (0 = unlimited)
+nextcloud_upload_limit_kb: 0
+nextcloud_download_limit_kb: 0
+
+# Excluded paths (never sync these)
+nextcloud_excluded_paths:
+  - "*.git"
+  - "*node_modules"
+  - "*.pyc"
+  - "__pycache__"
+  - "*.DS_Store"
+  - "Thumbs.db"
+  - "*.tmp"
+  - "*.temp"
+  - "*.swp"
+  - "*.lock"
+  - "*.log"
+  # Development artifacts
+  - "**/build/**"
+  - "**/dist/**"
+  - "**/target/**"
+  - "**/.next/**"
+  - "**/venv/**"
+  - "**/.venv/**"
+  # Large media project files
+  - "*.ptx"  # Pro Tools
+  - "*.logicx"  # Logic Pro
+  - "*.sesx"  # Audition
+  - "*.prproj"  # Premiere
+  - "*.drp"  # Resolve
+  - "*.fcpbundle"  # Final Cut Pro
+  - "*.lrcat"  # Lightroom catalog
+  - "*.psd"  # Photoshop (>100MB typical)
+  - "*.aep"  # After Effects
+

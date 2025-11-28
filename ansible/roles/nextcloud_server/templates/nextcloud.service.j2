@@ -1,0 +1,31 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+[Unit]
+Description=Nextcloud Stack (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ nextcloud_workdir }}
+EnvironmentFile={{ nextcloud_env_path }}
+ExecStartPre=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+ExecReload=/usr/bin/docker compose restart
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nextcloud
+
+[Install]
+WantedBy=multi-user.target
+

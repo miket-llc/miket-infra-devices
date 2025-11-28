@@ -1,0 +1,70 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Configure Nextcloud Client Preferences
+# Note: Most configuration happens on first launch via GUI
+# This task sets up defaults and exclusions
+
+- name: Create Nextcloud config directory (macOS)
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/Library/Preferences/Nextcloud"
+    state: directory
+    owner: "{{ nextcloud_user }}"
+    mode: "0755"
+  become: false
+  when: ansible_system == 'Darwin'
+
+- name: Create Nextcloud config directory (Linux)
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/.config/Nextcloud"
+    state: directory
+    owner: "{{ nextcloud_user }}"
+    mode: "0755"
+  become: false
+  when: ansible_system == 'Linux'
+
+- name: Deploy sync exclusion list (macOS)
+  ansible.builtin.template:
+    src: sync-exclude.lst.j2
+    dest: "{{ ansible_user_dir }}/Library/Preferences/Nextcloud/sync-exclude.lst"
+    owner: "{{ nextcloud_user }}"
+    mode: "0644"
+  become: false
+  when: ansible_system == 'Darwin'
+
+- name: Deploy sync exclusion list (Linux)
+  ansible.builtin.template:
+    src: sync-exclude.lst.j2
+    dest: "{{ ansible_user_dir }}/.config/Nextcloud/sync-exclude.lst"
+    owner: "{{ nextcloud_user }}"
+    mode: "0644"
+  become: false
+  when: ansible_system == 'Linux'
+
+- name: Report client configuration
+  ansible.builtin.debug:
+    msg: |
+      Nextcloud Client Configuration:
+      
+      Server URL: {{ nextcloud_server_url }}
+      Sync Root:  {{ nextcloud_sync_root }}
+      
+      Recommended sync folders:
+      {% for folder in nextcloud_default_sync_folders %}
+      - {{ folder }}
+      {% endfor %}
+      
+      Online-only (large/infrequent):
+      {% for folder in nextcloud_online_only_folders %}
+      - {{ folder }}
+      {% endfor %}
+      
+      ⚠️  MANUAL SETUP REQUIRED:
+      1. Launch Nextcloud client
+      2. Enter server URL: {{ nextcloud_server_url }}
+      3. Authenticate via Cloudflare Access (Entra ID)
+      4. Select sync root: {{ nextcloud_sync_root }}
+      5. Choose folders to sync
+      
+      See: docs/guides/nextcloud_client_usage.md
+

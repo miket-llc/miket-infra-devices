@@ -1,8 +1,8 @@
 # miket-infra-devices
 
 **Status:** ✅ **PRODUCTION-READY** - Comprehensive architectural review complete  
-**Architecture Version:** v1.8.0 (Wave 2 completion: Cloudflare Access mapping, certificate enrollment, ACL drift checks)  
-**Last Updated:** November 23, 2025
+**Architecture Version:** v1.10.0 (Wave 3 completion: Nextcloud PHC service with Cloudflare Tunnel and Entra OIDC)  
+**Last Updated:** November 28, 2025
 
 ---
 

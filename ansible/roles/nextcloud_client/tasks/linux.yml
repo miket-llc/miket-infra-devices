@@ -1,0 +1,41 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux Nextcloud Client Installation
+
+- name: Install Nextcloud client (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: "{{ nextcloud_linux_package }}"
+    state: present
+    update_cache: true
+  when: ansible_os_family == 'Debian'
+
+- name: Install Nextcloud client (RHEL/Fedora)
+  ansible.builtin.dnf:
+    name: "{{ nextcloud_linux_package }}"
+    state: present
+  when: ansible_os_family == 'RedHat'
+
+- name: Check if Nextcloud client is installed
+  ansible.builtin.command: which nextcloud
+  register: nextcloud_installed
+  failed_when: false
+  changed_when: false
+
+- name: Create sync root directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_sync_root }}"
+    state: directory
+    owner: "{{ nextcloud_user }}"
+    group: "{{ nextcloud_user }}"
+    mode: "0755"
+  become: false
+
+- name: Report Linux installation status
+  ansible.builtin.debug:
+    msg: |
+      Linux Nextcloud Client:
+      - Binary: {{ 'Installed' if nextcloud_installed.rc == 0 else 'NOT INSTALLED' }}
+      - Sync Root: {{ nextcloud_sync_root }}
+      - Server: {{ nextcloud_server_url }}
+

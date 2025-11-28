@@ -1,0 +1,73 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# M365 Ingestion Sync Job
+# One-way sync: M365 (OneDrive/Teams/SharePoint) → /space/mike/inbox/ms365
+# NEVER syncs back to M365 - this is ingestion only
+
+- name: Check if rclone is installed
+  ansible.builtin.command: which rclone
+  register: rclone_check
+  changed_when: false
+  failed_when: false
+
+- name: Install rclone if missing
+  ansible.builtin.apt:
+    name: rclone
+    state: present
+  when: rclone_check.rc != 0
+  tags: [packages]
+
+- name: Deploy M365 sync script
+  ansible.builtin.template:
+    src: sync-m365.sh.j2
+    dest: "{{ nextcloud_bin_path }}/sync-m365.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart nextcloud-m365-sync
+
+- name: Deploy rclone config for M365
+  ansible.builtin.template:
+    src: rclone-m365.conf.j2
+    dest: "{{ nextcloud_config_path }}/rclone-m365.conf"
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Deploy M365 sync systemd service
+  ansible.builtin.template:
+    src: nextcloud-m365-sync.service.j2
+    dest: "/etc/systemd/system/{{ nextcloud_m365_sync_service }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Deploy M365 sync systemd timer
+  ansible.builtin.template:
+    src: nextcloud-m365-sync.timer.j2
+    dest: "/etc/systemd/system/{{ nextcloud_m365_sync_service }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Enable and start M365 sync timer
+  ansible.builtin.systemd:
+    name: "{{ nextcloud_m365_sync_service }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Report M365 sync configuration
+  ansible.builtin.debug:
+    msg: |
+      M365 Ingestion Job Configured:
+      - Script: {{ nextcloud_bin_path }}/sync-m365.sh
+      - Target: {{ nextcloud_m365_inbox }}
+      - Schedule: {{ nextcloud_m365_sync_schedule }} (hourly)
+      - Direction: ONE-WAY (M365 → /space, NEVER reverse)
+      
+      Timer status: {{ nextcloud_m365_sync_service }}.timer
+

@@ -1,0 +1,86 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Directory Structure Setup
+# Creates ONLY the allowed directories per PHC invariants
+# NEVER creates or renames anything else under /space or /space/mike
+
+- name: Create Nextcloud runtime directories under /flux
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ nextcloud_workdir }}"
+    - "{{ nextcloud_config_path }}"
+    - "{{ nextcloud_bin_path }}"
+
+- name: Create secrets directory under /flux/runtime
+  ansible.builtin.file:
+    path: /flux/runtime/secrets
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Create Nextcloud app data directories on internal drive
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "33"   # www-data UID in Nextcloud container
+    group: "33"   # www-data GID in Nextcloud container
+    mode: "0755"
+  loop:
+    - /mnt/data/nextcloud
+    - "{{ nextcloud_data_path }}"
+
+- name: Create Nextcloud database directory on internal drive (Postgres)
+  ansible.builtin.file:
+    path: "{{ nextcloud_db_path }}"
+    state: directory
+    owner: "999"   # postgres UID in container
+    group: "999"   # postgres GID in container
+    mode: "0700"
+
+- name: Create Nextcloud backup directory on /space
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /space/_services/nextcloud
+    - "{{ nextcloud_db_backup_path }}"
+
+- name: Create M365 ingestion directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_m365_inbox }}"
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: "0755"
+
+- name: Create Nextcloud log directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_log_path }}"
+    state: directory
+    owner: "33"   # www-data
+    group: "33"
+    mode: "0755"
+
+- name: Verify required /space/mike directories exist (do not create)
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop: "{{ nextcloud_external_mounts }}"
+  register: mount_paths
+  failed_when: false
+
+- name: Warn about missing mount directories
+  ansible.builtin.debug:
+    msg: "WARNING: Directory {{ item.item.path }} does not exist. External mount '{{ item.item.name }}' will fail."
+  loop: "{{ mount_paths.results }}"
+  when: not item.stat.exists
+

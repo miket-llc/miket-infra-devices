@@ -1,0 +1,123 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# Nextcloud Sync Exclusion List
+# These patterns are NEVER synced to/from Nextcloud
+# See: docs/guides/nextcloud_client_usage.md
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.temp
+*.swp
+*.lock
+*.log
+~$*
+
+# Version control
+.git
+.svn
+.hg
+
+# Development artifacts
+node_modules
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+.tox
+.nox
+.coverage
+htmlcov
+.eggs
+*.egg-info
+dist
+build
+target
+.next
+.nuxt
+.output
+.cache
+venv
+.venv
+env
+.env.local
+
+# IDE files
+.idea
+.vscode
+*.sublime-*
+.project
+.settings
+.classpath
+
+# Large binary formats - Pro Tools / DAW sessions
+*.ptx
+*.ptf
+*.pts
+
+# Logic Pro
+*.logicx
+*.band
+
+# Adobe Audition
+*.sesx
+
+# Premiere Pro
+*.prproj
+*.prel
+
+# DaVinci Resolve
+*.drp
+
+# Final Cut Pro
+*.fcpbundle
+*.fcpproject
+
+# After Effects
+*.aep
+*.aepx
+
+# Lightroom catalogs
+*.lrcat
+*.lrcat-data
+*.lrcat-journal
+*.lrdata
+
+# Large Photoshop files (use Smart Objects on server)
+# Note: Small PSDs may be acceptable
+# *.psd
+
+# Build outputs
+*.app
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.msi
+*.exe
+
+# Archives (redundant if already on server)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Virtual machines
+*.vmdk
+*.vdi
+*.vhd
+*.vhdx
+
+# Docker images
+*.tar.gz
+
+# macOS bundles that cause issues
+*.photoslibrary
+*.musiclibrary
+

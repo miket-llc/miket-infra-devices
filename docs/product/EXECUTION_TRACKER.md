@@ -1,12 +1,14 @@
 ---
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-26
-version: v1.9.0
+last_updated: 2025-11-28
+version: v1.10.0
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
+  - initiatives/nextcloud-deployment
 linked_communications:
+  - docs/communications/COMMUNICATION_LOG.md#2025-11-28-nextcloud-deployment
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-azure-cli-baseline
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-warp-terminal-deployment
   - docs/communications/COMMUNICATION_LOG.md#2025-11-25-deterministic-merge-plan
@@ -44,7 +46,22 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts fixed (UNC), health file written; smoke/validation executed | Monitor interactive session drive availability; add UNC reachability check to smoke if needed | 2025-11-24 |
 | **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 
-## Current Wave Focus (Wave 2: Cloudflare Access Mapping & Remote Access UX Enhancement)
+## Current Wave Focus (Wave 3: Nextcloud Deployment - DEPLOYED)
+- ✅ **COMPLETE:** Nextcloud server role (nextcloud_server) with Docker Compose stack
+- ✅ **COMPLETE:** Nextcloud client role (nextcloud_client) for macOS/Windows/Linux
+- ✅ **COMPLETE:** External storage configuration for /space/mike directories
+- ✅ **COMPLETE:** M365 ingestion job (one-way sync to /space/mike/inbox/ms365)
+- ✅ **COMPLETE:** Database backup script and systemd timer
+- ✅ **COMPLETE:** Secrets mapping added to secrets-map.yml
+- ✅ **COMPLETE:** Documentation (guides + runbooks)
+- ✅ **DEPLOYED:** AKV secrets provisioned (miket-infra Terraform)
+- ✅ **DEPLOYED:** Cloudflare Tunnel (b8073aa7-...) + cloudflared role
+- ✅ **DEPLOYED:** Entra ID OIDC SSO (client ID: 474bfcfe-...)
+- ✅ **DEPLOYED:** Server operational at https://nextcloud.miket.io
+- 🔜 **PENDING:** External storage admin UI configuration
+- 🔜 **PENDING:** Client deployment to endpoints
+
+## Wave 2: Cloudflare Access Mapping & Remote Access UX (COMPLETE)
 - ✅ **COMPLETE:** DEV-012: Coordination with miket-infra (coordination requests created)
 - ✅ **COMPLETE:** DEV-007: Cloudflare Access device persona mapping (draft complete, awaiting miket-infra confirmation)
 - ✅ **COMPLETE:** DEV-013: Certificate enrollment automation (role complete, awaiting miket-infra configuration)
@@ -52,7 +69,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 - ✅ **COMPLETE:** Documentation updates (Cloudflare Access procedures added)
 - ✅ **COMPLETE:** Validation playbooks created
 - ✅ **COMPLETE:** All miket-infra responses received (2025-11-24)
-- 🚧 **IN PROGRESS:** Cloudflare Access application configuration and testing
+- ✅ **COMPLETE:** Cloudflare Access application configuration and testing
 
 ## Wave 1: Onboarding & Credentials (COMPLETE)
 - ✅ **COMPLETE:** RDP/VNC cleanup from all playbooks (DEV-010)
@@ -114,6 +131,14 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || All host_vars updated to NoMachine | Codex-NET-006 | 2025-11-26 | count-zero, wintermute, armitage |
 || OBS Studio Ansible role created | Codex-IAC-003 | 2025-11-26 | [obs_studio role](../../ansible/roles/obs_studio/) |
 || OBS Studio deployment playbook created | Codex-IAC-003 | 2025-11-26 | [deploy-obs-studio.yml](../../ansible/playbooks/deploy-obs-studio.yml) |
+|| Nextcloud server role created | Codex-IAC-003 | 2025-11-28 | [nextcloud_server role](../../ansible/roles/nextcloud_server/), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-28-nextcloud-deployment) |
+|| Nextcloud client role created | Codex-IAC-003 | 2025-11-28 | [nextcloud_client role](../../ansible/roles/nextcloud_client/), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-11-28-nextcloud-deployment) |
+|| Nextcloud server deployment playbook | Codex-IAC-003 | 2025-11-28 | [deploy-nextcloud.yml](../../ansible/playbooks/motoko/deploy-nextcloud.yml) |
+|| Nextcloud client deployment playbook | Codex-IAC-003 | 2025-11-28 | [deploy-nextcloud-client.yml](../../ansible/playbooks/deploy-nextcloud-client.yml) |
+|| Nextcloud secrets added to secrets-map.yml | Codex-SEC-004 | 2025-11-28 | [secrets-map.yml](../../ansible/secrets-map.yml) |
+|| Nextcloud on Motoko guide | Codex-DOC-009 | 2025-11-28 | [nextcloud_on_motoko.md](../guides/nextcloud_on_motoko.md) |
+|| Nextcloud client usage guide | Codex-DOC-009 | 2025-11-28 | [nextcloud_client_usage.md](../guides/nextcloud_client_usage.md) |
+|| Nextcloud M365 sync runbook | Codex-DOC-009 | 2025-11-28 | [nextcloud_m365_sync.md](../runbooks/nextcloud_m365_sync.md) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

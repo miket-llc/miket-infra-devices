@@ -1,0 +1,14 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+[Unit]
+Description=Nextcloud Database Backup Timer (Nightly before restic)
+
+[Timer]
+OnCalendar={{ nextcloud_db_backup_schedule }}
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

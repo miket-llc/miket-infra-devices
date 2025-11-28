@@ -1,0 +1,30 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Default variables for cloudflared role
+
+# Tunnel configuration
+cloudflared_tunnel_id: ""  # Required - set in host/group vars
+cloudflared_tunnel_name: "default"
+
+# Paths
+cloudflared_config_dir: "/root/.cloudflared"
+cloudflared_config_file: "{{ cloudflared_config_dir }}/config.yml"
+cloudflared_credentials_file: "{{ cloudflared_config_dir }}/{{ cloudflared_tunnel_id }}.json"
+
+# AKV secret containing tunnel credentials JSON
+cloudflared_akv_secret_name: ""  # Required - set in host/group vars
+cloudflared_akv_vault_name: "kv-miket-ops"
+
+# Ingress rules - list of hostname/service mappings
+cloudflared_ingress_rules:
+  - hostname: "example.miket.io"
+    service: "http://localhost:8080"
+
+# Service configuration
+cloudflared_service_name: "cloudflared"
+cloudflared_service_enabled: true
+
+# Installation
+cloudflared_version: "latest"  # or specific version like "2025.11.1"
+cloudflared_deb_url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb"
+

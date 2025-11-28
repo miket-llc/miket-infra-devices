@@ -1,0 +1,93 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# External Storage Configuration for Nextcloud
+# Configures local mounts to /space/mike directories
+# Uses Nextcloud OCC (command line interface)
+
+- name: Wait for Nextcloud container to be fully ready
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ status --output=json
+  register: occ_status
+  until: occ_status.rc == 0 and (occ_status.stdout | from_json).installed | default(false)
+  retries: 30
+  delay: 10
+  changed_when: false
+  failed_when: false
+
+- name: Check if External Storage app is enabled
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ app:list --output=json
+  register: app_list
+  changed_when: false
+  when: occ_status.rc == 0
+
+- name: Enable External Storage app
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ app:enable files_external
+  register: enable_external
+  changed_when: "'enabled' in enable_external.stdout"
+  when:
+    - occ_status.rc == 0
+    - "'files_external' not in (app_list.stdout | from_json).enabled | default({})"
+
+- name: Check existing external mounts
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ files_external:list --output=json
+  register: existing_mounts
+  changed_when: false
+  when: occ_status.rc == 0
+
+- name: Parse existing mount names
+  ansible.builtin.set_fact:
+    existing_mount_names: "{{ (existing_mounts.stdout | from_json | default([])) | map(attribute='mount_point') | list }}"
+  when: occ_status.rc == 0
+
+- name: Configure external storage mounts for mike
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ files_external:create
+    "{{ item.name }}"
+    local
+    null::null
+    --config datadir="{{ item.path }}"
+    --user mike
+  loop: "{{ nextcloud_external_mounts }}"
+  register: create_mount
+  changed_when: "'Storage created' in create_mount.stdout"
+  failed_when: create_mount.rc != 0 and 'already exists' not in create_mount.stderr
+  when:
+    - occ_status.rc == 0
+    - item.name not in existing_mount_names | default([])
+
+- name: Set mount permissions (read/write)
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ files_external:option
+    "{{ item.name }}"
+    enable_sharing true
+  loop: "{{ nextcloud_external_mounts }}"
+  changed_when: false
+  failed_when: false
+  when: occ_status.rc == 0
+
+- name: Rescan files for user mike
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ files:scan mike --path="/mike"
+  changed_when: false
+  failed_when: false
+  when: occ_status.rc == 0
+
+- name: Report external storage status
+  ansible.builtin.debug:
+    msg: |
+      External storage mounts configured:
+      {% for mount in nextcloud_external_mounts %}
+      - {{ mount.name }} → {{ mount.path }}
+      {% endfor %}
+      
+      EXCLUDED by design (per PHC invariants):
+      - /space/mike/dev
+      - /space/mike/code
+      - /space/mike/art
+      - /space/projects/**
+  when: occ_status.rc == 0
+

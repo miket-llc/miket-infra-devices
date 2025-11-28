@@ -1,0 +1,81 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Validation Tasks for Nextcloud Deployment
+# Verifies the stack is healthy and properly configured
+
+- name: Check Nextcloud container is running
+  ansible.builtin.command: docker ps --filter "name=nextcloud-app" --format "{{ '{{.Status}}' }}"
+  register: container_status
+  changed_when: false
+  failed_when: "'Up' not in container_status.stdout"
+
+- name: Check PostgreSQL container is running
+  ansible.builtin.command: docker ps --filter "name=nextcloud-db" --format "{{ '{{.Status}}' }}"
+  register: db_status
+  changed_when: false
+  failed_when: "'Up' not in db_status.stdout"
+
+- name: Check Redis container is running
+  ansible.builtin.command: docker ps --filter "name=nextcloud-redis" --format "{{ '{{.Status}}' }}"
+  register: redis_status
+  changed_when: false
+  failed_when: "'Up' not in redis_status.stdout"
+
+- name: Verify Nextcloud responds on local port
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nextcloud_port }}/status.php"
+    method: GET
+    return_content: true
+  register: nc_status
+  failed_when: nc_status.status != 200
+
+- name: Parse Nextcloud status
+  ansible.builtin.set_fact:
+    nc_status_json: "{{ nc_status.content | from_json }}"
+
+- name: Assert Nextcloud is installed and operational
+  ansible.builtin.assert:
+    that:
+      - nc_status_json.installed == true
+      - nc_status_json.maintenance == false
+    fail_msg: "Nextcloud is not operational: installed={{ nc_status_json.installed }}, maintenance={{ nc_status_json.maintenance }}"
+    success_msg: "Nextcloud is operational (version {{ nc_status_json.versionstring | default('unknown') }})"
+
+- name: Check external storage mounts are configured
+  ansible.builtin.command: >
+    docker exec nextcloud-app php occ files_external:list --output=json
+  register: ext_mounts
+  changed_when: false
+  failed_when: false
+
+- name: Verify external mounts count
+  ansible.builtin.assert:
+    that:
+      - (ext_mounts.stdout | from_json | default([])) | length >= 1
+    fail_msg: "No external storage mounts configured"
+    success_msg: "{{ (ext_mounts.stdout | from_json | default([])) | length }} external mounts configured"
+  when: ext_mounts.rc == 0
+
+- name: Check M365 sync timer is active
+  ansible.builtin.command: systemctl is-active {{ nextcloud_m365_sync_service }}.timer
+  register: m365_timer
+  changed_when: false
+  failed_when: false
+
+- name: Check database backup timer is active
+  ansible.builtin.command: systemctl is-active {{ nextcloud_db_backup_service }}.timer
+  register: db_backup_timer
+  changed_when: false
+  failed_when: false
+
+- name: Validation summary
+  ansible.builtin.debug:
+    msg: >-
+      Nextcloud {{ nc_status_json.versionstring | default('unknown') }} is operational.
+      Containers: app={{ 'Running' if 'Up' in container_status.stdout else 'FAILED' }},
+      db={{ 'Running' if 'Up' in db_status.stdout else 'FAILED' }},
+      redis={{ 'Running' if 'Up' in redis_status.stdout else 'FAILED' }}.
+      Endpoints: internal=http://nextcloud.motoko:{{ nextcloud_port }},
+      external=https://{{ nextcloud_external_hostname }}
+

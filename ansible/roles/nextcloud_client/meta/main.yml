@@ -1,0 +1,21 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+galaxy_info:
+  author: MikeT LLC
+  description: Install and configure Nextcloud desktop client on endpoints
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: MacOSX
+      versions:
+        - all
+    - name: Windows
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+
+dependencies: []
+

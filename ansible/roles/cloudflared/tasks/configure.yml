@@ -1,0 +1,53 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Configure cloudflared tunnel
+
+- name: Create cloudflared config directory
+  ansible.builtin.file:
+    path: "{{ cloudflared_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Fetch tunnel credentials from AKV
+  ansible.builtin.command: >
+    az keyvault secret show
+    --vault-name {{ cloudflared_akv_vault_name }}
+    --name {{ cloudflared_akv_secret_name }}
+    --query value -o tsv
+  register: tunnel_credentials_raw
+  changed_when: false
+  no_log: true
+  delegate_to: localhost
+  become: false
+
+- name: Write tunnel credentials file
+  ansible.builtin.copy:
+    content: "{{ tunnel_credentials_raw.stdout }}"
+    dest: "{{ cloudflared_credentials_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  no_log: true
+  notify: restart cloudflared
+
+- name: Template cloudflared config
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ cloudflared_config_file }}"
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart cloudflared
+
+- name: Validate cloudflared config
+  ansible.builtin.command: cloudflared tunnel --config {{ cloudflared_config_file }} ingress validate
+  register: config_validation
+  changed_when: false
+  failed_when: config_validation.rc != 0
+
+- name: Display config validation result
+  ansible.builtin.debug:
+    msg: "Config validation: {{ config_validation.stdout }}"
+

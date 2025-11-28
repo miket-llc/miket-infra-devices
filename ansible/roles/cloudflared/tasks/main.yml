@@ -1,0 +1,20 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Main tasks for cloudflared role
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - cloudflared_tunnel_id | length > 0
+      - cloudflared_akv_secret_name | length > 0
+    fail_msg: "cloudflared_tunnel_id and cloudflared_akv_secret_name are required"
+
+- name: Install cloudflared
+  ansible.builtin.include_tasks: install.yml
+
+- name: Configure cloudflared
+  ansible.builtin.include_tasks: configure.yml
+
+- name: Setup systemd service
+  ansible.builtin.include_tasks: service.yml
+

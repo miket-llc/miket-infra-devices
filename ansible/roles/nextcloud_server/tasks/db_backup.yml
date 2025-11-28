@@ -1,0 +1,55 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Database Backup for Nextcloud
+# Dumps PostgreSQL to /space/_services/nextcloud/db-backups
+# Runs before restic snapshots (configured in data-lifecycle role)
+
+- name: Deploy database backup script
+  ansible.builtin.template:
+    src: nextcloud-db-backup.sh.j2
+    dest: "{{ nextcloud_bin_path }}/nextcloud-db-backup.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart nextcloud-db-backup
+
+- name: Deploy database backup systemd service
+  ansible.builtin.template:
+    src: nextcloud-db-backup.service.j2
+    dest: "/etc/systemd/system/{{ nextcloud_db_backup_service }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Deploy database backup systemd timer
+  ansible.builtin.template:
+    src: nextcloud-db-backup.timer.j2
+    dest: "/etc/systemd/system/{{ nextcloud_db_backup_service }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: reload systemd
+
+- name: Enable and start database backup timer
+  ansible.builtin.systemd:
+    name: "{{ nextcloud_db_backup_service }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Verify existing restic jobs include Nextcloud paths
+  ansible.builtin.debug:
+    msg: |
+      Database Backup Configured:
+      - Script: {{ nextcloud_bin_path }}/nextcloud-db-backup.sh
+      - Output: {{ nextcloud_db_backup_path }}/
+      - Schedule: {{ nextcloud_db_backup_schedule }} (before restic runs)
+      - Retention: {{ nextcloud_db_backup_retain_days }} days
+      
+      IMPORTANT: Ensure data-lifecycle restic jobs include:
+      - /space/_services/nextcloud/**
+      
+      Verify with: restic snapshots | grep nextcloud
+

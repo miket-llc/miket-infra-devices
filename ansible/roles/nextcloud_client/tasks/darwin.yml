@@ -1,0 +1,54 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS Nextcloud Client Installation
+
+- name: Check if Homebrew is installed
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/brew
+  register: homebrew_check
+  when: nextcloud_macos_install_method == 'homebrew'
+
+- name: Check Intel Homebrew path
+  ansible.builtin.stat:
+    path: /usr/local/bin/brew
+  register: homebrew_intel_check
+  when:
+    - nextcloud_macos_install_method == 'homebrew'
+    - not homebrew_check.stat.exists
+
+- name: Set Homebrew path
+  ansible.builtin.set_fact:
+    brew_path: "{{ '/opt/homebrew/bin/brew' if homebrew_check.stat.exists else '/usr/local/bin/brew' }}"
+  when: nextcloud_macos_install_method == 'homebrew'
+
+- name: Install Nextcloud client via Homebrew
+  community.general.homebrew_cask:
+    name: "{{ nextcloud_macos_cask }}"
+    state: present
+  become: false
+  when:
+    - nextcloud_macos_install_method == 'homebrew'
+    - homebrew_check.stat.exists or homebrew_intel_check.stat.exists
+
+- name: Verify Nextcloud.app is installed
+  ansible.builtin.stat:
+    path: /Applications/Nextcloud.app
+  register: nextcloud_app
+
+- name: Create sync root directory
+  ansible.builtin.file:
+    path: "{{ nextcloud_sync_root }}"
+    state: directory
+    owner: "{{ nextcloud_user }}"
+    mode: "0755"
+  become: false
+
+- name: Report macOS installation status
+  ansible.builtin.debug:
+    msg: |
+      macOS Nextcloud Client:
+      - App: {{ 'Installed' if nextcloud_app.stat.exists else 'NOT INSTALLED' }}
+      - Sync Root: {{ nextcloud_sync_root }}
+      - Server: {{ nextcloud_server_url }}
+

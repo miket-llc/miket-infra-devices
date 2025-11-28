@@ -1,0 +1,32 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Install cloudflared binary
+
+- name: Check if cloudflared is installed
+  ansible.builtin.command: which cloudflared
+  register: cloudflared_installed
+  changed_when: false
+  failed_when: false
+
+- name: Download cloudflared .deb package
+  ansible.builtin.get_url:
+    url: "{{ cloudflared_deb_url }}"
+    dest: /tmp/cloudflared.deb
+    mode: '0644'
+  when: cloudflared_installed.rc != 0
+
+- name: Install cloudflared from .deb
+  ansible.builtin.apt:
+    deb: /tmp/cloudflared.deb
+    state: present
+  when: cloudflared_installed.rc != 0
+
+- name: Verify cloudflared installation
+  ansible.builtin.command: cloudflared --version
+  register: cloudflared_version_check
+  changed_when: false
+
+- name: Display cloudflared version
+  ansible.builtin.debug:
+    msg: "cloudflared version: {{ cloudflared_version_check.stdout }}"
+

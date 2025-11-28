@@ -1,0 +1,32 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Nextcloud Server Deployment Tasks
+# Idempotent deployment of Nextcloud stack on motoko
+# Respects PHC invariants: /space is SoR, /flux is runtime
+
+- name: Include directory setup tasks
+  ansible.builtin.include_tasks: directories.yml
+
+- name: Include secrets verification tasks
+  ansible.builtin.include_tasks: verify_secrets.yml
+
+- name: Include Docker/Compose deployment tasks
+  ansible.builtin.include_tasks: deploy.yml
+
+- name: Include OIDC/SSO configuration tasks
+  ansible.builtin.include_tasks: oidc.yml
+  when: nextcloud_oidc_enabled | default(true)
+
+- name: Include external storage configuration tasks
+  ansible.builtin.include_tasks: external_storage.yml
+
+- name: Include M365 sync job tasks
+  ansible.builtin.include_tasks: m365_sync.yml
+
+- name: Include database backup tasks
+  ansible.builtin.include_tasks: db_backup.yml
+
+- name: Include validation tasks
+  ansible.builtin.include_tasks: validate.yml
+

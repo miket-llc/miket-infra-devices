@@ -1,0 +1,29 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+
+[Unit]
+Description=Nextcloud M365 Ingestion Sync
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart={{ nextcloud_bin_path }}/sync-m365.sh
+EnvironmentFile={{ nextcloud_env_path }}
+
+# User context
+User=root
+Group=root
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nextcloud-m365-sync
+
+# Timeout (allow up to 4 hours for large syncs)
+TimeoutStartSec=14400
+
+[Install]
+WantedBy=multi-user.target
+
