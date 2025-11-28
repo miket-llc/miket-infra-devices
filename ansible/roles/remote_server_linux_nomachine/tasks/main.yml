@@ -78,6 +78,50 @@
   changed_when: false
   failed_when: false
 
+# Display Manager Configuration - ensure single DM for KDE
+# Pop!_OS/Ubuntu may have GDM3 installed alongside SDDM - this causes conflicts
+- name: Check if GDM3 is installed
+  ansible.builtin.command:
+    cmd: systemctl list-unit-files gdm3.service
+  register: gdm3_check
+  changed_when: false
+  failed_when: false
+
+- name: Stop and disable GDM3 if present (conflicts with SDDM/KDE)
+  ansible.builtin.systemd:
+    name: gdm3
+    state: stopped
+    enabled: false
+    masked: true
+  become: true
+  when: gdm3_check.rc == 0 and 'gdm3.service' in gdm3_check.stdout
+  failed_when: false
+
+- name: Check if SDDM is the display manager
+  ansible.builtin.stat:
+    path: /usr/bin/sddm
+  register: sddm_installed
+
+- name: Configure SDDM autologin for KDE (if SDDM present)
+  ansible.builtin.copy:
+    dest: /etc/sddm.conf.d/autologin.conf
+    content: |
+      [Autologin]
+      User={{ ansible_user_id }}
+      Session=plasma
+      Relogin=false
+
+      [General]
+      HaltCommand=/usr/bin/systemctl poweroff
+      RebootCommand=/usr/bin/systemctl reboot
+
+      [Theme]
+      Current=breeze
+    mode: '0644'
+  become: true
+  when: sddm_installed.stat.exists
+  notify: restart sddm
+
 # NoMachine installation from apt.iteas.at mirror (official packages)
 # See: docs/runbooks/nomachine-installer-sources.md for source documentation
 # Primary: https://apt.iteas.at/iteas/pool/main/n/nomachine/
@@ -176,6 +220,26 @@
     path: /usr/NX/etc/server.cfg
     regexp: '^#?EnableSessionSharing='
     line: 'EnableSessionSharing 1'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+# PHC: Force physical desktop - prevents virtual display creation
+# See: docs/runbooks/fix-motoko-nomachine-kde-lockscreen.md
+- name: Configure NoMachine to prefer physical desktop
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?PhysicalDesktopMode'
+    line: 'PhysicalDesktopMode 2'
+    backup: yes
+  become: true
+  notify: restart nxserver
+
+- name: Disable virtual display creation
+  ansible.builtin.lineinfile:
+    path: /usr/NX/etc/server.cfg
+    regexp: '^#?CreateDisplay'
+    line: 'CreateDisplay 0'
     backup: yes
   become: true
   notify: restart nxserver
