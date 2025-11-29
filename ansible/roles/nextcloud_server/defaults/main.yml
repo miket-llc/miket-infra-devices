@@ -56,16 +56,9 @@ nextcloud_trusted_domains:
 # Admin user (from AKV)
 nextcloud_admin_user: admin  # Actual value from AKV
 
-# External storage mounts configuration
+# External storage mounts for user mike
 # These paths point to existing /space/mike directories
 # DO NOT mount dev, code, art, or projects - those are excluded by design
-
-# OIDC user mapping - email to /space subdirectory
-# The OIDC user ID is a hash, so we look up by email
-nextcloud_oidc_users:
-  - email: mike@miket.io
-    space_subdir: mike
-
 nextcloud_external_mounts:
   - name: work
     path: /space/mike/work
@@ -114,23 +107,4 @@ nextcloud_db_backup_service: nextcloud-db-backup
 nextcloud_php_memory_limit: 512M
 nextcloud_php_upload_max: 16G
 nextcloud_php_post_max: 16G
-
-# Pure Façade Configuration
-# Nextcloud internal homes must be effectively empty - no skeleton/welcome files
-# All user content lives on /space via external mounts only
-
-# Disable skeleton files for new users (empty string = no skeleton)
-nextcloud_skeleton_directory: ""
-
-# Home sweeper - detect and quarantine stray files in internal user homes
-nextcloud_home_sweeper_enabled: true
-nextcloud_home_sweeper_schedule: "03:00"  # Daily at 3am (after backups)
-nextcloud_home_sweeper_quarantine: /space/_services/nextcloud/home_strays
-# Alert-only mode (true = log only, false = copy to quarantine)
-nextcloud_home_sweeper_alert_only: true
-
-# Users to manage (for home cleaning and sweeper)
-nextcloud_managed_users:
-  - admin
-  - mike
 

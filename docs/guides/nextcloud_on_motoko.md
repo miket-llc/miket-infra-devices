@@ -19,38 +19,12 @@ linked_communications:
 
 ## Overview
 
-Nextcloud runs on motoko as a **pure façade** over `/space`. This means:
-
-- **All user content lives on `/space`** (System of Record)
-- **Internal Nextcloud homes are empty** - no skeleton/welcome files
-- **External storage mounts** expose existing `/space/mike` directories
-- **Home sweeper** detects and quarantines any stray files in internal homes
-
-Nextcloud provides:
+Nextcloud runs on motoko as a containerized stack, integrating with `/space` as the System of Record (SoR). It provides:
 
 - **File sync** across devices via Nextcloud desktop/mobile clients
 - **External storage mounts** pointing to existing `/space/mike` directories
 - **M365 ingestion** (one-way sync from OneDrive/SharePoint to `/space`)
 - **Cloudflare Access** protection for external access
-
-### Pure Façade Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    PURE FAÇADE PRINCIPLE                        │
-├─────────────────────────────────────────────────────────────────┤
-│  Nextcloud ──────────►  Metadata & Caches ONLY                  │
-│  Internal Home          /mnt/data/nextcloud/data/<user>/        │
-│                         ├── files/        ← MUST BE EMPTY       │
-│                         ├── cache/        ← OK (internal)       │
-│                         └── uploads/      ← OK (transient)      │
-│                                                                  │
-│  User Content ───────►  /space/mike/<folder>                    │
-│  (System of Record)     via External Storage mounts             │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Why?** Prevents data duplication, ensures `/space` remains the single source of truth, and simplifies backup/recovery by keeping Nextcloud as a stateless access layer.
 
 ## Architecture
 
@@ -234,71 +208,6 @@ The following directories are **NEVER** exposed to Nextcloud:
 | `/space/projects/**` | Shared project workloads |
 
 These workloads should access `/space` directly via SMB mounts.
-
-## Pure Façade Configuration
-
-### Skeleton Files (Disabled)
-
-New Nextcloud users do **NOT** receive:
-- `Nextcloud Manual.pdf`
-- Sample `Photos` folder
-- Sample `Documents` folder
-- Any welcome/README files
-
-This is configured via:
-```php
-'skeletondirectory' => '',
-```
-
-The Ansible role automatically:
-1. Sets `skeletondirectory` to empty string
-2. Clears any existing skeleton directory contents
-3. Removes skeleton files from existing user homes
-
-### Home Sweeper
-
-A daily job detects any files that accidentally end up in internal user homes:
-
-```bash
-# Check sweeper status
-systemctl status nextcloud-home-sweeper.timer
-
-# View sweeper logs
-journalctl -u nextcloud-home-sweeper.service
-
-# Manual run (alert-only mode)
-/flux/apps/nextcloud/bin/nextcloud-home-sweeper.sh
-```
-
-**Configuration:**
-| Setting | Value | Description |
-|---------|-------|-------------|
-| Schedule | `03:00` daily | After backups complete |
-| Mode | `ALERT_ONLY` | Logs strays, doesn't move them |
-| Quarantine | `/space/_services/nextcloud/home_strays/` | Where strays would go if moved |
-
-**Stray File Handling:**
-1. Sweeper scans `/mnt/data/nextcloud/data/<user>/files/`
-2. Anything not part of Nextcloud internals is flagged
-3. In alert-only mode: logs warning and continues
-4. In quarantine mode: copies to quarantine directory
-
-### Smoke Tests
-
-Validate pure façade configuration:
-
-```bash
-cd ~/miket-infra-devices
-python3 tests/nextcloud_smoke.py
-```
-
-Tests verify:
-- Container is running
-- API responds healthy
-- Skeleton directory is disabled
-- External mounts are configured
-- Internal user homes are empty
-- Systemd timers are active
 
 ## Troubleshooting
 
