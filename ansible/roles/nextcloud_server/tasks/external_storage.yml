@@ -85,10 +85,10 @@
 - name: Configure external storage mounts for OIDC user
   ansible.builtin.command: >
     docker exec -u 33 nextcloud-app php occ files_external:create
-    "{{ item.name }}"
+    "/{{ item.name }}"
     local
     null::null
-    --config datadir="{{ item.path }}"
+    --config datadir="/external/{{ item.name }}"
     --user "{{ nextcloud_mike_uid }}"
   loop: "{{ nextcloud_external_mounts }}"
   register: create_mount
@@ -133,9 +133,9 @@
 - name: Report external storage status
   ansible.builtin.debug:
     msg: |
-      External storage mounts configured:
+      External storage mounts configured (container path → host path):
       {% for mount in nextcloud_external_mounts %}
-      - {{ mount.name }} → {{ mount.path }}
+      - /{{ mount.name }} → /external/{{ mount.name }} (host: {{ mount.path }})
       {% endfor %}
       
       EXCLUDED by design (per PHC invariants):
