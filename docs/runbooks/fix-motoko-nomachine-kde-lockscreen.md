@@ -15,7 +15,7 @@ linked_communications:
 
 **Purpose:** Troubleshoot and fix NoMachine connection issues when KDE displays a lock screen or the desktop is unresponsive.
 
-**Target Device:** motoko (Linux, Pop!_OS/Ubuntu with KDE Plasma)
+**Target Device:** motoko (Linux, Fedora 43 with GNOME/X11)
 
 ---
 
@@ -180,7 +180,7 @@ The `remote_server_linux_nomachine` role should:
 ### System Configuration
 
 1. Only one display manager should be installed/enabled
-2. Pop!_OS defaults to GDM3 - must be disabled for KDE
+2. Fedora uses GDM by default with GNOME
 3. NoMachine should be configured to prefer physical desktop
 
 ---

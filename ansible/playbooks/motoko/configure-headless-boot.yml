@@ -78,7 +78,7 @@
           - ""
           - "Display Configuration:"
           - "  ⚠ Handled by KDE Plasma system settings (not Ansible)"
-          - "  ⚠ Pop!_OS uses Wayland via sddm"
+          - "  ⚠ Fedora uses GNOME/Wayland by default; X11 configured for NoMachine"
           - "  ⚠ Configure display preferences in Settings > Displays"
           - ""
           - "Remote Desktop:"

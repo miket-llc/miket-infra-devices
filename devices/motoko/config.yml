@@ -5,13 +5,13 @@
 
 device:
   hostname: motoko
-  fqdn: motoko.hopto.org
+  fqdn: motoko.pangolin-vega.ts.net
   type: server
   location: primary
   primary_user: mdt
-  os: "Ubuntu 24.04 LTS"
-  codename: noble
-  desktop: "KDE Plasma"
+  os: "Fedora 43"
+  codename: workstation
+  desktop: "GNOME"
   display_server: "X11"
 
 hardware:
@@ -28,13 +28,13 @@ hardware:
     - "/time"   # Time Machine backup target
 
 operating_system:
-  os: "Ubuntu"
-  version: "24.04 LTS"
-  codename: noble
-  kernel: "6.x"
-  desktop_environment: "KDE Plasma"
+  os: "Fedora"
+  version: "43"
+  codename: workstation
+  kernel: "6.17"
+  desktop_environment: "GNOME"
   display_server: "X11"
-  display_manager: "SDDM"
+  display_manager: "GDM"
 
 network:
   tailscale_enabled: true
@@ -89,8 +89,8 @@ remote_desktop:
   protocol: nomachine
   port: 4000
   version: "9.2.18"
-  display_manager: sddm
-  session_type: plasma
+  display_manager: gdm
+  session_type: gnome
   # X11 provides full NoMachine compatibility - no portal limitations
 
 use_cases:

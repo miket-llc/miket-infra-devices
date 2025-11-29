@@ -799,7 +799,7 @@ Profiles include: `motoko.nxs`, `wintermute.nxs`, `armitage.nxs`
 
 | Host | Protocol | Port | MagicDNS Hostname | OS | Notes |
 |------|----------|------|-------------------|----|-------|
-| motoko | NoMachine | 4000 | `motoko.pangolin-vega.ts.net:4000` | Linux (Pop!_OS) | Session sharing supported |
+| motoko | NoMachine | 4000 | `motoko.pangolin-vega.ts.net:4000` | Linux (Fedora 43) | Session sharing supported |
 | wintermute | NoMachine | 4000 | `wintermute.pangolin-vega.ts.net:4000` | Windows | Session sharing supported |
 | armitage | NoMachine | 4000 | `armitage.pangolin-vega.ts.net:4000` | Windows | Session sharing supported |
 

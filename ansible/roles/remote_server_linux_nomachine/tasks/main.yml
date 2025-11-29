@@ -79,7 +79,7 @@
   failed_when: false
 
 # Display Manager Configuration - ensure single DM for KDE
-# Pop!_OS/Ubuntu may have GDM3 installed alongside SDDM - this causes conflicts
+# Fedora/Ubuntu may have GDM3 installed alongside SDDM - this causes conflicts
 - name: Check if GDM3 is installed
   ansible.builtin.command:
     cmd: systemctl list-unit-files gdm3.service
