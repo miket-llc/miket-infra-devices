@@ -3,13 +3,13 @@
 ---
 # Lid Configuration Role
 # Configures system to operate safely with lid closed (headless laptop operation)
-# Supports Pop!_OS and other systemd-based Linux distributions
+# Supports Fedora and other systemd-based Linux distributions
 
-- name: Check if running on Pop!_OS or Ubuntu
+- name: Check if running on supported Linux
   ansible.builtin.assert:
     that:
-      - ansible_distribution in ['Ubuntu', 'Pop!_OS']
-    fail_msg: "This role is designed for Pop!_OS/Ubuntu systems"
+      - ansible_distribution in ['Ubuntu', 'Fedora', 'Rocky', 'AlmaLinux', 'CentOS']
+    fail_msg: "This role is designed for Fedora/RHEL/Ubuntu systems"
     quiet: true
 
 - name: Configure systemd-logind for lid-closed operation
@@ -24,26 +24,13 @@
     - { key: "HandleLidSwitchDocked", value: "ignore" }
   notify: restart systemd-logind
 
-- name: Check if kernelstub is available (Pop!_OS)
-  ansible.builtin.command: which kernelstub
-  register: kernelstub_check
-  changed_when: false
-  failed_when: false
-
-- name: Add kernel parameter for lid-closed operation (Pop!_OS)
-  ansible.builtin.shell: kernelstub -a 'button.lid_init_state=open'
-  when: kernelstub_check.rc == 0
-  register: kernelstub_result
-  changed_when: "'already' not in kernelstub_result.stdout | default('')"
-  failed_when: false
-
-- name: Add kernel parameter via GRUB (fallback for non-Pop!_OS)
+- name: Add kernel parameter via GRUB (Fedora/RHEL)
   ansible.builtin.lineinfile:
     path: /etc/default/grub
     regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
     line: "GRUB_CMDLINE_LINUX_DEFAULT=\"{{ ansible_facts['grub_cmdline_linux_default'] | default('') }} button.lid_init_state=open\""
     backup: yes
-  when: kernelstub_check.rc != 0
+  when: ansible_distribution in ['Fedora', 'Rocky', 'AlmaLinux', 'CentOS']
   notify: update grub
 
 - name: Create GDM service override directory
@@ -59,7 +46,7 @@
       [Unit]
       # Force GDM to start even with lid closed
       ConditionPathExists=
-      ConditionPathExists=/usr/sbin/gdm3
+      ConditionPathExists=/usr/sbin/gdm
 
       [Service]
       # Restart if it fails
@@ -79,7 +66,7 @@
 
       [Service]
       Type=oneshot
-      ExecStart=/bin/systemctl start gdm3
+      ExecStart=/bin/systemctl start gdm
       RemainAfterExit=yes
 
       [Install]
@@ -95,7 +82,7 @@
 
 - name: Configure GDM autologin (if enabled)
   ansible.builtin.lineinfile:
-    path: /etc/pop-os/gdm3/custom.conf
+    path: /etc/gdm/custom.conf
     regexp: "^{{ item.key }}="
     line: "{{ item.key }}={{ item.value }}"
     backup: yes
@@ -119,5 +106,4 @@
       - ""
       - "System will operate normally with lid closed"
       - "Reboot required for kernel parameter to take effect"
-
 

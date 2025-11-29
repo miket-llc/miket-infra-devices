@@ -1,3 +1,87 @@
+## 2025-11-29 – Motoko Fedora 43 Migration {#2025-11-29-motoko-fedora-migration}
+
+### Context
+Migrated motoko from Pop!_OS to Fedora 43 Workstation due to ongoing issues with Pop!_OS. Fresh Fedora install provides stable GNOME desktop with standard X11/Wayland support and better NoMachine compatibility out of the box.
+
+### Actions Taken
+
+**Codex-SRE-005 (SRE):**
+- ✅ Set hostname to `motoko`
+- ✅ Configured mdt user with NOPASSWD sudo via `/etc/sudoers.d/mdt`
+- ✅ Enabled IP forwarding for Tailscale exit node
+
+**Codex-NET-006 (Networking):**
+- ✅ Installed Tailscale 1.84.1 from Fedora repos
+- ✅ Enrolled in tailnet with tags: `tag:server`, `tag:linux`, `tag:ansible`
+- ✅ Configured as exit node with route advertisement (192.168.1.0/24)
+- ✅ Removed stale "motoko" device from Tailscale (was 100.111.88.62)
+- ✅ Updated ACL static IP mapping to 100.94.209.28 in miket-infra
+
+**Codex-IAC-003 (IaC Engineer):**
+- ✅ Installed NoMachine 9.2.18 from tar.gz
+- ✅ Configured firewalld for port 4000/tcp
+- ✅ NoMachine service running and accessible
+
+**Codex-DOC-009 (DocOps):**
+- ✅ Purged all Pop!_OS references from repository (19 files affected)
+- ✅ Deleted 9 obsolete Pop!_OS-specific scripts and docs
+- ✅ Updated device configs to reflect Fedora 43
+- ✅ Simplified lid_configuration role for Fedora/RHEL compatibility
+
+### Files Deleted (Pop!_OS-specific, obsolete)
+- `scripts/motoko-start-desktop.sh`
+- `devices/motoko/fix-tailscale-post-upgrade.sh`
+- `devices/motoko/QUICK_FIX_DNS.sh`
+- `devices/motoko/FIX_DNS_DIRECT_COMMANDS.md`
+- `devices/motoko/COPY_PASTE_FIX.txt`
+- `docs/runbooks/MOTOKO_LID_WOL_SETUP.md`
+- `docs/runbooks/MOTOKO_HEADLESS_LAPTOP_SETUP.md`
+- `docs/initiatives/motoko-post-upgrade/MIKET_INFRA_COORDINATION.md`
+- `docs/product/NEXT_INITIATIVE_PROMPT.md`
+
+### Files Modified
+- `README.md` - Updated OS reference
+- `devices/motoko/config.yml` - Fedora 43, GNOME, GDM
+- `devices/inventory.yaml` - Fedora 43
+- `ansible/roles/lid_configuration/tasks/main.yml` - Fedora support
+- `ansible/roles/remote_server_linux_nomachine/tasks/main.yml` - Updated comments
+- `ansible/playbooks/motoko/configure-headless-*.yml` - Fedora references
+- `ansible/playbooks/remote_clients_nomachine.yml` - Updated display
+- `docs/runbooks/nomachine-client-installation.md` - Fedora reference
+- `docs/runbooks/fix-motoko-nomachine-kde-lockscreen.md` - Fedora reference
+- `docs/guides/nomachine-keystroke-dropping-troubleshooting.md` - Fedora reference
+- `miket-infra/infra/tailscale/entra-prod/main.tf` - Updated motoko IP
+
+### Current State
+| Component | Value |
+|-----------|-------|
+| OS | Fedora 43 Workstation |
+| Desktop | GNOME (default) |
+| Display Server | X11 (for NoMachine) or Wayland |
+| Hostname | motoko |
+| Tailscale IP | 100.94.209.28 |
+| Tailscale FQDN | motoko.pangolin-vega.ts.net |
+| Tags | tag:server, tag:linux, tag:ansible |
+| NoMachine | 9.2.18 on port 4000 |
+| LAN IP | 192.168.1.26 |
+
+### Verification Commands
+```bash
+# Verify hostname and OS
+hostnamectl
+
+# Verify Tailscale
+tailscale status --self
+
+# Verify NoMachine
+/usr/NX/bin/nxserver --status
+
+# Test Tailscale SSH
+ssh mdt@motoko.pangolin-vega.ts.net
+```
+
+---
+
 ## 2025-11-28 – Nextcloud Pure Façade Implementation {#2025-11-28-nextcloud-pure-facade}
 
 ### Context

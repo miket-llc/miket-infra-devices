@@ -7,9 +7,9 @@ devices:
   servers:
     motoko:
       hostname: motoko
-      fqdn: motoko.hopto.org
-      os: Ubuntu 24.04.2 LTS
-      codename: noble
+      fqdn: motoko.pangolin-vega.ts.net
+      os: Fedora 43 Workstation
+      codename: workstation
       type: Server
       hardware:
         model: Alienware Laptop

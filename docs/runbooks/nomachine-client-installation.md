@@ -99,7 +99,7 @@ ls -la /Applications/NoMachine.app
 Connection profiles are stored in `~/Documents/NoMachine/` as `.nxs` files.
 
 **Pre-configured servers:**
-- `motoko.nxs` - Linux server (Pop!_OS)
+- `motoko.nxs` - Linux server (Fedora)
 - `wintermute.nxs` - Windows server
 - `armitage.nxs` - Windows server
 
@@ -278,7 +278,7 @@ All connection profiles use these standardized settings:
 
 | Server | Hostname | Port | OS | Session Type |
 |--------|----------|------|----|--------------| 
-| motoko | motoko.pangolin-vega.ts.net | 4000 | Linux (Pop!_OS) | unix |
+| motoko | motoko.pangolin-vega.ts.net | 4000 | Linux (Fedora) | unix |
 | wintermute | wintermute.pangolin-vega.ts.net | 4000 | Windows | windows |
 | armitage | armitage.pangolin-vega.ts.net | 4000 | Windows | windows |
 

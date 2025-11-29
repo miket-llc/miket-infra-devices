@@ -17,7 +17,7 @@ linked_communications:
 
 **Affected Systems:**
 - **Client:** count-zero (macOS)
-- **Server:** motoko (Linux, Pop!_OS)
+- **Server:** motoko (Linux, Fedora)
 - **Protocol:** NoMachine NX over Tailscale
 - **Connection:** Direct Tailscale connection (192.168.1.185:62169)
 
