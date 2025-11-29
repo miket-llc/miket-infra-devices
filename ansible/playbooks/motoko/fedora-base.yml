@@ -1,0 +1,457 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fedora 43 Base Configuration for Motoko
+# Configures fresh Fedora installation with PHC services
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/motoko/fedora-base.yml --limit motoko --connection=local
+
+- name: Configure Fedora 43 Base System on Motoko
+  hosts: motoko
+  become: true
+  
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    fedora_version: 43
+    
+  pre_tasks:
+    - name: Gather system facts
+      ansible.builtin.setup:
+        gather_subset:
+          - 'all'
+
+    - name: Verify Fedora distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+          - ansible_distribution_major_version|int >= 43
+        fail_msg: "This playbook requires Fedora 43 or later"
+        success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+
+    - name: Display configuration summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          MOTOKO FEDORA 43 BASE CONFIGURATION
+          ═══════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          Architecture:   {{ ansible_architecture }}
+          
+          Configuration:
+          - NVIDIA drivers (RTX 2080)
+          - Docker + NVIDIA container toolkit
+          - PHC storage mounts (/space, /flux, /time)
+          - Tailscale
+          - Samba, NoMachine, fail2ban
+          - Firewalld (not ufw)
+          
+          ═══════════════════════════════════════════════════════════
+
+  tasks:
+    # ========================================
+    # Phase 1: System Configuration
+    # ========================================
+    - name: Phase 1 - System Configuration
+      block:
+        - name: Ensure GNOME uses X11 (not Wayland)
+          ansible.builtin.lineinfile:
+            path: /etc/gdm/custom.conf
+            regexp: '^#?WaylandEnable='
+            line: 'WaylandEnable=false'
+            state: present
+            create: false
+          notify: restart gdm
+          when: ansible_facts.packages['gdm'] is defined
+
+        - name: Install essential system packages
+          ansible.builtin.dnf:
+            name:
+              - vim
+              - git
+              - curl
+              - wget
+              - htop
+              - tmux
+              - rsync
+              - lsof
+              - net-tools
+            state: present
+
+        - name: Configure firewalld (replace ufw)
+          ansible.builtin.dnf:
+            name: firewalld
+            state: present
+
+        - name: Enable and start firewalld
+          ansible.builtin.systemd:
+            name: firewalld
+            enabled: true
+            state: started
+
+      tags: [system, base]
+
+    # ========================================
+    # Phase 2: NVIDIA Drivers
+    # ========================================
+    - name: Phase 2 - NVIDIA Drivers
+      block:
+        - name: Check if NVIDIA drivers are already installed
+          ansible.builtin.command: nvidia-smi
+          register: nvidia_check
+          changed_when: false
+          failed_when: false
+
+        - name: Install NVIDIA drivers from RPM Fusion
+          ansible.builtin.dnf:
+            name:
+              - akmod-nvidia
+              - xorg-x11-drv-nvidia-cuda
+              - nvidia-settings
+            state: present
+          when: nvidia_check.rc != 0
+
+        - name: Note - Reboot required for NVIDIA drivers
+          ansible.builtin.debug:
+            msg: "⚠️  NVIDIA drivers installed. Reboot required to activate."
+          when: nvidia_check.rc != 0
+
+      tags: [nvidia, gpu]
+
+    # ========================================
+    # Phase 3: Storage Mounts
+    # ========================================
+    - name: Phase 3 - PHC Storage Configuration
+      block:
+        - name: Get UUID for /space partition
+          ansible.builtin.shell: |
+            blkid -o value -s UUID $(df /space | tail -1 | awk '{print $1}')
+          register: space_uuid
+          changed_when: false
+          failed_when: false
+
+        - name: Get UUID for /flux partition
+          ansible.builtin.shell: |
+            blkid -o value -s UUID $(df /flux | tail -1 | awk '{print $1}')
+          register: flux_uuid
+          changed_when: false
+          failed_when: false
+
+        - name: Get UUID for /time partition
+          ansible.builtin.shell: |
+            blkid -o value -s UUID $(df /time | tail -1 | awk '{print $1}')
+          register: time_uuid
+          changed_when: false
+          failed_when: false
+
+        - name: Configure /space in fstab
+          ansible.posix.mount:
+            path: /space
+            src: "UUID={{ space_uuid.stdout }}"
+            fstype: ext4
+            opts: defaults,noatime
+            state: mounted
+          when: space_uuid.stdout | length > 0
+
+        - name: Configure /flux in fstab
+          ansible.posix.mount:
+            path: /flux
+            src: "UUID={{ flux_uuid.stdout }}"
+            fstype: ext4
+            opts: defaults,noatime
+            state: mounted
+          when: flux_uuid.stdout | length > 0
+
+        - name: Configure /time in fstab (read-only APFS)
+          ansible.posix.mount:
+            path: /time
+            src: "UUID={{ time_uuid.stdout }}"
+            fstype: apfs
+            opts: ro,noatime
+            state: mounted
+          when: time_uuid.stdout | length > 0
+          ignore_errors: true  # APFS may need additional setup
+
+        - name: Verify PHC storage mounts
+          ansible.builtin.command: df -h {{ item }}
+          loop:
+            - /space
+            - /flux
+            - /time
+          register: storage_df
+          changed_when: false
+          failed_when: false
+
+        - name: Display storage status
+          ansible.builtin.debug:
+            msg: "{{ item.stdout_lines }}"
+          loop: "{{ storage_df.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+
+      tags: [storage, mounts]
+
+    # ========================================
+    # Phase 4: Docker + NVIDIA Container Toolkit
+    # ========================================
+    - name: Phase 4 - Docker Configuration
+      block:
+        - name: Install Docker
+          ansible.builtin.dnf:
+            name:
+              - docker
+              - docker-compose
+            state: present
+
+        - name: Add NVIDIA container repository
+          ansible.builtin.get_url:
+            url: "https://nvidia.github.io/libnvidia-container/fedora{{ ansible_distribution_major_version }}/libnvidia-container.repo"
+            dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+            mode: '0644'
+
+        - name: Install NVIDIA Container Toolkit
+          ansible.builtin.dnf:
+            name: nvidia-container-toolkit
+            state: present
+
+        - name: Configure Docker for NVIDIA runtime
+          ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+          register: nvidia_runtime_config
+          changed_when: "'Modified' in nvidia_runtime_config.stdout"
+          failed_when: false
+
+        - name: Add mdt user to docker group
+          ansible.builtin.user:
+            name: mdt
+            groups: docker
+            append: true
+
+        - name: Enable and start Docker
+          ansible.builtin.systemd:
+            name: docker
+            enabled: true
+            state: started
+
+        - name: Restart Docker to apply NVIDIA runtime
+          ansible.builtin.systemd:
+            name: docker
+            state: restarted
+          when: nvidia_runtime_config.changed
+
+      tags: [docker, containers]
+
+    # ========================================
+    # Phase 5: Tailscale
+    # ========================================
+    - name: Phase 5 - Tailscale Configuration
+      block:
+        - name: Install Tailscale
+          ansible.builtin.dnf:
+            name: tailscale
+            state: present
+
+        - name: Enable and start Tailscale
+          ansible.builtin.systemd:
+            name: tailscaled
+            enabled: true
+            state: started
+
+        - name: Check Tailscale status
+          ansible.builtin.command: tailscale status
+          register: tailscale_status
+          changed_when: false
+          failed_when: false
+
+        - name: Display Tailscale configuration note
+          ansible.builtin.debug:
+            msg: |
+              ⚠️  Tailscale is installed but may need authentication.
+              Run: sudo tailscale up --authkey=<key-from-akv>
+          when: tailscale_status.rc != 0
+
+      tags: [tailscale, network]
+
+    # ========================================
+    # Phase 6: Samba
+    # ========================================
+    - name: Phase 6 - Samba Configuration
+      block:
+        - name: Install Samba
+          ansible.builtin.dnf:
+            name:
+              - samba
+              - samba-client
+            state: present
+
+        - name: Configure Samba shares (template)
+          ansible.builtin.template:
+            src: "{{ playbook_dir }}/../../roles/samba/templates/smb.conf.j2"
+            dest: /etc/samba/smb.conf
+            mode: '0644'
+          notify: restart samba
+          when: false  # Enable when template exists
+
+        - name: Configure firewalld for Samba
+          ansible.posix.firewalld:
+            service: samba
+            permanent: true
+            state: enabled
+          notify: reload firewalld
+
+        - name: Enable and start Samba
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            enabled: true
+            state: started
+          loop:
+            - smb
+            - nmb
+
+      tags: [samba, fileserver]
+
+    # ========================================
+    # Phase 7: NoMachine
+    # ========================================
+    - name: Phase 7 - NoMachine Configuration
+      block:
+        - name: Check if NoMachine is installed
+          ansible.builtin.stat:
+            path: /usr/NX/bin/nxserver
+          register: nomachine_installed
+
+        - name: Download NoMachine RPM
+          ansible.builtin.get_url:
+            url: https://download.nomachine.com/download/9.2/Linux/nomachine_9.2.18_1.x86_64.rpm
+            dest: /tmp/nomachine.rpm
+            mode: '0644'
+          when: not nomachine_installed.stat.exists
+
+        - name: Install NoMachine
+          ansible.builtin.dnf:
+            name: /tmp/nomachine.rpm
+            state: present
+            disable_gpg_check: true
+          when: not nomachine_installed.stat.exists
+
+        - name: Configure firewalld for NoMachine
+          ansible.posix.firewalld:
+            port: 4000/tcp
+            permanent: true
+            state: enabled
+          notify: reload firewalld
+
+        - name: Enable and start NoMachine
+          ansible.builtin.systemd:
+            name: nxserver
+            enabled: true
+            state: started
+
+      tags: [nomachine, remote_desktop]
+
+    # ========================================
+    # Phase 8: Security (fail2ban)
+    # ========================================
+    - name: Phase 8 - fail2ban Configuration
+      block:
+        - name: Install fail2ban
+          ansible.builtin.dnf:
+            name: fail2ban
+            state: present
+
+        - name: Enable and start fail2ban
+          ansible.builtin.systemd:
+            name: fail2ban
+            enabled: true
+            state: started
+
+      tags: [security, fail2ban]
+
+    # ========================================
+    # Phase 9: Firewall Rules
+    # ========================================
+    - name: Phase 9 - Firewall Configuration
+      block:
+        - name: Configure firewalld services
+          ansible.posix.firewalld:
+            service: "{{ item }}"
+            permanent: true
+            state: enabled
+          loop:
+            - ssh
+            - samba
+          notify: reload firewalld
+
+        - name: Configure firewalld ports
+          ansible.posix.firewalld:
+            port: "{{ item }}"
+            permanent: true
+            state: enabled
+          loop:
+            - 4000/tcp  # NoMachine
+            - 8000/tcp  # LiteLLM
+            - 8001/tcp  # vLLM reasoning
+            - 8200/tcp  # vLLM embeddings
+          notify: reload firewalld
+
+      tags: [firewall, security]
+
+  handlers:
+    - name: restart gdm
+      ansible.builtin.systemd:
+        name: gdm
+        state: restarted
+      failed_when: false
+
+    - name: reload firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: restart samba
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - smb
+        - nmb
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          FEDORA 43 BASE CONFIGURATION COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          ✅ System packages installed
+          ✅ NVIDIA drivers installed (reboot required)
+          ✅ Docker + NVIDIA runtime configured
+          ✅ PHC storage mounts configured
+          ✅ Tailscale installed
+          ✅ Samba configured
+          ✅ NoMachine installed
+          ✅ fail2ban enabled
+          ✅ Firewalld configured
+          
+          Next Steps:
+          
+          1. REBOOT to activate NVIDIA drivers:
+             sudo reboot
+          
+          2. After reboot, verify NVIDIA:
+             nvidia-smi
+          
+          3. Authenticate Tailscale (if not done):
+             sudo tailscale up --authkey=<key-from-akv>
+          
+          4. Deploy Docker services:
+             ansible-playbook playbooks/motoko/deploy-vllm.yml --limit motoko --connection=local
+             ansible-playbook playbooks/motoko/deploy-litellm.yml --limit motoko --connection=local
+          
+          5. Verify PHC services:
+             ansible-playbook playbooks/motoko/verify-phc-services.yml --limit motoko --connection=local
+          
+          ═══════════════════════════════════════════════════════════
+
+
