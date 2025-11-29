@@ -74,6 +74,7 @@
     - space-mirror.sh
     - flux-backup.sh
     - flux-local-snap.sh
+    - backblaze-trigger.sh
 
 - name: Deploy Flux Graduation Service
   template:

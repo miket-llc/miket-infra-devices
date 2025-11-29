@@ -26,20 +26,29 @@ export RCLONE_B2_HARD_DELETE=true
 export RCLONE_B2_ACCOUNT="${B2_APPLICATION_KEY_ID}"
 export RCLONE_B2_KEY="${B2_APPLICATION_KEY}"
 
-echo "[$(date)] Starting Space Mirror..." >> "$LOG_FILE"
+# Function to log and output
+log_and_output() {
+    echo "$*" | tee -a "$LOG_FILE"
+}
 
-# Run rclone and capture exit code
+log_and_output "[$(date)] Starting Space Mirror..."
+log_and_output "[$(date)] Source: $SOURCE"
+log_and_output "[$(date)] Destination: $DEST"
+
+# Run rclone with progress output
+# Use tee to both log to file AND show on stdout/stderr so systemd can capture it
 if rclone sync "$SOURCE" "$DEST" \
     --fast-list \
     --transfers 16 \
     --track-renames \
+    --progress \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
-    2>> "$LOG_FILE"; then
-    echo "[$(date)] Space Mirror Complete." >> "$LOG_FILE"
+    2>&1 | tee -a "$LOG_FILE"; then
+    log_and_output "[$(date)] Space Mirror Complete."
     exit 0
 else
-    EXIT_CODE=$?
-    echo "[$(date)] Space Mirror FAILED with exit code $EXIT_CODE" >> "$LOG_FILE"
+    EXIT_CODE=${PIPESTATUS[0]}
+    log_and_output "[$(date)] Space Mirror FAILED with exit code $EXIT_CODE"
     exit $EXIT_CODE
 fi

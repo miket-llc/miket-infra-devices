@@ -22,7 +22,12 @@ if [[ -z "${RESTIC_PASSWORD:-}" ]] || [[ -z "${B2_ACCOUNT_ID:-}" ]] || [[ -z "${
     exit 1
 fi
 
-echo "[$(date)] Starting Flux Critical Backup..." >> "$LOG_FILE"
+# Function to log and output
+log_and_output() {
+    echo "$*" | tee -a "$LOG_FILE"
+}
+
+log_and_output "[$(date)] Starting Flux Critical Backup..."
 
 # Initialize if repo doesn't exist (idempotent-ish)
 if ! restic -r "$REPO" snapshots >/dev/null 2>&1; then
@@ -37,11 +42,11 @@ fi
 if restic -r "$REPO" backup "$SOURCE" \
     --verbose \
     --exclude-file=/flux/.backup-exclude \
-    >> "$LOG_FILE" 2>&1; then
-    echo "[$(date)] Backup completed successfully" >> "$LOG_FILE"
+    2>&1 | tee -a "$LOG_FILE"; then
+    log_and_output "[$(date)] Backup completed successfully"
 else
-    EXIT_CODE=$?
-    echo "[$(date)] ERROR: Backup failed with exit code $EXIT_CODE" >> "$LOG_FILE"
+    EXIT_CODE=${PIPESTATUS[0]}
+    log_and_output "[$(date)] ERROR: Backup failed with exit code $EXIT_CODE"
     exit $EXIT_CODE
 fi
 
@@ -51,14 +56,14 @@ if restic -r "$REPO" forget \
     --keep-weekly 4 \
     --keep-monthly 12 \
     --prune \
-    >> "$LOG_FILE" 2>&1; then
-    echo "[$(date)] Prune completed successfully" >> "$LOG_FILE"
+    2>&1 | tee -a "$LOG_FILE"; then
+    log_and_output "[$(date)] Prune completed successfully"
 else
-    EXIT_CODE=$?
-    echo "[$(date)] WARNING: Prune failed with exit code $EXIT_CODE (backup succeeded)" >> "$LOG_FILE"
+    EXIT_CODE=${PIPESTATUS[0]}
+    log_and_output "[$(date)] WARNING: Prune failed with exit code $EXIT_CODE (backup succeeded)"
     # Don't exit on prune failure - backup is more important
 fi
 
-echo "[$(date)] Flux Critical Backup Complete." >> "$LOG_FILE"
+log_and_output "[$(date)] Flux Critical Backup Complete."
 exit 0
 
