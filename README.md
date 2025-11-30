@@ -16,7 +16,8 @@ Endpoint automation and UX for the MikeT PHC devices, aligned to the platform de
 ## Architecture & reference
 - **Canonical architecture:** `docs/architecture/Miket_Infra_Devices_Architecture.md` (device roles, automation layers, platform boundary).
 - **Platform context:** `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` and component docs under `docs/architecture/components/` (Nextcloud, secrets).
-- **Reference:** `docs/reference/` for tailnet, account model, IaC/CaC details.
+- **Filesystem:** `docs/architecture/FILESYSTEM_ARCHITECTURE.md` (Flux/Space/Time v2.1 spec).
+- **Reference:** `docs/reference/` for tailnet, account model, IaC/CaC details, secrets management.
 
 ## Operations
 - **Runbooks:** `docs/runbooks/` (mounts, Nextcloud, backup/restore, device onboarding, secrets rotation).

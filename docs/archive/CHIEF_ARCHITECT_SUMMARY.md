@@ -1,4 +1,18 @@
 # Chief Architect Summary: Flux/Time/Space Implementation
+**Status:** ARCHIVED - Superseded by canonical architecture
+**Date Archived:** 2025-12-01
+**Canonical References:**
+- `docs/architecture/FILESYSTEM_ARCHITECTURE.md` (filesystem design)
+- `docs/architecture/Miket_Infra_Devices_Architecture.md` (device automation)
+- `docs/architecture/components/SECRETS_ARCHITECTURE.md` (secrets management)
+
+> **Note:** This document is archived for historical reference. The canonical architecture documents now define the system design. Implementation details should reference the appropriate canonical doc.
+
+---
+
+**Original Content (for historical reference):**
+
+# Chief Architect Summary: Flux/Time/Space Implementation
 **Date:** 2025-01-XX  
 **Status:** ✅ OPERATIONAL  
 **Owner:** Codex-DCA-001 (Chief Device Architect)

@@ -1,3 +1,63 @@
+## 2025-12-01 – Root directory cleanup {#2025-12-01-root-cleanup}
+
+### Context
+Removed ephemeral deployment reports and prompt files from repository root directory that should be in `docs/archive/` or `docs/communications/`.
+
+### Actions Taken
+- Moved deployment reports to `docs/archive/`: `DEPLOYMENT_REPORT.md`, `FINAL_DEPLOYMENT_REPORT.md`, `IMPLEMENTATION_SUMMARY.md`, `LESSONS_LEARNED.md`, `VERIFICATION_REPORT.md`
+- Moved prompt files to `docs/archive/`: `MOTOKO_MIGRATION_PROMPT.md`, `PHC_PROMPT.md`
+- Removed duplicate `docs/SECRETS.md` (already moved to `docs/reference/secrets-management.md`)
+
+### Result
+Root directory now contains only essential files: `README.md`, `LICENSE`, `Makefile`, and standard directories (`ansible/`, `docs/`, `devices/`, `scripts/`, etc.).
+
+## 2025-12-01 – Documentation refactor & consolidation (canonical architecture alignment) {#2025-12-01-doc-refactor-consolidation}
+
+### Context
+Comprehensive documentation refactor to establish single canonical architecture documents per system, eliminate conflicts, and organize all docs into the standard taxonomy (architecture/reference/runbook/product/communications).
+
+### Ground Truth Architecture Docs (Source of Truth)
+The following four documents are treated as authoritative and all other docs must align with them:
+1. `docs/architecture/FILESYSTEM_ARCHITECTURE.md` - Flux/Space/Time filesystem v2.1 spec
+2. `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` - Overall PHC architecture (Entra, Tailscale, Cloudflare, etc.)
+3. `docs/architecture/components/SECRETS_ARCHITECTURE.md` - Secrets architecture (AKV SoR, .env caches, 1Password for humans)
+4. `docs/architecture/components/NEXTCLOUD_PHC_ARCHITECTURE.md` - Nextcloud deployment architecture
+
+### Actions Taken
+
+**Archived Conflicting Architecture Docs:**
+- Moved `docs/product/ARCHITECTURE_HANDOFF_FLUX.md` → `docs/archive/ARCHITECTURE_HANDOFF_FLUX.md` (with deprecation notice pointing to canonical FILESYSTEM_ARCHITECTURE.md)
+- Moved `docs/product/CHIEF_ARCHITECT_SUMMARY.md` → `docs/archive/CHIEF_ARCHITECT_SUMMARY.md` (with deprecation notice)
+- Moved `docs/PASSWORD_MANAGEMENT_SUMMARY.md` → `docs/archive/PASSWORD_MANAGEMENT_SUMMARY.md` (conflicted with SECRETS_ARCHITECTURE.md by promoting Ansible Vault as long-term pattern)
+
+**Organized Misplaced Documentation:**
+- Moved troubleshooting docs to `docs/runbooks/`: `armitage-connectivity-troubleshooting.md`, `armitage-vllm-troubleshooting.md`, `wintermute-connectivity-troubleshooting.md`, `ansible-windows-setup.md`, `SSH_KEY_MANAGEMENT_ANSIBLE.md`
+- Moved guides to `docs/guides/`: `QUICK_REFERENCE.md`, `QUICK_START_MOTOKO.md`, `vLLM_CONTEXT_WINDOW_GUIDE.md`, `motoko-ai-profile.md`
+- Moved reference docs to `docs/reference/`: `CONTAINERS_RUNTIME_STANDARD.md`, `tailscale-integration.md`, `WINDOWS_WORKSTATION_CONSISTENCY.md`
+- Moved `docs/SECRETS.md` → `docs/reference/secrets-management.md` (operational reference, points to canonical SECRETS_ARCHITECTURE.md)
+- Moved `docs/NON_INTERACTIVE_SETUP.md` → `docs/runbooks/`
+
+**Archived Obsolete/Deprecated Docs:**
+- Moved RDP/VNC docs to `docs/archive/` (RDP/VNC deprecated per architecture): `RDP_GROUP_POLICY_FIX.md`, `RDP_UI_TOGGLE_EXPLANATION.md`, `RDP_USER_ACCESS.md`, `WINDOWS_VNC_DEPLOY.md`, `TAILSCALE_ACL_VNC_UPDATE.md`, `remote-desktop-migration.md`
+- Moved ephemeral/deployment reports to `docs/archive/`: `DEPLOYMENT_CHECKLIST.md`, `SAMPLE_LOGS.md`, `TODO.md`, `QA_VERIFICATION_CONTAINERS.md`
+
+**Updated References:**
+- Updated `docs/architecture/components/SECRETS_ARCHITECTURE.md` to reference `docs/reference/secrets-management.md` instead of `docs/SECRETS.md`
+- Updated root `README.md` to include filesystem architecture reference
+- Added canonical architecture pointers to moved reference docs
+
+### Compliance
+- ✅ Single canonical architecture doc per system (filesystem, PHC, devices, Nextcloud, secrets)
+- ✅ All docs organized into standard taxonomy (architecture/reference/runbook/product/communications/archive)
+- ✅ Secrets docs align with SECRETS_ARCHITECTURE.md (AKV SoR, Ansible Vault transitional only)
+- ✅ No conflicting architecture narratives remain
+- ✅ Navigation updated with clear entry points
+
+### References
+- Canonical architecture: `docs/architecture/`
+- Documentation structure: `docs/README.md`
+- Root navigation: `README.md`
+
 ## 2025-11-30 – Documentation consolidation (PHC vNext alignment) {#2025-11-30-doc-refactor}
 
 ### Context

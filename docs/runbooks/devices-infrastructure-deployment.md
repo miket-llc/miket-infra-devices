@@ -8,7 +8,7 @@
 
 This runbook covers the deployment of the devices infrastructure across macOS, Windows, and the motoko server. The implementation provides:
 
-- System-level SMB mounts on macOS (`/mkt/*`)
+- User-level SMB mounts on macOS (`~/.mkt/*`)
 - Network drive mappings on Windows (`X:`, `S:`, `T:`)
 - User-friendly symlinks on all platforms
 - Automated OS cloud synchronization (iCloud/OneDrive → `/space/devices`)
@@ -20,10 +20,10 @@ This runbook covers the deployment of the devices infrastructure across macOS, W
 ### Mount Points
 
 **macOS:**
-- `/mkt/flux` → `//motoko/flux` (SMB)
-- `/mkt/space` → `//motoko/space` (SMB)
-- `/mkt/time` → `//motoko/time` (SMB)
-- User symlinks: `~/flux`, `~/space`, `~/time` → `/mkt/*`
+- `~/.mkt/flux` → `//motoko/flux` (SMB)
+- `~/.mkt/space` → `//motoko/space` (SMB)
+- `~/.mkt/time` → `//motoko/time` (SMB)
+- User symlinks: `~/flux`, `~/space`, `~/time` → `~/.mkt/*`
 
 **Windows:**
 - `X:` → `\\motoko\flux` (labeled FLUX)
@@ -102,7 +102,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.
 
 **Post-Deployment Actions (Per User):**
 1. Log out and log back in
-2. Verify mounts: `ls -la /mkt/`
+2. Verify mounts: `ls -la ~/.mkt/`
 3. Verify symlinks: `ls -la ~/ | grep -E 'flux|space|time'`
 4. Run loop check: `~/.scripts/check_oscloud_loops.sh`
 5. Test manual sync: `~/.scripts/oscloud-sync/sync_to_devices.sh`
@@ -347,9 +347,9 @@ launchctl unload ~/Library/LaunchAgents/com.miket.usersymlinks.plist
 launchctl unload ~/Library/LaunchAgents/com.miket.oscloud.sync.plist
 
 # Unmount shares
-umount /mkt/flux
-umount /mkt/space
-umount /mkt/time
+umount ~/.mkt/flux
+umount ~/.mkt/space
+umount ~/.mkt/time
 
 # Remove symlinks
 rm ~/flux ~/space ~/time

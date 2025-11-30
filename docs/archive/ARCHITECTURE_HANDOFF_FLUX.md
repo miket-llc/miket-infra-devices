@@ -1,4 +1,15 @@
 # Architecture Handoff: Flux, Time, and Space
+**Status:** ARCHIVED - Superseded by canonical architecture
+**Date Archived:** 2025-12-01
+**Canonical Reference:** `docs/architecture/FILESYSTEM_ARCHITECTURE.md`
+
+> **Note:** This document is archived for historical reference. The canonical filesystem architecture is now defined in `docs/architecture/FILESYSTEM_ARCHITECTURE.md` (v2.1). All implementation details and operational procedures should reference that document.
+
+---
+
+**Original Content (for historical reference):**
+
+# Architecture Handoff: Flux, Time, and Space
 **Status:** IMPLEMENTED
 **To:** Architecture Team (The Visionaries)
 **From:** Infrastructure Team (The Builders)

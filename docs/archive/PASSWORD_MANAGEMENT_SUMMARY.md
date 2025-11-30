@@ -1,4 +1,17 @@
 # Password Management Implementation Summary
+**Status:** ARCHIVED - Superseded by secrets architecture
+**Date Archived:** 2025-12-01
+**Canonical Reference:** `docs/architecture/components/SECRETS_ARCHITECTURE.md`
+
+> **Note:** This document is archived for historical reference. The canonical secrets architecture is now defined in `docs/architecture/components/SECRETS_ARCHITECTURE.md`. Azure Key Vault (AKV) is the Source of Record for automation secrets; Ansible Vault is transitional only for short-lived bootstrap. See `docs/reference/secrets-management.md` for operational procedures.
+
+---
+
+**Original Content (for historical reference):**
+
+[Original content preserved below for reference...]
+
+# Password Management Implementation Summary
 
 ## Overview
 

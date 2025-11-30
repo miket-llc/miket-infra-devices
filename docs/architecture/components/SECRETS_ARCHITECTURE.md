@@ -32,4 +32,4 @@ Expand mappings by editing `ansible/secrets-map.yml`; the `secrets_sync` role wi
 - Mapping file: `ansible/secrets-map.yml`
 - Playbook: `ansible/playbooks/secrets-sync.yml`
 - Role: `ansible/roles/secrets_sync/`
-- Reference details: `docs/SECRETS.md`
+- Operational reference: `docs/reference/secrets-management.md`

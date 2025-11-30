@@ -1,5 +1,7 @@
 # Secrets Management (Azure Key Vault → device `.env`)
 
+> **Canonical Architecture:** This document provides operational reference. The authoritative secrets architecture is defined in `docs/architecture/components/SECRETS_ARCHITECTURE.md`.
+
 **Constraints:**
 - Use Azure Key Vault (AKV) as the only automation secrets store; do not add Vaultwarden or Ansible Vault dependencies beyond short-lived bootstrap into AKV.
 - Keep human access in 1Password only; never store secrets in `host_vars` or `group_vars` unencrypted.
