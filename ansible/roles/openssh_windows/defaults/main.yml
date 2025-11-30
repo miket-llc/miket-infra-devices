@@ -11,3 +11,11 @@ openssh_permit_root_login: "prohibit-password"
 # Service settings
 openssh_service_startup: auto
 
+# SSH authorized keys to deploy
+# These are deployed to C:\ProgramData\ssh\administrators_authorized_keys
+# Source: Control node (motoko) filesystem key + any additional keys
+openssh_authorized_keys:
+  # Motoko's key - read from control node filesystem (for automation if needed)
+  - "{{ lookup('file', '~/.ssh/id_ed25519.pub', errors='ignore') | default('') }}"
+  # Add additional keys here or override in group_vars/host_vars
+

@@ -49,10 +49,32 @@
   register: firewall_rule
   changed_when: "'CREATED' in firewall_rule.stdout"
 
+- name: Ensure administrators_authorized_keys exists
+  win_file:
+    path: C:\ProgramData\ssh\administrators_authorized_keys
+    state: touch
+  register: auth_keys_file
+
+- name: Deploy authorized SSH keys (from control node + additional)
+  win_lineinfile:
+    path: C:\ProgramData\ssh\administrators_authorized_keys
+    line: "{{ item }}"
+    state: present
+  loop: "{{ openssh_authorized_keys }}"
+  when: openssh_authorized_keys | length > 0
+
+- name: Set correct permissions on administrators_authorized_keys
+  win_shell: |
+    icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r
+    icacls C:\ProgramData\ssh\administrators_authorized_keys /grant "SYSTEM:(F)"
+    icacls C:\ProgramData\ssh\administrators_authorized_keys /grant "BUILTIN\Administrators:(F)"
+  when: auth_keys_file.changed
+
 - name: Display SSH connection info
   ansible.builtin.debug:
     msg:
       - "✅ OpenSSH Server configured on {{ inventory_hostname }}"
       - "Connect via: ssh mdt@{{ inventory_hostname }}.pangolin-vega.ts.net"
       - "Password auth: {{ 'enabled' if openssh_password_auth else 'disabled' }}"
+      - "Authorized keys: {{ openssh_authorized_keys | length }}"
 
