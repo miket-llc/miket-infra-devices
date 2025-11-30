@@ -2,7 +2,7 @@
 
 ---
 # Motoko AI Profile - Lightweight Embeddings + Classification
-# RTX 2080 Max-Q 8GB with thermal constraints
+# RTX 2080 Max-Q 8GB (Turing, compute cap 7.5) with thermal constraints
 
 # Base directory for AI services
 ai_profile_base_dir: /podman/apps
@@ -10,35 +10,24 @@ ai_profile_base_dir: /podman/apps
 # GPU thermal protection
 gpu_power_limit_watts: 70  # Default 90W, cap at 70W for thermal safety
 gpu_thermal_normal: 70     # Below this: all models available
-gpu_thermal_hot: 80        # Above normal, below this: degrade to low-heat
+gpu_thermal_hot: 80        # Above normal, below this: reduce load
 gpu_thermal_critical: 85   # Above this: reject GPU requests
 
 # =============================================================================
-# EMBEDDING MODELS (served via TEI - Text Embeddings Inference)
+# EMBEDDING MODEL (served via vLLM - GPU accelerated)
 # =============================================================================
+# Note: TEI GPU images require compute cap 8.0+ (Ampere), RTX 2080 is 7.5 (Turing)
+# Using vLLM which supports Turing GPUs
 
-# Primary embedding model (English, high-quality)
-tei_bge_enabled: true
-tei_bge_model: "BAAI/bge-base-en-v1.5"
-tei_bge_port: 8201
-tei_bge_max_batch_tokens: 16384
-tei_bge_max_concurrent: 32
-tei_bge_container_name: "tei-bge-motoko"
-
-# Low-heat fallback embedding model
-tei_arctic_enabled: true
-tei_arctic_model: "Snowflake/snowflake-arctic-embed-xs"
-tei_arctic_port: 8202
-tei_arctic_max_batch_tokens: 16384
-tei_arctic_max_concurrent: 64  # Can handle more due to smaller size
-tei_arctic_container_name: "tei-arctic-motoko"
-
-# TEI image
-tei_image: "ghcr.io/huggingface/text-embeddings-inference:cpu-1.5"
-tei_image_gpu: "ghcr.io/huggingface/text-embeddings-inference:1.5"
+vllm_embeddings_enabled: true
+vllm_embeddings_model: "BAAI/bge-base-en-v1.5"
+vllm_embeddings_port: 8200
+vllm_embeddings_gpu_util: 0.40
+vllm_embeddings_container_name: "vllm-embeddings-motoko"
+vllm_embeddings_image: "docker.io/vllm/vllm-openai:latest"
 
 # =============================================================================
-# CLASSIFICATION MODEL (served via custom FastAPI)
+# CLASSIFICATION MODEL (served via custom FastAPI - GPU accelerated)
 # =============================================================================
 
 classifier_enabled: true
@@ -46,7 +35,6 @@ classifier_model: "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli"
 classifier_port: 8203
 classifier_max_concurrent: 8
 classifier_container_name: "classifier-motoko"
-classifier_image: "python:3.11-slim"
 
 # =============================================================================
 # LITELLM INTEGRATION
@@ -57,7 +45,6 @@ litellm_port: 8000
 
 # Model route names for LiteLLM
 litellm_embed_bge_name: "local-motoko-embed-bge-base-en-v1-5"
-litellm_embed_arctic_name: "local-motoko-embed-arctic-xs"
 litellm_classify_name: "local-motoko-classify-mdeberta-multilingual"
 
 # =============================================================================
@@ -67,4 +54,3 @@ litellm_classify_name: "local-motoko-classify-mdeberta-multilingual"
 # Max requests per minute per service
 rate_limit_embeddings: 600
 rate_limit_classification: 120
-

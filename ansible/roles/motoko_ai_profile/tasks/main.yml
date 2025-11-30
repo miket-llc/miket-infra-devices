@@ -1,8 +1,8 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Motoko AI Profile - Lightweight embeddings + classification
-# Deploys: TEI (embeddings), Classification API, Thermal monitor
+# Motoko AI Profile - GPU-accelerated embeddings + classification
+# Uses vLLM for embeddings (TEI requires compute cap 8.0+, RTX 2080 is 7.5)
 
 - name: Display AI Profile deployment info
   ansible.builtin.debug:
@@ -11,12 +11,11 @@
       - "MOTOKO AI PROFILE DEPLOYMENT"
       - "═══════════════════════════════════════════════════════════"
       - ""
-      - "Embedding Models:"
-      - "  - BGE Base EN v1.5 (port {{ tei_bge_port }})"
-      - "  - Arctic Embed XS (port {{ tei_arctic_port }})"
+      - "Embedding Model (vLLM GPU):"
+      - "  - {{ vllm_embeddings_model }} (port {{ vllm_embeddings_port }})"
       - ""
-      - "Classification Model:"
-      - "  - mDeBERTa v3 Multilingual (port {{ classifier_port }})"
+      - "Classification Model (GPU):"
+      - "  - {{ classifier_model }} (port {{ classifier_port }})"
       - ""
       - "GPU Power Limit: {{ gpu_power_limit_watts }}W"
       - "Thermal Thresholds: Normal <{{ gpu_thermal_normal }}°C, Hot <{{ gpu_thermal_hot }}°C"
@@ -36,10 +35,10 @@
     group: root
     mode: '0755'
   loop:
-    - "{{ ai_profile_base_dir }}/tei-bge"
-    - "{{ ai_profile_base_dir }}/tei-arctic"
+    - "{{ ai_profile_base_dir }}/vllm"
+    - "{{ ai_profile_base_dir }}/vllm/cache"
     - "{{ ai_profile_base_dir }}/classifier"
-    - "{{ ai_profile_base_dir }}/hf-cache"
+    - "{{ ai_profile_base_dir }}/litellm"
   tags: [ai_profile, setup]
 
 # =============================================================================
@@ -149,87 +148,60 @@
   tags: [ai_profile, thermal]
 
 # =============================================================================
-# Stop existing vLLM containers (replacing with TEI)
+# vLLM Embeddings (GPU)
 # =============================================================================
 
-- name: Stop existing vLLM embedding container
-  ansible.builtin.command: podman stop vllm-embeddings-motoko
-  register: stop_vllm
-  changed_when: stop_vllm.rc == 0
-  failed_when: false
-  tags: [ai_profile, cleanup]
+- name: Create vLLM embeddings compose file
+  ansible.builtin.copy:
+    dest: "{{ ai_profile_base_dir }}/vllm/docker-compose.yml"
+    content: |
+      # Managed by Ansible - motoko_ai_profile role
+      version: "3.9"
 
-- name: Remove existing vLLM embedding container
-  ansible.builtin.command: podman rm vllm-embeddings-motoko
-  register: rm_vllm
-  changed_when: rm_vllm.rc == 0
-  failed_when: false
-  tags: [ai_profile, cleanup]
-
-# =============================================================================
-# TEI - BGE Base Embeddings
-# =============================================================================
-
-- name: Create TEI BGE compose file
-  ansible.builtin.template:
-    src: tei-compose.yml.j2
-    dest: "{{ ai_profile_base_dir }}/tei-bge/docker-compose.yml"
+      services:
+        vllm-embeddings:
+          image: {{ vllm_embeddings_image }}
+          container_name: {{ vllm_embeddings_container_name }}
+          command: >
+            --model {{ vllm_embeddings_model }}
+            --host 0.0.0.0
+            --port 8000
+            --gpu-memory-utilization {{ vllm_embeddings_gpu_util }}
+            --tensor-parallel-size 1
+            --trust-remote-code
+          ports:
+            - "{{ vllm_embeddings_port }}:8000"
+          volumes:
+            - {{ ai_profile_base_dir }}/vllm/cache:/root/.cache/huggingface:Z
+          environment:
+            - HF_HOME=/root/.cache/huggingface
+            - NVIDIA_VISIBLE_DEVICES=all
+          devices:
+            - nvidia.com/gpu=all
+          security_opt:
+            - label:disable
+          restart: unless-stopped
+          healthcheck:
+            test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 120s
     mode: '0644'
-  vars:
-    tei_model: "{{ tei_bge_model }}"
-    tei_port: "{{ tei_bge_port }}"
-    tei_container_name: "{{ tei_bge_container_name }}"
-    tei_max_batch_tokens: "{{ tei_bge_max_batch_tokens }}"
-    tei_max_concurrent: "{{ tei_bge_max_concurrent }}"
-  when: tei_bge_enabled
-  tags: [ai_profile, embeddings, bge]
-
-- name: Pull TEI image
-  ansible.builtin.command: podman pull {{ tei_image_gpu }}
-  register: pull_tei
-  changed_when: "'Pulling' in pull_tei.stderr or 'Writing' in pull_tei.stderr"
-  environment:
-    TMPDIR: /podman/tmp
+  when: vllm_embeddings_enabled
   tags: [ai_profile, embeddings]
 
-- name: Start TEI BGE container
+- name: Start vLLM embeddings container
   ansible.builtin.shell: |
-    cd {{ ai_profile_base_dir }}/tei-bge && podman-compose down 2>/dev/null || true
-    cd {{ ai_profile_base_dir }}/tei-bge && podman-compose up -d
+    cd {{ ai_profile_base_dir }}/vllm && podman-compose down 2>/dev/null || true
+    cd {{ ai_profile_base_dir }}/vllm && podman-compose up -d
   environment:
     TMPDIR: /podman/tmp
-  when: tei_bge_enabled
-  tags: [ai_profile, embeddings, bge]
+  when: vllm_embeddings_enabled
+  tags: [ai_profile, embeddings]
 
 # =============================================================================
-# TEI - Arctic XS Embeddings (low-heat fallback)
-# =============================================================================
-
-- name: Create TEI Arctic compose file
-  ansible.builtin.template:
-    src: tei-compose.yml.j2
-    dest: "{{ ai_profile_base_dir }}/tei-arctic/docker-compose.yml"
-    mode: '0644'
-  vars:
-    tei_model: "{{ tei_arctic_model }}"
-    tei_port: "{{ tei_arctic_port }}"
-    tei_container_name: "{{ tei_arctic_container_name }}"
-    tei_max_batch_tokens: "{{ tei_arctic_max_batch_tokens }}"
-    tei_max_concurrent: "{{ tei_arctic_max_concurrent }}"
-  when: tei_arctic_enabled
-  tags: [ai_profile, embeddings, arctic]
-
-- name: Start TEI Arctic container
-  ansible.builtin.shell: |
-    cd {{ ai_profile_base_dir }}/tei-arctic && podman-compose down 2>/dev/null || true
-    cd {{ ai_profile_base_dir }}/tei-arctic && podman-compose up -d
-  environment:
-    TMPDIR: /podman/tmp
-  when: tei_arctic_enabled
-  tags: [ai_profile, embeddings, arctic]
-
-# =============================================================================
-# Classification Service
+# Classification Service (GPU)
 # =============================================================================
 
 - name: Create classifier Python application
@@ -271,7 +243,7 @@
       COPY requirements.txt .
       RUN pip install --no-cache-dir -r requirements.txt
       
-      # Model will be downloaded at runtime to avoid HF rate limits during build
+      # Model downloaded at runtime (avoids HF rate limits during build)
       COPY app.py .
       
       CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -310,10 +282,53 @@
 # LiteLLM Configuration
 # =============================================================================
 
+- name: Ensure LiteLLM directory exists
+  ansible.builtin.file:
+    path: "{{ ai_profile_base_dir }}/litellm"
+    state: directory
+    mode: '0755'
+  tags: [ai_profile, litellm]
+
 - name: Create LiteLLM config for AI profile
-  ansible.builtin.template:
-    src: litellm-config.yaml.j2
+  ansible.builtin.copy:
     dest: "{{ ai_profile_base_dir }}/litellm/config.yaml"
+    content: |
+      # Managed by Ansible - motoko_ai_profile role
+      # GPU-accelerated embeddings + classification
+
+      model_list:
+        # Embeddings (vLLM on GPU)
+        - model_name: {{ litellm_embed_bge_name }}
+          litellm_params:
+            model: openai/{{ vllm_embeddings_model }}
+            api_base: http://127.0.0.1:{{ vllm_embeddings_port }}/v1
+            api_key: none
+          model_info:
+            description: "GPU embeddings - 768 dimensions, 512 token max"
+
+        # OpenAI compatibility alias
+        - model_name: text-embedding-ada-002
+          litellm_params:
+            model: openai/{{ vllm_embeddings_model }}
+            api_base: http://127.0.0.1:{{ vllm_embeddings_port }}/v1
+            api_key: none
+
+        # Classification (GPU)
+        - model_name: {{ litellm_classify_name }}
+          litellm_params:
+            model: huggingface/{{ classifier_model }}
+            api_base: http://127.0.0.1:{{ classifier_port }}
+            api_key: none
+          model_info:
+            description: "Zero-shot classification - 100+ languages"
+
+      litellm_settings:
+        drop_params: true
+        set_verbose: false
+        request_timeout: 60
+
+      general_settings:
+        master_key: {{ litellm_master_key }}
     mode: '0644'
   tags: [ai_profile, litellm]
 
@@ -361,11 +376,14 @@
       - "{{ verify_result.stdout_lines | default(['Status check pending...']) }}"
       - ""
       - "Endpoints:"
-      - "  BGE Embeddings:     http://127.0.0.1:{{ tei_bge_port }}/embed"
-      - "  Arctic Embeddings:  http://127.0.0.1:{{ tei_arctic_port }}/embed"
+      - "  Embeddings (vLLM):  http://127.0.0.1:{{ vllm_embeddings_port }}/v1/embeddings"
       - "  Classification:     http://127.0.0.1:{{ classifier_port }}/classify"
       - "  LiteLLM Proxy:      http://127.0.0.1:{{ litellm_port }}/v1/..."
       - ""
+      - "LiteLLM Models:"
+      - "  - {{ litellm_embed_bge_name }}"
+      - "  - {{ litellm_classify_name }}"
+      - "  - text-embedding-ada-002 (alias)"
+      - ""
       - "═══════════════════════════════════════════════════════════"
   tags: [ai_profile, always]
-
