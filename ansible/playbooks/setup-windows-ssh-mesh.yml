@@ -1,0 +1,112 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Setup Windows SSH Mesh
+# Enables full SSH connectivity between all Windows machines
+#
+# What this does:
+#   1. Generates SSH key pair on each Windows machine (if not exists)
+#   2. Collects all Windows machine public keys
+#   3. Deploys all keys to all Windows machines
+#   4. Result: Any Windows machine can SSH to any other
+#
+# Keys are stored on each Windows machine at:
+#   C:\Users\mdt\.ssh\id_ed25519 (private)
+#   C:\Users\mdt\.ssh\id_ed25519.pub (public)
+#
+# To regenerate keys: Delete the key files and re-run this playbook
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/setup-windows-ssh-mesh.yml
+
+- name: Setup Windows SSH Mesh - Generate Keys
+  hosts: windows_workstations
+  gather_facts: no
+
+  tasks:
+    - name: Ensure .ssh directory exists
+      win_file:
+        path: C:\Users\mdt\.ssh
+        state: directory
+
+    - name: Check if SSH key exists
+      win_stat:
+        path: C:\Users\mdt\.ssh\id_ed25519
+      register: ssh_key_stat
+
+    - name: Generate SSH key pair if not exists
+      win_shell: |
+        ssh-keygen -t ed25519 -f C:\Users\mdt\.ssh\id_ed25519 -N '""' -C "mdt@{{ inventory_hostname }}"
+      when: not ssh_key_stat.stat.exists
+
+    - name: Read public key
+      win_shell: Get-Content C:\Users\mdt\.ssh\id_ed25519.pub
+      register: pubkey_content
+      changed_when: false
+
+    - name: Store public key as fact
+      set_fact:
+        windows_ssh_pubkey: "{{ pubkey_content.stdout | trim }}"
+
+- name: Setup Windows SSH Mesh - Deploy Keys
+  hosts: windows_workstations
+  gather_facts: no
+
+  tasks:
+    - name: Collect all Windows public keys
+      set_fact:
+        all_windows_pubkeys: "{{ groups['windows_workstations'] | map('extract', hostvars, 'windows_ssh_pubkey') | list }}"
+
+    - name: Add motoko's key to the list
+      set_fact:
+        all_authorized_keys: "{{ all_windows_pubkeys + [lookup('file', '~/.ssh/id_ed25519.pub')] }}"
+
+    - name: Ensure administrators_authorized_keys exists
+      win_file:
+        path: C:\ProgramData\ssh\administrators_authorized_keys
+        state: touch
+
+    - name: Deploy all authorized keys
+      win_lineinfile:
+        path: C:\ProgramData\ssh\administrators_authorized_keys
+        line: "{{ item }}"
+        state: present
+      loop: "{{ all_authorized_keys }}"
+      loop_control:
+        label: "{{ item | truncate(50) }}"
+
+    - name: Set correct permissions
+      win_shell: |
+        icacls C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant "SYSTEM:(F)" /grant "BUILTIN\Administrators:(F)"
+
+    - name: Display mesh status
+      debug:
+        msg:
+          - "✅ Windows SSH mesh configured on {{ inventory_hostname }}"
+          - "Keys deployed: {{ all_authorized_keys | length }}"
+          - "Can SSH to: {{ groups['windows_workstations'] | join(', ') }}"
+
+- name: Verify Windows SSH Mesh
+  hosts: windows_workstations
+  gather_facts: no
+  serial: 1
+
+  tasks:
+    - name: Test SSH to other Windows machines
+      win_shell: |
+        $targets = @({{ groups['windows_workstations'] | reject('equalto', inventory_hostname) | map('regex_replace', '^(.*)$', '"mdt@\1.pangolin-vega.ts.net"') | join(',') }})
+        foreach ($target in $targets) {
+          $result = ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new $target "hostname" 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ $target : $result"
+          } else {
+            Write-Host "❌ $target : FAILED"
+          }
+        }
+      register: mesh_test
+      changed_when: false
+
+    - name: Show mesh test results
+      debug:
+        msg: "{{ mesh_test.stdout_lines }}"
+
