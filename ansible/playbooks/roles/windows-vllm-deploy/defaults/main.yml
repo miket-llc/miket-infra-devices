@@ -2,10 +2,21 @@
 
 ---
 # Shared defaults for Windows vLLM deployments
-vllm_model: "{{ vllm_model_name | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
-vllm_port: "{{ vllm_api_port | default(8000) }}"
-vllm_image: "vllm/vllm-openai:latest"
-auto_switch_enabled: "{{ vllm_auto_switch | default(true) }}"
-check_interval_minutes: "{{ vllm_check_interval_minutes | default(5) }}"
+# These values pull from host_vars vllm: dict structure
+vllm_model: "{{ vllm.model | default('mistralai/Mistral-7B-Instruct-v0.2') }}"
+vllm_served_model_name: "{{ vllm.served_model_name | default(inventory_hostname + '-model') }}"
+vllm_port: "{{ vllm.port | default(8000) }}"
+vllm_container_name: "{{ vllm.container_name | default('vllm-' + inventory_hostname) }}"
+vllm_image: "{{ vllm.image | default('vllm/vllm-openai:latest') }}"
+vllm_max_model_len: "{{ vllm.max_model_len | default(8192) }}"
+vllm_gpu_memory_utilization: "{{ vllm.gpu_memory_utilization | default(0.85) }}"
+vllm_quantization: "{{ vllm.quantization | default('awq') }}"
+vllm_tensor_parallel_size: "{{ vllm.tensor_parallel_size | default(1) }}"
+vllm_kv_cache_dtype: "{{ vllm.kv_cache_dtype | default(None) }}"
+vllm_max_num_seqs: "{{ vllm.max_num_seqs | default(1) }}"
+auto_switch_enabled: "{{ vllm.auto_switch | default(true) }}"
+check_interval_minutes: "{{ vllm.check_interval_minutes | default(5) }}"
+idle_threshold_minutes: "{{ vllm.idle_threshold_minutes | default(5) }}"
 scripts_dest: "C:\\Users\\{{ ansible_user }}\\dev\\{{ inventory_hostname }}\\scripts"
+vllm_config_dir: "C:\\ProgramData\\{{ inventory_hostname | capitalize }}Mode"
 

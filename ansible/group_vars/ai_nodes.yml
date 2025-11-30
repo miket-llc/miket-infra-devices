@@ -1,0 +1,47 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# AI Nodes Group Variables
+# Shared configuration for all hosts running AI workloads (vLLM backends)
+# Aligns with miket-infra AI Fabric Platform Contract
+
+# =============================================================================
+# AI Fabric Logical Roles (from miket-infra platform contract)
+# =============================================================================
+# These logical roles are what applications request; litellm routes to backends
+#
+# Role taxonomy:
+#   - chat-fast: Fast, low-latency chat (7-8B models, AWQ quantization)
+#   - chat-deep: Deeper reasoning, longer context (8-13B models)
+#   - code-assist: Code generation and review
+#   - embeddings-general: General-purpose text embeddings
+#   - embeddings-code: Code-specific embeddings
+#   - vision-general: Image understanding
+#   - audio-transcribe: Speech-to-text
+
+# Common vLLM settings
+vllm_default_image: "vllm/vllm-openai:latest"
+vllm_default_quantization: "awq"
+vllm_default_tensor_parallel: 1
+
+# Health check settings
+vllm_health_check_enabled: true
+vllm_health_check_interval: 60  # seconds
+vllm_health_check_timeout: 10   # seconds
+
+# Network settings (all over Tailnet)
+vllm_bind_host: "0.0.0.0"
+vllm_use_tailnet_dns: true
+tailnet_domain: "pangolin-vega.ts.net"
+
+# Logging
+vllm_log_level: "info"
+vllm_log_dir: "/var/log/vllm"  # Override per OS
+
+# Model cache (HuggingFace)
+vllm_cache_dir_default: "/var/cache/vllm"  # Override per OS
+
+# Container restart policy
+vllm_restart_policy: "unless-stopped"
+
+

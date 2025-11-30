@@ -1,0 +1,40 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy vLLM to Windows workstations using Podman Desktop
+# This playbook properly handles WSL2 networking and port forwarding
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-vllm-windows.yml --limit wintermute
+#   ansible-playbook playbooks/deploy-vllm-windows.yml --limit armitage
+#   ansible-playbook playbooks/deploy-vllm-windows.yml  # All Windows AI nodes
+
+- name: Deploy vLLM on Windows workstations
+  hosts: ai_nodes:&windows
+  gather_facts: false
+  
+  pre_tasks:
+    - name: Verify host has vLLM configuration
+      ansible.builtin.assert:
+        that:
+          - vllm is defined
+          - vllm.enabled | default(false) | bool
+        fail_msg: "Host {{ inventory_hostname }} does not have vLLM enabled in host_vars"
+
+  roles:
+    - podman_vllm_windows
+
+  post_tasks:
+    - name: Test vLLM endpoint over Tailscale
+      delegate_to: localhost
+      ansible.builtin.uri:
+        url: "http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ vllm.port }}/v1/models"
+        method: GET
+        timeout: 30
+      register: tailscale_test
+      failed_when: false
+
+    - name: Report Tailscale connectivity
+      ansible.builtin.debug:
+        msg: "{{ 'Tailscale endpoint accessible ✓' if tailscale_test.status == 200 else 'Tailscale endpoint NOT accessible - check port proxy and firewall' }}"
+

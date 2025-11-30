@@ -138,6 +138,11 @@ vllm_embeddings_model: "BAAI/bge-base-en-v1.5"
 vllm_embeddings_port: 8200
 vllm_embeddings_gpu_util: 0.50
 
+# AI Fabric Role Assignment (aligns with miket-infra platform contract)
+# This node serves: embeddings-general
+ai_node_roles:
+  - embeddings-general
+
 # ========================================
 # Nextcloud Configuration
 # ========================================

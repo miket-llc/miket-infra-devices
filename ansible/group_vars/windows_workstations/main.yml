@@ -10,15 +10,15 @@
 automation_user: mdt
 automation_user_home: "C:\\Users\\mdt"
 
-# Docker Desktop configuration
-docker_desktop:
+# Podman Desktop configuration (standardized container runtime)
+# Docker Desktop has been removed - Podman is the standard
+podman_desktop:
   enabled: true
   backend: wsl2
-  credential_store: ""  # Disable credential helper (prevents auth issues)
-  config_path: "{{ automation_user_home }}\\.docker"
   
 # vLLM configuration defaults (shared by wintermute and armitage)
 # Device-specific overrides in host_vars take precedence
+# IMPORTANT: WSL2 requires netsh port proxy for external access
 vllm_defaults:
   image: "vllm/vllm-openai:latest"
   port: 8000

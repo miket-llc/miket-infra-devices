@@ -36,11 +36,11 @@ os:
   version: "11"
   edition: "Pro"
   build: "22H2"
-roles:
+device_roles:
   - windows-workstation
   - gaming-mode
   - cuda-development
-  - docker-desktop
+  - podman-desktop
 
 # Remote desktop configuration
 # NoMachine is the standardized remote access protocol (RDP retired 2025-11-22)
@@ -67,6 +67,11 @@ vllm:
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
+
+# AI Fabric Role Assignment (aligns with miket-infra platform contract)
+# This node serves: chat-deep (reasoner with longer context)
+ai_node_roles:
+  - chat-deep
 
 # Note: Windows hosts don't use become/sudo
 # If Wintermute were Linux, these settings would enable passwordless sudo via 1Password

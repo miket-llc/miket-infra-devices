@@ -1,0 +1,15 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Default variables for podman_vllm_windows role
+# Override in host_vars for each workstation
+
+# vLLM configuration (pulled from host_vars vllm: dict)
+# See host_vars/wintermute.yml and host_vars/armitage.yml for examples
+
+# Default shared memory size for vLLM
+vllm_shm_size: "4g"
+
+# Tailnet domain for endpoint URLs
+tailnet_domain: "pangolin-vega.ts.net"
+

@@ -1,10 +1,28 @@
 # {{ ansible_managed }}
 # LiteLLM Proxy Configuration
-# Routes requests to local models (Armitage, Wintermute) and OpenAI fallback
+# Routes requests to logical AI Fabric roles (from miket-infra platform contract)
+# Physical backends: Armitage (chat-fast), Wintermute (chat-deep), Motoko (embeddings-general)
 
 model_list:
-  # Local chat model - Armitage (Qwen2.5-7B-AWQ, 8k context, fast default)
-  # Capabilities sourced from ansible/host_vars/armitage.yml
+  # ============================================================================
+  # LOGICAL ROLE: chat-fast
+  # ============================================================================
+  # Fast, low-latency chat for default use cases
+  # Backend: Armitage (Qwen2.5-7B-AWQ, 8k context, RTX 4070 8GB)
+  - model_name: chat-fast
+    litellm_params:
+      model: openai/{{ armitage_model_name }}
+      api_base: "{{ armitage_base_url }}"
+      api_key: "dummy"
+    model_info:
+      max_input_tokens: {{ armitage_max_input_tokens }}
+      max_output_tokens: {{ armitage_max_output_tokens }}
+      max_tokens: {{ armitage_max_model_len }}
+    tpm_limit: 80000
+    rpm_limit: 40
+    max_concurrent_requests: {{ armitage_max_concurrent_requests }}
+
+  # Legacy alias for backwards compatibility
   - model_name: local/chat
     litellm_params:
       model: openai/{{ armitage_model_name }}
@@ -18,22 +36,25 @@ model_list:
     rpm_limit: 40
     max_concurrent_requests: {{ armitage_max_concurrent_requests }}
 
-  # Armitage model alias (explicit)
-  - model_name: {{ armitage_model_name }}
+  # ============================================================================
+  # LOGICAL ROLE: chat-deep
+  # ============================================================================
+  # Deeper reasoning with longer context
+  # Backend: Wintermute (Llama-3-8B-AWQ, 9k context, RTX 4070 Super 12GB)
+  - model_name: chat-deep
     litellm_params:
-      model: openai/{{ armitage_model_name }}
-      api_base: "{{ armitage_base_url }}"
+      model: {{ wintermute_model_display }}
+      api_base: "{{ wintermute_base_url }}"
       api_key: "dummy"
     model_info:
-      max_input_tokens: {{ armitage_max_input_tokens }}
-      max_output_tokens: {{ armitage_max_output_tokens }}
-      max_tokens: {{ armitage_max_model_len }}
+      max_input_tokens: {{ wintermute_max_input_tokens }}
+      max_output_tokens: {{ wintermute_max_output_tokens }}
+      max_tokens: {{ wintermute_max_model_len }}
     tpm_limit: 80000
     rpm_limit: 40
-    max_concurrent_requests: {{ armitage_max_concurrent_requests }}
+    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
 
-  # Local reasoner model - Wintermute (Llama-3-8B-AWQ, 9k context, deliberate reasoning)
-  # Capabilities sourced from ansible/host_vars/wintermute.yml
+  # Legacy alias for backwards compatibility
   - model_name: {{ wintermute_model_name }}
     litellm_params:
       model: {{ wintermute_model_display }}
@@ -47,7 +68,41 @@ model_list:
     rpm_limit: 40
     max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
 
-  # Wintermute model alias (explicit)
+  # ============================================================================
+  # LOGICAL ROLE: embeddings-general
+  # ============================================================================
+  # General-purpose text embeddings
+  # Backend: Motoko (BGE-base-en-v1.5, RTX 2080 8GB)
+  - model_name: embeddings-general
+    litellm_params:
+      model: openai/BAAI/bge-base-en-v1.5
+      api_base: "{{ motoko_embed_base_url }}"
+      api_key: "dummy"
+    model_info:
+      mode: embedding
+
+  # Legacy alias for backwards compatibility
+  - model_name: local/embed
+    litellm_params:
+      model: openai/BAAI/bge-base-en-v1.5
+      api_base: "{{ motoko_embed_base_url }}"
+      api_key: "dummy"
+    model_info:
+      mode: embedding
+
+  # ============================================================================
+  # PHYSICAL MODEL ALIASES (for explicit backend selection)
+  # ============================================================================
+  - model_name: {{ armitage_model_name }}
+    litellm_params:
+      model: openai/{{ armitage_model_name }}
+      api_base: "{{ armitage_base_url }}"
+      api_key: "dummy"
+    model_info:
+      max_input_tokens: {{ armitage_max_input_tokens }}
+      max_output_tokens: {{ armitage_max_output_tokens }}
+      max_tokens: {{ armitage_max_model_len }}
+
   - model_name: llama31-8b-wintermute
     litellm_params:
       model: {{ wintermute_model_display }}
@@ -57,39 +112,11 @@ model_list:
       max_input_tokens: {{ wintermute_max_input_tokens }}
       max_output_tokens: {{ wintermute_max_output_tokens }}
       max_tokens: {{ wintermute_max_model_len }}
-    tpm_limit: 80000
-    rpm_limit: 40
-    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
 
-  # Wintermute burst profile (higher limits for heavy workloads)
-  - model_name: llama31-8b-wintermute-burst
-    litellm_params:
-      model: {{ wintermute_model_display }}
-      api_base: "{{ wintermute_base_url }}"
-      api_key: "dummy"
-    model_info:
-      max_input_tokens: {{ (wintermute_max_input_tokens | int) + 500 }}
-      max_output_tokens: {{ (wintermute_max_output_tokens | int) - 500 }}
-      max_tokens: {{ wintermute_max_model_len }}
-    tpm_limit: 100000
-    rpm_limit: 50
-    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
-
-  # Local reasoning model - Motoko (Mistral-7B-Instruct-AWQ)
-  - model_name: local/reasoning
-    litellm_params:
-      model: openai/mistral-7b-instruct-awq
-      api_base: "{{ motoko_reasoning_base_url }}"
-      api_key: "dummy"
-
-  # Local embeddings model - Motoko (BGE Base) - uses vLLM
-  - model_name: local/embed
-    litellm_params:
-      model: openai/bge-base
-      api_base: "{{ motoko_embed_base_url }}"
-      api_key: "dummy"
-
-  # OpenAI strong model (fallback for heavy tasks)
+  # ============================================================================
+  # UPSTREAM FALLBACK PROVIDERS
+  # ============================================================================
+  # OpenAI strong model (fallback for heavy tasks or when local models fail)
   - model_name: openai/strong
     litellm_params:
       model: "{{ openai_strong_model }}"
@@ -101,89 +128,11 @@ model_list:
       model: "{{ openai_cheap_model }}"
       api_key: "${OPENAI_API_KEY}"
 
-# Routing rules
-routing:
-  # Embeddings endpoint always routes to local embed service
-  - match:
-      endpoint: "/v1/embeddings"
-    route_to:
-      - "local/embed"
-
-  # Chat completions: default to local/chat, fallback chain
-  - match:
-      endpoint: "/v1/chat/completions"
-    route_to:
-      - "local/chat"
-    fallback_models:
-      - "local/reasoning"
-      - "{{ wintermute_model_name }}"
-      - "openai/strong"
-
-# Policy guardrails
-policies:
-  # Token limit policy: route to OpenAI if input exceeds model limits
-  - name: token_guardrails
-    when:
-      endpoint: "/v1/chat/completions"
-      max_input_tokens: 15000
-    on_exceed: "route:openai/strong"
-
-  # Health check policy: route to OpenAI after 3 consecutive failures
-  - name: uptime_guardrails
-    when:
-      healthcheck_failures: 3
-      for_models:
-        - "local/chat"
-        - "local/reasoning"
-        - "{{ wintermute_model_name }}"
-        - "local/embed"
-        - "{{ armitage_model_name }}"
-        - "llama31-8b-wintermute"
-        - "llama31-8b-wintermute-burst"
-    on_trigger: "route:openai/strong"
-
-# Rate limiting and throttling
-litellm_settings:
-  # Global rate limiting
-  master_key: "${LITELLM_TOKEN}"
-  
-  # Request timeout (seconds)
-  request_timeout: 300
-  
-  # Enable queueing for rate-limited requests
-  enable_queue: true
-  
-  # Max queue size
-  max_queue_size: 100
-  
-  # Retry configuration
-  num_retries: 3
-  timeout: 300
-
-# Budget management
-budget:
-  monthly_usd: {{ openai_budget_monthly_usd }}
-  on_exceed: "route:local/chat"
-
-# Server configuration
-server:
-  host: "{{ litellm_bind_host }}"
-  port: {{ litellm_port }}
-  enable_cors: true
-  allowed_origins: ["*"]  # Allow all origins (for Obsidian and other clients)
-  # Enable health checks
-  health_check: true
-  # Enable metrics endpoint
-  enable_metrics: true
-
-# Logging
-logging:
-  trace: true
-  redact_keys: true
-
-# Authentication
-auth:
-  type: "bearer"
-  tokens:
-    - "${LITELLM_TOKEN}"
+# ============================================================================
+# LITELLM SETTINGS
+# ============================================================================
+# Note: Authentication disabled for local tailnet access
+# All traffic is already secured via Tailscale VPN
+general_settings:
+  database_url: null  # No database - stateless operation
 
