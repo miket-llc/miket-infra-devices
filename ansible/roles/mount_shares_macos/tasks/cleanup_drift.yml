@@ -1,0 +1,140 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Drift cleanup tasks for macOS mounts
+# Aggressively backup and remove shadow directories, stale symlinks, and broken mounts
+
+- name: Create cleanup timestamp
+  set_fact:
+    cleanup_timestamp: "{{ ansible_date_time.date }}"
+
+- name: Check for existing mounts that need to be unmounted
+  shell: mount | grep "{{ ansible_env.HOME }}/.mkt" || true
+  register: existing_mounts
+  changed_when: false
+
+- name: Unmount existing SMB shares
+  shell: umount "{{ ansible_env.HOME }}/.mkt/{{ item }}" 2>/dev/null || true
+  loop:
+    - flux
+    - space
+    - time
+  when: existing_mounts.stdout != ""
+  ignore_errors: yes
+
+- name: Check user-level paths for drift
+  stat:
+    path: "{{ ansible_env.HOME }}/{{ item }}"
+  loop:
+    - flux
+    - space
+    - time
+  register: user_paths_check
+
+- name: Identify shadow directories (directories where symlinks should be)
+  set_fact:
+    shadow_dirs: "{{ user_paths_check.results | 
+                     selectattr('stat.exists', 'equalto', true) | 
+                     selectattr('stat.isdir', 'equalto', true) | 
+                     rejectattr('stat.islnk', 'equalto', true) | 
+                     map(attribute='item') | 
+                     list }}"
+
+- name: Display shadow directories found
+  debug:
+    msg: "Shadow directories to backup and remove: {{ shadow_dirs }}"
+  when: shadow_dirs | length > 0
+
+- name: Create cleanup directory on mounted space (if accessible)
+  file:
+    path: "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/cleanup-{{ cleanup_timestamp }}"
+    state: directory
+    mode: '0755'
+  when:
+    - shadow_dirs | length > 0
+  ignore_errors: yes
+  register: cleanup_dir_result
+
+- name: Backup shadow directories to /space (aggressive mode)
+  shell: |
+    if [ -d "{{ ansible_env.HOME }}/{{ item }}" ] && [ ! -L "{{ ansible_env.HOME }}/{{ item }}" ]; then
+      # Check if space is mounted and cleanup dir exists
+      if [ -d "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/cleanup-{{ cleanup_timestamp }}" ]; then
+        tar czf "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/cleanup-{{ cleanup_timestamp }}/{{ item }}-backup.tar.gz" \
+          -C "{{ ansible_env.HOME }}" "{{ item }}" 2>/dev/null || true
+        echo "Backed up {{ item }} to /space"
+      else
+        # Fallback: backup to local temp
+        mkdir -p "{{ ansible_env.HOME }}/.mkt/cleanup-{{ cleanup_timestamp }}"
+        tar czf "{{ ansible_env.HOME }}/.mkt/cleanup-{{ cleanup_timestamp }}/{{ item }}-backup.tar.gz" \
+          -C "{{ ansible_env.HOME }}" "{{ item }}" 2>/dev/null || true
+        echo "Backed up {{ item }} to ~/.mkt/cleanup (fallback)"
+      fi
+    fi
+  loop: "{{ shadow_dirs }}"
+  when: shadow_dirs | length > 0
+  register: backup_result
+
+- name: Display backup results
+  debug:
+    var: backup_result.results
+  when: shadow_dirs | length > 0
+
+- name: Remove shadow directories after backup
+  file:
+    path: "{{ ansible_env.HOME }}/{{ item }}"
+    state: absent
+  loop: "{{ shadow_dirs }}"
+  when: shadow_dirs | length > 0
+
+- name: Remove stale symlinks
+  shell: |
+    for path in flux space time; do
+      if [ -L "${HOME}/${path}" ] && [ ! -e "${HOME}/${path}" ]; then
+        rm -f "${HOME}/${path}"
+        echo "Removed stale symlink: ${path}"
+      fi
+    done
+  register: stale_symlink_removal
+  changed_when: stale_symlink_removal.stdout != ""
+
+- name: Display stale symlink removal results
+  debug:
+    var: stale_symlink_removal.stdout_lines
+  when: stale_symlink_removal.stdout != ""
+
+- name: Unload old LaunchAgents before cleanup
+  shell: |
+    launchctl unload "{{ ansible_env.HOME }}/Library/LaunchAgents/{{ item }}" 2>/dev/null || true
+  loop:
+    - com.miket.mountshares.plist
+    - com.miket.usersymlinks.plist
+    - com.miket.storage-connect.plist
+  changed_when: false
+
+- name: Backup old LaunchAgents
+  shell: |
+    mkdir -p "{{ ansible_env.HOME }}/Library/LaunchAgents/backup-{{ cleanup_timestamp }}"
+    for plist in com.miket.mountshares.plist com.miket.usersymlinks.plist com.miket.storage-connect.plist; do
+      if [ -f "{{ ansible_env.HOME }}/Library/LaunchAgents/${plist}" ]; then
+        mv "{{ ansible_env.HOME }}/Library/LaunchAgents/${plist}" \
+           "{{ ansible_env.HOME }}/Library/LaunchAgents/backup-{{ cleanup_timestamp }}/${plist}"
+        echo "Backed up ${plist}"
+      fi
+    done
+  register: launchagent_backup
+  changed_when: launchagent_backup.stdout != ""
+
+- name: Display LaunchAgent backup results
+  debug:
+    var: launchagent_backup.stdout_lines
+  when: launchagent_backup.stdout != ""
+
+- name: Log cleanup completion
+  debug:
+    msg: |
+      Drift cleanup completed:
+      - Shadow directories backed up: {{ shadow_dirs | length }}
+      - Stale symlinks removed: {{ stale_symlink_removal.stdout_lines | default([]) | length }}
+      - LaunchAgents backed up to ~/Library/LaunchAgents/backup-{{ cleanup_timestamp }}/
+

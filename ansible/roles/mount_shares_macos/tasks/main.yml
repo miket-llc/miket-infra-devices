@@ -1,6 +1,11 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
+# Phase 1: Clean up drift (shadow directories, stale mounts, broken symlinks)
+- name: Clean up mount drift
+  include_tasks: cleanup_drift.yml
+
+# Phase 2: Ensure correct directory structure
 - name: Ensure user mount directory exists
   file:
     path: "{{ ansible_env.HOME }}/.mkt"

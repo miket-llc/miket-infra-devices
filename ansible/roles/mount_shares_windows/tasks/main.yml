@@ -8,6 +8,11 @@
       - smb_password | length > 0
     fail_msg: "smb_password must be provided to mount_shares_windows role"
 
+# Phase 1: Clean up drift (stale mounts, old tasks)
+- name: Clean up mount drift
+  include_tasks: cleanup_drift.yml
+
+# Phase 2: Deploy mount configuration
 # Note: smb_password should be passed as a variable from the playbook
 - name: Ensure Scripts directory exists
   win_file:

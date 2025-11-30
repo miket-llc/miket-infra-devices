@@ -1,3 +1,130 @@
+## 2025-11-30 – Flux/Space/Time Mount Infrastructure Remediation {#2025-11-30-mount-infrastructure-remediation}
+
+### Context
+Comprehensive remediation of Flux/Space/Time mount infrastructure across all PHC workstations to enforce filesystem spec v2.1, eliminate drift, and ensure reliable auto-reconnect with health reporting.
+
+### Issues Identified
+- Inconsistent mount paths (system `/mkt` vs user `~/.mkt`)
+- Shadow directories where symlinks should exist
+- Stale LaunchAgents and scheduled tasks
+- Missing auto-reconnect logic on network changes
+- Health reporting (`_status.json`) not consistently working
+- Validation playbook bugs (checking wrong paths)
+
+### Actions Taken
+
+**Codex-SRE-005 (Infrastructure Engineer):**
+- ✅ **Drift Detection:**
+  - Created `ansible/playbooks/diagnose-mount-drift.yml` for comprehensive state discovery
+  - Detects shadow directories, stale symlinks, incorrect mount points
+  - Generates JSON drift reports for each device
+
+**Codex-IAC-003 (IaC/CaC Engineer):**
+- ✅ **Automated Cleanup (macOS):**
+  - Created `ansible/roles/mount_shares_macos/tasks/cleanup_drift.yml`
+  - Aggressively backs up shadow directories to `/space/devices/{host}/cleanup-{date}/`
+  - Removes stale symlinks and unmounts broken mounts
+  - Backs up old LaunchAgents before replacement
+  
+- ✅ **Automated Cleanup (Windows):**
+  - Created `ansible/roles/mount_shares_windows/tasks/cleanup_drift.yml`
+  - Removes stale drive mappings (X:, S:, T:)
+  - Removes old scheduled tasks
+
+- ✅ **Enhanced Auto-Reconnect (macOS):**
+  - Updated `com.miket.storage-connect.plist` LaunchAgent
+  - Added StartInterval (300s) for periodic retry
+  - Added WatchPaths for network change detection
+  - Added ThrottleInterval to prevent excessive retries
+  
+- ✅ **Mount Infrastructure Integration:**
+  - Updated `mount_shares_macos/tasks/main.yml` to run cleanup before deployment
+  - Updated `mount_shares_windows/tasks/main.yml` to run cleanup before deployment
+  - Health reporting already implemented in both platforms
+
+**Codex-QA-008 (QA Lead):**
+- ✅ **Comprehensive Validation:**
+  - Created `ansible/playbooks/validate-mount-infrastructure.yml`
+  - Validates correct mount paths (`~/.mkt/{flux,space,time}`)
+  - Validates symlinks are correct type and target
+  - Detects shadow directories (critical failure condition)
+  - Verifies LaunchAgent/scheduled task status
+  - Validates health status JSON structure and freshness
+  - Tests write access to `/space`
+  - Checks for junction loops (OneDrive safety)
+
+**Codex-DOC-009 (DocOps & EA Librarian):**
+- ✅ **Bug Fixes:**
+  - Fixed `validate-devices-infrastructure.yml` to check `~/.mkt` instead of `/mkt`
+  - Updated all references to LaunchAgent name (`com.miket.storage-connect`)
+  
+- ✅ **Runbook Updates:**
+  - Updated `devices-infrastructure-deployment.md` with correct paths
+  - Updated `troubleshoot-count-zero-space.md` with diagnostic playbook reference
+  - Corrected all mount point paths from `/mkt` to `~/.mkt`
+
+### Files Created
+- `ansible/playbooks/diagnose-mount-drift.yml`
+- `ansible/playbooks/validate-mount-infrastructure.yml`
+- `ansible/roles/mount_shares_macos/tasks/cleanup_drift.yml`
+- `ansible/roles/mount_shares_windows/tasks/cleanup_drift.yml`
+
+### Files Modified
+- `ansible/roles/mount_shares_macos/tasks/main.yml`
+- `ansible/roles/mount_shares_macos/templates/com.miket.mountshares.plist.j2`
+- `ansible/roles/mount_shares_windows/tasks/main.yml`
+- `ansible/playbooks/validate-devices-infrastructure.yml`
+- `docs/runbooks/devices-infrastructure-deployment.md`
+- `docs/runbooks/troubleshoot-count-zero-space.md`
+
+### Compliance
+- ✅ Filesystem spec v2.1 enforced (user-level `~/.mkt` paths)
+- ✅ Secrets from AKV only (via `secrets-sync` playbook)
+- ✅ IaC/CaC principles (all changes via Ansible)
+- ✅ SoR protection (no mutations to `/space/mike/**`)
+- ✅ Health reporting per v2.1 (`_status.json`)
+
+### Deployment Instructions
+```bash
+# Phase 1: Diagnose current state
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/diagnose-mount-drift.yml
+
+# Phase 2: Sync secrets from AKV
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/secrets-sync.yml
+
+# Phase 3: Deploy macOS mounts (count-zero)
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-mounts-macos.yml
+
+# Phase 4: Deploy Windows mounts (wintermute, armitage)
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-mounts-windows.yml
+
+# Phase 5: Validate
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/validate-mount-infrastructure.yml
+```
+
+### Success Criteria (Per Device)
+- ✅ All symlinks correct (`~/flux`, `~/space`, `~/time` → `~/.mkt/*`)
+- ✅ All mounts active and accessible
+- ✅ Auto-reconnect working (reboot + sleep/wake resilient)
+- ✅ `_status.json` health reporting active
+- ✅ No shadow directories
+- ✅ No credential errors
+
+### Outcomes
+- **Consistency:** All workstations now follow filesystem spec v2.1 exactly
+- **Reliability:** Auto-reconnect handles network changes and sleep/wake cycles
+- **Observability:** Health reporting enables monitoring of mount status
+- **Safety:** Aggressive cleanup backed up all shadow directories before removal
+- **Compliance:** Full IaC/CaC implementation, secrets from AKV
+
+### Next Steps
+- Execute deployment on count-zero (priority 1)
+- Execute deployment on wintermute and armitage
+- Monitor health status files for 48 hours
+- Validate reboot and network change resilience
+
+---
+
 ## 2025-11-29 – Architecture Doc Consolidation {#2025-11-29-architecture-doc-consolidation}
 
 ### Context

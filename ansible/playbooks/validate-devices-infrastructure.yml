@@ -56,22 +56,21 @@
   gather_facts: yes
   
   tasks:
-    - name: Check /mkt directory exists
+    - name: Check ~/.mkt directory exists
       stat:
-        path: /mkt
+        path: "{{ ansible_env.HOME }}/.mkt"
       register: mkt_dir
-      become: yes
     
-    - name: Verify /mkt directory
+    - name: Verify ~/.mkt directory
       assert:
         that:
           - mkt_dir.stat.exists
           - mkt_dir.stat.isdir
-        fail_msg: "/mkt directory does not exist"
-        success_msg: "/mkt directory exists"
+        fail_msg: "~/.mkt directory does not exist"
+        success_msg: "~/.mkt directory exists"
     
     - name: Check mount points
-      shell: mount | grep /mkt
+      shell: mount | grep "{{ ansible_env.HOME }}/.mkt"
       register: mkt_mounts
       changed_when: false
       ignore_errors: yes

@@ -1,0 +1,61 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# SMB Server Role for PHC Storage (Flux/Space/Time)
+# Deploys Samba server to share /flux, /space, /time on motoko
+
+- name: Install Samba server package
+  ansible.builtin.dnf:
+    name: samba
+    state: present
+  become: yes
+
+- name: Backup existing smb.conf
+  ansible.builtin.copy:
+    src: /etc/samba/smb.conf
+    dest: "/etc/samba/smb.conf.backup-{{ ansible_date_time.date }}"
+    remote_src: yes
+    force: no
+  become: yes
+
+- name: Deploy Samba configuration
+  ansible.builtin.template:
+    src: smb.conf.j2
+    dest: /etc/samba/smb.conf
+    owner: root
+    group: root
+    mode: '0644'
+    validate: 'testparm -s %s'
+  become: yes
+  notify: Restart Samba
+
+- name: Get SMB password from AKV
+  ansible.builtin.shell: |
+    az keyvault secret show --vault-name {{ akv_vault_name }} --name {{ smb_password_secret }} --query value -o tsv
+  register: smb_password_result
+  changed_when: false
+  become: no
+  delegate_to: localhost
+
+- name: Set SMB password for mdt user
+  ansible.builtin.shell: |
+    echo -e "{{ smb_password_result.stdout }}\n{{ smb_password_result.stdout }}" | smbpasswd -a -s {{ smb_username }}
+  become: yes
+  no_log: true
+  changed_when: true
+
+- name: Configure firewall for Samba
+  ansible.posix.firewalld:
+    service: samba
+    permanent: yes
+    state: enabled
+    immediate: yes
+  become: yes
+
+- name: Enable and start Samba service
+  ansible.builtin.systemd:
+    name: smb
+    enabled: yes
+    state: started
+  become: yes
+

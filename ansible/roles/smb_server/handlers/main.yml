@@ -1,0 +1,9 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Restart Samba
+  ansible.builtin.systemd:
+    name: smb
+    state: restarted
+  become: yes
+

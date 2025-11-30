@@ -19,7 +19,7 @@
     
     - name: Apply mount_shares_macos role
       include_role:
-        name: mount_shares_macos
+        name: ../roles/mount_shares_macos
     
     - name: Deployment complete
       debug:
