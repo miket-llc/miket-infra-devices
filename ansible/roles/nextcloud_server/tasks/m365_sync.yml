@@ -12,7 +12,7 @@
   failed_when: false
 
 - name: Install rclone if missing
-  ansible.builtin.apt:
+  ansible.builtin.package:
     name: rclone
     state: present
   when: rclone_check.rc != 0

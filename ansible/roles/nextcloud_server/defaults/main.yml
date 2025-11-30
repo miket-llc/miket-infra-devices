@@ -9,9 +9,9 @@
 nextcloud_container_runtime: "{{ 'podman' if ansible_distribution == 'Fedora' else 'docker' }}"
 
 # Stack deployment location
-# On Fedora: use /space (second NVMe)
+# On Fedora: use /flux/apps/nextcloud (runtime config)
 # On Debian: use /flux for runtime, /mnt/data for app data
-nextcloud_workdir: "{{ '/space/apps/nextcloud' if ansible_distribution == 'Fedora' else '/flux/apps/nextcloud' }}"
+nextcloud_workdir: "{{ '/flux/apps/nextcloud' if ansible_distribution == 'Fedora' else '/flux/apps/nextcloud' }}"
 nextcloud_compose_path: "{{ nextcloud_workdir }}/docker-compose.yml"
 nextcloud_config_path: "{{ nextcloud_workdir }}/config"
 nextcloud_bin_path: "{{ nextcloud_workdir }}/bin"
@@ -118,4 +118,8 @@ nextcloud_php_post_max: 16G
 nextcloud_skeleton_directory: ""  # Empty = no skeleton files for new users
 nextcloud_home_sweeper_enabled: true
 nextcloud_home_sweeper_quarantine: /space/_ops/nextcloud-quarantine
+nextcloud_home_sweeper_alert_only: false  # If true, only alerts without moving files
+nextcloud_home_sweeper_schedule: "daily"  # systemd timer OnCalendar value
+nextcloud_managed_users:
+  - mike
 

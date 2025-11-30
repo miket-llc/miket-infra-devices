@@ -6,7 +6,7 @@ Description=Daily sweep of Nextcloud internal user homes for stray files
 Documentation=file:///home/mdt/miket-infra-devices/docs/guides/nextcloud_on_motoko.md
 
 [Timer]
-OnCalendar=*-*-* {{ nextcloud_home_sweeper_schedule }}
+OnCalendar={{ nextcloud_home_sweeper_schedule }}
 Persistent=true
 RandomizedDelaySec=300
 

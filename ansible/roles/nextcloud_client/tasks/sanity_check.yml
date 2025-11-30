@@ -1,0 +1,46 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Sanity Check for Nextcloud Sync
+# Creates a file on the client and verifies it appears on the server (motoko)
+
+- name: Ensure 'work' directory exists in sync root
+  ansible.builtin.file:
+    path: "{{ nextcloud_sync_root }}/work"
+    state: directory
+    mode: "0755"
+  become: false
+
+- name: Create test file in client sync folder
+  ansible.builtin.copy:
+    content: "Sync test from {{ inventory_hostname }} at {{ ansible_date_time.iso8601 }}"
+    dest: "{{ nextcloud_sync_root }}/work/test_sync_{{ inventory_hostname }}.txt"
+    mode: "0644"
+  become: false
+
+- name: Wait for sync to occur
+  ansible.builtin.pause:
+    seconds: 10
+    prompt: "Waiting for Nextcloud desktop client to sync..."
+
+- name: Verify file exists on server (SoR)
+  ansible.builtin.stat:
+    path: "/space/mike/work/test_sync_{{ inventory_hostname }}.txt"
+  delegate_to: motoko
+  register: sync_check
+  become: true
+  failed_when: false
+
+- name: Report sync status
+  ansible.builtin.debug:
+    msg: |
+      Sync Verification Results:
+      --------------------------
+      Client File: {{ nextcloud_sync_root }}/work/test_sync_{{ inventory_hostname }}.txt
+      Server File: /space/mike/work/test_sync_{{ inventory_hostname }}.txt
+      
+      Status: {{ '✅ SUCCESS - File found on server' if sync_check.stat.exists else '❌ FAILURE - File not found on server' }}
+      
+      Note: If failed, check if Nextcloud client is running and logged in.
+
+

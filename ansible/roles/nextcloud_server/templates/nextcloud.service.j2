@@ -3,8 +3,13 @@
 
 [Unit]
 Description=Nextcloud Stack (Docker Compose)
+{% if ansible_distribution == 'Fedora' %}
+Requires=podman.socket
+After=podman.socket network-online.target
+{% else %}
 Requires=docker.service
 After=docker.service network-online.target
+{% endif %}
 Wants=network-online.target
 
 [Service]

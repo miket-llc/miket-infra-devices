@@ -53,43 +53,15 @@
     - nextcloud_is_ready | default(false)
     - occ_status.rc | default(1) == 0
 
-- name: Find OIDC user by email (mike@miket.io)
-  ansible.builtin.shell: |
-    docker exec -u 33 nextcloud-app php occ user:list --output=json | \
-    python3 -c "import json,sys; users=json.load(sys.stdin); [print(uid) for uid,name in users.items() if '@' not in uid]" | head -1
-  register: oidc_user_search
-  changed_when: false
-  failed_when: false
-  when:
-    - nextcloud_is_ready | default(false)
-    - occ_status.rc | default(1) == 0
-
-- name: Get OIDC user info
-  ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ user:info "{{ oidc_user_search.stdout | trim }}" --output=json
-  register: oidc_user_info
-  changed_when: false
-  failed_when: false
-  when:
-    - nextcloud_is_ready | default(false)
-    - occ_status.rc | default(1) == 0
-    - oidc_user_search.stdout | trim | length > 0
-
-- name: Set OIDC user ID fact
-  ansible.builtin.set_fact:
-    nextcloud_mike_uid: "{{ oidc_user_search.stdout | trim }}"
-  when:
-    - oidc_user_search.stdout | default('') | trim | length > 0
-    - oidc_user_info.rc | default(1) == 0
-
-- name: Configure external storage mounts for OIDC user
+# Create admin-level (global) mounts that apply to all users
+# This ensures mounts are available immediately for any user including OIDC users
+- name: Configure external storage mounts (admin-level)
   ansible.builtin.command: >
     docker exec -u 33 nextcloud-app php occ files_external:create
     "/{{ item.name }}"
     local
     null::null
     --config datadir="/external/{{ item.name }}"
-    --user "{{ nextcloud_mike_uid }}"
   loop: "{{ nextcloud_external_mounts }}"
   register: create_mount
   changed_when: "'Storage created' in create_mount.stdout"
@@ -97,17 +69,7 @@
   when:
     - nextcloud_is_ready | default(false)
     - occ_status.rc | default(1) == 0
-    - nextcloud_mike_uid is defined
-    - item.name not in existing_mount_names | default([])
-
-- name: Skip external storage if OIDC user not found
-  ansible.builtin.debug:
-    msg: >-
-      No OIDC user found in Nextcloud. External storage mounts will be configured
-      after first OIDC login. Re-run playbook after logging in as mike@miket.io.
-  when:
-    - nextcloud_is_ready | default(false)
-    - nextcloud_mike_uid is not defined
+    - ("/" + item.name) not in existing_mount_names | default([])
 
 - name: Set mount permissions (read/write)
   ansible.builtin.command: >
@@ -115,15 +77,6 @@
     "{{ item.name }}"
     enable_sharing true
   loop: "{{ nextcloud_external_mounts }}"
-  changed_when: false
-  failed_when: false
-  when: 
-    - nextcloud_is_ready | default(false)
-    - occ_status.rc | default(1) == 0
-
-- name: Rescan files for user mike
-  ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ files:scan mike --path="/mike"
   changed_when: false
   failed_when: false
   when: 

@@ -13,6 +13,58 @@
     mode: "0644"
   notify: restart nextcloud
 
+- name: Check for existing Docker installation (Fedora)
+  ansible.builtin.command: which docker
+  register: docker_check_fedora
+  changed_when: false
+  failed_when: false
+  when: ansible_distribution == "Fedora"
+
+- name: Check if Podman is installed (Fedora)
+  ansible.builtin.command: which podman
+  register: podman_check_fedora
+  changed_when: false
+  failed_when: false
+  when: ansible_distribution == "Fedora"
+
+- name: Install Podman (Fedora)
+  ansible.builtin.dnf:
+    name: podman
+    state: present
+  when:
+    - ansible_distribution == "Fedora"
+    - podman_check_fedora.rc != 0
+
+- name: Check if docker-compose is installed (Fedora)
+  ansible.builtin.command: which docker-compose
+  register: compose_check_fedora
+  changed_when: false
+  failed_when: false
+  when: ansible_distribution == "Fedora"
+
+- name: Install docker-compose (Fedora)
+  ansible.builtin.dnf:
+    name: docker-compose
+    state: present
+  when:
+    - ansible_distribution == "Fedora"
+    - compose_check_fedora.rc != 0
+
+- name: Install Podman-Docker wrapper (Fedora)
+  ansible.builtin.dnf:
+    name: podman-docker
+    state: present
+  when:
+    - ansible_distribution == "Fedora"
+    - docker_check_fedora.rc != 0
+
+- name: Enable Podman socket (Fedora)
+  ansible.builtin.systemd:
+    name: podman.socket
+    enabled: true
+    state: started
+  when: ansible_distribution == "Fedora"
+
 - name: Check if Docker is installed
   ansible.builtin.command: which docker
   register: docker_check

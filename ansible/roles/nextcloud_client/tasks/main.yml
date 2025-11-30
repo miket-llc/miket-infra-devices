@@ -14,3 +14,7 @@
   ansible.builtin.include_tasks: configure.yml
   when: nextcloud_configure_prefs | default(true)
 
+- name: Run sanity check (verify sync)
+  ansible.builtin.include_tasks: sanity_check.yml
+  when: nextcloud_run_sanity_check | default(false)
+

@@ -33,7 +33,6 @@
     group: "33"   # www-data GID in Nextcloud container
     mode: "0755"
   loop:
-    - /mnt/data/nextcloud
     - "{{ nextcloud_data_path }}"
 
 - name: Check if Postgres data directory exists

@@ -64,10 +64,13 @@ services:
       NEXTCLOUD_DEFAULT_SKELETON_DIRECTORY: ""
       
       # Trusted proxies (Tailscale Serve, Docker networks)
-      # Note: OVERWRITEPROTOCOL/OVERWRITEHOST removed to allow Tailscale access
       # Desktop clients use https://motoko.pangolin-vega.ts.net (Tailscale Serve)
       # Web browsers use https://nextcloud.miket.io (Cloudflare tunnel)
       TRUSTED_PROXIES: 127.0.0.1 172.16.0.0/12 100.64.0.0/10
+      
+      # HTTPS override - Cloudflare/Tailscale terminate TLS, Nextcloud sees HTTP
+      # Required for OIDC to work correctly
+      OVERWRITEPROTOCOL: https
       
     volumes:
       # Nextcloud data (app data, not user files)
