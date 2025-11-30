@@ -1,0 +1,28 @@
+# {{ ansible_managed }}
+# Zero-shot classification service for Motoko
+version: "3.9"
+
+services:
+  classifier:
+    image: classifier-motoko:latest
+    container_name: {{ classifier_container_name }}
+    ports:
+      - "{{ classifier_port }}:8000"
+    volumes:
+      - /tmp/gpu_thermal_state:/tmp/gpu_thermal_state:ro
+      - {{ ai_profile_base_dir }}/hf-cache:/root/.cache/huggingface:Z
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+    devices:
+      - nvidia.com/gpu=all
+    security_opt:
+      - label:disable
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+

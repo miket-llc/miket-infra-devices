@@ -1,0 +1,144 @@
+# {{ ansible_managed }}
+# Zero-shot classification API for Motoko
+# Model: {{ classifier_model }}
+
+import os
+import asyncio
+from typing import List, Optional
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+from transformers import pipeline
+
+# Configuration
+MODEL_NAME = "{{ classifier_model }}"
+MAX_CONCURRENT = {{ classifier_max_concurrent }}
+MAX_INPUT_LENGTH = 512  # Token limit for input
+
+# Concurrency control
+semaphore = asyncio.Semaphore(MAX_CONCURRENT)
+
+# Global classifier
+classifier = None
+
+
+class ClassifyRequest(BaseModel):
+    input: str = Field(..., max_length=10000, description="Text to classify")
+    candidate_labels: List[str] = Field(..., min_length=1, max_length=20)
+    multi_label: bool = Field(default=False, description="Allow multiple labels")
+    hypothesis_template: Optional[str] = Field(
+        default="This text is about {}.",
+        description="Template for hypothesis generation"
+    )
+
+
+class ClassifyResponse(BaseModel):
+    input: str
+    labels: List[str]
+    scores: List[float]
+    model: str
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model on startup."""
+    global classifier
+    print(f"Loading model: {MODEL_NAME}")
+    classifier = pipeline(
+        "zero-shot-classification",
+        model=MODEL_NAME,
+        device=0  # GPU
+    )
+    print("Model loaded successfully")
+    yield
+    print("Shutting down")
+
+
+app = FastAPI(
+    title="Motoko Zero-Shot Classifier",
+    description="Lightweight zero-shot text classification API",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    if classifier is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    # Check thermal state
+    try:
+        with open("/tmp/gpu_thermal_state", "r") as f:
+            thermal_state = f.read().strip()
+        if thermal_state == "critical":
+            raise HTTPException(status_code=503, detail="GPU thermal critical")
+    except FileNotFoundError:
+        thermal_state = "unknown"
+    
+    return {"status": "healthy", "model": MODEL_NAME, "thermal": thermal_state}
+
+
+@app.post("/classify", response_model=ClassifyResponse)
+async def classify(request: ClassifyRequest):
+    """Classify text into candidate labels."""
+    if classifier is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    # Check thermal state
+    try:
+        with open("/tmp/gpu_thermal_state", "r") as f:
+            thermal_state = f.read().strip()
+        if thermal_state == "critical":
+            raise HTTPException(
+                status_code=503, 
+                detail="GPU thermal critical - classification temporarily unavailable"
+            )
+    except FileNotFoundError:
+        pass  # Continue if file doesn't exist
+    
+    # Truncate input if too long (rough estimate: 4 chars per token)
+    max_chars = MAX_INPUT_LENGTH * 4
+    text = request.input[:max_chars]
+    
+    # Use semaphore for concurrency control
+    async with semaphore:
+        try:
+            # Run classification in thread pool
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: classifier(
+                    text,
+                    request.candidate_labels,
+                    multi_label=request.multi_label,
+                    hypothesis_template=request.hypothesis_template
+                )
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    return ClassifyResponse(
+        input=text,
+        labels=result["labels"],
+        scores=result["scores"],
+        model=MODEL_NAME
+    )
+
+
+@app.get("/info")
+async def info():
+    """Model information."""
+    return {
+        "model": MODEL_NAME,
+        "task": "zero-shot-classification",
+        "max_concurrent": MAX_CONCURRENT,
+        "max_input_length": MAX_INPUT_LENGTH
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+

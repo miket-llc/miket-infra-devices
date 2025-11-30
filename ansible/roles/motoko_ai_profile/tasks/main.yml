@@ -1,0 +1,371 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Motoko AI Profile - Lightweight embeddings + classification
+# Deploys: TEI (embeddings), Classification API, Thermal monitor
+
+- name: Display AI Profile deployment info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "MOTOKO AI PROFILE DEPLOYMENT"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Embedding Models:"
+      - "  - BGE Base EN v1.5 (port {{ tei_bge_port }})"
+      - "  - Arctic Embed XS (port {{ tei_arctic_port }})"
+      - ""
+      - "Classification Model:"
+      - "  - mDeBERTa v3 Multilingual (port {{ classifier_port }})"
+      - ""
+      - "GPU Power Limit: {{ gpu_power_limit_watts }}W"
+      - "Thermal Thresholds: Normal <{{ gpu_thermal_normal }}°C, Hot <{{ gpu_thermal_hot }}°C"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [ai_profile, always]
+
+# =============================================================================
+# Prerequisites
+# =============================================================================
+
+- name: Ensure AI profile directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ ai_profile_base_dir }}/tei-bge"
+    - "{{ ai_profile_base_dir }}/tei-arctic"
+    - "{{ ai_profile_base_dir }}/classifier"
+    - "{{ ai_profile_base_dir }}/hf-cache"
+  tags: [ai_profile, setup]
+
+# =============================================================================
+# GPU Power Limit
+# =============================================================================
+
+- name: Set GPU power limit for thermal protection
+  ansible.builtin.command: nvidia-smi -pl {{ gpu_power_limit_watts }}
+  register: power_limit_result
+  changed_when: "'Power limit set' in power_limit_result.stdout or power_limit_result.rc == 0"
+  failed_when: false
+  tags: [ai_profile, gpu, thermal]
+
+- name: Create GPU power limit systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/gpu-power-limit.service
+    content: |
+      # Managed by Ansible - motoko_ai_profile role
+      [Unit]
+      Description=Set GPU Power Limit for Thermal Protection
+      After=nvidia-persistenced.service
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/nvidia-smi -pl {{ gpu_power_limit_watts }}
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  notify: reload systemd
+  tags: [ai_profile, gpu, thermal]
+
+- name: Enable GPU power limit service
+  ansible.builtin.systemd:
+    name: gpu-power-limit
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [ai_profile, gpu, thermal]
+
+# =============================================================================
+# Thermal Monitor
+# =============================================================================
+
+- name: Create GPU thermal monitor script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/gpu-thermal-monitor
+    content: |
+      #!/bin/bash
+      # Managed by Ansible - motoko_ai_profile role
+      # Monitors GPU temperature and writes thermal state to file
+
+      NORMAL_TEMP={{ gpu_thermal_normal }}
+      HOT_TEMP={{ gpu_thermal_hot }}
+      CRITICAL_TEMP={{ gpu_thermal_critical }}
+      STATE_FILE=/tmp/gpu_thermal_state
+
+      while true; do
+        TEMP=$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null || echo "0")
+        
+        if [ "$TEMP" -ge "$CRITICAL_TEMP" ]; then
+          echo "critical" > "$STATE_FILE"
+        elif [ "$TEMP" -ge "$HOT_TEMP" ]; then
+          echo "hot" > "$STATE_FILE"
+        elif [ "$TEMP" -ge "$NORMAL_TEMP" ]; then
+          echo "warm" > "$STATE_FILE"
+        else
+          echo "normal" > "$STATE_FILE"
+        fi
+        
+        # Also write temperature for debugging
+        echo "$TEMP" > /tmp/gpu_temperature
+        
+        sleep 10
+      done
+    mode: '0755'
+  tags: [ai_profile, thermal]
+
+- name: Create thermal monitor systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/gpu-thermal-monitor.service
+    content: |
+      # Managed by Ansible - motoko_ai_profile role
+      [Unit]
+      Description=GPU Thermal State Monitor
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/gpu-thermal-monitor
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  notify: reload systemd
+  tags: [ai_profile, thermal]
+
+- name: Enable thermal monitor service
+  ansible.builtin.systemd:
+    name: gpu-thermal-monitor
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [ai_profile, thermal]
+
+# =============================================================================
+# Stop existing vLLM containers (replacing with TEI)
+# =============================================================================
+
+- name: Stop existing vLLM embedding container
+  ansible.builtin.command: podman stop vllm-embeddings-motoko
+  register: stop_vllm
+  changed_when: stop_vllm.rc == 0
+  failed_when: false
+  tags: [ai_profile, cleanup]
+
+- name: Remove existing vLLM embedding container
+  ansible.builtin.command: podman rm vllm-embeddings-motoko
+  register: rm_vllm
+  changed_when: rm_vllm.rc == 0
+  failed_when: false
+  tags: [ai_profile, cleanup]
+
+# =============================================================================
+# TEI - BGE Base Embeddings
+# =============================================================================
+
+- name: Create TEI BGE compose file
+  ansible.builtin.template:
+    src: tei-compose.yml.j2
+    dest: "{{ ai_profile_base_dir }}/tei-bge/docker-compose.yml"
+    mode: '0644'
+  vars:
+    tei_model: "{{ tei_bge_model }}"
+    tei_port: "{{ tei_bge_port }}"
+    tei_container_name: "{{ tei_bge_container_name }}"
+    tei_max_batch_tokens: "{{ tei_bge_max_batch_tokens }}"
+    tei_max_concurrent: "{{ tei_bge_max_concurrent }}"
+  when: tei_bge_enabled
+  tags: [ai_profile, embeddings, bge]
+
+- name: Pull TEI image
+  ansible.builtin.command: podman pull {{ tei_image_gpu }}
+  register: pull_tei
+  changed_when: "'Pulling' in pull_tei.stderr or 'Writing' in pull_tei.stderr"
+  environment:
+    TMPDIR: /podman/tmp
+  tags: [ai_profile, embeddings]
+
+- name: Start TEI BGE container
+  ansible.builtin.shell: |
+    cd {{ ai_profile_base_dir }}/tei-bge && podman-compose down 2>/dev/null || true
+    cd {{ ai_profile_base_dir }}/tei-bge && podman-compose up -d
+  environment:
+    TMPDIR: /podman/tmp
+  when: tei_bge_enabled
+  tags: [ai_profile, embeddings, bge]
+
+# =============================================================================
+# TEI - Arctic XS Embeddings (low-heat fallback)
+# =============================================================================
+
+- name: Create TEI Arctic compose file
+  ansible.builtin.template:
+    src: tei-compose.yml.j2
+    dest: "{{ ai_profile_base_dir }}/tei-arctic/docker-compose.yml"
+    mode: '0644'
+  vars:
+    tei_model: "{{ tei_arctic_model }}"
+    tei_port: "{{ tei_arctic_port }}"
+    tei_container_name: "{{ tei_arctic_container_name }}"
+    tei_max_batch_tokens: "{{ tei_arctic_max_batch_tokens }}"
+    tei_max_concurrent: "{{ tei_arctic_max_concurrent }}"
+  when: tei_arctic_enabled
+  tags: [ai_profile, embeddings, arctic]
+
+- name: Start TEI Arctic container
+  ansible.builtin.shell: |
+    cd {{ ai_profile_base_dir }}/tei-arctic && podman-compose down 2>/dev/null || true
+    cd {{ ai_profile_base_dir }}/tei-arctic && podman-compose up -d
+  environment:
+    TMPDIR: /podman/tmp
+  when: tei_arctic_enabled
+  tags: [ai_profile, embeddings, arctic]
+
+# =============================================================================
+# Classification Service
+# =============================================================================
+
+- name: Create classifier Python application
+  ansible.builtin.template:
+    src: classifier_app.py.j2
+    dest: "{{ ai_profile_base_dir }}/classifier/app.py"
+    mode: '0644'
+  when: classifier_enabled
+  tags: [ai_profile, classifier]
+
+- name: Create classifier requirements.txt
+  ansible.builtin.copy:
+    dest: "{{ ai_profile_base_dir }}/classifier/requirements.txt"
+    content: |
+      fastapi>=0.104.0
+      uvicorn[standard]>=0.24.0
+      transformers>=4.35.0
+      torch>=2.1.0
+      accelerate>=0.24.0
+      sentencepiece>=0.1.99
+    mode: '0644'
+  when: classifier_enabled
+  tags: [ai_profile, classifier]
+
+- name: Create classifier Dockerfile
+  ansible.builtin.copy:
+    dest: "{{ ai_profile_base_dir }}/classifier/Dockerfile"
+    content: |
+      FROM python:3.11-slim
+      
+      WORKDIR /app
+      
+      # Install system dependencies
+      RUN apt-get update && apt-get install -y --no-install-recommends \
+          curl \
+          && rm -rf /var/lib/apt/lists/*
+      
+      # Install Python dependencies
+      COPY requirements.txt .
+      RUN pip install --no-cache-dir -r requirements.txt
+      
+      # Model will be downloaded at runtime to avoid HF rate limits during build
+      COPY app.py .
+      
+      CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+    mode: '0644'
+  when: classifier_enabled
+  tags: [ai_profile, classifier]
+
+- name: Build classifier container image
+  ansible.builtin.command: >
+    podman build -t classifier-motoko:latest {{ ai_profile_base_dir }}/classifier
+  environment:
+    TMPDIR: /podman/tmp
+  register: build_classifier
+  changed_when: "'Successfully tagged' in build_classifier.stdout or build_classifier.rc == 0"
+  when: classifier_enabled
+  tags: [ai_profile, classifier]
+
+- name: Create classifier compose file
+  ansible.builtin.template:
+    src: classifier-compose.yml.j2
+    dest: "{{ ai_profile_base_dir }}/classifier/docker-compose.yml"
+    mode: '0644'
+  when: classifier_enabled
+  tags: [ai_profile, classifier]
+
+- name: Start classifier container
+  ansible.builtin.shell: |
+    cd {{ ai_profile_base_dir }}/classifier && podman-compose down 2>/dev/null || true
+    cd {{ ai_profile_base_dir }}/classifier && podman-compose up -d
+  environment:
+    TMPDIR: /podman/tmp
+  when: classifier_enabled
+  tags: [ai_profile, classifier]
+
+# =============================================================================
+# LiteLLM Configuration
+# =============================================================================
+
+- name: Create LiteLLM config for AI profile
+  ansible.builtin.template:
+    src: litellm-config.yaml.j2
+    dest: "{{ ai_profile_base_dir }}/litellm/config.yaml"
+    mode: '0644'
+  tags: [ai_profile, litellm]
+
+- name: Restart LiteLLM with new config
+  ansible.builtin.shell: |
+    podman stop litellm-motoko 2>/dev/null || true
+    podman rm litellm-motoko 2>/dev/null || true
+    podman run -d \
+      --name litellm-motoko \
+      --network host \
+      -v {{ ai_profile_base_dir }}/litellm/config.yaml:/app/config.yaml:ro,Z \
+      -e LITELLM_MASTER_KEY={{ litellm_master_key }} \
+      --restart unless-stopped \
+      ghcr.io/berriai/litellm:main-latest \
+      --config /app/config.yaml --port {{ litellm_port }}
+  tags: [ai_profile, litellm]
+
+# =============================================================================
+# Summary
+# =============================================================================
+
+- name: Wait for services to start
+  ansible.builtin.pause:
+    seconds: 30
+  tags: [ai_profile, verify]
+
+- name: Verify services are running
+  ansible.builtin.shell: |
+    echo "Container Status:"
+    podman ps --format "table {% raw %}{{.Names}}\t{{.Status}}{% endraw %}"
+    echo ""
+    echo "GPU Status:"
+    nvidia-smi --query-gpu=temperature.gpu,power.draw,memory.used --format=csv
+  register: verify_result
+  changed_when: false
+  tags: [ai_profile, verify]
+
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "MOTOKO AI PROFILE DEPLOYMENT COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "{{ verify_result.stdout_lines | default(['Status check pending...']) }}"
+      - ""
+      - "Endpoints:"
+      - "  BGE Embeddings:     http://127.0.0.1:{{ tei_bge_port }}/embed"
+      - "  Arctic Embeddings:  http://127.0.0.1:{{ tei_arctic_port }}/embed"
+      - "  Classification:     http://127.0.0.1:{{ classifier_port }}/classify"
+      - "  LiteLLM Proxy:      http://127.0.0.1:{{ litellm_port }}/v1/..."
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [ai_profile, always]
+

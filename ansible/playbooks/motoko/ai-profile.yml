@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# MOTOKO AI PROFILE PLAYBOOK
+# =============================================================================
+#
+# Deploys lightweight AI services optimized for RTX 2080 Max-Q thermals:
+#   - Text embeddings (BGE Base, Arctic XS)
+#   - Zero-shot classification (mDeBERTa)
+#   - Thermal monitoring and protection
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/ai-profile.yml
+#
+#   Embeddings only:
+#     ansible-playbook ... --tags embeddings
+#
+#   Classification only:
+#     ansible-playbook ... --tags classifier
+#
+#   Thermal setup only:
+#     ansible-playbook ... --tags thermal
+#
+# =============================================================================
+
+- name: Deploy Motoko AI Profile
+  hosts: motoko
+  become: true
+  gather_facts: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  pre_tasks:
+    - name: Verify GPU is available
+      ansible.builtin.command: nvidia-smi --query-gpu=name --format=csv,noheader
+      register: gpu_check
+      changed_when: false
+      failed_when: gpu_check.rc != 0
+
+    - name: Display GPU info
+      ansible.builtin.debug:
+        msg: "GPU: {{ gpu_check.stdout }}"
+
+  roles:
+    - role: motoko_ai_profile
+      tags: [ai_profile]
+
+  post_tasks:
+    - name: Run quick health checks
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ item.port }}/health"
+        method: GET
+        timeout: 10
+      register: health_checks
+      failed_when: false
+      loop:
+        - { name: "LiteLLM", port: 8000 }
+        - { name: "BGE Embeddings", port: 8201 }
+        - { name: "Arctic Embeddings", port: 8202 }
+        - { name: "Classifier", port: 8203 }
+      loop_control:
+        label: "{{ item.name }}"
+      tags: [verify]
+
+    - name: Display final status
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          MOTOKO AI PROFILE - DEPLOYMENT STATUS
+          ═══════════════════════════════════════════════════════════════
+          
+          Services (check with: podman ps):
+            - TEI BGE:      port 8201
+            - TEI Arctic:   port 8202
+            - Classifier:   port 8203
+            - LiteLLM:      port 8000
+          
+          LiteLLM Models:
+            - local-motoko-embed-bge-base-en-v1-5
+            - local-motoko-embed-arctic-xs
+            - local-motoko-classify-mdeberta-multilingual
+          
+          Thermal Monitor:
+            - State file: /tmp/gpu_thermal_state
+            - Temp file:  /tmp/gpu_temperature
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+

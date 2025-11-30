@@ -17,7 +17,8 @@ nextcloud_config_path: "{{ nextcloud_workdir }}/config"
 nextcloud_bin_path: "{{ nextcloud_workdir }}/bin"
 
 # Secrets (generated from AKV via secrets_sync role)
-nextcloud_env_path: "{{ nextcloud_workdir }}/.env"
+# This path must match the entry in secrets-map.yml
+nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
 
 # Data locations
 # All on /space for Fedora (second NVMe)
@@ -112,4 +113,8 @@ nextcloud_db_backup_service: nextcloud-db-backup
 nextcloud_php_memory_limit: 512M
 nextcloud_php_upload_max: 16G
 nextcloud_php_post_max: 16G
+
+# Home sweeper configuration (pure façade enforcement)
+nextcloud_home_sweeper_enabled: true
+nextcloud_home_sweeper_quarantine: /space/_ops/nextcloud-quarantine
 

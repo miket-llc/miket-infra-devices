@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+# TEI (Text Embeddings Inference) for {{ tei_model }}
+version: "3.9"
+
+services:
+  tei:
+    image: {{ tei_image_gpu }}
+    container_name: {{ tei_container_name }}
+    command: >
+      --model-id {{ tei_model }}
+      --max-batch-tokens {{ tei_max_batch_tokens }}
+      --max-concurrent-requests {{ tei_max_concurrent }}
+    ports:
+      - "{{ tei_port }}:80"
+    volumes:
+      - {{ ai_profile_base_dir }}/hf-cache:/data:Z
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=
+      - NVIDIA_VISIBLE_DEVICES=all
+    devices:
+      - nvidia.com/gpu=all
+    security_opt:
+      - label:disable
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
