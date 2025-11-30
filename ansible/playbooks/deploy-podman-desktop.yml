@@ -1,0 +1,78 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# DEPLOY PODMAN DESKTOP - Windows/macOS Workstations
+# =============================================================================
+#
+# Deploys Podman Desktop (GUI + CLI) to Windows and macOS workstations
+# Standardizes container runtime across all platforms
+#
+# USAGE:
+#   macOS only:
+#     ansible-playbook playbooks/deploy-podman-desktop.yml --limit macos_workstations
+#
+#   Windows only (when connectivity fixed):
+#     ansible-playbook playbooks/deploy-podman-desktop.yml --limit windows_workstations
+#
+#   All non-Linux workstations:
+#     ansible-playbook playbooks/deploy-podman-desktop.yml
+#
+# =============================================================================
+
+- name: Deploy Podman Desktop to macOS Workstations
+  hosts: macos_workstations
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment banner (macOS)
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          PODMAN DESKTOP DEPLOYMENT - macOS
+          ═══════════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          OS:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          
+          Installing:
+            - Podman CLI (via Homebrew)
+            - Podman Desktop GUI
+            - Podman machine (Linux VM)
+            - Docker CLI compatibility
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    - role: podman_desktop_macos
+      tags: [podman_desktop]
+
+- name: Deploy Podman Desktop to Windows Workstations
+  hosts: windows_workstations
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment banner (Windows)
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          PODMAN DESKTOP DEPLOYMENT - Windows
+          ═══════════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          OS:   Windows
+          
+          Installing:
+            - Podman Desktop GUI
+            - Podman CLI (PowerShell/CMD)
+            - WSL2 integration
+            - Podman machine
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    - role: podman_desktop_windows
+      tags: [podman_desktop]
+

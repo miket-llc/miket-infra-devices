@@ -1,0 +1,22 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Desktop Windows Role Defaults
+# Installs Podman CLI + Podman Desktop GUI on Windows via WSL2
+
+# Podman Desktop version
+podman_desktop_version: latest
+podman_desktop_download_url: "https://github.com/containers/podman-desktop/releases/latest/download/podman-desktop-Setup.exe"
+
+# WSL2 configuration
+podman_windows_wsl_distro: Ubuntu
+podman_windows_ensure_wsl: true
+
+# Podman machine settings
+podman_machine_cpus: 2
+podman_machine_memory: 4096  # MB
+podman_machine_disk_size: 100  # GB
+
+# Docker compatibility
+podman_windows_docker_compat: true
+

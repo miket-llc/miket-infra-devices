@@ -47,24 +47,10 @@ usb_timemachine_mount: /time
 #   /flux - Runtime/volatile data (optional, on OS disk if not set)
 #   /time - Time Machine backups (optional external)
 #
-psbi_mounts:
-  - path: /space
-    uuid: "03d5ff5b-3f93-4f6f-93ed-20aa1d04e0df"  # nvme1n1p3 (951GB btrfs)
-    fstype: btrfs
-    opts: defaults,noatime,compress=zstd
-    enabled: true
-    
-  - path: /flux
-    uuid: ""  # Optional: set if separate runtime disk available
-    fstype: ext4
-    opts: defaults,noatime
-    enabled: false  # Disabled - use /space for now
-    
-  - path: /time
-    uuid: ""  # Optional: set for Time Machine backup disk
-    fstype: auto
-    opts: ro,noatime
-    enabled: false  # Disabled - no backup disk connected
+# PSBI mounts disabled - using /podman mount directly for container data
+# Second internal NVMe (nvme1n1p3, UUID=03d5ff5b-3f93-4f6f-93ed-20aa1d04e0df) 
+# is mounted at /podman via fstab
+psbi_mounts: []
 
 # Mount ownership
 psbi_mount_owner: mdt
@@ -110,34 +96,26 @@ podman_create_storage_dirs: true
 # ========================================
 # Motoko Services (Containers)
 # ========================================
-# Define container services to run on motoko
-# These are managed by the motoko_services role
-# All data stored on /space (second internal NVMe)
-
-# Service configuration directory (on /space)
-motoko_services_config_dir: /space/services
+# All container data on /podman (second internal NVMe - 952GB)
+motoko_services_config_dir: /podman/services
 motoko_services_gpu_enabled: true
-
-# Container service definitions
-# Note: LiteLLM, vLLM, and Nextcloud have dedicated roles
-# Use motoko_services for additional lightweight containers
 motoko_services: []
 
 # ========================================
 # Container Storage Configuration
 # ========================================
-# Podman graphroot on second drive for container images/layers
-podman_graphroot: /space/containers/engine/podman
+# Podman uses /podman directly as graphroot (second NVMe)
+podman_graphroot: /podman
 podman_runroot: /run/containers/storage
 
 # ========================================
 # LiteLLM Configuration
 # ========================================
 litellm_enabled: true
-litellm_workdir: /space/apps/litellm
-litellm_config_path: /space/apps/litellm/config.yaml
-litellm_env_path: /space/apps/litellm/.env
-litellm_compose_path: /space/apps/litellm/docker-compose.yml
+litellm_workdir: /podman/apps/litellm
+litellm_config_path: /podman/apps/litellm/config.yaml
+litellm_env_path: /podman/apps/litellm/.env
+litellm_compose_path: /podman/apps/litellm/docker-compose.yml
 litellm_port: 8000
 litellm_image: ghcr.io/berriai/litellm:main-v1.55.4
 
@@ -145,10 +123,10 @@ litellm_image: ghcr.io/berriai/litellm:main-v1.55.4
 # vLLM Configuration
 # ========================================
 vllm_enabled: true
-vllm_compose_dir: /space/apps/vllm
-vllm_compose_file: /space/apps/vllm/docker-compose.yml
-vllm_models_dir: /space/apps/vllm/models
-vllm_cache_dir: /space/apps/vllm/cache
+vllm_compose_dir: /podman/apps/vllm
+vllm_compose_file: /podman/apps/vllm/docker-compose.yml
+vllm_models_dir: /podman/apps/vllm/models
+vllm_cache_dir: /podman/apps/vllm/cache
 
 # Reasoning model (Mistral 7B AWQ - fits in 8GB VRAM with embeddings)
 vllm_reasoning_enabled: true
@@ -167,13 +145,12 @@ vllm_embeddings_gpu_util: 0.25
 # Nextcloud Configuration
 # ========================================
 # Disabled for now - requires secrets from Azure Key Vault
-# Enable once secrets-sync is run
 nextcloud_enabled: false
-nextcloud_workdir: /space/apps/nextcloud
-nextcloud_data_path: /space/apps/nextcloud/data
-nextcloud_db_path: /space/apps/nextcloud/db
-nextcloud_config_path: /space/apps/nextcloud/config
-nextcloud_compose_path: /space/apps/nextcloud/docker-compose.yml
+nextcloud_workdir: /podman/apps/nextcloud
+nextcloud_data_path: /podman/apps/nextcloud/data
+nextcloud_db_path: /podman/apps/nextcloud/db
+nextcloud_config_path: /podman/apps/nextcloud/config
+nextcloud_compose_path: /podman/apps/nextcloud/docker-compose.yml
 nextcloud_port: 8080
 
 # ========================================

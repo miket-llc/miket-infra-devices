@@ -179,8 +179,8 @@
              Podman graphroot: {{ podman_graphroot | default('/space/containers/engine/podman') }}
           
           ✅ Container Runtime
-             Podman: {{ (podman_info.stdout | from_json).version.Version | default('installed') }}
-             NVIDIA: {{ 'Configured' if podman_nvidia_enabled else 'Disabled' }}
+             Podman: {{ (podman_info.stdout | default('{}') | from_json).version.Version | default('installed') }}
+             NVIDIA: {{ 'Configured' if (podman_nvidia_enabled | default(true)) else 'Disabled' }}
           
           ✅ AI Services
              vLLM Reasoning:  http://127.0.0.1:{{ vllm_reasoning_port | default(8001) }}/v1

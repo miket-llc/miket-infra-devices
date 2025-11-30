@@ -1,0 +1,27 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Desktop macOS Role Defaults
+# Installs Podman CLI + Podman Desktop GUI on macOS
+
+# Install method
+podman_macos_install_method: homebrew  # homebrew or manual
+
+# Podman Desktop GUI
+podman_desktop_install: true
+podman_desktop_version: latest
+
+# Podman machine settings
+podman_machine_name: podman-machine-default
+podman_machine_cpus: 2
+podman_machine_memory: 4096  # MB
+podman_machine_disk_size: 100  # GB
+podman_machine_rootful: false
+
+# Docker compatibility
+podman_macos_docker_compat: true  # Create docker alias
+podman_macos_docker_compose_compat: true  # Create docker-compose alias
+
+# Auto-start Podman machine on login
+podman_macos_autostart: true
+

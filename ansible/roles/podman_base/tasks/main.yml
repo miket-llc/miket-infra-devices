@@ -188,10 +188,48 @@
     - nvidia_check.rc == 0
   tags: [containers, nvidia]
 
-- name: Install NVIDIA Container Toolkit
-  ansible.builtin.dnf:
-    name: nvidia-container-toolkit
-    state: present
+- name: Disable GPG check for NVIDIA repo (packages not properly signed for Fedora 43+)
+  ansible.builtin.lineinfile:
+    path: /etc/yum.repos.d/nvidia-container-toolkit.repo
+    regexp: '^gpgcheck='
+    line: 'gpgcheck=0'
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+  tags: [containers, nvidia]
+
+- name: Check if NVIDIA Container Toolkit is installed
+  ansible.builtin.command: rpm -q nvidia-container-toolkit
+  register: nvidia_toolkit_check
+  changed_when: false
+  failed_when: false
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+  tags: [containers, nvidia]
+
+# Fedora 43+ has issues with NVIDIA RPM packages missing digests
+# We need to download and install with rpm --nodigest
+- name: Download NVIDIA Container Toolkit packages
+  ansible.builtin.command: dnf download --destdir=/tmp/nvidia-ctk nvidia-container-toolkit libnvidia-container-tools libnvidia-container1 nvidia-container-toolkit-base
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - nvidia_toolkit_check.rc != 0
+  tags: [containers, nvidia]
+
+- name: Install NVIDIA Container Toolkit with rpm --nodigest (Fedora 43+ workaround)
+  ansible.builtin.shell: rpm -Uvh --nodigest --nosignature /tmp/nvidia-ctk/*.rpm
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - nvidia_toolkit_check.rc != 0
+  tags: [containers, nvidia]
+
+- name: Clean up downloaded packages
+  ansible.builtin.file:
+    path: /tmp/nvidia-ctk
+    state: absent
   when:
     - podman_nvidia_enabled | bool
     - nvidia_check.rc == 0

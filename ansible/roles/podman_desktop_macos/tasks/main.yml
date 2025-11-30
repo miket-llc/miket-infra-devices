@@ -1,0 +1,192 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Desktop macOS Role
+# Installs Podman CLI + Podman Desktop GUI on macOS
+
+- name: Validate running on macOS
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == 'Darwin'
+    fail_msg: "This role is designed for macOS systems only"
+    quiet: true
+  tags: [podman_macos, validate]
+
+- name: Display Podman macOS installation banner
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN DESKTOP FOR MACOS - Container Runtime"
+      - "═══════════════════════════════════════════════════════════"
+      - "Host: {{ inventory_hostname }}"
+      - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      - "═══════════════════════════════════════════════════════════"
+  tags: [podman_macos, always]
+
+# ========================================
+# Check for Docker Desktop
+# ========================================
+- name: Check if Docker Desktop is installed
+  ansible.builtin.stat:
+    path: /Applications/Docker.app
+  register: docker_desktop_check
+  tags: [podman_macos, check]
+
+- name: Warn if Docker Desktop is present
+  ansible.builtin.debug:
+    msg:
+      - "⚠️  Docker Desktop detected at /Applications/Docker.app"
+      - "Consider removing Docker Desktop after Podman is verified working"
+      - "To remove: Move /Applications/Docker.app to Trash"
+  when: docker_desktop_check.stat.exists
+  tags: [podman_macos, check]
+
+# ========================================
+# Install Podman CLI
+# ========================================
+- name: Install Podman CLI via Homebrew
+  community.general.homebrew:
+    name: podman
+    state: present
+  when: podman_macos_install_method == 'homebrew'
+  tags: [podman_macos, install]
+
+- name: Verify Podman installation
+  ansible.builtin.command: podman --version
+  register: podman_version
+  changed_when: false
+  tags: [podman_macos, verify]
+
+# ========================================
+# Install Podman Desktop GUI
+# ========================================
+- name: Install Podman Desktop via Homebrew Cask
+  community.general.homebrew_cask:
+    name: podman-desktop
+    state: present
+  when: podman_desktop_install | bool
+  tags: [podman_macos, install, gui]
+
+- name: Verify Podman Desktop installation
+  ansible.builtin.stat:
+    path: /Applications/Podman Desktop.app
+  register: podman_desktop_app
+  when: podman_desktop_install | bool
+  tags: [podman_macos, verify]
+
+# ========================================
+# Initialize Podman Machine
+# ========================================
+- name: Check if Podman machine exists
+  ansible.builtin.command: podman machine list --format json
+  register: podman_machine_list
+  changed_when: false
+  failed_when: false
+  tags: [podman_macos, machine]
+
+- name: Initialize Podman machine
+  ansible.builtin.command: >
+    podman machine init
+    --cpus {{ podman_machine_cpus }}
+    --memory {{ podman_machine_memory }}
+    --disk-size {{ podman_machine_disk_size }}
+    {{ '--rootful' if podman_machine_rootful else '' }}
+    {{ podman_machine_name }}
+  when: podman_machine_list.stdout == '[]' or podman_machine_list.stdout == ''
+  register: machine_init
+  changed_when: machine_init.rc == 0
+  tags: [podman_macos, machine]
+
+- name: Start Podman machine
+  ansible.builtin.command: podman machine start {{ podman_machine_name }}
+  register: machine_start
+  changed_when: "'Successfully started' in machine_start.stdout"
+  failed_when: false  # May already be running
+  tags: [podman_macos, machine]
+
+- name: Verify Podman machine is running
+  ansible.builtin.command: podman machine list
+  register: machine_status
+  changed_when: false
+  tags: [podman_macos, verify]
+
+# ========================================
+# Docker CLI Compatibility
+# ========================================
+- name: Create docker CLI alias (zsh)
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'alias docker="podman"'
+    create: true
+    mode: '0644'
+  when: podman_macos_docker_compat | bool
+  tags: [podman_macos, compat]
+
+- name: Create docker-compose CLI alias (zsh)
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.zshrc"
+    line: 'alias docker-compose="podman-compose"'
+    create: true
+    mode: '0644'
+  when: podman_macos_docker_compose_compat | bool
+  tags: [podman_macos, compat]
+
+- name: Install podman-compose via Homebrew
+  community.general.homebrew:
+    name: podman-compose
+    state: present
+  tags: [podman_macos, install]
+
+# ========================================
+# Auto-start Configuration
+# ========================================
+- name: Create LaunchAgent for Podman machine auto-start
+  ansible.builtin.template:
+    src: com.podman.machine.plist.j2
+    dest: "{{ ansible_env.HOME }}/Library/LaunchAgents/com.podman.machine.plist"
+    mode: '0644'
+  when: podman_macos_autostart | bool
+  tags: [podman_macos, autostart]
+
+- name: Load LaunchAgent
+  ansible.builtin.command: launchctl load {{ ansible_env.HOME }}/Library/LaunchAgents/com.podman.machine.plist
+  when: podman_macos_autostart | bool
+  changed_when: false
+  failed_when: false
+  tags: [podman_macos, autostart]
+
+# ========================================
+# Verification
+# ========================================
+- name: Test Podman with hello-world
+  ansible.builtin.command: podman run --rm hello-world
+  register: podman_test
+  changed_when: false
+  failed_when: false
+  tags: [podman_macos, verify]
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN DESKTOP FOR MACOS - INSTALLATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Podman CLI:        {{ podman_version.stdout }}"
+      - "Podman Desktop:    {{ 'Installed' if podman_desktop_app.stat.exists else 'Not installed' }}"
+      - "Podman Machine:    {{ podman_machine_name }}"
+      - "Docker Desktop:    {{ 'Present (consider removing)' if docker_desktop_check.stat.exists else 'Not present' }}"
+      - ""
+      - "Usage:"
+      - "  podman run nginx"
+      - "  docker run nginx  # (alias to podman)"
+      - "  open -a 'Podman Desktop'  # GUI"
+      - ""
+      - "Machine management:"
+      - "  podman machine start"
+      - "  podman machine stop"
+      - "  podman machine list"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [podman_macos, always]
+

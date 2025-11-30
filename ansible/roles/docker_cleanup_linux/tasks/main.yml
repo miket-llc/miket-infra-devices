@@ -1,0 +1,132 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Docker Cleanup Role
+# Removes Docker installations to prevent conflicts with Podman
+
+- name: Check if Docker cleanup is confirmed
+  ansible.builtin.assert:
+    that:
+      - docker_cleanup_confirm | bool
+    fail_msg: "Docker cleanup requires explicit confirmation. Set docker_cleanup_confirm: true"
+    quiet: false
+  tags: [docker_cleanup, safety]
+
+- name: Check if Docker is installed
+  ansible.builtin.command: which docker
+  register: docker_installed
+  changed_when: false
+  failed_when: false
+  tags: [docker_cleanup, check]
+
+- name: Skip if Docker not installed
+  ansible.builtin.debug:
+    msg: "Docker not installed, skipping cleanup"
+  when: docker_installed.rc != 0
+  tags: [docker_cleanup]
+
+- name: Docker cleanup tasks
+  when: docker_installed.rc == 0
+  tags: [docker_cleanup]
+  block:
+    - name: Create backup directory
+      ansible.builtin.file:
+        path: "{{ docker_cleanup_backup_path }}"
+        state: directory
+        mode: '0700'
+      when: docker_cleanup_export_containers | bool
+
+    - name: List running containers
+      ansible.builtin.command: docker ps -q
+      register: running_containers
+      changed_when: false
+      failed_when: false
+
+    - name: Export running containers
+      ansible.builtin.shell: |
+        docker export {{ item }} > {{ docker_cleanup_backup_path }}/container-{{ item }}.tar
+      loop: "{{ running_containers.stdout_lines }}"
+      when:
+        - docker_cleanup_export_containers | bool
+        - running_containers.stdout_lines | length > 0
+
+    - name: Save container metadata
+      ansible.builtin.shell: |
+        docker inspect {{ item }} > {{ docker_cleanup_backup_path }}/container-{{ item }}.json
+      loop: "{{ running_containers.stdout_lines }}"
+      when:
+        - docker_cleanup_export_containers | bool
+        - running_containers.stdout_lines | length > 0
+
+    - name: Stop all running containers
+      ansible.builtin.command: docker stop $(docker ps -q)
+      when: running_containers.stdout_lines | length > 0
+      failed_when: false
+
+    - name: Remove all containers
+      ansible.builtin.command: docker rm -f $(docker ps -a -q)
+      when: docker_cleanup_remove_images | bool
+      failed_when: false
+
+    - name: Remove all images
+      ansible.builtin.command: docker rmi -f $(docker images -q)
+      when: docker_cleanup_remove_images | bool
+      failed_when: false
+
+    - name: Remove all volumes
+      ansible.builtin.command: docker volume rm $(docker volume ls -q)
+      when: docker_cleanup_remove_volumes | bool
+      failed_when: false
+
+    - name: Remove all networks (except defaults)
+      ansible.builtin.command: docker network prune -f
+      when: docker_cleanup_remove_networks | bool
+      failed_when: false
+
+    - name: Stop Docker daemon
+      ansible.builtin.systemd:
+        name: docker
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove Docker packages (RedHat)
+      ansible.builtin.dnf:
+        name: "{{ docker_cleanup_packages_redhat }}"
+        state: absent
+      when: ansible_os_family == "RedHat"
+
+    - name: Remove Docker packages (Debian)
+      ansible.builtin.apt:
+        name: "{{ docker_cleanup_packages_debian }}"
+        state: absent
+        purge: true
+      when: ansible_os_family == "Debian"
+
+    - name: Remove Docker data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/docker
+        - /var/lib/containerd
+        - /etc/docker
+      when: docker_cleanup_remove_images | bool
+
+    - name: Display cleanup summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          DOCKER CLEANUP COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          ✅ Docker removed from {{ inventory_hostname }}
+          
+          {% if docker_cleanup_export_containers %}
+          Backups saved to: {{ docker_cleanup_backup_path }}
+          {% endif %}
+          
+          Next step: Install Podman via podman_standard_linux role
+          
+          ═══════════════════════════════════════════════════════════
+

@@ -2,31 +2,29 @@
 
 ---
 # =============================================================================
-# LINUX WORKSTATION PLAYBOOK
+# LINUX BASELINE PLAYBOOK
 # =============================================================================
 #
-# Configures Linux workstations (hosts with window managers) with:
-# - Common dev tools (git, gh, jq, btop, etc.)
-# - Workstation GUI tools (Cursor, Warp, VS Code)
+# Applies the standard container runtime to all Linux hosts (servers + workstations)
+# This ensures Podman is the standard, Docker CLI compatibility works everywhere
 #
 # USAGE:
-#   Full deployment:
-#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/linux.yml
+#   Apply to all Linux hosts:
+#     ansible-playbook -i inventory/hosts.yml playbooks/linux-baseline.yml
 #
-#   Dev tools only:
-#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/linux.yml --tags dev_tools
+#   Apply Podman standard only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/linux-baseline.yml --tags podman_standard
 #
-#   GUI tools only:
-#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/linux.yml --tags workstation_gui
+#   Apply to specific group:
+#     ansible-playbook -i inventory/hosts.yml playbooks/linux-baseline.yml --limit linux_workstations
 #
-# PREREQUISITES:
-#   - Host must be in linux_workstations group
-#   - Must have a window manager installed
+#   Verify only (no changes):
+#     ansible-playbook -i inventory/hosts.yml playbooks/linux-baseline.yml --tags verify --check
 #
 # =============================================================================
 
-- name: Configure Linux Workstations
-  hosts: linux_workstations
+- name: Apply Linux Baseline Configuration
+  hosts: linux:!motoko
   become: true
   gather_facts: true
 
@@ -35,73 +33,72 @@
       ansible.builtin.debug:
         msg: |
           ═══════════════════════════════════════════════════════════════
-          LINUX WORKSTATION DEPLOYMENT
+          LINUX BASELINE DEPLOYMENT
           ═══════════════════════════════════════════════════════════════
           
           Host:           {{ inventory_hostname }}
           Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
           Kernel:         {{ ansible_kernel }}
           
-          Deployment Phases:
-            1. common_dev_tools       - Baseline dev tooling (git, gh, jq, etc.)
-            2. podman_standard_linux  - Container runtime (Podman + Docker CLI compat)
-            3. workstation_gui_tools  - GUI apps (Cursor, Warp, VS Code)
+          Applying:
+            - Podman as standard container runtime
+            - Docker CLI compatibility
+            - Standard container configurations
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
 
   roles:
     # ========================================
-    # Phase 1: Common Dev Tools
-    # ========================================
-    # Baseline CLI tooling for all nodes
-    - role: common_dev_tools
-      tags: [dev_tools]
-
-    # ========================================
-    # Phase 2: Container Runtime Standard
+    # Container Runtime Standard
     # ========================================
     # Podman with Docker CLI compatibility
+    # Applies to all Linux hosts except motoko (has custom setup)
     - role: podman_standard_linux
       tags: [podman_standard, containers]
 
-    # ========================================
-    # Phase 3: Workstation GUI Tools
-    # ========================================
-    # Cursor, Warp, VS Code - only for GUI-capable hosts
-    - role: workstation_gui_tools
-      tags: [workstation_gui]
-
   post_tasks:
+    - name: Verify Podman installation
+      ansible.builtin.command: podman --version
+      register: podman_version_check
+      changed_when: false
+      failed_when: false
+      tags: [verify]
+
+    - name: Verify Docker CLI compatibility
+      ansible.builtin.command: docker --version
+      register: docker_cli_check
+      changed_when: false
+      failed_when: false
+      tags: [verify]
+
+    - name: Test container run
+      ansible.builtin.command: podman run --rm docker.io/library/alpine:latest echo "Container runtime works"
+      register: container_test
+      changed_when: false
+      failed_when: false
+      tags: [verify]
+
     - name: Display completion summary
       ansible.builtin.debug:
         msg: |
           ═══════════════════════════════════════════════════════════════
-          LINUX WORKSTATION DEPLOYMENT COMPLETE
+          LINUX BASELINE DEPLOYMENT COMPLETE
           ═══════════════════════════════════════════════════════════════
-          
-          ✅ Dev Tools
-             - git, gh, jq, btop, htop, tmux, etc.
           
           ✅ Container Runtime
-             - Podman (primary runtime)
-             - Docker CLI compatibility enabled
-             - podman-compose installed
+             Podman:     {{ podman_version_check.stdout | default('Not installed') }}
+             Docker CLI: {{ 'Working ✓' if docker_cli_check.rc == 0 else 'Not configured ✗' }}
           
-          ✅ GUI Tools
-             - VS Code: {{ 'installed' if vscode_enabled else 'skipped' }}
-             - Cursor:  {{ 'installed' if cursor_enabled else 'skipped' }}
-             - Warp:    {{ 'installed' if warp_enabled else 'skipped' }}
+          ✅ Container Test
+             Result:     {{ 'Passed ✓' if container_test.rc == 0 else 'Failed ✗' }}
           
-          Launch apps from applications menu or:
-            code .
-            cursor .
-            warp
+          Usage:
+            docker ps
+            docker run nginx:alpine
+            podman-compose up -d
           
+          Documentation: docs/CONTAINERS_RUNTIME_STANDARD.md
           ═══════════════════════════════════════════════════════════════
       tags: [always]
-
-
-
-
 

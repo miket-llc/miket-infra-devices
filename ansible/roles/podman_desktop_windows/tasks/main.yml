@@ -1,0 +1,162 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Desktop Windows Role
+# Installs Podman Desktop on Windows (uses WSL2)
+
+- name: Validate running on Windows
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == 'Windows'
+    fail_msg: "This role is designed for Windows systems only"
+    quiet: true
+  tags: [podman_windows, validate]
+
+- name: Display Podman Windows installation banner
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN DESKTOP FOR WINDOWS - Container Runtime"
+      - "═══════════════════════════════════════════════════════════"
+      - "Host: {{ inventory_hostname }}"
+      - "OS: Windows"
+      - "Method: Podman Desktop + WSL2"
+      - "═══════════════════════════════════════════════════════════"
+  tags: [podman_windows, always]
+
+# ========================================
+# Check Prerequisites
+# ========================================
+- name: Check if WSL2 is installed
+  ansible.windows.win_shell: wsl --status
+  register: wsl_check
+  changed_when: false
+  failed_when: false
+  tags: [podman_windows, check]
+
+- name: Warn if WSL2 not installed
+  ansible.builtin.debug:
+    msg:
+      - "⚠️  WSL2 does not appear to be installed"
+      - "Podman on Windows requires WSL2"
+      - "Install with: wsl --install"
+      - "This role will attempt to enable it"
+  when: wsl_check.rc != 0
+  tags: [podman_windows, check]
+
+- name: Enable WSL2 (if not present)
+  ansible.windows.win_shell: wsl --install --no-distribution
+  when:
+    - podman_windows_ensure_wsl | bool
+    - wsl_check.rc != 0
+  register: wsl_install
+  tags: [podman_windows, wsl]
+
+- name: Check for Docker Desktop
+  ansible.windows.win_stat:
+    path: 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+  register: docker_desktop_check
+  tags: [podman_windows, check]
+
+- name: Warn if Docker Desktop is present
+  ansible.builtin.debug:
+    msg:
+      - "⚠️  Docker Desktop detected"
+      - "Consider uninstalling Docker Desktop after Podman is verified"
+      - "Podman and Docker Desktop can coexist but may conflict"
+  when: docker_desktop_check.stat.exists
+  tags: [podman_windows, check]
+
+# ========================================
+# Install Podman Desktop
+# ========================================
+- name: Create temp directory
+  ansible.windows.win_tempfile:
+    state: directory
+  register: temp_dir
+  tags: [podman_windows, install]
+
+- name: Download Podman Desktop installer
+  ansible.windows.win_get_url:
+    url: "{{ podman_desktop_download_url }}"
+    dest: "{{ temp_dir.path }}\\podman-desktop-setup.exe"
+  register: podman_download
+  tags: [podman_windows, install]
+
+- name: Install Podman Desktop
+  ansible.windows.win_package:
+    path: "{{ podman_download.dest }}"
+    arguments: /S  # Silent install
+    state: present
+  register: podman_install
+  tags: [podman_windows, install]
+
+- name: Clean up installer
+  ansible.windows.win_file:
+    path: "{{ temp_dir.path }}"
+    state: absent
+  tags: [podman_windows, cleanup]
+
+# ========================================
+# Initialize Podman
+# ========================================
+- name: Initialize Podman machine
+  ansible.windows.win_shell: |
+    podman machine init `
+      --cpus {{ podman_machine_cpus }} `
+      --memory {{ podman_machine_memory }} `
+      --disk-size {{ podman_machine_disk_size }}
+  register: machine_init
+  changed_when: "'Successfully' in machine_init.stdout"
+  failed_when: false  # May already exist
+  tags: [podman_windows, machine]
+
+- name: Start Podman machine
+  ansible.windows.win_shell: podman machine start
+  register: machine_start
+  changed_when: "'Successfully started' in machine_start.stdout"
+  failed_when: false  # May already be running
+  tags: [podman_windows, machine]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify Podman installation
+  ansible.windows.win_shell: podman --version
+  register: podman_version
+  changed_when: false
+  tags: [podman_windows, verify]
+
+- name: Test Podman with hello-world
+  ansible.windows.win_shell: podman run --rm hello-world
+  register: podman_test
+  changed_when: false
+  failed_when: false
+  tags: [podman_windows, verify]
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN DESKTOP FOR WINDOWS - INSTALLATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Podman Version:    {{ podman_version.stdout | trim }}"
+      - "WSL2 Required:     Yes (installed)"
+      - "Docker Desktop:    {{ 'Present (consider removing)' if docker_desktop_check.stat.exists else 'Not present' }}"
+      - ""
+      - "Usage (PowerShell or CMD):"
+      - "  podman run nginx"
+      - "  podman ps"
+      - "  podman-compose up -d"
+      - ""
+      - "GUI: Launch Podman Desktop from Start Menu"
+      - ""
+      - "Machine management:"
+      - "  podman machine start"
+      - "  podman machine stop"
+      - "  podman machine list"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [podman_windows, always]
+
