@@ -46,11 +46,42 @@ make deploy-ssh-config
 cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ssh-config.yml -l count-zero
 ```
 
-The role deploys a standardized config from `ansible/roles/ssh_client_config/templates/ssh_config.j2` which includes:
-- Correct user mappings per device type
+### Safe Design (Include-based)
+
+The role uses SSH's `Include` directive for safe, non-destructive deployment:
+
+```
+~/.ssh/
+├── config              # Your existing config (NEVER touched except to add Include)
+└── config.d/
+    └── miket-infra.conf   # Our managed config (safe to delete)
+```
+
+**How it works:**
+1. Creates `~/.ssh/config.d/` directory
+2. Adds `Include config.d/*` to top of your config (only if not present)
+3. Deploys our config to `config.d/miket-infra.conf`
+
+**Your existing SSH config entries are preserved.**
+
+### Removing the Config
+
+To remove our managed SSH config:
+
+```bash
+# Just delete the managed file
+rm ~/.ssh/config.d/miket-infra.conf
+
+# The Include directive can stay (it ignores missing files)
+```
+
+### What's Included
+
+The managed config provides:
+- Correct user mappings per device type (mdt for Linux/Windows, miket for macOS)
 - 1Password SSH agent configuration on macOS
-- Tailscale hostnames
-- Fallback for Tailscale IPs
+- Tailscale hostnames and FQDN aliases
+- Fallback for direct Tailscale IP access
 
 ## Tailscale SSH Usage
 

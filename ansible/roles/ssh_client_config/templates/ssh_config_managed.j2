@@ -1,22 +1,31 @@
 # {{ ansible_managed }}
-# SSH Client Configuration for Tailscale Mesh
-# Deployed via Ansible role: ssh_client_config
-# See: docs/runbooks/ssh-user-mapping.md
+# miket-infra-devices SSH Configuration
+# Location: ~/.ssh/config.d/miket-infra.conf
+#
+# MANAGED BY ANSIBLE - Do not edit manually
+# To customize: add entries to ~/.ssh/config (they take precedence)
+# To remove: delete this file
+#
+# Deployed via: make deploy-ssh-config
+# Role: ansible/roles/ssh_client_config
+# Docs: docs/runbooks/ssh-user-mapping.md
 
 # ============================================================================
-# Global Defaults
+# Global Defaults for Tailscale Mesh
 # ============================================================================
-Host *
+Host *.{{ tailnet_domain }}
     StrictHostKeyChecking {{ ssh_strict_host_key_checking }}
-    ForwardAgent {{ 'yes' if ssh_forward_agent else 'no' }}
     ServerAliveInterval 60
     ServerAliveCountMax 3
+{% if ssh_forward_agent %}
+    ForwardAgent yes
+{% endif %}
 
 {% if ansible_system == 'Darwin' %}
 # ============================================================================
-# 1Password SSH Agent (macOS)
+# 1Password SSH Agent (macOS only)
 # ============================================================================
-Host *
+Host *.{{ tailnet_domain }} 100.*
     IdentityAgent "{{ onepassword_agent_sock }}"
 
 {% endif %}
@@ -39,7 +48,7 @@ Host {{ host }} {{ host }}.{{ tailnet_domain }}
 
 {% endfor %}
 # ============================================================================
-# Windows Devices - SSH available but WinRM preferred
+# Windows Devices - SSH available but WinRM preferred for Ansible
 # ============================================================================
 {% for host in ssh_user_mapping.windows_hosts %}
 Host {{ host }} {{ host }}.{{ tailnet_domain }}

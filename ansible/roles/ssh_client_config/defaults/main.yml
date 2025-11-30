@@ -25,12 +25,11 @@ ssh_user_mapping:
     - count-zero
   macos_user: miket
 
-# SSH config location (platform-specific, overridden in vars/)
+# SSH config location
 ssh_config_dir: "{{ ansible_env.HOME }}/.ssh"
 ssh_config_file: "{{ ssh_config_dir }}/config"
-
-# Backup existing config before overwriting
-backup_existing_config: true
+# Managed config goes in config.d/ subdirectory
+ssh_managed_config: "{{ ssh_config_dir }}/config.d/miket-infra.conf"
 
 # SSH options
 ssh_strict_host_key_checking: "accept-new"

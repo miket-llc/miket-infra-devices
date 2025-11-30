@@ -3,15 +3,15 @@
 # SSH Client Configuration Role
 # Deploys standardized SSH config for Tailscale mesh connectivity
 #
+# SAFE DESIGN: Uses SSH Include directive
+#   - Creates ~/.ssh/config.d/miket-infra.conf (our managed file)
+#   - Adds Include to user's config (if not present)
+#   - NEVER overwrites user's existing SSH config entries
+#   - Easy to remove: just delete miket-infra.conf
+#
 # Usage in playbook:
 #   roles:
 #     - role: ssh_client_config
-#
-# This role:
-#   1. Creates ~/.ssh directory with correct permissions
-#   2. Backs up existing SSH config (if any)
-#   3. Deploys standardized SSH config from template
-#   4. Sets correct file permissions
 
 ---
 - name: Ensure SSH directory exists
@@ -21,32 +21,53 @@
     mode: '0700'
     owner: "{{ ansible_user_id }}"
 
+- name: Ensure SSH config.d directory exists
+  ansible.builtin.file:
+    path: "{{ ssh_config_dir }}/config.d"
+    state: directory
+    mode: '0700'
+    owner: "{{ ansible_user_id }}"
+
 - name: Check for existing SSH config
   ansible.builtin.stat:
     path: "{{ ssh_config_file }}"
   register: existing_ssh_config
 
-- name: Backup existing SSH config
-  ansible.builtin.copy:
-    src: "{{ ssh_config_file }}"
-    dest: "{{ ssh_config_file }}.backup-{{ ansible_date_time.iso8601_basic_short }}"
-    remote_src: true
-    mode: '0600'
-  when:
-    - existing_ssh_config.stat.exists
-    - backup_existing_config | bool
-
-- name: Deploy standardized SSH config
-  ansible.builtin.template:
-    src: ssh_config.j2
-    dest: "{{ ssh_config_file }}"
+- name: Create SSH config if it doesn't exist
+  ansible.builtin.file:
+    path: "{{ ssh_config_file }}"
+    state: touch
     mode: '0600'
     owner: "{{ ansible_user_id }}"
-    backup: false
+  when: not existing_ssh_config.stat.exists
+
+- name: Check if Include directive already present
+  ansible.builtin.command:
+    cmd: grep -q "^Include config.d/\*" "{{ ssh_config_file }}"
+  register: include_check
+  changed_when: false
+  failed_when: false
+
+- name: Add Include directive to SSH config (top of file)
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_config_file }}"
+    line: "Include config.d/*"
+    insertbefore: BOF
+    state: present
+  when: include_check.rc != 0
+
+- name: Deploy miket-infra SSH config
+  ansible.builtin.template:
+    src: ssh_config_managed.j2
+    dest: "{{ ssh_config_dir }}/config.d/miket-infra.conf"
+    mode: '0600'
+    owner: "{{ ansible_user_id }}"
   register: ssh_config_deployed
 
-- name: Display SSH config deployment status
+- name: Display deployment status
   ansible.builtin.debug:
-    msg: "SSH config deployed to {{ ssh_config_file }}"
+    msg: |
+      SSH config deployed:
+        Managed file: {{ ssh_config_dir }}/config.d/miket-infra.conf
+        To remove: delete the file above (user's config.d/* Include will ignore missing files)
   when: ssh_config_deployed.changed
-
