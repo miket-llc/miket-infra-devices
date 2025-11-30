@@ -33,10 +33,10 @@ nextcloud_log_path: /space/_ops/logs/nextcloud
 # M365 ingestion target (one-way sync FROM M365)
 nextcloud_m365_inbox: /space/mike/inbox/ms365
 
-# Container images
-nextcloud_image: nextcloud:29-apache
-nextcloud_postgres_image: postgres:16-alpine
-nextcloud_redis_image: redis:7-alpine
+# Container images (fully qualified for podman)
+nextcloud_image: docker.io/library/nextcloud:29-apache
+nextcloud_postgres_image: docker.io/library/postgres:16-alpine
+nextcloud_redis_image: docker.io/library/redis:7-alpine
 
 # Network / Ports
 nextcloud_port: 8080
@@ -114,7 +114,8 @@ nextcloud_php_memory_limit: 512M
 nextcloud_php_upload_max: 16G
 nextcloud_php_post_max: 16G
 
-# Home sweeper configuration (pure façade enforcement)
+# Pure façade configuration
+nextcloud_skeleton_directory: ""  # Empty = no skeleton files for new users
 nextcloud_home_sweeper_enabled: true
 nextcloud_home_sweeper_quarantine: /space/_ops/nextcloud-quarantine
 

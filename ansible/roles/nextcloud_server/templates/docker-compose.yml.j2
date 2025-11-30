@@ -11,7 +11,7 @@ services:
     environment:
       POSTGRES_DB: {{ nextcloud_db_name }}
     volumes:
-      - {{ nextcloud_db_path }}:/var/lib/postgresql/data
+      - {{ nextcloud_db_path }}:/var/lib/postgresql/data:Z
     networks:
       - nextcloud-net
     healthcheck:
@@ -71,15 +71,15 @@ services:
       
     volumes:
       # Nextcloud data (app data, not user files)
-      - {{ nextcloud_data_path }}:/var/www/html
+      - {{ nextcloud_data_path }}:/var/www/html:Z
       
       # External storage mounts (read/write to /space/mike)
 {% for mount in nextcloud_external_mounts %}
-      - {{ mount.path }}:/external/{{ mount.name }}:rw
+      - {{ mount.path }}:/external/{{ mount.name }}:z
 {% endfor %}
       
       # Logs
-      - {{ nextcloud_log_path }}:/var/log/nextcloud
+      - {{ nextcloud_log_path }}:/var/log/nextcloud:Z
       
     ports:
       - "{{ nextcloud_port }}:80"
