@@ -1,0 +1,58 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Common Dev Tools Role
+# Installs baseline development tooling on all nodes
+# OS-aware: Linux (Fedora/Ubuntu) and Windows
+
+- name: Skip common dev tools if disabled
+  ansible.builtin.debug:
+    msg: "Common dev tools role disabled (common_dev_tools_enabled={{ common_dev_tools_enabled }})"
+  when: not common_dev_tools_enabled | bool
+  tags: [dev_tools, skip]
+
+- name: Common dev tools installation
+  when: common_dev_tools_enabled | bool
+  block:
+    # ========================================
+    # Linux Installation (Fedora/RHEL/Ubuntu)
+    # ========================================
+    - name: Include Linux tasks
+      ansible.builtin.include_tasks: linux.yml
+      when: ansible_os_family in ['RedHat', 'Debian']
+      tags: [dev_tools, linux]
+
+    # ========================================
+    # Windows Installation
+    # ========================================
+    - name: Include Windows tasks
+      ansible.builtin.include_tasks: windows.yml
+      when: ansible_os_family == 'Windows'
+      tags: [dev_tools, windows]
+
+    # ========================================
+    # macOS Installation (future)
+    # ========================================
+    - name: Include macOS tasks
+      ansible.builtin.include_tasks: macos.yml
+      when: ansible_os_family == 'Darwin'
+      tags: [dev_tools, macos]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Display common dev tools summary
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "COMMON DEV TOOLS INSTALLED"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "OS Family: {{ ansible_os_family }}"
+          - "GitHub CLI (gh): {{ 'installed' if common_dev_tools_install_gh else 'skipped' }}"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [dev_tools]
+
+
+

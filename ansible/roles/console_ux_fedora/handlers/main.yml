@@ -1,0 +1,21 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for console_ux_fedora role
+
+- name: rebuild grub config
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  listen: "update grub"
+
+- name: rebuild grub config efi
+  ansible.builtin.command: grub2-mkconfig -o /boot/efi/EFI/fedora/grub.cfg
+  listen: "update grub"
+  failed_when: false
+
+- name: apply console font
+  ansible.builtin.command: setfont {{ console_font_name }}
+  failed_when: false
+
+
+
+

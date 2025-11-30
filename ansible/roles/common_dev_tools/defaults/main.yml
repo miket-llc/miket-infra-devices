@@ -1,0 +1,116 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Common Dev Tools Role Defaults
+# Baseline development tooling for all nodes (servers + workstations)
+# OS-aware: supports Linux (Fedora/Ubuntu) and Windows
+
+# Master toggle
+common_dev_tools_enabled: true
+
+# ========================================
+# Linux Packages (Fedora/RHEL/Ubuntu)
+# ========================================
+common_dev_tools_linux_packages:
+  - git
+  - curl
+  - wget
+  - jq
+  - htop
+  - btop
+  - tmux
+  - vim
+  - rsync
+  - lsof
+  - net-tools
+  - bash-completion
+  - unzip
+  - tar
+  - tree
+  - python3
+  - python3-pip
+  - nodejs
+  - npm
+
+# GitHub CLI (gh) - installed from official repo
+common_dev_tools_install_gh: true
+
+# Azure CLI (az) - installed from Microsoft repo
+common_dev_tools_install_az: true
+
+# Ansible (for control nodes like motoko)
+common_dev_tools_install_ansible: false  # Only on control nodes
+
+# pywinrm (for Ansible control nodes managing Windows)
+common_dev_tools_install_pywinrm: false  # Only on control nodes
+
+# ========================================
+# AI/LLM CLIs (pip-installed)
+# ========================================
+# Shell-GPT (ChatGPT CLI) - sgpt command
+common_dev_tools_install_shell_gpt: false
+
+# OpenAI Python library
+common_dev_tools_install_openai_cli: false
+
+# Anthropic Claude Python library
+common_dev_tools_install_claude_cli: false
+
+# Aider (AI pair programming)
+common_dev_tools_install_aider: false
+
+# ========================================
+# Windows Packages (via Chocolatey)
+# ========================================
+common_dev_tools_windows_packages:
+  - git
+  - curl
+  - wget
+  - jq
+  - vim
+  - unzip
+  - 7zip
+  - python3
+  - nodejs
+
+# GitHub CLI for Windows
+common_dev_tools_windows_gh: true
+
+# Azure CLI for Windows
+common_dev_tools_windows_az: true
+
+# AI CLIs for Windows (via pip)
+common_dev_tools_windows_shell_gpt: false
+common_dev_tools_windows_openai_cli: false
+common_dev_tools_windows_aider: false
+
+# ========================================
+# Git Configuration (optional)
+# ========================================
+# Set to true to configure git globally
+# User-specific values should be in host_vars or group_vars
+common_dev_tools_configure_git: false
+
+# Do NOT hardcode these - set per-host if needed
+# common_dev_tools_git_user_name: ""
+# common_dev_tools_git_user_email: ""
+
+# Default git settings (safe to apply globally)
+common_dev_tools_git_config:
+  - { key: "core.autocrlf", value: "input" }
+  - { key: "init.defaultBranch", value: "main" }
+  - { key: "pull.rebase", value: "false" }
+
+# ========================================
+# SSH Configuration
+# ========================================
+# Configure SSH for Tailscale tailnet participation
+common_dev_tools_configure_ssh: true
+
+# Tailnet domain for SSH config
+tailnet_domain: "pangolin-vega.ts.net"
+
+# Generate SSH key if missing
+common_dev_tools_generate_ssh_key: true
+common_dev_tools_ssh_key_type: ed25519
+

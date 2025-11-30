@@ -1,9 +1,22 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Fedora 43 Base Configuration for Motoko
-# Configures fresh Fedora installation with PHC services
-# Usage: ansible-playbook -i inventory/hosts.yml playbooks/motoko/fedora-base.yml --limit motoko --connection=local
+# =============================================================================
+# FEDORA BASE CONFIGURATION (LEGACY)
+# =============================================================================
+#
+# NOTE: This playbook is LEGACY. For new deployments, use:
+#   ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml
+#
+# The site.yml playbook uses modular roles:
+#   - common_dev_tools      (baseline dev tooling)
+#   - fedora_headless_base  (headless configuration)
+#   - nvidia_gpu_fedora     (GPU drivers)
+#   - podman_base           (containers)
+#   - etc.
+#
+# This playbook is kept for reference and specific legacy tasks.
+# =============================================================================
 
 - name: Configure Fedora 43 Base System on Motoko
   hosts: motoko
@@ -31,23 +44,22 @@
       ansible.builtin.debug:
         msg: |
           ═══════════════════════════════════════════════════════════
-          MOTOKO FEDORA 43 BASE CONFIGURATION
+          MOTOKO FEDORA 43 BASE CONFIGURATION (LEGACY)
           ═══════════════════════════════════════════════════════════
+          
+          ⚠️  NOTE: Consider using playbooks/motoko/site.yml instead
           
           Host:           {{ inventory_hostname }}
           Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
           Kernel:         {{ ansible_kernel }}
           Architecture:   {{ ansible_architecture }}
           
-          Configuration:
-          - NVIDIA drivers (RTX 2080)
-          - Docker + NVIDIA container toolkit
-          - PHC storage mounts (/space, /flux, /time)
-          - Tailscale
-          - Samba, NoMachine, fail2ban
-          - Firewalld (not ufw)
-          
           ═══════════════════════════════════════════════════════════
+
+  roles:
+    # Use the common_dev_tools role instead of inline package lists
+    - role: common_dev_tools
+      tags: [dev_tools, base]
 
   tasks:
     # ========================================
@@ -65,19 +77,7 @@
           notify: restart gdm
           when: ansible_facts.packages['gdm'] is defined
 
-        - name: Install essential system packages
-          ansible.builtin.dnf:
-            name:
-              - vim
-              - git
-              - curl
-              - wget
-              - htop
-              - tmux
-              - rsync
-              - lsof
-              - net-tools
-            state: present
+        # NOTE: Essential packages now handled by common_dev_tools role
 
         - name: Configure firewalld (replace ufw)
           ansible.builtin.dnf:

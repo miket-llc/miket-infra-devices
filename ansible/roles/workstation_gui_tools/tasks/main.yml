@@ -1,0 +1,62 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Workstation GUI Tools Role
+# Installs Cursor, Warp, and VS Code on workstation clients
+#
+# SCOPE: Only for hosts with window managers (desktops/workstations)
+# This role should NEVER run on headless servers
+
+- name: Skip workstation GUI tools if disabled
+  ansible.builtin.debug:
+    msg: "Workstation GUI tools role disabled (workstation_gui_tools_enabled={{ workstation_gui_tools_enabled }})"
+  when: not workstation_gui_tools_enabled | bool
+  tags: [workstation_gui, skip]
+
+- name: Workstation GUI tools installation
+  when: workstation_gui_tools_enabled | bool
+  block:
+    # ========================================
+    # Linux Workstation Installation
+    # ========================================
+    - name: Include Linux workstation tasks
+      ansible.builtin.include_tasks: linux.yml
+      when: ansible_os_family in ['RedHat', 'Debian']
+      tags: [workstation_gui, linux]
+
+    # ========================================
+    # Windows Workstation Installation
+    # ========================================
+    - name: Include Windows workstation tasks
+      ansible.builtin.include_tasks: windows.yml
+      when: ansible_os_family == 'Windows'
+      tags: [workstation_gui, windows]
+
+    # ========================================
+    # macOS Workstation Installation
+    # ========================================
+    - name: Include macOS workstation tasks
+      ansible.builtin.include_tasks: macos.yml
+      when: ansible_os_family == 'Darwin'
+      tags: [workstation_gui, macos]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Display workstation GUI tools summary
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "WORKSTATION GUI TOOLS INSTALLED"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "OS Family: {{ ansible_os_family }}"
+          - "VS Code:   {{ 'installed' if vscode_enabled else 'skipped' }}"
+          - "Cursor:    {{ 'installed' if cursor_enabled else 'skipped' }}"
+          - "Warp:      {{ 'installed' if warp_enabled else 'skipped' }}"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [workstation_gui]
+
+
+

@@ -43,11 +43,12 @@ Device-level configuration management for MikeT LLC infrastructure, coordinating
 ## Device Inventory
 
 ### Linux Servers
-- **motoko** - Ubuntu 24.04.2 LTS Server
+- **motoko** - Fedora Server (Headless)
   - NVIDIA GeForce RTX 2080 GPU
-  - Docker host with NVIDIA runtime
-  - Primary services: Docker containers, Samba, AFP, text-generation-webui
-  - Location: `/mnt/lacie` backup storage, `/mnt/data/docker` Docker root
+  - Podman container host with NVIDIA Container Toolkit
+  - PHC storage: `/space` (SoR), `/flux` (runtime), `/time` (backups)
+  - Primary services: LiteLLM, vLLM, containerized AI/ML workloads
+  - Access: Tailscale SSH only (headless, lid-closed operation)
 
 ### Windows Workstations  
 - **wintermute** - Windows Workstation
@@ -799,7 +800,7 @@ Profiles include: `motoko.nxs`, `wintermute.nxs`, `armitage.nxs`
 
 | Host | Protocol | Port | MagicDNS Hostname | OS | Notes |
 |------|----------|------|-------------------|----|-------|
-| motoko | NoMachine | 4000 | `motoko.pangolin-vega.ts.net:4000` | Linux (Fedora 43) | Session sharing supported |
+| motoko | NoMachine | 4000 | `motoko.pangolin-vega.ts.net:4000` | Fedora Server (Headless) | Session sharing, X11/NVIDIA |
 | wintermute | NoMachine | 4000 | `wintermute.pangolin-vega.ts.net:4000` | Windows | Session sharing supported |
 | armitage | NoMachine | 4000 | `armitage.pangolin-vega.ts.net:4000` | Windows | Session sharing supported |
 

@@ -1,0 +1,89 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# MACOS WORKSTATION PLAYBOOK
+# =============================================================================
+#
+# Configures macOS workstations (count-zero) with:
+# - Common dev tools (git, gh, jq, btop, etc.)
+# - Workstation GUI tools (Cursor, Warp, VS Code)
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/macos.yml
+#
+#   Dev tools only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/macos.yml --tags dev_tools
+#
+#   GUI tools only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/macos.yml --tags workstation_gui
+#
+# PREREQUISITES:
+#   - Homebrew must be installed
+#   - Host must be in macos_workstations group
+#
+# =============================================================================
+
+- name: Configure macOS Workstations
+  hosts: macos_workstations
+  become: false
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          MACOS WORKSTATION DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          OS:             {{ ansible_distribution }} {{ ansible_distribution_version }}
+          
+          Deployment Phases:
+            1. common_dev_tools      - Baseline dev tooling (git, gh, jq, etc.)
+            2. workstation_gui_tools - GUI apps (Cursor, Warp, VS Code)
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Common Dev Tools
+    # ========================================
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+    # ========================================
+    # Phase 2: Workstation GUI Tools
+    # ========================================
+    - role: workstation_gui_tools
+      tags: [workstation_gui]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          MACOS WORKSTATION DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Dev Tools
+             - git, gh, jq, btop, htop, tmux, etc.
+          
+          ✅ GUI Tools (via Homebrew Cask)
+             - VS Code:  installed in /Applications
+             - Cursor:   installed in /Applications
+             - Warp:     installed in /Applications
+          
+          Launch apps from Spotlight or:
+            code .
+            cursor .
+            open -a Warp
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+
+

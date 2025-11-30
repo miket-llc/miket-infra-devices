@@ -1,0 +1,175 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Console UX Role for Fedora
+# Improves Linux virtual console (TTY) experience:
+# - Better font with Unicode/box-drawing support for TUIs
+# - Visible boot text instead of silent splash
+# - Ensures getty login prompt on console
+#
+# SCOPE: Applies only when console_ux_enabled is true
+# TARGET: Fedora systems with occasional local monitor access
+
+- name: Skip console UX if not enabled
+  ansible.builtin.debug:
+    msg: "Console UX role disabled (console_ux_enabled={{ console_ux_enabled }})"
+  when: not console_ux_enabled | bool
+  tags: [console, skip]
+
+- name: Console UX configuration block
+  when: console_ux_enabled | bool
+  block:
+    - name: Check if running on Fedora
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+        fail_msg: "This role is designed for Fedora systems"
+        quiet: true
+      tags: [console, validate]
+
+    # ========================================
+    # Console Font Configuration
+    # ========================================
+    - name: Install console font packages
+      ansible.builtin.dnf:
+        name: "{{ console_font_packages }}"
+        state: present
+      when: console_font_enabled | bool
+      tags: [console, font]
+
+    - name: Configure vconsole.conf
+      ansible.builtin.template:
+        src: vconsole.conf.j2
+        dest: /etc/vconsole.conf
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+      when: console_font_enabled | bool
+      notify: apply console font
+      tags: [console, font]
+
+    # ========================================
+    # Verbose Boot Configuration
+    # ========================================
+    - name: Read current GRUB configuration
+      ansible.builtin.slurp:
+        src: /etc/default/grub
+      register: grub_current
+      when: console_verbose_boot_enabled | bool
+      tags: [console, boot]
+
+    - name: Parse current GRUB_CMDLINE_LINUX
+      ansible.builtin.set_fact:
+        grub_cmdline_current: "{{ (grub_current.content | b64decode) | regex_search('GRUB_CMDLINE_LINUX=\"([^\"]+)\"', '\\1') | first | default('') }}"
+      when: console_verbose_boot_enabled | bool
+      tags: [console, boot]
+
+    - name: Build new GRUB_CMDLINE_LINUX (remove rhgb/quiet)
+      ansible.builtin.set_fact:
+        grub_cmdline_new: "{{ grub_cmdline_current.split() | reject('in', console_grub_params_remove) | list | join(' ') }}"
+      when: console_verbose_boot_enabled | bool
+      tags: [console, boot]
+
+    - name: Update GRUB_CMDLINE_LINUX for verbose boot
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="{{ grub_cmdline_new }}"'
+        backup: yes
+      when:
+        - console_verbose_boot_enabled | bool
+        - grub_cmdline_current != grub_cmdline_new
+      notify: update grub
+      register: grub_updated
+      tags: [console, boot]
+
+    - name: Display GRUB change
+      ansible.builtin.debug:
+        msg:
+          - "GRUB_CMDLINE_LINUX updated:"
+          - "  Before: {{ grub_cmdline_current }}"
+          - "  After:  {{ grub_cmdline_new }}"
+      when:
+        - console_verbose_boot_enabled | bool
+        - grub_updated.changed | default(false)
+      tags: [console, boot]
+
+    # ========================================
+    # Getty / TTY Configuration
+    # ========================================
+    - name: Ensure getty is enabled on primary TTY
+      ansible.builtin.systemd:
+        name: "getty@{{ console_primary_tty }}.service"
+        enabled: true
+        state: started
+      when: console_getty_enabled | bool
+      tags: [console, getty]
+
+    # ========================================
+    # Verification
+    # ========================================
+    - name: Check for font file (.psf.gz extension)
+      ansible.builtin.stat:
+        path: "/usr/lib/kbd/consolefonts/{{ console_font_name }}.psf.gz"
+      register: font_file_psf
+      when: console_font_enabled | bool
+      tags: [console, verify]
+
+    - name: Check for font file (.psfu.gz extension)
+      ansible.builtin.stat:
+        path: "/usr/lib/kbd/consolefonts/{{ console_font_name }}.psfu.gz"
+      register: font_file_psfu
+      when: console_font_enabled | bool
+      tags: [console, verify]
+
+    - name: Set font availability fact
+      ansible.builtin.set_fact:
+        console_font_available: "{{ (font_file_psf.stat.exists | default(false)) or (font_file_psfu.stat.exists | default(false)) }}"
+      when: console_font_enabled | bool
+      tags: [console, verify]
+
+    - name: Warn if font file not found
+      ansible.builtin.debug:
+        msg: "⚠️  Font {{ console_font_name }} not found. Check console_font_packages."
+      when:
+        - console_font_enabled | bool
+        - not console_font_available | default(false)
+      tags: [console, verify]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Display console UX configuration summary
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "CONSOLE UX CONFIGURATION COMPLETE"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "Font Configuration:"
+          - "  ✓ Font: {{ console_font_name }}"
+          - "  ✓ Keymap: {{ console_keymap }}"
+          - "  ✓ Packages: {{ console_font_packages | join(', ') }}"
+          - ""
+          - "Boot Configuration:"
+          - "  ✓ Verbose boot: {{ 'enabled' if console_verbose_boot_enabled else 'disabled' }}"
+          - "  ✓ Removed params: {{ console_grub_params_remove | join(', ') }}"
+          - ""
+          - "Getty Configuration:"
+          - "  ✓ Primary TTY: {{ console_primary_tty }}"
+          - ""
+          - "TUI Rendering (btop, htop, etc.):"
+          - "  - TERM=linux on virtual console"
+          - "  - Terminus font has proper box-drawing glyphs"
+          - "  - UTF-8 locale required (check LANG/LC_ALL)"
+          - ""
+          - "To test immediately (on local console):"
+          - "  setfont {{ console_font_name }}"
+          - "  btop"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [console]
+
+  # End of console_ux_enabled block
+

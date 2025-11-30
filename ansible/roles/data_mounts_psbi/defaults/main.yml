@@ -1,0 +1,52 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# PHC/PSBI Data Mounts Role Defaults
+# Manages /space, /flux, /time mountpoints per PHC invariants
+#
+# PHC Storage Model:
+#   /space - System of Record (SoR), persistent data
+#   /flux  - Runtime/volatile data, caches, working files
+#   /time  - Time Machine backups (often read-only)
+
+# Mount definitions (override in host_vars with actual UUIDs)
+# Each mount requires: path, uuid, fstype, opts
+psbi_mounts:
+  - path: /space
+    uuid: ""  # Set in host_vars: blkid -o value -s UUID /dev/sdXY
+    fstype: ext4
+    opts: defaults,noatime
+    enabled: true
+    
+  - path: /flux
+    uuid: ""  # Set in host_vars
+    fstype: ext4
+    opts: defaults,noatime
+    enabled: true
+    
+  - path: /time
+    uuid: ""  # Set in host_vars (may be APFS or HFS+ from macOS)
+    fstype: auto
+    opts: ro,noatime
+    enabled: true
+
+# Ownership for mount points (applied after mount)
+psbi_mount_owner: mdt
+psbi_mount_group: mdt
+psbi_mount_mode: "0755"
+
+# Whether to create mountpoint directories
+psbi_create_mountpoints: true
+
+# Whether to run mount -a after fstab changes
+psbi_run_mount_all: true
+
+# Skip mounts that aren't configured (empty UUID)
+psbi_skip_unconfigured: true
+
+# Fail if configured mount can't be mounted
+psbi_fail_on_mount_error: false
+
+
+
+

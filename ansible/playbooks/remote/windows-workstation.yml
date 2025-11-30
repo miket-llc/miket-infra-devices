@@ -1,18 +1,68 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Ansible playbook for managing Windows workstations (Armitage, Wintermute)
-# Run from Linux control node (motoko) with: ansible-playbook -i inventory/hosts.yml playbooks/remote/windows-workstation.yml --limit windows_workstations --ask-vault-pass
+# =============================================================================
+# WINDOWS WORKSTATION PLAYBOOK
+# =============================================================================
+#
+# Configures Windows workstations (Armitage, Wintermute) with:
+# - Common dev tools (git, gh, jq, etc.)
+# - Workstation GUI tools (Cursor, VS Code, Windows Terminal)
+# - NVIDIA/CUDA, Docker, WSL2, etc.
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/remote/windows-workstation.yml
+#
+#   Dev tools only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/remote/windows-workstation.yml --tags dev_tools
+#
+#   GUI tools only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/remote/windows-workstation.yml --tags workstation_gui
+#
+# =============================================================================
 
 - name: Configure Windows Workstations
-  hosts: windows
+  hosts: windows_workstations
   gather_facts: true
-  vars:
-    ansible_password: >-
-      {{ lookup('env', 'ARMITAGE_ANSIBLE_PASSWORD') if inventory_hostname == 'armitage'
-         else lookup('env', 'WINTERMUTE_ANSIBLE_PASSWORD') }}
-  
+  # Note: ansible_password is set in inventory/hosts.yml using AKV lookup
+  # Do NOT override it here with env vars
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          WINDOWS WORKSTATION DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          
+          Deployment Phases:
+            1. common_dev_tools      - Baseline dev tooling (git, gh, jq, etc.)
+            2. workstation_gui_tools - GUI apps (Cursor, VS Code, Windows Terminal)
+            3. Windows-specific      - WSL2, Docker, NVIDIA, gaming optimizations
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Common Dev Tools
+    # ========================================
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+    # ========================================
+    # Phase 2: Workstation GUI Tools
+    # ========================================
+    - role: workstation_gui_tools
+      tags: [workstation_gui]
+
   tasks:
+    # ========================================
+    # Phase 3: Windows-Specific Configuration
+    # ========================================
     - name: Ensure WinRM is configured
       win_service:
         name: WinRM
@@ -20,26 +70,18 @@
         start_mode: auto
       tags: [winrm]
 
-    - name: Install Chocolatey package manager
-      win_chocolatey:
-        name: chocolatey
-        state: present
-      tags: [chocolatey]
-
-    - name: Install development tools via Chocolatey
+    - name: Install Windows-specific development tools via Chocolatey
       win_chocolatey:
         name: "{{ item }}"
         state: present
       loop:
-        - git
-        - vscode
         - docker-desktop
         - nvidia-display-driver
         - cuda
         - python3
         - nodejs
         - tailscale
-      tags: [packages]
+      tags: [packages, windows_dev]
     
     - name: Ensure automation user is in docker-users group
       win_group_membership:

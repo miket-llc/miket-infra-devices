@@ -1,0 +1,35 @@
+# SSH Configuration for Tailscale Tailnet
+# Managed by Ansible - common_dev_tools role
+# Tailnet: {{ tailnet_domain | default('pangolin-vega.ts.net') }}
+
+# Default settings for all hosts
+Host *
+    AddKeysToAgent yes
+    IdentitiesOnly yes
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+# Tailnet hosts - use Tailscale SSH when available
+Host *.{{ tailnet_domain | default('pangolin-vega.ts.net') }}
+    # Tailscale handles authentication - relax host key checking
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+
+# Individual tailnet host aliases
+{% for host in groups['all'] | default([]) %}
+{% if hostvars[host].ansible_host is defined and tailnet_domain | default('pangolin-vega.ts.net') in (hostvars[host].ansible_host | default('')) %}
+Host {{ host }}
+    HostName {{ hostvars[host].ansible_host }}
+    User {{ hostvars[host].ansible_user | default('mdt') }}
+{% endif %}
+{% endfor %}
+
+# GitHub
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+
+
+

@@ -1,0 +1,209 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# MOTOKO SITE PLAYBOOK
+# =============================================================================
+#
+# Complete headless Fedora Server configuration for motoko
+#
+# Takes a fresh Fedora Server installation (with Tailscale already authenticated)
+# and configures it as a fully operational headless GPU + storage + container host.
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml
+#
+#   Specific components (via tags):
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags dev_tools
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags headless
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags gpu
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags storage
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags containers
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags services
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --tags tailscale
+#
+#   Dry run (check mode):
+#     ansible-playbook -i inventory/hosts.yml playbooks/motoko/site.yml --check
+#
+# PREREQUISITES:
+#   - Fresh Fedora Server installation
+#   - Tailscale authenticated (tailscale up already performed)
+#   - SSH access via Tailscale
+#
+# IDEMPOTENCE:
+#   This playbook is designed to be safe for repeated runs.
+#   Re-running should produce minimal changes on an already-configured system.
+#
+# =============================================================================
+
+- name: Configure Motoko - Fedora Headless GPU + Storage + Container Host
+  hosts: motoko
+  become: true
+  gather_facts: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          MOTOKO SITE DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          Architecture:   {{ ansible_architecture }}
+          
+          Deployment Phases:
+            0. common_dev_tools      - Baseline dev tooling (git, gh, jq, btop, etc.)
+            1. fedora_headless_base  - Headless operation (lid, suspend, boot target)
+            2. console_ux_fedora     - Console font + verbose boot for local monitor
+            3. tailscale_node        - Tailscale verification and facts
+            4. nvidia_gpu_fedora     - NVIDIA GPU drivers (RPM Fusion)
+            5. data_mounts_psbi      - PHC storage mounts (/space, /flux, /time)
+            6. podman_base           - Container runtime (Podman + NVIDIA toolkit)
+            7. motoko_services       - Container services orchestration
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+    - name: Verify Fedora distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+        fail_msg: "This playbook requires Fedora"
+        success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 0: Common Dev Tools (all nodes)
+    # ========================================
+    # - git, gh, jq, btop, htop, tmux, etc.
+    # - Baseline CLI tooling for all managed nodes
+    - role: common_dev_tools
+      tags: [dev_tools, base]
+
+    # ========================================
+    # Phase 1: Headless Base Configuration
+    # ========================================
+    # - Lid switch handling (ignore)
+    # - Mask suspend/hibernate/sleep targets
+    # - Set default boot to multi-user.target
+    # - Disable any display managers
+    - role: fedora_headless_base
+      tags: [headless, base]
+
+    # ========================================
+    # Phase 2: Console UX (for local monitor)
+    # ========================================
+    # - Terminus font with Unicode/box-drawing
+    # - Verbose boot (remove rhgb/quiet)
+    # - Getty enabled on tty1
+    - role: console_ux_fedora
+      tags: [console, tty]
+
+    # ========================================
+    # Phase 3: Tailscale Node Verification
+    # ========================================
+    # - Ensure tailscaled is running
+    # - Verify connection to tailnet
+    # - Expose tailnet facts (IP, hostname)
+    - role: tailscale_node
+      tags: [tailscale, network]
+
+    # ========================================
+    # Phase 3: NVIDIA GPU Drivers
+    # ========================================
+    # - Detect NVIDIA GPU
+    # - Enable RPM Fusion repositories
+    # - Install akmod-nvidia + CUDA packages
+    # - Verify with nvidia-smi (if already built)
+    - role: nvidia_gpu_fedora
+      tags: [gpu, nvidia]
+
+    # ========================================
+    # Phase 4: PHC Data Mounts
+    # ========================================
+    # - Configure /space, /flux, /time mounts
+    # - Manage /etc/fstab entries
+    # - Create mountpoints and verify
+    - role: data_mounts_psbi
+      tags: [storage, mounts]
+
+    # ========================================
+    # Phase 5: Podman Container Runtime
+    # ========================================
+    # - Install podman, buildah, skopeo
+    # - Docker CLI compatibility
+    # - NVIDIA Container Toolkit integration
+    # - Rootless container support
+    - role: podman_base
+      tags: [containers, podman]
+
+    # ========================================
+    # Phase 6: Motoko-Specific Services
+    # ========================================
+    # - Deploy container services from definitions
+    # - Create systemd user units
+    # - Manage service lifecycle
+    - role: motoko_services
+      tags: [services]
+
+  post_tasks:
+    - name: Display deployment completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          MOTOKO SITE DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Headless Configuration
+             - Lid switch: ignore
+             - Suspend/hibernate: masked
+             - Boot target: multi-user.target
+          
+          ✅ Tailscale
+             - IP: {{ tailscale_ip | default('N/A') }}
+             - DNS: {{ tailscale_dns_name | default('N/A') }}
+          
+          ✅ GPU
+             - Installed: {{ nvidia_gpu_installed | default('check nvidia-smi') }}
+             - Working: {{ nvidia_driver_working | default('reboot required for first install') }}
+          
+          ✅ Storage
+             - Mounts: /space, /flux, /time (per host_vars UUIDs)
+          
+          ✅ Containers
+             - Runtime: Podman with NVIDIA support
+          
+          ✅ Services
+             - Defined: {{ motoko_services | length }} service(s)
+          
+          ═══════════════════════════════════════════════════════════════
+          
+          NEXT STEPS (if first run):
+          
+          1. REBOOT to activate NVIDIA drivers:
+             sudo reboot
+          
+          2. Verify NVIDIA after reboot:
+             nvidia-smi
+          
+          3. Verify storage mounts:
+             df -h /space /flux /time
+          
+          4. Check container runtime:
+             podman run --rm docker.io/library/alpine:latest echo "OK"
+          
+          5. For GPU containers:
+             podman run --rm --device=nvidia.com/gpu=all \
+               docker.io/nvidia/cuda:12.3.1-base-ubuntu22.04 nvidia-smi
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+

@@ -1,0 +1,40 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Group variables for all workstations (hosts with window managers)
+# Applied to: linux_workstations, windows_workstations, macos_workstations
+
+# ========================================
+# Workstation GUI Tools
+# ========================================
+# These settings apply to all workstation clients
+workstation_gui_tools_enabled: true
+
+# VS Code
+vscode_enabled: true
+vscode_channel: stable
+
+# Cursor (AI code editor)
+cursor_enabled: true
+
+# Warp Terminal (Linux/macOS only - Windows gets Windows Terminal)
+warp_enabled: true
+
+# Create desktop entries on Linux
+workstation_create_desktop_entries: true
+
+# ========================================
+# AI/LLM CLIs (for workstations)
+# ========================================
+# Shell-GPT (ChatGPT CLI) - sgpt command
+common_dev_tools_install_shell_gpt: true
+
+# OpenAI Python library
+common_dev_tools_install_openai_cli: true
+
+# Anthropic Claude library
+common_dev_tools_install_claude_cli: true
+
+# Aider (AI pair programming)
+common_dev_tools_install_aider: true
+

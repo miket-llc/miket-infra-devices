@@ -1,0 +1,60 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Console UX Role Defaults for Fedora
+# Improves Linux virtual console experience for headless servers
+# with occasional local monitor use (HDMI, tmux, btop, etc.)
+
+# Master toggle - enables all console UX features
+console_ux_enabled: false
+
+# ========================================
+# Console Font Configuration
+# ========================================
+# Enable console font customization
+console_font_enabled: true
+
+# Console font name (must be in /usr/lib/kbd/consolefonts/)
+# Options tested for Unicode/box-drawing support:
+#   - "ter-v16n"       - Terminus 16pt, clean box chars (requires terminus-fonts-console)
+#   - "ter-v18n"       - Terminus 18pt, slightly larger
+#   - "ter-v14n"       - Terminus 14pt, more rows/cols
+#   - "eurlatgr"       - Built-in, decent Unicode support
+#   - "Lat2-Terminus16" - Terminus with Latin2 (built-in)
+console_font_name: "ter-v16n"
+
+# Packages to install for the chosen font
+console_font_packages:
+  - terminus-fonts-console
+
+# Keyboard layout (usually leave as-is)
+console_keymap: "us"
+
+# ========================================
+# Verbose Boot Configuration
+# ========================================
+# WARNING: Do NOT remove 'rhgb' - it's required for proper framebuffer
+# resolution. Without it, console falls back to 800x600 EFI mode.
+# Only remove 'quiet' if you want to see boot messages.
+console_verbose_boot_enabled: false
+
+# Kernel parameters to REMOVE for verbose boot
+# NOTE: rhgb removed from this list - it breaks framebuffer resolution!
+console_grub_params_remove:
+  - "quiet"
+
+# Kernel parameters to ADD (if any)
+# console_grub_params_add:
+#   - "console=tty0"
+
+# ========================================
+# Getty / TTY Configuration
+# ========================================
+# Ensure login prompt on console
+console_getty_enabled: true
+
+# Primary TTY to ensure is active
+console_primary_tty: "tty1"
+
+
+

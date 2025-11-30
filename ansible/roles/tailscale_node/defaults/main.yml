@@ -1,0 +1,30 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Tailscale Node Role Defaults
+# Device-side Tailscale configuration for Fedora headless nodes
+#
+# NOTE: This role assumes initial `tailscale up` has been performed manually
+# or via miket-infra. It does NOT overwrite existing tailnet configuration.
+
+# Whether to verify tailscale connectivity (fails if not connected)
+tailscale_node_verify_connection: true
+
+# Whether to expose tailscale facts (tailnet IP, hostname, etc.)
+tailscale_node_expose_facts: true
+
+# Tailnet domain suffix (for verification)
+tailscale_node_tailnet_domain: "pangolin-vega.ts.net"
+
+# Accept DNS (MagicDNS) - leave as-is if already configured
+tailscale_node_accept_dns: true
+
+# Accept routes from other tailnet nodes
+tailscale_node_accept_routes: true
+
+# Enable Tailscale SSH
+tailscale_node_ssh_enabled: true
+
+
+
+

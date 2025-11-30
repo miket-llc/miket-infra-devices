@@ -1,0 +1,89 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS workstation GUI tools installation
+# Uses Homebrew Casks for GUI applications
+
+# ========================================
+# Check for Homebrew
+# ========================================
+- name: Check if Homebrew is installed
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/brew
+  register: homebrew_check
+  tags: [workstation_gui, homebrew]
+
+- name: Warn if Homebrew not installed
+  ansible.builtin.debug:
+    msg: "⚠️  Homebrew is not installed. Please install it first: https://brew.sh"
+  when: not homebrew_check.stat.exists
+  tags: [workstation_gui, homebrew]
+
+- name: macOS GUI tools installation
+  when: homebrew_check.stat.exists
+  become: false
+  block:
+    # ========================================
+    # VS Code Installation
+    # ========================================
+    - name: Install VS Code (macOS)
+      community.general.homebrew_cask:
+        name: visual-studio-code
+        state: present
+      when: vscode_enabled | bool
+      tags: [workstation_gui, vscode]
+
+    # ========================================
+    # Cursor Installation
+    # ========================================
+    - name: Install Cursor (macOS)
+      community.general.homebrew_cask:
+        name: cursor
+        state: present
+      when: cursor_enabled | bool
+      tags: [workstation_gui, cursor]
+
+    # ========================================
+    # Warp Terminal Installation
+    # ========================================
+    - name: Install Warp (macOS)
+      community.general.homebrew_cask:
+        name: warp
+        state: present
+      when: warp_enabled | bool
+      tags: [workstation_gui, warp]
+
+    # ========================================
+    # Verification
+    # ========================================
+    - name: Check VS Code installation
+      ansible.builtin.stat:
+        path: /Applications/Visual Studio Code.app
+      register: vscode_mac_check
+      when: vscode_enabled | bool
+      tags: [workstation_gui, verify]
+
+    - name: Check Cursor installation
+      ansible.builtin.stat:
+        path: /Applications/Cursor.app
+      register: cursor_mac_check
+      when: cursor_enabled | bool
+      tags: [workstation_gui, verify]
+
+    - name: Check Warp installation
+      ansible.builtin.stat:
+        path: /Applications/Warp.app
+      register: warp_mac_check
+      when: warp_enabled | bool
+      tags: [workstation_gui, verify]
+
+    - name: Display verification results (macOS)
+      ansible.builtin.debug:
+        msg:
+          - "VS Code: {{ 'installed' if (vscode_mac_check.stat.exists | default(false)) else 'not installed' }}"
+          - "Cursor: {{ 'installed' if (cursor_mac_check.stat.exists | default(false)) else 'not installed' }}"
+          - "Warp: {{ 'installed' if (warp_mac_check.stat.exists | default(false)) else 'not installed' }}"
+      tags: [workstation_gui, verify]
+
+
+

@@ -1,0 +1,125 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Tailscale Node Role
+# Ensures tailscaled is installed, enabled, and running on Fedora
+# Verifies connection to tailnet and exposes tailnet facts
+#
+# IMPORTANT: This role does NOT perform initial `tailscale up` authentication.
+# That must be done manually or via miket-infra before running this role.
+
+- name: Check if running on Fedora
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role is designed for Fedora systems"
+    quiet: true
+  tags: [tailscale, validate]
+
+# ========================================
+# Tailscale Installation & Service
+# ========================================
+- name: Check if Tailscale is installed
+  ansible.builtin.command: which tailscale
+  register: tailscale_which
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [tailscale, install]
+
+- name: Install Tailscale on Fedora
+  ansible.builtin.dnf:
+    name: tailscale
+    state: present
+  when: tailscale_which.rc != 0
+  tags: [tailscale, install]
+
+- name: Enable and start tailscaled service
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+  tags: [tailscale, service]
+
+# ========================================
+# Connection Verification
+# ========================================
+- name: Get Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [tailscale, verify]
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
+  when: tailscale_status_raw.rc == 0
+  tags: [tailscale, verify]
+
+- name: Check if Tailscale is authenticated
+  ansible.builtin.set_fact:
+    tailscale_authenticated: "{{ tailscale_status.Self is defined and tailscale_status.Self.Online | default(false) }}"
+  when: tailscale_status is defined
+  tags: [tailscale, verify]
+
+- name: Warn if Tailscale is not connected
+  ansible.builtin.debug:
+    msg: |
+      ⚠️  TAILSCALE NOT CONNECTED
+      
+      Tailscaled is installed and running, but the node is not authenticated.
+      
+      To authenticate, run manually:
+        sudo tailscale up --ssh
+      
+      Or use an auth key:
+        sudo tailscale up --authkey=<key-from-akv> --ssh
+  when: tailscale_status_raw.rc != 0 or not (tailscale_authenticated | default(false))
+  tags: [tailscale, verify]
+
+- name: Fail if connection verification is required and not connected
+  ansible.builtin.fail:
+    msg: "Tailscale is not connected. Run 'tailscale up' manually to authenticate."
+  when:
+    - tailscale_node_verify_connection | bool
+    - not (tailscale_authenticated | default(false))
+  tags: [tailscale, verify]
+
+# ========================================
+# Expose Tailscale Facts
+# ========================================
+- name: Set Tailscale facts
+  ansible.builtin.set_fact:
+    tailscale_ip: "{{ tailscale_status.TailscaleIPs[0] | default('unknown') }}"
+    tailscale_hostname: "{{ tailscale_status.Self.HostName | default(inventory_hostname) }}"
+    tailscale_dns_name: "{{ tailscale_status.Self.DNSName | default(inventory_hostname + '.' + tailscale_node_tailnet_domain) }}"
+    tailscale_online: "{{ tailscale_status.Self.Online | default(false) }}"
+    tailscale_tags: "{{ tailscale_status.Self.Tags | default([]) }}"
+  when:
+    - tailscale_node_expose_facts | bool
+    - tailscale_status is defined
+    - tailscale_authenticated | default(false)
+  tags: [tailscale, facts]
+
+- name: Display Tailscale node information
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "TAILSCALE NODE STATUS"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Tailscale IP:     {{ tailscale_ip | default('N/A') }}"
+      - "Hostname:         {{ tailscale_hostname | default('N/A') }}"
+      - "DNS Name:         {{ tailscale_dns_name | default('N/A') }}"
+      - "Online:           {{ tailscale_online | default(false) }}"
+      - "Tags:             {{ tailscale_tags | default([]) | join(', ') }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  when: tailscale_authenticated | default(false)
+  tags: [tailscale]
+
+
+
+

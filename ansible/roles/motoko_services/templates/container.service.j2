@@ -1,0 +1,57 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - motoko_services role
+# Service: {{ service.name }}
+
+[Unit]
+Description=Podman container - {{ service.name }}
+Documentation={{ service.documentation | default('https://github.com/miket-llc/miket-infra-devices') }}
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Restart={{ service.restart_policy | default('always') }}
+RestartSec=10
+TimeoutStartSec=300
+TimeoutStopSec=60
+
+# Stop and remove any existing container
+ExecStartPre=-/usr/bin/podman stop -t 10 {{ service.name }}
+ExecStartPre=-/usr/bin/podman rm -f {{ service.name }}
+
+# Start the container
+ExecStart=/usr/bin/podman run \
+    --name {{ service.name }} \
+    --rm \
+    --replace \
+{% if service.restart_policy | default('always') == 'no' %}
+    --detach=false \
+{% endif %}
+{% for port in service.ports | default([]) %}
+    -p {{ port }} \
+{% endfor %}
+{% for vol in service.volumes | default([]) %}
+    -v {{ vol }} \
+{% endfor %}
+{% for env_key, env_val in (service.environment | default({})).items() %}
+    -e {{ env_key }}={{ env_val }} \
+{% endfor %}
+{% if service.gpu | default(false) %}
+    --device=nvidia.com/gpu=all \
+    --security-opt=label=disable \
+{% endif %}
+{% for extra in service.extra_opts | default([]) %}
+    {{ extra }} \
+{% endfor %}
+    {{ service.image }}{% if service.command | default('') %} {{ service.command }}{% endif %}
+
+
+# Stop the container
+ExecStop=/usr/bin/podman stop -t 10 {{ service.name }}
+
+[Install]
+WantedBy=default.target
+
+
+
+

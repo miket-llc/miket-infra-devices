@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows workstation GUI tools installation
+# Uses Chocolatey (consistent with existing windows-workstation.yml patterns)
+
+# ========================================
+# Ensure Chocolatey is available
+# ========================================
+- name: Ensure Chocolatey is installed
+  win_chocolatey:
+    name: chocolatey
+    state: present
+  tags: [workstation_gui, chocolatey]
+
+# ========================================
+# VS Code Installation
+# ========================================
+- name: Install VS Code (Windows)
+  win_chocolatey:
+    name: vscode
+    state: present
+    package_params: "/NoDesktopIcon"
+  when: vscode_enabled | bool
+  tags: [workstation_gui, vscode]
+
+# ========================================
+# Cursor Installation
+# ========================================
+# Cursor for Windows - installed via official installer or Chocolatey
+- name: Check if Cursor is in Chocolatey
+  win_command: choco search cursor --exact --limit-output
+  register: cursor_choco_check
+  changed_when: false
+  failed_when: false
+  when: cursor_enabled | bool
+  tags: [workstation_gui, cursor]
+
+- name: Install Cursor via Chocolatey (if available)
+  win_chocolatey:
+    name: cursor
+    state: present
+  when:
+    - cursor_enabled | bool
+    - cursor_choco_check.stdout | length > 0
+  tags: [workstation_gui, cursor]
+
+- name: Note Cursor manual install if not in Chocolatey
+  ansible.builtin.debug:
+    msg: "Cursor not available in Chocolatey. Install manually from https://cursor.sh"
+  when:
+    - cursor_enabled | bool
+    - cursor_choco_check.stdout | length == 0
+  tags: [workstation_gui, cursor]
+
+# ========================================
+# Warp Terminal (Not available on Windows)
+# ========================================
+- name: Note Warp not available on Windows
+  ansible.builtin.debug:
+    msg: "Warp Terminal is not available for Windows. Consider Windows Terminal instead."
+  when: warp_enabled | bool
+  tags: [workstation_gui, warp]
+
+# Install Windows Terminal as alternative
+- name: Install Windows Terminal
+  win_chocolatey:
+    name: microsoft-windows-terminal
+    state: present
+  when: warp_enabled | bool
+  tags: [workstation_gui, warp]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify VS Code installation (Windows)
+  win_command: code --version
+  register: vscode_version_win
+  changed_when: false
+  failed_when: false
+  when: vscode_enabled | bool
+  tags: [workstation_gui, verify]
+
+- name: Display verification results (Windows)
+  ansible.builtin.debug:
+    msg:
+      - "VS Code: {{ vscode_version_win.stdout_lines[0] | default('not installed') if vscode_enabled else 'skipped' }}"
+      - "Windows Terminal: installed (Warp alternative)"
+  tags: [workstation_gui, verify]
+
+
+

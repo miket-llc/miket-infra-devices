@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS-specific tasks for common dev tools
+# Uses Homebrew package manager
+
+# ========================================
+# Check for Homebrew
+# ========================================
+- name: Check if Homebrew is installed
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/brew
+  register: homebrew_check
+  tags: [dev_tools, homebrew]
+
+- name: Check Homebrew (Intel Mac path)
+  ansible.builtin.stat:
+    path: /usr/local/bin/brew
+  register: homebrew_check_intel
+  when: not homebrew_check.stat.exists
+  tags: [dev_tools, homebrew]
+
+- name: Set Homebrew path
+  ansible.builtin.set_fact:
+    homebrew_path: "{{ '/opt/homebrew/bin/brew' if homebrew_check.stat.exists else '/usr/local/bin/brew' }}"
+  tags: [dev_tools, homebrew]
+
+- name: Warn if Homebrew not installed
+  ansible.builtin.debug:
+    msg: "⚠️  Homebrew is not installed. Please install it first: https://brew.sh"
+  when: not homebrew_check.stat.exists and not (homebrew_check_intel.stat.exists | default(false))
+  tags: [dev_tools, homebrew]
+
+# ========================================
+# Install Packages via Homebrew
+# ========================================
+- name: Install baseline dev tools (macOS)
+  community.general.homebrew:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - git
+    - curl
+    - wget
+    - jq
+    - htop
+    - btop
+    - tmux
+    - vim
+    - tree
+    - python3
+    - node
+  when: homebrew_check.stat.exists or (homebrew_check_intel.stat.exists | default(false))
+  become: false
+  tags: [dev_tools, packages]
+
+- name: Install GitHub CLI (macOS)
+  community.general.homebrew:
+    name: gh
+    state: present
+  when:
+    - common_dev_tools_install_gh | bool
+    - homebrew_check.stat.exists or (homebrew_check_intel.stat.exists | default(false))
+  become: false
+  tags: [dev_tools, gh]
+
+- name: Install Azure CLI (macOS)
+  community.general.homebrew:
+    name: azure-cli
+    state: present
+  when:
+    - common_dev_tools_install_az | bool
+    - homebrew_check.stat.exists or (homebrew_check_intel.stat.exists | default(false))
+  become: false
+  tags: [dev_tools, az]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify git installation (macOS)
+  ansible.builtin.command: git --version
+  register: git_version_mac
+  changed_when: false
+  become: false
+  tags: [dev_tools, verify]
+
+- name: Display installed versions (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "Git: {{ git_version_mac.stdout_lines[0] | default('not installed') }}"
+  tags: [dev_tools, verify]
+

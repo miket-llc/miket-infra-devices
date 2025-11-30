@@ -1,0 +1,64 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# COMMON DEV TOOLS PLAYBOOK
+# =============================================================================
+#
+# Installs baseline development tooling on ALL nodes (servers + workstations)
+#
+# TOOLS INSTALLED:
+#   - git, gh (GitHub CLI)
+#   - curl, wget, jq
+#   - htop, btop
+#   - tmux, vim
+#   - And other essentials per OS
+#
+# USAGE:
+#   All nodes:
+#     ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml
+#
+#   Linux servers only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml --limit linux
+#
+#   Specific host:
+#     ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml --limit motoko
+#
+# IDEMPOTENCE:
+#   Safe to run multiple times. Will only install missing packages.
+#
+# =============================================================================
+
+- name: Install Common Dev Tools
+  hosts: all
+  become: "{{ 'false' if ansible_os_family == 'Darwin' else 'true' }}"
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          COMMON DEV TOOLS DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:       {{ inventory_hostname }}
+          OS Family:  {{ ansible_os_family }}
+          
+          Installing baseline dev tools: git, gh, jq, btop, htop, tmux...
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+  post_tasks:
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg: "✅ Common dev tools installed on {{ inventory_hostname }}"
+      tags: [always]
+
+
+

@@ -1,0 +1,153 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fedora Headless Base Role
+# Configures Fedora Server for headless operation:
+# - No GUI/display manager
+# - Lid switch ignored (laptop operates with lid closed)
+# - Suspend/hibernate/sleep disabled
+# - Default boot to multi-user.target
+
+- name: Check if running on Fedora
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role is designed for Fedora systems"
+    quiet: true
+  tags: [headless, validate]
+
+- name: Install essential headless server packages
+  ansible.builtin.dnf:
+    name: "{{ fedora_headless_packages }}"
+    state: present
+  tags: [headless, packages]
+
+# ========================================
+# Lid Switch Configuration (logind.conf.d drop-in)
+# ========================================
+# Fedora 43+ uses drop-in configs in /etc/systemd/logind.conf.d/
+- name: Ensure logind.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    mode: '0755'
+  tags: [headless, lid]
+
+- name: Configure systemd-logind for lid-closed operation
+  ansible.builtin.copy:
+    dest: /etc/systemd/logind.conf.d/00-headless.conf
+    content: |
+      # Managed by Ansible - fedora_headless_base role
+      # Headless server configuration: ignore lid switch actions
+      [Login]
+      HandleLidSwitch={{ fedora_headless_lid_switch }}
+      HandleLidSwitchExternalPower={{ fedora_headless_lid_switch_external_power }}
+      HandleLidSwitchDocked={{ fedora_headless_lid_switch_docked }}
+    mode: '0644'
+    backup: yes
+  notify: restart systemd-logind
+  tags: [headless, lid]
+
+# ========================================
+# Power Management: Mask Suspend Targets
+# ========================================
+- name: Mask power management targets (prevent suspend/hibernate)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop: "{{ fedora_headless_mask_targets }}"
+  notify: reload systemd daemon
+  tags: [headless, power]
+
+# ========================================
+# Boot Target: multi-user (no GUI)
+# ========================================
+- name: Set default boot target to multi-user (headless)
+  ansible.builtin.command: systemctl set-default {{ fedora_headless_boot_target }}
+  register: set_default_result
+  changed_when: "'Created symlink' in set_default_result.stderr or 'Removed' in set_default_result.stderr"
+  tags: [headless, boot]
+
+- name: Get current default target
+  ansible.builtin.command: systemctl get-default
+  register: current_target
+  changed_when: false
+  check_mode: false
+  tags: [headless, boot]
+
+- name: Verify boot target is set correctly
+  ansible.builtin.assert:
+    that:
+      - current_target.stdout == fedora_headless_boot_target
+    fail_msg: "Boot target is {{ current_target.stdout }}, expected {{ fedora_headless_boot_target }}"
+    success_msg: "Boot target correctly set to {{ current_target.stdout }}"
+  tags: [headless, boot]
+
+# ========================================
+# Display Manager: Ensure none is enabled
+# ========================================
+- name: Check for common display managers
+  ansible.builtin.command: systemctl is-enabled {{ item }}
+  register: dm_check
+  failed_when: false
+  changed_when: false
+  loop:
+    - gdm
+    - sddm
+    - lightdm
+    - lxdm
+  tags: [headless, display]
+
+- name: Disable any enabled display managers
+  ansible.builtin.systemd:
+    name: "{{ item.item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ dm_check.results }}"
+  when: item.rc == 0 and item.stdout == 'enabled'
+  loop_control:
+    label: "{{ item.item }}"
+  tags: [headless, display]
+
+# ========================================
+# Firewalld: Ensure firewall is active
+# ========================================
+- name: Ensure firewalld is installed and enabled
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+  tags: [headless, firewall]
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  tags: [headless, firewall]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display headless configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "FEDORA HEADLESS BASE CONFIGURATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Lid Switch Configuration:"
+      - "  ✓ HandleLidSwitch={{ fedora_headless_lid_switch }}"
+      - "  ✓ HandleLidSwitchExternalPower={{ fedora_headless_lid_switch_external_power }}"
+      - "  ✓ HandleLidSwitchDocked={{ fedora_headless_lid_switch_docked }}"
+      - ""
+      - "Power Management:"
+      - "  ✓ Masked: {{ fedora_headless_mask_targets | join(', ') }}"
+      - ""
+      - "Boot Target:"
+      - "  ✓ Default: {{ fedora_headless_boot_target }}"
+      - ""
+      - "Display Manager:"
+      - "  ✓ None enabled (headless server)"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [headless]

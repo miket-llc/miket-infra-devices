@@ -1,0 +1,55 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Motoko Services Role Defaults
+# Thin orchestration layer for motoko-specific container services
+# Uses Podman with systemd integration
+
+# Service definitions (containers to run on motoko)
+# Each service specifies: name, image, ports, volumes, environment, etc.
+motoko_services: []
+
+# Example service definition:
+# motoko_services:
+#   - name: litellm
+#     image: ghcr.io/berriai/litellm:main-v1.55.4
+#     ports:
+#       - "8000:8000"
+#     volumes:
+#       - "/space/llm/litellm:/app/config:Z"
+#     environment:
+#       LITELLM_CONFIG_PATH: /app/config/config.yaml
+#     enabled: true
+#     restart_policy: always
+#
+#   - name: nextcloud
+#     image: docker.io/library/nextcloud:latest
+#     ports:
+#       - "8080:80"
+#     volumes:
+#       - "/space/nextcloud/data:/var/www/html:Z"
+#     enabled: true
+
+# Base directory for service configuration files
+motoko_services_config_dir: /space/services
+
+# User to run rootless containers as
+motoko_services_user: mdt
+
+# Whether to create systemd user units for services
+motoko_services_systemd: true
+
+# Podman command options
+motoko_services_podman_opts:
+  - "--rm"
+  - "--detach"
+
+# GPU passthrough (for AI/ML workloads)
+motoko_services_gpu_enabled: true
+motoko_services_gpu_opts:
+  - "--device=nvidia.com/gpu=all"
+  - "--security-opt=label=disable"
+
+
+
+

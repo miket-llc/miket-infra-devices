@@ -1,0 +1,38 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# NVIDIA GPU Role Defaults for Fedora
+# Installs NVIDIA drivers from RPM Fusion for headless compute nodes
+
+# Enable automatic GPU detection (if false, always install drivers)
+nvidia_gpu_auto_detect: true
+
+# Skip role entirely on non-GPU hosts (no error)
+nvidia_gpu_skip_if_absent: true
+
+# RPM Fusion repositories
+nvidia_gpu_enable_rpmfusion: true
+
+# NVIDIA packages to install
+nvidia_gpu_packages:
+  - akmod-nvidia
+  - xorg-x11-drv-nvidia-cuda
+
+# Optional CUDA compute packages
+nvidia_gpu_cuda_packages:
+  - nvidia-settings
+  - vulkan
+  - libva-nvidia-driver
+
+# Install CUDA compute packages (set to true for compute nodes)
+nvidia_gpu_install_cuda: true
+
+# Verify GPU with nvidia-smi after install
+nvidia_gpu_verify: true
+
+# Wait for akmods to build (seconds)
+nvidia_gpu_akmods_wait: 120
+
+
+
+

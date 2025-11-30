@@ -1,0 +1,44 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Workstation GUI Tools Role Defaults
+# Installs Cursor, Warp, and VS Code on workstation clients
+# ONLY for hosts with window managers (linux_workstations, windows_workstations)
+
+# Master toggle
+workstation_gui_tools_enabled: true
+
+# ========================================
+# VS Code Configuration
+# ========================================
+vscode_enabled: true
+vscode_channel: stable  # stable, insiders
+
+# ========================================
+# Cursor Configuration
+# ========================================
+cursor_enabled: true
+# Cursor AppImage URL for Linux
+cursor_linux_appimage_url: "https://downloader.cursor.sh/linux/appImage/x64"
+cursor_linux_install_dir: "/opt/cursor"
+
+# ========================================
+# Warp Terminal Configuration
+# ========================================
+warp_enabled: true
+# Warp is currently Linux and macOS only (no Windows support yet)
+
+# ========================================
+# Linux-specific Options
+# ========================================
+# Create desktop entries for GUI apps
+workstation_create_desktop_entries: true
+
+# ========================================
+# Windows-specific Options
+# ========================================
+# Use winget for Windows apps when available (fallback to Chocolatey)
+workstation_windows_prefer_winget: false
+
+
+

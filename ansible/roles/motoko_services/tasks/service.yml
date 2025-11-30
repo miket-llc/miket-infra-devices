@@ -1,0 +1,74 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Process a single service definition
+# Called from main.yml with 'service' variable
+
+- name: "{{ service.name }} - Ensure config directory exists"
+  ansible.builtin.file:
+    path: "{{ motoko_services_config_dir }}/{{ service.name }}"
+    state: directory
+    owner: "{{ motoko_services_user }}"
+    group: "{{ motoko_services_user }}"
+    mode: '0755'
+  when: service.config_dir | default(true)
+  tags: [services, config]
+
+- name: "{{ service.name }} - Pull container image"
+  ansible.builtin.command: podman pull {{ service.image }}
+  register: image_pull
+  changed_when: "'Pulling' in image_pull.stdout or 'Copying' in image_pull.stdout"
+  tags: [services, pull]
+
+- name: "{{ service.name }} - Build podman run command"
+  ansible.builtin.set_fact:
+    _podman_cmd: >-
+      podman run
+      --name {{ service.name }}
+      {% for opt in motoko_services_podman_opts %}{{ opt }} {% endfor %}
+      {% if service.restart_policy | default('always') == 'always' %}--restart=always{% endif %}
+      {% for port in service.ports | default([]) %}-p {{ port }} {% endfor %}
+      {% for vol in service.volumes | default([]) %}-v {{ vol }} {% endfor %}
+      {% for env_key, env_val in (service.environment | default({})).items() %}-e {{ env_key }}={{ env_val }} {% endfor %}
+      {% if service.gpu | default(false) and motoko_gpu_available %}{% for opt in motoko_services_gpu_opts %}{{ opt }} {% endfor %}{% endif %}
+      {% for extra in service.extra_opts | default([]) %}{{ extra }} {% endfor %}
+      {{ service.image }}
+      {{ service.command | default('') }}
+  tags: [services]
+
+- name: "{{ service.name }} - Create systemd user unit"
+  ansible.builtin.template:
+    src: container.service.j2
+    dest: "/home/{{ motoko_services_user }}/.config/systemd/user/container-{{ service.name }}.service"
+    owner: "{{ motoko_services_user }}"
+    group: "{{ motoko_services_user }}"
+    mode: '0644'
+  when: motoko_services_systemd | bool
+  register: systemd_unit
+  tags: [services, systemd]
+
+- name: "{{ service.name }} - Reload systemd user daemon"
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: user
+  become: true
+  become_user: "{{ motoko_services_user }}"
+  when:
+    - motoko_services_systemd | bool
+    - systemd_unit.changed
+  tags: [services, systemd]
+
+- name: "{{ service.name }} - Enable and start service"
+  ansible.builtin.systemd:
+    name: "container-{{ service.name }}.service"
+    enabled: true
+    state: started
+    scope: user
+  become: true
+  become_user: "{{ motoko_services_user }}"
+  when: motoko_services_systemd | bool
+  tags: [services, systemd]
+
+
+
+

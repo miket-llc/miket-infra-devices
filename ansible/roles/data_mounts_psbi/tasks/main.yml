@@ -1,0 +1,170 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# PHC/PSBI Data Mounts Role
+# Configures /space, /flux, /time mounts per PHC storage invariants
+#
+# Usage: Define psbi_mounts with UUIDs in host_vars for each device
+
+- name: Gather mount facts
+  ansible.builtin.setup:
+    gather_subset:
+      - mounts
+  tags: [storage, mounts]
+
+# ========================================
+# Create Mountpoint Directories
+# ========================================
+- name: Create mountpoint directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ psbi_mount_mode }}"
+    owner: root
+    group: root
+  loop: "{{ psbi_mounts }}"
+  when:
+    - psbi_create_mountpoints | bool
+    - item.enabled | default(true)
+    - item.uuid | length > 0 or not psbi_skip_unconfigured
+  loop_control:
+    label: "{{ item.path }}"
+  tags: [storage, mounts]
+
+# ========================================
+# Configure /etc/fstab Entries
+# ========================================
+- name: Configure fstab entries for PSBI mounts
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "UUID={{ item.uuid }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.opts }}"
+    state: present
+    backup: yes
+  loop: "{{ psbi_mounts }}"
+  when:
+    - item.enabled | default(true)
+    - item.uuid | length > 0
+  loop_control:
+    label: "{{ item.path }} (UUID={{ item.uuid }})"
+  register: fstab_changes
+  tags: [storage, mounts, fstab]
+
+# ========================================
+# Mount Filesystems
+# ========================================
+- name: Mount PSBI filesystems
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "UUID={{ item.uuid }}"
+    fstype: "{{ item.fstype }}"
+    opts: "{{ item.opts }}"
+    state: mounted
+  loop: "{{ psbi_mounts }}"
+  when:
+    - item.enabled | default(true)
+    - item.uuid | length > 0
+  loop_control:
+    label: "{{ item.path }}"
+  register: mount_results
+  failed_when:
+    - mount_results.failed | default(false)
+    - psbi_fail_on_mount_error | bool
+  tags: [storage, mounts]
+
+# ========================================
+# Set Ownership on Mounted Filesystems
+# ========================================
+- name: Set ownership on /space
+  ansible.builtin.file:
+    path: /space
+    owner: "{{ psbi_mount_owner }}"
+    group: "{{ psbi_mount_group }}"
+    mode: "{{ psbi_mount_mode }}"
+    recurse: no
+  when: >
+    (psbi_mounts | selectattr('path', 'equalto', '/space') | list | first).uuid | default('') | length > 0
+  failed_when: false
+  tags: [storage, mounts, ownership]
+
+- name: Set ownership on /flux
+  ansible.builtin.file:
+    path: /flux
+    owner: "{{ psbi_mount_owner }}"
+    group: "{{ psbi_mount_group }}"
+    mode: "{{ psbi_mount_mode }}"
+    recurse: no
+  when: >
+    (psbi_mounts | selectattr('path', 'equalto', '/flux') | list | first).uuid | default('') | length > 0
+  failed_when: false
+  tags: [storage, mounts, ownership]
+
+# Note: /time is typically read-only, don't change ownership
+
+# ========================================
+# Verify Mounts
+# ========================================
+- name: Verify mount -a succeeds
+  ansible.builtin.command: mount -a
+  register: mount_all
+  changed_when: false
+  failed_when: mount_all.rc != 0
+  when: psbi_run_mount_all | bool
+  tags: [storage, mounts, verify]
+
+- name: Gather updated mount facts
+  ansible.builtin.setup:
+    gather_subset:
+      - mounts
+  tags: [storage, mounts, verify]
+
+- name: Verify PSBI mounts are active
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  register: mount_stat
+  loop: "{{ psbi_mounts }}"
+  when:
+    - item.enabled | default(true)
+    - item.uuid | length > 0
+  loop_control:
+    label: "{{ item.path }}"
+  tags: [storage, mounts, verify]
+
+- name: Check mount status
+  ansible.builtin.command: df -h {{ item.path }}
+  register: df_output
+  changed_when: false
+  failed_when: false
+  loop: "{{ psbi_mounts }}"
+  when:
+    - item.enabled | default(true)
+    - item.uuid | length > 0
+  loop_control:
+    label: "{{ item.path }}"
+  tags: [storage, mounts, verify]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display PSBI mounts summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PSBI DATA MOUNTS CONFIGURATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Configured Mounts:"
+      - "{% for mount in psbi_mounts %}{% if mount.uuid | length > 0 %}  ✓ {{ mount.path }} (UUID={{ mount.uuid[:8] }}...)\n{% else %}  ⏭️  {{ mount.path }} (not configured)\n{% endif %}{% endfor %}"
+      - ""
+      - "PHC Storage Model:"
+      - "  /space - System of Record (persistent)"
+      - "  /flux  - Runtime/volatile data"
+      - "  /time  - Time Machine backups (read-only)"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [storage, mounts]
+
+
+
+

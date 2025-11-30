@@ -1,0 +1,201 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Base Role
+# Installs and configures Podman container runtime on Fedora
+#
+# Features:
+# - Rootless container support
+# - Docker CLI compatibility (podman-docker)
+# - Systemd integration for container services
+# - Optional NVIDIA Container Toolkit integration
+
+- name: Check if running on Fedora
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role is designed for Fedora systems"
+    quiet: true
+  tags: [containers, validate]
+
+# ========================================
+# Install Podman and Tools
+# ========================================
+- name: Install Podman and container tools
+  ansible.builtin.dnf:
+    name: "{{ podman_packages }}"
+    state: present
+  tags: [containers, install]
+
+- name: Check if Docker/moby-engine is installed
+  ansible.builtin.command: rpm -q moby-engine
+  register: moby_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags: [containers, install]
+
+- name: Install podman-docker for CLI compatibility (skip if moby-engine present)
+  ansible.builtin.dnf:
+    name: podman-docker
+    state: present
+  when:
+    - podman_install_docker_compat | bool
+    - moby_check.rc != 0
+  tags: [containers, install]
+
+- name: Note Docker is already installed
+  ansible.builtin.debug:
+    msg: "ℹ️  moby-engine (Docker) is installed. Skipping podman-docker to avoid conflict."
+  when: moby_check.rc == 0
+  tags: [containers, install]
+
+- name: Install cockpit-podman for web UI
+  ansible.builtin.dnf:
+    name: cockpit-podman
+    state: present
+  when: podman_install_cockpit | bool
+  tags: [containers, install]
+
+# ========================================
+# Configure Container Registries
+# ========================================
+- name: Ensure containers.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/containers/registries.conf.d
+    state: directory
+    mode: '0755'
+  tags: [containers, config]
+
+- name: Configure unqualified search registries
+  ansible.builtin.copy:
+    dest: /etc/containers/registries.conf.d/00-search.conf
+    content: |
+      # Configured by Ansible podman_base role
+      # Unqualified image search registries
+      unqualified-search-registries = {{ podman_registries_search | to_json }}
+    mode: '0644'
+  tags: [containers, config]
+
+# ========================================
+# Enable Podman Socket (API)
+# ========================================
+- name: Enable podman socket (system-wide)
+  ansible.builtin.systemd:
+    name: podman.socket
+    enabled: true
+    state: started
+  when: podman_enable_socket | bool
+  tags: [containers, socket]
+
+# ========================================
+# Rootless Podman Setup
+# ========================================
+- name: Enable linger for rootless containers
+  ansible.builtin.command: loginctl enable-linger {{ podman_user }}
+  register: linger_result
+  changed_when: false
+  failed_when: linger_result.rc != 0
+  when: podman_enable_linger | bool
+  tags: [containers, rootless]
+
+- name: Check linger status
+  ansible.builtin.command: loginctl show-user {{ podman_user }} --property=Linger
+  register: linger_check
+  changed_when: false
+  failed_when: false
+  tags: [containers, rootless]
+
+- name: Create user systemd directory
+  ansible.builtin.file:
+    path: "/home/{{ podman_user }}/.config/systemd/user"
+    state: directory
+    mode: '0755'
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+  tags: [containers, rootless]
+
+# ========================================
+# NVIDIA Container Toolkit Integration
+# ========================================
+- name: Check if NVIDIA drivers are installed
+  ansible.builtin.command: nvidia-smi
+  register: nvidia_check
+  changed_when: false
+  failed_when: false
+  when: podman_nvidia_enabled | bool
+  tags: [containers, nvidia]
+
+- name: Add NVIDIA container toolkit repository
+  ansible.builtin.get_url:
+    url: "https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo"
+    dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+    mode: '0644'
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+  tags: [containers, nvidia]
+
+- name: Install NVIDIA Container Toolkit
+  ansible.builtin.dnf:
+    name: nvidia-container-toolkit
+    state: present
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+  tags: [containers, nvidia]
+
+- name: Configure Podman for NVIDIA runtime
+  ansible.builtin.command: nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+  register: nvidia_cdi
+  changed_when: "'Generated' in nvidia_cdi.stdout or nvidia_cdi.rc == 0"
+  failed_when: false
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+  tags: [containers, nvidia]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify Podman installation
+  ansible.builtin.command: podman --version
+  register: podman_version
+  changed_when: false
+  tags: [containers, verify]
+
+- name: Verify Podman can run containers
+  ansible.builtin.command: podman run --rm docker.io/library/alpine:latest echo "Podman works!"
+  register: podman_test
+  changed_when: false
+  failed_when: false
+  tags: [containers, verify]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display Podman configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN BASE CONFIGURATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Podman Version:     {{ podman_version.stdout }}"
+      - "Docker Compat:      {{ 'Yes' if podman_install_docker_compat else 'No' }}"
+      - "Rootless User:      {{ podman_user }}"
+      - "Linger Enabled:     {{ linger_check.stdout | default('unknown') }}"
+      - "NVIDIA Support:     {{ 'Yes' if (nvidia_check.rc | default(1)) == 0 else 'No' }}"
+      - "Container Test:     {{ 'Passed' if (podman_test.rc | default(1)) == 0 else 'Failed' }}"
+      - ""
+      - "Registries:"
+      - "{% for reg in podman_registries_search %}  - {{ reg }}\n{% endfor %}"
+      - ""
+      - "Usage:"
+      - "  podman run docker.io/library/nginx:latest"
+      - "  podman-compose up -d"
+      - "  # Or use 'docker' command (alias to podman)"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [containers]
+

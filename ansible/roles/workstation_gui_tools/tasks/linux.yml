@@ -1,0 +1,185 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux workstation GUI tools installation
+# Supports Fedora/RHEL and Debian/Ubuntu
+
+# ========================================
+# VS Code Installation
+# ========================================
+- name: VS Code installation block
+  when: vscode_enabled | bool
+  block:
+    # Fedora/RHEL
+    - name: Add Microsoft VS Code repository (Fedora/RHEL)
+      ansible.builtin.yum_repository:
+        name: vscode
+        description: Visual Studio Code
+        baseurl: https://packages.microsoft.com/yumrepos/vscode
+        gpgkey: https://packages.microsoft.com/keys/microsoft.asc
+        gpgcheck: yes
+        enabled: yes
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, vscode]
+
+    - name: Install VS Code (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: code
+        state: present
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, vscode]
+
+    # Debian/Ubuntu
+    - name: Add Microsoft GPG key (Debian/Ubuntu)
+      ansible.builtin.apt_key:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        keyring: /usr/share/keyrings/packages.microsoft.gpg
+        state: present
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, vscode]
+
+    - name: Add VS Code repository (Debian/Ubuntu)
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main"
+        filename: vscode
+        state: present
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, vscode]
+
+    - name: Install VS Code (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: code
+        state: present
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, vscode]
+
+# ========================================
+# Cursor Installation (AppImage)
+# ========================================
+- name: Cursor installation block
+  when: cursor_enabled | bool
+  block:
+    - name: Create Cursor installation directory
+      ansible.builtin.file:
+        path: "{{ cursor_linux_install_dir }}"
+        state: directory
+        mode: '0755'
+      tags: [workstation_gui, cursor]
+
+    - name: Check if Cursor is already installed
+      ansible.builtin.stat:
+        path: "{{ cursor_linux_install_dir }}/cursor.AppImage"
+      register: cursor_installed
+      tags: [workstation_gui, cursor]
+
+    - name: Download Cursor AppImage
+      ansible.builtin.get_url:
+        url: "{{ cursor_linux_appimage_url }}"
+        dest: "{{ cursor_linux_install_dir }}/cursor.AppImage"
+        mode: '0755'
+      when: not cursor_installed.stat.exists
+      tags: [workstation_gui, cursor]
+
+    - name: Create Cursor symlink in /usr/local/bin
+      ansible.builtin.file:
+        src: "{{ cursor_linux_install_dir }}/cursor.AppImage"
+        dest: /usr/local/bin/cursor
+        state: link
+      tags: [workstation_gui, cursor]
+
+    - name: Create Cursor desktop entry
+      ansible.builtin.copy:
+        dest: /usr/share/applications/cursor.desktop
+        content: |
+          [Desktop Entry]
+          Name=Cursor
+          Comment=AI-first code editor
+          Exec={{ cursor_linux_install_dir }}/cursor.AppImage --no-sandbox %F
+          Icon=cursor
+          Type=Application
+          Categories=Development;IDE;
+          MimeType=text/plain;
+          StartupNotify=true
+          Terminal=false
+        mode: '0644'
+      when: workstation_create_desktop_entries | bool
+      tags: [workstation_gui, cursor]
+
+# ========================================
+# Warp Terminal Installation
+# ========================================
+- name: Warp installation block
+  when: warp_enabled | bool
+  block:
+    # Fedora/RHEL - Warp provides a DNF/YUM repo
+    - name: Add Warp repository (Fedora/RHEL)
+      ansible.builtin.yum_repository:
+        name: warp
+        description: Warp Terminal
+        baseurl: https://releases.warp.dev/linux/rpm/stable
+        gpgkey: https://releases.warp.dev/linux/keys/warp.asc
+        gpgcheck: yes
+        enabled: yes
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, warp]
+
+    - name: Install Warp (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: warp-terminal
+        state: present
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, warp]
+
+    # Debian/Ubuntu
+    - name: Add Warp GPG key (Debian/Ubuntu)
+      ansible.builtin.apt_key:
+        url: https://releases.warp.dev/linux/keys/warp.asc
+        keyring: /usr/share/keyrings/warp.gpg
+        state: present
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, warp]
+
+    - name: Add Warp repository (Debian/Ubuntu)
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/warp.gpg] https://releases.warp.dev/linux/deb stable main"
+        filename: warp
+        state: present
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, warp]
+
+    - name: Install Warp (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: warp-terminal
+        state: present
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, warp]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify VS Code installation
+  ansible.builtin.command: code --version
+  register: vscode_version
+  changed_when: false
+  failed_when: false
+  when: vscode_enabled | bool
+  tags: [workstation_gui, verify]
+
+- name: Verify Cursor installation
+  ansible.builtin.stat:
+    path: "{{ cursor_linux_install_dir }}/cursor.AppImage"
+  register: cursor_verify
+  when: cursor_enabled | bool
+  tags: [workstation_gui, verify]
+
+- name: Display verification results
+  ansible.builtin.debug:
+    msg:
+      - "VS Code: {{ vscode_version.stdout_lines[0] | default('not installed') if vscode_enabled else 'skipped' }}"
+      - "Cursor: {{ 'installed' if (cursor_verify.stat.exists | default(false)) else 'not installed' if cursor_enabled else 'skipped' }}"
+  tags: [workstation_gui, verify]
+
+
+

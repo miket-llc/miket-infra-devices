@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# LINUX WORKSTATION PLAYBOOK
+# =============================================================================
+#
+# Configures Linux workstations (hosts with window managers) with:
+# - Common dev tools (git, gh, jq, btop, etc.)
+# - Workstation GUI tools (Cursor, Warp, VS Code)
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/linux.yml
+#
+#   Dev tools only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/linux.yml --tags dev_tools
+#
+#   GUI tools only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/linux.yml --tags workstation_gui
+#
+# PREREQUISITES:
+#   - Host must be in linux_workstations group
+#   - Must have a window manager installed
+#
+# =============================================================================
+
+- name: Configure Linux Workstations
+  hosts: linux_workstations
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          LINUX WORKSTATION DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          
+          Deployment Phases:
+            1. common_dev_tools      - Baseline dev tooling (git, gh, jq, etc.)
+            2. workstation_gui_tools - GUI apps (Cursor, Warp, VS Code)
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Common Dev Tools
+    # ========================================
+    # Baseline CLI tooling for all nodes
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+    # ========================================
+    # Phase 2: Workstation GUI Tools
+    # ========================================
+    # Cursor, Warp, VS Code - only for GUI-capable hosts
+    - role: workstation_gui_tools
+      tags: [workstation_gui]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          LINUX WORKSTATION DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Dev Tools
+             - git, gh, jq, btop, htop, tmux, etc.
+          
+          ✅ GUI Tools
+             - VS Code: {{ 'installed' if vscode_enabled else 'skipped' }}
+             - Cursor:  {{ 'installed' if cursor_enabled else 'skipped' }}
+             - Warp:    {{ 'installed' if warp_enabled else 'skipped' }}
+          
+          Launch apps from applications menu or:
+            code .
+            cursor .
+            warp
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+
+

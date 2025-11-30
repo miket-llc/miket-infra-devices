@@ -1,0 +1,82 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows-specific tasks for common dev tools
+# Uses Chocolatey package manager (consistent with windows-workstation.yml)
+
+# ========================================
+# Ensure Chocolatey is installed
+# ========================================
+- name: Ensure Chocolatey is installed
+  win_chocolatey:
+    name: chocolatey
+    state: present
+  tags: [dev_tools, chocolatey]
+
+# ========================================
+# Install Packages via Chocolatey
+# ========================================
+- name: Install baseline dev tools (Windows)
+  win_chocolatey:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ common_dev_tools_windows_packages }}"
+  tags: [dev_tools, packages]
+
+- name: Install GitHub CLI (Windows)
+  win_chocolatey:
+    name: gh
+    state: present
+  when: common_dev_tools_windows_gh | bool
+  tags: [dev_tools, gh]
+
+- name: Install Azure CLI (Windows)
+  win_chocolatey:
+    name: azure-cli
+    state: present
+  when: common_dev_tools_windows_az | bool
+  tags: [dev_tools, az]
+
+# ========================================
+# Git Configuration
+# ========================================
+- name: Configure git defaults (Windows)
+  win_command: git config --global {{ item.key }} "{{ item.value }}"
+  loop: "{{ common_dev_tools_git_config }}"
+  when: common_dev_tools_configure_git | bool
+  changed_when: false
+  tags: [dev_tools, git]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify git installation (Windows)
+  win_command: git --version
+  register: git_version_win
+  changed_when: false
+  tags: [dev_tools, verify]
+
+- name: Verify gh installation (Windows)
+  win_command: gh --version
+  register: gh_version_win
+  changed_when: false
+  failed_when: false
+  when: common_dev_tools_windows_gh | bool
+  tags: [dev_tools, verify]
+
+- name: Verify az installation (Windows)
+  win_command: az --version
+  register: az_version_win
+  changed_when: false
+  failed_when: false
+  when: common_dev_tools_windows_az | bool
+  tags: [dev_tools, verify]
+
+- name: Display installed versions (Windows)
+  ansible.builtin.debug:
+    msg:
+      - "Git: {{ git_version_win.stdout_lines[0] | default('not installed') }}"
+      - "GitHub CLI: {{ gh_version_win.stdout_lines[0] | default('not installed') }}"
+      - "Azure CLI: {{ az_version_win.stdout_lines[0] | default('not installed') }}"
+  tags: [dev_tools, verify]
+

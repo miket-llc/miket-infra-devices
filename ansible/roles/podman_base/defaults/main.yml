@@ -1,0 +1,45 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Base Role Defaults
+# Configures Podman container runtime on Fedora
+# Alternative to Docker for rootless containers with systemd integration
+
+# Podman packages to install
+podman_packages:
+  - podman
+  - podman-compose
+  - buildah
+  - skopeo
+
+# Install podman-docker (provides docker CLI compatibility)
+podman_install_docker_compat: true
+
+# Install cockpit-podman for web UI (optional)
+podman_install_cockpit: false
+
+# Configure registries (unqualified search)
+podman_registries_search:
+  - docker.io
+  - quay.io
+  - ghcr.io
+
+# User for rootless podman (typically the primary user)
+podman_user: mdt
+
+# Enable lingering for rootless containers (keep running after logout)
+podman_enable_linger: true
+
+# Enable podman socket for API access
+podman_enable_socket: true
+
+# Configure storage location (default uses /var/lib/containers)
+# For rootless: ~/.local/share/containers
+podman_storage_driver: overlay
+
+# NVIDIA Container Toolkit integration
+podman_nvidia_enabled: true
+
+
+
+

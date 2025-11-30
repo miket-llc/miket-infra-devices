@@ -1,22 +1,154 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Remote desktop configuration for motoko (Linux server)
-# Uses NoMachine to share the existing KDE Plasma session
+# =============================================================================
+# MOTOKO HOST CONFIGURATION
+# =============================================================================
+#
+# Fedora Server - Headless GPU + Storage + Container Host
+#
+# OS:       Fedora Server (headless)
+# GPU:      NVIDIA GeForce RTX 2080 (8GB)
+# Storage:  /space (SoR), /flux (runtime), /time (backups)
+# Access:   Tailscale SSH only
+#
+# =============================================================================
+
+# ========================================
+# Remote Desktop Configuration
+# ========================================
+# Uses NoMachine for session sharing (X11 required for NVIDIA)
 remote_protocol: nomachine
 remote_port: 4000
 restrict_to_tailscale: true
-desktop_env: "KDE"
-display_server: "X11"
-display_manager: "sddm"
-session_sharing: true
 
-# NoMachine specific settings - X11 provides full compatibility
+# NoMachine settings
 nomachine_version: "9.2.18"
 nomachine_port: 4000
 
-# PHC Storage Configuration (per PHC invariants)
-# /space = SoR, /flux = runtime, /time = Time Machine
+# ========================================
+# PHC Storage Configuration
+# ========================================
+# Mount paths (per PHC invariants)
 usb_space_mount: /space
 usb_flux_mount: /flux
 usb_timemachine_mount: /time
+
+# PSBI Mount Configuration with UUIDs
+# Run: blkid -o value -s UUID /dev/sdXY to get UUIDs
+psbi_mounts:
+  - path: /space
+    uuid: ""  # TODO: Set actual UUID from blkid
+    fstype: ext4
+    opts: defaults,noatime
+    enabled: true
+    
+  - path: /flux
+    uuid: ""  # TODO: Set actual UUID from blkid
+    fstype: ext4
+    opts: defaults,noatime
+    enabled: true
+    
+  - path: /time
+    uuid: ""  # TODO: Set actual UUID from blkid (may be APFS/HFS+)
+    fstype: auto
+    opts: ro,noatime
+    enabled: true
+
+# Mount ownership
+psbi_mount_owner: mdt
+psbi_mount_group: mdt
+
+# ========================================
+# Fedora Headless Base Configuration
+# ========================================
+# These are defaults; override here if needed
+fedora_headless_boot_target: multi-user.target
+fedora_headless_lid_switch: ignore
+
+# ========================================
+# Ansible Control Node Configuration
+# ========================================
+# Motoko is the primary Ansible control node
+common_dev_tools_install_ansible: true
+common_dev_tools_install_pywinrm: true  # For managing Windows hosts
+
+# ========================================
+# Tailscale Node Configuration
+# ========================================
+tailscale_node_verify_connection: true
+tailscale_node_expose_facts: true
+
+# ========================================
+# NVIDIA GPU Configuration
+# ========================================
+nvidia_gpu_auto_detect: true
+nvidia_gpu_skip_if_absent: false  # motoko always has GPU
+nvidia_gpu_install_cuda: true
+nvidia_gpu_verify: true
+
+# ========================================
+# Podman Container Configuration
+# ========================================
+podman_user: mdt
+podman_enable_linger: true
+podman_nvidia_enabled: true
+
+# ========================================
+# Motoko Services (Containers)
+# ========================================
+# Define container services to run on motoko
+# These are managed by the motoko_services role
+#
+# Example service definitions:
+motoko_services:
+  # LiteLLM Proxy - API gateway for LLM endpoints
+  # - name: litellm
+  #   image: ghcr.io/berriai/litellm:main-v1.55.4
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - "/space/services/litellm:/app/config:Z"
+  #   environment:
+  #     LITELLM_CONFIG_PATH: /app/config/config.yaml
+  #   enabled: true
+  #   restart_policy: always
+  
+  # Add more services as needed:
+  # - name: nextcloud
+  # - name: rag-api
+  # - name: embeddings
+  []
+
+# Service configuration directory
+motoko_services_config_dir: /space/services
+motoko_services_gpu_enabled: true
+
+# ========================================
+# Console UX Configuration
+# ========================================
+# Improves Linux virtual console (TTY) for local monitor use
+# - Default system font size (not oversized)
+# - Visible boot text (removes rhgb/quiet)
+# - Ensures getty login prompt on tty1
+console_ux_enabled: true
+
+# Font: Use Fedora default eurlatgr - smaller, crisper, proper box-drawing
+# No extra packages needed - built into kbd
+console_font_enabled: true
+console_font_name: "eurlatgr"
+console_font_packages: []
+
+# Verbose boot: DISABLED - removing rhgb breaks framebuffer resolution
+# The system needs rhgb for proper 1920x1080 console, not 800x600
+console_verbose_boot_enabled: false
+
+# ========================================
+# Firewall Ports (firewalld)
+# ========================================
+# Additional ports to open (beyond defaults)
+firewall_extra_ports:
+  - 4000/tcp   # NoMachine
+  - 8000/tcp   # LiteLLM
+  - 8001/tcp   # vLLM reasoning
+  - 8200/tcp   # Embeddings API

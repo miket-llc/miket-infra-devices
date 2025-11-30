@@ -1,0 +1,69 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# FEDORA HEADLESS GPU NODES - GROUP VARIABLES
+# =============================================================================
+#
+# Shared configuration for all Fedora headless GPU nodes
+# Members: motoko (add future nodes here)
+#
+# =============================================================================
+
+# ========================================
+# Headless Configuration
+# ========================================
+# All headless nodes boot to multi-user.target (no GUI)
+fedora_headless_boot_target: multi-user.target
+
+# Lid switch handling (ignore = laptop operates with lid closed)
+fedora_headless_lid_switch: ignore
+fedora_headless_lid_switch_external_power: ignore
+fedora_headless_lid_switch_docked: ignore
+
+# ========================================
+# NVIDIA GPU Configuration
+# ========================================
+# Enable RPM Fusion and install NVIDIA drivers
+nvidia_gpu_enable_rpmfusion: true
+nvidia_gpu_auto_detect: true
+nvidia_gpu_install_cuda: true
+nvidia_gpu_verify: true
+
+# ========================================
+# Tailscale Configuration
+# ========================================
+tailscale_node_verify_connection: true
+tailscale_node_expose_facts: true
+tailscale_node_accept_dns: true
+tailscale_node_ssh_enabled: true
+
+# ========================================
+# Container Runtime
+# ========================================
+# All headless GPU nodes use Podman with NVIDIA support
+podman_install_docker_compat: true
+podman_enable_linger: true
+podman_enable_socket: true
+podman_nvidia_enabled: true
+
+# ========================================
+# Common Packages
+# ========================================
+fedora_headless_packages:
+  - vim
+  - git
+  - curl
+  - wget
+  - htop
+  - tmux
+  - rsync
+  - lsof
+  - net-tools
+  - bash-completion
+  - jq
+  - python3-pip
+
+
+
+

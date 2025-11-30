@@ -1,0 +1,41 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fedora Headless Base Role Defaults
+# Controls headless server behavior: no GUI, no suspend, lid-closed operation
+
+# Default boot target (graphical.target or multi-user.target)
+fedora_headless_boot_target: multi-user.target
+
+# Lid switch behavior (ignore = system continues running with lid closed)
+fedora_headless_lid_switch: ignore
+fedora_headless_lid_switch_external_power: ignore
+fedora_headless_lid_switch_docked: ignore
+
+# Power management targets to mask (prevent suspend/hibernate)
+fedora_headless_mask_targets:
+  - sleep.target
+  - suspend.target
+  - hibernate.target
+  - hybrid-sleep.target
+
+# Display manager (set to empty string to ensure none)
+# If a display manager is present, it can be disabled
+fedora_headless_display_manager: ""
+
+# Essential packages for headless server operation
+fedora_headless_packages:
+  - vim
+  - git
+  - curl
+  - wget
+  - htop
+  - tmux
+  - rsync
+  - lsof
+  - net-tools
+  - bash-completion
+
+
+
+

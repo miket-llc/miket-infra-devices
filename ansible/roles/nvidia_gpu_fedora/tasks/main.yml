@@ -1,0 +1,214 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# NVIDIA GPU Role for Fedora
+# Installs NVIDIA drivers via RPM Fusion for headless GPU compute nodes
+#
+# Features:
+# - Auto-detects NVIDIA GPU presence
+# - Enables RPM Fusion repositories
+# - Installs akmod-nvidia (builds kernel modules on first boot)
+# - Optional CUDA/compute packages
+# - Verification via nvidia-smi
+
+- name: Check if running on Fedora
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role is designed for Fedora systems"
+    quiet: true
+  tags: [gpu, validate]
+
+# ========================================
+# GPU Detection
+# ========================================
+- name: Detect NVIDIA GPU
+  ansible.builtin.shell: lspci | grep -i nvidia
+  register: nvidia_lspci
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: nvidia_gpu_auto_detect | bool
+  tags: [gpu, detect]
+
+- name: Set GPU presence fact
+  ansible.builtin.set_fact:
+    nvidia_gpu_present: "{{ nvidia_lspci.rc == 0 and nvidia_lspci.stdout | length > 0 }}"
+  when: nvidia_gpu_auto_detect | bool
+  tags: [gpu, detect]
+
+- name: Display GPU detection result
+  ansible.builtin.debug:
+    msg: "NVIDIA GPU {{ 'detected' if nvidia_gpu_present else 'NOT detected' }}: {{ nvidia_lspci.stdout | default('No NVIDIA hardware found') }}"
+  when: nvidia_gpu_auto_detect | bool
+  tags: [gpu, detect]
+
+- name: Skip GPU setup on non-GPU hosts
+  ansible.builtin.debug:
+    msg: "⏭️  Skipping NVIDIA GPU setup - no GPU detected on {{ inventory_hostname }}"
+  when:
+    - nvidia_gpu_auto_detect | bool
+    - not nvidia_gpu_present
+    - nvidia_gpu_skip_if_absent | bool
+  tags: [gpu]
+
+# Continue only if GPU is present or detection is disabled
+- name: GPU Installation Block
+  when: >
+    (not nvidia_gpu_auto_detect | bool) or 
+    (nvidia_gpu_present | default(false)) or 
+    (not nvidia_gpu_skip_if_absent | bool)
+  block:
+    # ========================================
+    # RPM Fusion Repositories
+    # ========================================
+    - name: Enable RPM Fusion Free repository
+      ansible.builtin.dnf:
+        name: "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+        state: present
+        disable_gpg_check: true
+      when: nvidia_gpu_enable_rpmfusion | bool
+      tags: [gpu, repos]
+
+    - name: Enable RPM Fusion Nonfree repository
+      ansible.builtin.dnf:
+        name: "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+        state: present
+        disable_gpg_check: true
+      when: nvidia_gpu_enable_rpmfusion | bool
+      tags: [gpu, repos]
+
+    - name: Import RPM Fusion Free GPG key
+      ansible.builtin.rpm_key:
+        key: "/etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-free-fedora-{{ ansible_distribution_major_version }}"
+        state: present
+      when: nvidia_gpu_enable_rpmfusion | bool
+      failed_when: false
+      tags: [gpu, repos]
+
+    - name: Import RPM Fusion Nonfree GPG key
+      ansible.builtin.rpm_key:
+        key: "/etc/pki/rpm-gpg/RPM-GPG-KEY-rpmfusion-nonfree-fedora-{{ ansible_distribution_major_version }}"
+        state: present
+      when: nvidia_gpu_enable_rpmfusion | bool
+      failed_when: false
+      tags: [gpu, repos]
+
+    - name: Refresh DNF metadata after adding repos
+      ansible.builtin.command: dnf makecache --refresh
+      changed_when: false
+      tags: [gpu, repos]
+
+    # ========================================
+    # Ensure kernel-devel is installed (needed for akmods)
+    # ========================================
+    - name: Install kernel-devel for current kernel
+      ansible.builtin.dnf:
+        name: "kernel-devel-{{ ansible_kernel }}"
+        state: present
+      tags: [gpu, install]
+
+    # ========================================
+    # Check Existing NVIDIA Installation
+    # ========================================
+    - name: Check if NVIDIA drivers are already working
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_smi_check
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      tags: [gpu, check]
+
+    - name: Set NVIDIA driver status
+      ansible.builtin.set_fact:
+        nvidia_drivers_working: "{{ nvidia_smi_check.rc == 0 }}"
+      tags: [gpu, check]
+
+    # ========================================
+    # Install NVIDIA Drivers
+    # ========================================
+    - name: Install NVIDIA driver packages
+      ansible.builtin.dnf:
+        name: "{{ nvidia_gpu_packages }}"
+        state: present
+      when: not nvidia_drivers_working
+      notify: rebuild akmods
+      tags: [gpu, install]
+
+    - name: Install CUDA compute packages
+      ansible.builtin.dnf:
+        name: "{{ nvidia_gpu_cuda_packages }}"
+        state: present
+      when:
+        - nvidia_gpu_install_cuda | bool
+        - not nvidia_drivers_working
+      tags: [gpu, install, cuda]
+
+    # ========================================
+    # Verification
+    # ========================================
+    - name: Note about kernel module build
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          NVIDIA DRIVERS INSTALLED - REBOOT REQUIRED
+          ═══════════════════════════════════════════════════════════
+          
+          NVIDIA driver packages (akmod-nvidia) have been installed.
+          
+          The kernel module will be built automatically on first boot
+          after a kernel update or after this initial installation.
+          
+          NEXT STEPS:
+          1. Reboot the system: sudo reboot
+          2. After reboot, verify: nvidia-smi
+          
+          If akmods hasn't built the module yet, you can force it:
+            sudo akmods --force
+            sudo dracut --force
+          
+          ═══════════════════════════════════════════════════════════
+      when:
+        - not nvidia_drivers_working
+      tags: [gpu, install]
+
+    - name: Verify NVIDIA drivers (if already installed)
+      ansible.builtin.command: nvidia-smi
+      register: nvidia_smi_verify
+      changed_when: false
+      when:
+        - nvidia_gpu_verify | bool
+        - nvidia_drivers_working
+      tags: [gpu, verify]
+
+    - name: Display nvidia-smi output
+      ansible.builtin.debug:
+        msg: "{{ nvidia_smi_verify.stdout_lines }}"
+      when:
+        - nvidia_gpu_verify | bool
+        - nvidia_drivers_working
+        - nvidia_smi_verify is defined
+      tags: [gpu, verify]
+
+    - name: Set NVIDIA facts for other roles
+      ansible.builtin.set_fact:
+        nvidia_gpu_installed: true
+        nvidia_driver_working: "{{ nvidia_drivers_working }}"
+      tags: [gpu]
+
+  # End of GPU Installation Block
+
+- name: Display GPU role completion summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "NVIDIA GPU ROLE COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "GPU Detected:      {{ nvidia_gpu_present | default('N/A') }}"
+      - "Drivers Working:   {{ nvidia_drivers_working | default(false) }}"
+      - "CUDA Installed:    {{ nvidia_gpu_install_cuda | bool }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [gpu]
+

@@ -1,0 +1,125 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Motoko Services Role
+# Thin orchestration layer for motoko-specific container services
+#
+# This role:
+# - Reads service definitions from motoko_services variable
+# - Creates systemd user units for each service
+# - Manages container lifecycle via systemd
+#
+# Service definitions should be in host_vars/motoko.yml or group_vars
+
+- name: Display service orchestration info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "MOTOKO SERVICES ORCHESTRATION"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Services to manage: {{ motoko_services | length }}"
+      - "Config directory:   {{ motoko_services_config_dir }}"
+      - "Run as user:        {{ motoko_services_user }}"
+      - "GPU enabled:        {{ motoko_services_gpu_enabled }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [services]
+
+# ========================================
+# Service Configuration Directory
+# ========================================
+- name: Ensure services config directory exists
+  ansible.builtin.file:
+    path: "{{ motoko_services_config_dir }}"
+    state: directory
+    owner: "{{ motoko_services_user }}"
+    group: "{{ motoko_services_user }}"
+    mode: '0755'
+  when: motoko_services | length > 0
+  tags: [services, config]
+
+# ========================================
+# Check for GPU availability
+# ========================================
+- name: Check NVIDIA GPU availability
+  ansible.builtin.command: nvidia-smi
+  register: nvidia_available
+  changed_when: false
+  failed_when: false
+  when: motoko_services_gpu_enabled | bool
+  tags: [services, gpu]
+
+- name: Set GPU available fact
+  ansible.builtin.set_fact:
+    motoko_gpu_available: "{{ nvidia_available.rc == 0 }}"
+  tags: [services, gpu]
+
+# ========================================
+# Create User Systemd Directory
+# ========================================
+- name: Ensure user systemd directory exists
+  ansible.builtin.file:
+    path: "/home/{{ motoko_services_user }}/.config/systemd/user"
+    state: directory
+    owner: "{{ motoko_services_user }}"
+    group: "{{ motoko_services_user }}"
+    mode: '0755'
+  when:
+    - motoko_services_systemd | bool
+    - motoko_services | length > 0
+  tags: [services, systemd]
+
+# ========================================
+# Process Each Service
+# ========================================
+- name: Process services
+  ansible.builtin.include_tasks: service.yml
+  loop: "{{ motoko_services }}"
+  loop_control:
+    loop_var: service
+    label: "{{ service.name }}"
+  when: service.enabled | default(true)
+  tags: [services]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display services summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "MOTOKO SERVICES CONFIGURATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Configured Services:"
+      - "{% for svc in motoko_services %}{% if svc.enabled | default(true) %}  ✓ {{ svc.name }} ({{ svc.image }})\n{% else %}  ⏭️  {{ svc.name }} (disabled)\n{% endif %}{% endfor %}"
+      - ""
+      - "Management Commands (as {{ motoko_services_user }}):"
+      - "  systemctl --user status container-<name>.service"
+      - "  systemctl --user restart container-<name>.service"
+      - "  podman logs <name>"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  when: motoko_services | length > 0
+  tags: [services]
+
+- name: Note when no services are defined
+  ansible.builtin.debug:
+    msg: |
+      No services defined in motoko_services variable.
+      
+      To define services, add to host_vars/motoko.yml:
+      
+      motoko_services:
+        - name: myservice
+          image: docker.io/library/nginx:latest
+          ports:
+            - "8080:80"
+          enabled: true
+  when: motoko_services | length == 0
+  tags: [services]
+
+
+
+

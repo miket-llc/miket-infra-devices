@@ -1,0 +1,283 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux-specific tasks for common dev tools
+
+# ========================================
+# Fedora / RHEL / CentOS
+# ========================================
+- name: Install dev tools on Fedora/RHEL
+  when: ansible_os_family == 'RedHat'
+  block:
+    - name: Install baseline packages (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: "{{ common_dev_tools_linux_packages }}"
+        state: present
+      tags: [dev_tools, packages]
+
+    - name: Add GitHub CLI repository (Fedora/RHEL)
+      ansible.builtin.yum_repository:
+        name: gh-cli
+        description: GitHub CLI
+        baseurl: https://cli.github.com/packages/rpm
+        gpgkey: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x23F3D4EA75716059
+        gpgcheck: yes
+        enabled: yes
+      when: common_dev_tools_install_gh | bool
+      tags: [dev_tools, gh]
+
+    - name: Install GitHub CLI (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: gh
+        state: present
+      when: common_dev_tools_install_gh | bool
+      tags: [dev_tools, gh]
+
+    - name: Install Azure CLI (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: azure-cli
+        state: present
+      when: common_dev_tools_install_az | bool
+      tags: [dev_tools, az]
+
+    - name: Install Ansible (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name:
+          - ansible-core
+          - ansible-collection-community-general
+        state: present
+      when: common_dev_tools_install_ansible | bool
+      tags: [dev_tools, ansible]
+
+    - name: Install pywinrm for Windows management (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: python3-winrm
+        state: present
+      when: common_dev_tools_install_pywinrm | bool
+      tags: [dev_tools, ansible, pywinrm]
+
+# ========================================
+# Ubuntu / Debian
+# ========================================
+- name: Install dev tools on Ubuntu/Debian
+  when: ansible_os_family == 'Debian'
+  block:
+    - name: Install baseline packages (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: "{{ common_dev_tools_linux_packages }}"
+        state: present
+        update_cache: yes
+      tags: [dev_tools, packages]
+
+    - name: Add GitHub CLI GPG key (Debian/Ubuntu)
+      ansible.builtin.apt_key:
+        url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+        keyring: /usr/share/keyrings/githubcli-archive-keyring.gpg
+        state: present
+      when: common_dev_tools_install_gh | bool
+      tags: [dev_tools, gh]
+
+    - name: Add GitHub CLI repository (Debian/Ubuntu)
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ ansible_architecture }} signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+        filename: github-cli
+        state: present
+      when: common_dev_tools_install_gh | bool
+      tags: [dev_tools, gh]
+
+    - name: Install GitHub CLI (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: gh
+        state: present
+        update_cache: yes
+      when: common_dev_tools_install_gh | bool
+      tags: [dev_tools, gh]
+
+    - name: Add Microsoft GPG key for Azure CLI (Debian/Ubuntu)
+      ansible.builtin.apt_key:
+        url: https://packages.microsoft.com/keys/microsoft.asc
+        keyring: /usr/share/keyrings/microsoft.gpg
+        state: present
+      when: common_dev_tools_install_az | bool
+      tags: [dev_tools, az]
+
+    - name: Add Azure CLI repository (Debian/Ubuntu)
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ {{ ansible_distribution_release }} main"
+        filename: azure-cli
+        state: present
+      when: common_dev_tools_install_az | bool
+      tags: [dev_tools, az]
+
+    - name: Install Azure CLI (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name: azure-cli
+        state: present
+        update_cache: yes
+      when: common_dev_tools_install_az | bool
+      tags: [dev_tools, az]
+
+    - name: Install Ansible (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name:
+          - ansible
+        state: present
+      when: common_dev_tools_install_ansible | bool
+      tags: [dev_tools, ansible]
+
+    - name: Install pywinrm for Windows management (Debian/Ubuntu)
+      ansible.builtin.pip:
+        name: pywinrm
+        state: present
+      when: common_dev_tools_install_pywinrm | bool
+      tags: [dev_tools, ansible, pywinrm]
+
+# ========================================
+# AI/LLM CLIs (pip-installed, all Linux)
+# ========================================
+- name: Install Shell-GPT (ChatGPT CLI)
+  ansible.builtin.pip:
+    name: shell-gpt
+    state: present
+  when: common_dev_tools_install_shell_gpt | bool
+  tags: [dev_tools, ai_cli]
+
+- name: Install OpenAI Python library
+  ansible.builtin.pip:
+    name: openai
+    state: present
+  when: common_dev_tools_install_openai_cli | bool
+  tags: [dev_tools, ai_cli]
+
+- name: Install Anthropic Claude library
+  ansible.builtin.pip:
+    name: anthropic
+    state: present
+  when: common_dev_tools_install_claude_cli | bool
+  tags: [dev_tools, ai_cli]
+
+- name: Install Aider (AI pair programming)
+  ansible.builtin.pip:
+    name: aider-chat
+    state: present
+  when: common_dev_tools_install_aider | bool
+  tags: [dev_tools, ai_cli]
+
+# ========================================
+# Git Configuration (all Linux)
+# ========================================
+- name: Configure git defaults
+  ansible.builtin.git_config:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    scope: global
+  loop: "{{ common_dev_tools_git_config }}"
+  when: common_dev_tools_configure_git | bool
+  become: false
+  tags: [dev_tools, git]
+
+# ========================================
+# SSH Configuration (all Linux)
+# ========================================
+- name: Get user home directory
+  ansible.builtin.shell: "echo ~{{ ansible_user }}"
+  register: user_home
+  changed_when: false
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+- name: Set user home fact
+  ansible.builtin.set_fact:
+    ssh_user_home: "{{ user_home.stdout }}"
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ ssh_user_home }}/.ssh"
+    state: directory
+    mode: '0700'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+- name: Check if SSH key exists
+  ansible.builtin.stat:
+    path: "{{ ssh_user_home }}/.ssh/id_{{ common_dev_tools_ssh_key_type }}"
+  register: ssh_key_stat
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+- name: Generate SSH key if missing
+  ansible.builtin.command: >
+    ssh-keygen -t {{ common_dev_tools_ssh_key_type }}
+    -f {{ ssh_user_home }}/.ssh/id_{{ common_dev_tools_ssh_key_type }}
+    -N "" -C "{{ ansible_user }}@{{ inventory_hostname }}"
+  become: true
+  become_user: "{{ ansible_user }}"
+  when:
+    - common_dev_tools_configure_ssh | bool
+    - common_dev_tools_generate_ssh_key | bool
+    - not ssh_key_stat.stat.exists
+  tags: [dev_tools, ssh]
+
+- name: Deploy SSH config for Tailscale tailnet
+  ansible.builtin.template:
+    src: ssh_config.j2
+    dest: "{{ ssh_user_home }}/.ssh/config"
+    mode: '0600'
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    backup: yes
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+- name: Display SSH public key
+  ansible.builtin.command: cat {{ ssh_user_home }}/.ssh/id_{{ common_dev_tools_ssh_key_type }}.pub
+  register: ssh_pubkey
+  changed_when: false
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+- name: Show SSH public key for GitHub/Tailscale
+  ansible.builtin.debug:
+    msg:
+      - "SSH Public Key (add to GitHub/Tailscale):"
+      - "{{ ssh_pubkey.stdout | default('No key found') }}"
+  when: common_dev_tools_configure_ssh | bool
+  tags: [dev_tools, ssh]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify git installation
+  ansible.builtin.command: git --version
+  register: git_version
+  changed_when: false
+  tags: [dev_tools, verify]
+
+- name: Verify gh installation
+  ansible.builtin.command: gh --version
+  register: gh_version
+  changed_when: false
+  failed_when: false
+  when: common_dev_tools_install_gh | bool
+  tags: [dev_tools, verify]
+
+- name: Verify az installation
+  ansible.builtin.command: az --version
+  register: az_version
+  changed_when: false
+  failed_when: false
+  when: common_dev_tools_install_az | bool
+  tags: [dev_tools, verify]
+
+- name: Display installed versions
+  ansible.builtin.debug:
+    msg:
+      - "Git: {{ git_version.stdout_lines[0] | default('not installed') }}"
+      - "GitHub CLI: {{ gh_version.stdout_lines[0] | default('not installed') }}"
+      - "Azure CLI: {{ az_version.stdout_lines[0] | default('not installed') }}"
+  tags: [dev_tools, verify]
+

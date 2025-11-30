@@ -1,0 +1,31 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Global variables for all hosts in miket-infra-devices
+# Applied to every node managed by this repository
+
+# ========================================
+# Common Dev Tools (all nodes)
+# ========================================
+# Baseline tooling installed on all servers and workstations
+common_dev_tools_enabled: true
+
+# GitHub CLI installation
+common_dev_tools_install_gh: true
+
+# Git configuration (defaults only, no user-specific settings)
+common_dev_tools_configure_git: true
+
+# ========================================
+# SSH Configuration
+# ========================================
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+
+# ========================================
+# Backup Configuration
+# ========================================
+backup_server: motoko
+docker_registry: ""
+
+
+

@@ -13,6 +13,8 @@ ansible_become_method: sudo
 # Location: /etc/ansible/.become-pass.txt (mdt:mdt 600)
 # Create with: echo 'YOUR_SUDO_PASSWORD' | sudo tee /etc/ansible/.become-pass.txt
 # Set permissions: sudo chmod 600 /etc/ansible/.become-pass.txt && sudo chown mdt:mdt /etc/ansible/.become-pass.txt
-ansible_become_password: "{{ lookup('file', '/etc/ansible/.become-pass.txt') | trim }}"
+#
+# Note: mdt has passwordless sudo on motoko, so this defaults to empty if file missing
+ansible_become_password: "{{ lookup('file', '/etc/ansible/.become-pass.txt', errors='ignore') | default('', true) | trim }}"
 
 
