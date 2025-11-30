@@ -37,3 +37,12 @@
 - **Onboarding:** Bootstrap scripts per OS install Tailscale, configure mounts, and register device tags. Follow with `secrets-sync` and health check.
 - **Runbooks:** Operational flows live under `docs/runbooks/` (mount fixes, secret rotation, backup verification). Architecture changes must be reflected here when they alter behavior.
 - **Compliance:** Any new device or service must prove alignment with PHC vNext invariants (Entra-first, `/space` SoR, Cloudflare ingress, AKV secrets) before deployment.
+
+## 6) Boundary with miket-infra (platform)
+- **miket-infra owns:** Tailnet ACLs and tag definitions (Terraform), Cloudflare Access/Tunnel policy, DNS, and Entra application/SSO configuration. It also provisions AKV and identity resources.
+- **miket-infra-devices owns:** Host-side automation (Ansible playbooks, bootstrap scripts, systemd timers), device tagging, and consumption of the platform contracts (ACL tags, AKV secret names, Cloudflare endpoints).
+- **Integration contract:**
+  - Device scripts apply tags defined in `miket-infra`; they do not redefine ACL intent here.
+  - Services consume secrets declared in `secrets-map.yml`, which map to AKV names provisioned upstream.
+  - Public ingress is always via Cloudflare Tunnel + Access + Entra SSO; no host in this repo is directly exposed.
+  - Any platform changes (ACLs, DNS, SSO) must be landed in `miket-infra` first, then reflected here by consuming the new values.

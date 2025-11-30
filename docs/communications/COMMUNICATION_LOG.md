@@ -1,3 +1,17 @@
+## 2025-11-30 – Documentation consolidation (PHC vNext alignment) {#2025-11-30-doc-refactor}
+
+### Context
+Closed out duplicate architecture narratives and reinforced platform boundaries so all device docs point to the canonical PHC/miket-infra sources.
+
+### Actions
+- Archived `docs/ARCHITECTURE_REVIEW.md` to `docs/archive/` and pointed references to the canonical architecture set.
+- Removed `docs/REPOSITORY_SEPARATION.md`; merged the miket-infra vs miket-infra-devices boundary into `docs/architecture/Miket_Infra_Devices_Architecture.md`.
+- Rewrote the root `README.md` to highlight authoritative entry points (architecture, reference, runbooks, communications) and stop duplicating status marketing.
+
+### References
+- Architecture boundary: `docs/architecture/Miket_Infra_Devices_Architecture.md`
+- Canonical navigation: `README.md`
+
 ## 2025-11-30 – Flux/Space/Time Mount Infrastructure Remediation {#2025-11-30-mount-infrastructure-remediation}
 
 ### Context

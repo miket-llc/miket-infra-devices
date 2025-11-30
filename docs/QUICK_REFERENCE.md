@@ -3,7 +3,6 @@
 ## Files Created/Modified
 
 ### New Files
-- `docs/ARCHITECTURE_REVIEW.md` - Comprehensive repository review
 - `docs/migration/MIGRATION_PLAN.md` - motoko-devops consolidation plan
 - `docs/IMPLEMENTATION_SUMMARY.md` - Implementation summary
 - `ansible/roles/vllm-motoko/` - Complete vLLM role for Motoko
@@ -113,7 +112,6 @@ docker exec litellm nslookup motoko
 
 ## Next Steps Checklist
 
-- [ ] Review `docs/ARCHITECTURE_REVIEW.md`
 - [ ] Test vLLM deployment
 - [ ] Verify LiteLLM integration
 - [ ] Monitor GPU usage
@@ -123,7 +121,7 @@ docker exec litellm nslookup motoko
 ---
 
 **See Also:**
-- `docs/ARCHITECTURE_REVIEW.md` - Full architecture review
+- `docs/architecture/Miket_Infra_Devices_Architecture.md` - Canonical device architecture and platform boundary
 - `docs/migration/MIGRATION_PLAN.md` - Consolidation plan
 - `docs/IMPLEMENTATION_SUMMARY.md` - Implementation details
 
