@@ -4,12 +4,23 @@
 # Default variables for litellm_proxy role
 # Override in group_vars or host_vars as needed
 
-# File paths
-litellm_config_path: "/opt/litellm/litellm.config.yaml"
-litellm_env_path: "/opt/litellm/.env"
-litellm_compose_path: "/opt/litellm/docker-compose.yml"
+# Container runtime (podman or docker)
+litellm_container_runtime: "{{ 'podman' if ansible_distribution == 'Fedora' else 'docker' }}"
+
+# File paths (use /space on Fedora for second drive)
+litellm_workdir: "{{ '/space/apps/litellm' if ansible_distribution == 'Fedora' else '/opt/litellm' }}"
+litellm_config_path: "{{ litellm_workdir }}/config.yaml"
+litellm_env_path: "{{ litellm_workdir }}/.env"
+litellm_compose_path: "{{ litellm_workdir }}/docker-compose.yml"
 
 # Service configuration
 litellm_service_name: "litellm"
-litellm_workdir: "/opt/litellm"
+litellm_port: 8000
+litellm_image: "ghcr.io/berriai/litellm:main-v1.55.4"
+
+# Systemd integration
+litellm_systemd_enabled: "{{ ansible_distribution == 'Fedora' }}"
+
+# Whether secrets are required (from Azure Key Vault)
+litellm_require_secrets: true
 

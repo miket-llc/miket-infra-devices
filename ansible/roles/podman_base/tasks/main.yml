@@ -78,6 +78,58 @@
   tags: [containers, config]
 
 # ========================================
+# Configure Custom Storage Paths
+# ========================================
+- name: Ensure storage.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/containers/storage.conf.d
+    state: directory
+    mode: '0755'
+  when: podman_configure_storage | bool
+  tags: [containers, storage]
+
+- name: Create custom graphroot directory
+  ansible.builtin.file:
+    path: "{{ podman_graphroot }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  when:
+    - podman_create_storage_dirs | bool
+    - podman_graphroot | length > 0
+  tags: [containers, storage]
+
+- name: Configure Podman storage.conf for custom paths
+  ansible.builtin.copy:
+    dest: /etc/containers/storage.conf.d/00-custom-storage.conf
+    content: |
+      # Configured by Ansible podman_base role
+      # Custom storage paths for container images and runtime data
+      [storage]
+      driver = "{{ podman_storage_driver }}"
+      {% if podman_graphroot | length > 0 %}
+      graphroot = "{{ podman_graphroot }}"
+      {% endif %}
+      {% if podman_runroot | length > 0 %}
+      runroot = "{{ podman_runroot }}"
+      {% endif %}
+      
+      [storage.options]
+      # Use native overlay diff for better performance
+      mount_program = "/usr/bin/fuse-overlayfs"
+      
+      [storage.options.overlay]
+      # Enable metacopy for faster container creation
+      mountopt = "nodev,metacopy=on"
+    mode: '0644'
+  when:
+    - podman_configure_storage | bool
+    - podman_graphroot | length > 0 or podman_runroot | length > 0
+  notify: restart podman
+  tags: [containers, storage]
+
+# ========================================
 # Enable Podman Socket (API)
 # ========================================
 - name: Enable podman socket (system-wide)

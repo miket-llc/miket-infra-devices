@@ -5,19 +5,24 @@
 # These values align with PHC invariants - do not modify paths without
 # reviewing docs/guides/nextcloud_on_motoko.md
 
-# Stack deployment location (runtime surface)
-nextcloud_workdir: /flux/apps/nextcloud
+# Container runtime (podman or docker)
+nextcloud_container_runtime: "{{ 'podman' if ansible_distribution == 'Fedora' else 'docker' }}"
+
+# Stack deployment location
+# On Fedora: use /space (second NVMe)
+# On Debian: use /flux for runtime, /mnt/data for app data
+nextcloud_workdir: "{{ '/space/apps/nextcloud' if ansible_distribution == 'Fedora' else '/flux/apps/nextcloud' }}"
 nextcloud_compose_path: "{{ nextcloud_workdir }}/docker-compose.yml"
 nextcloud_config_path: "{{ nextcloud_workdir }}/config"
 nextcloud_bin_path: "{{ nextcloud_workdir }}/bin"
 
 # Secrets (generated from AKV via secrets_sync role)
-nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
+nextcloud_env_path: "{{ nextcloud_workdir }}/.env"
 
 # Data locations
-# App data on internal NVMe (/mnt/data) for performance
-nextcloud_data_path: /mnt/data/nextcloud/data
-nextcloud_db_path: /mnt/data/nextcloud/db
+# All on /space for Fedora (second NVMe)
+nextcloud_data_path: "{{ '/space/apps/nextcloud/data' if ansible_distribution == 'Fedora' else '/mnt/data/nextcloud/data' }}"
+nextcloud_db_path: "{{ '/space/apps/nextcloud/db' if ansible_distribution == 'Fedora' else '/mnt/data/nextcloud/db' }}"
 # Backups on /space (System of Record) for durability
 nextcloud_db_backup_path: /space/_services/nextcloud/db-backups
 

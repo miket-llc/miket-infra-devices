@@ -1,19 +1,21 @@
 # {{ ansible_managed }}
+# LiteLLM Proxy Container
+# Compatible with both Docker and Podman
 version: "3.9"
 
 services:
   litellm:
-    image: litellm/litellm:{{ litellm_version }}
+    image: {{ litellm_image }}
     container_name: litellm
     env_file:
       - {{ litellm_env_path }}
-    command: --config {{ litellm_config_path }} --port {{ litellm_port }}
+    command: --config /app/config/config.yaml --port {{ litellm_port }}
     network_mode: host
     volumes:
-      - {{ litellm_config_path }}:{{ litellm_config_path }}:ro
+      - {{ litellm_config_path }}:/app/config/config.yaml:ro,Z
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import socket; s = socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(2); result = s.connect_ex(('127.0.0.1', {{ litellm_port }})); s.close(); exit(0 if result == 0 else 1)\" || exit 1"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:{{ litellm_port }}/health"]
       interval: 30s
       timeout: 5s
       retries: 3

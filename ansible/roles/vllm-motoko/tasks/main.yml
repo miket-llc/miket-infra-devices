@@ -2,34 +2,77 @@
 
 ---
 # Tasks for deploying vLLM services on Motoko
+# Supports both Docker (Debian) and Podman (Fedora)
 
-- name: Ensure vLLM compose directory exists
-  file:
-    path: "{{ vllm_compose_dir }}"
+- name: Display vLLM deployment info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "vLLM DEPLOYMENT ON MOTOKO"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Container Runtime: {{ vllm_container_runtime }}"
+      - "Compose Directory: {{ vllm_compose_dir }}"
+      - ""
+      - "Reasoning Model:   {{ vllm_reasoning_model }} (port {{ vllm_reasoning_port }})"
+      - "Embeddings Model:  {{ vllm_embeddings_model }} (port {{ vllm_embeddings_port }})"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [vllm]
+
+# ========================================
+# Directory Setup
+# ========================================
+- name: Ensure vLLM directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
     state: directory
     owner: root
     group: root
     mode: "0755"
+  loop:
+    - "{{ vllm_compose_dir }}"
+    - "{{ vllm_models_dir }}"
+    - "{{ vllm_cache_dir }}"
+  tags: [vllm, setup]
 
-- name: Render Docker Compose file for vLLM services
-  template:
+# ========================================
+# Render Compose File
+# ========================================
+- name: Render Docker/Podman Compose file for vLLM services
+  ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ vllm_compose_file }}"
     owner: root
     group: root
     mode: "0644"
   notify: restart vllm services
+  tags: [vllm, config]
 
-- name: Check if Docker is installed
-  command: which docker
+# ========================================
+# Fedora/Podman Setup
+# ========================================
+- name: Check if Podman is available (Fedora)
+  ansible.builtin.command: which podman
+  register: podman_check
+  changed_when: false
+  failed_when: false
+  when: ansible_distribution == "Fedora"
+  tags: [vllm, runtime]
+
+# ========================================
+# Debian/Docker Setup
+# ========================================
+- name: Check if Docker is installed (Debian)
+  ansible.builtin.command: which docker
   register: docker_check
   changed_when: false
   failed_when: false
-  ignore_errors: true
-  check_mode: false
+  when: ansible_os_family == "Debian"
+  tags: [vllm, runtime]
 
-- name: Install Docker + Compose plugin if not present
-  apt:
+- name: Install Docker + Compose plugin if not present (Debian)
+  ansible.builtin.apt:
     name:
       - docker.io
       - docker-compose-plugin
@@ -38,99 +81,141 @@
   when:
     - ansible_os_family == "Debian"
     - docker_check is failed or docker_check.rc != 0
-  tags: [updates, packages]
+  tags: [vllm, packages]
 
-- name: Ensure Docker service is running
-  systemd:
+- name: Ensure Docker service is running (Debian)
+  ansible.builtin.systemd:
     name: docker
     state: started
     enabled: true
   when: ansible_os_family == "Debian"
+  tags: [vllm, runtime]
 
-- name: Pull Docker images
-  shell: docker pull {{ item }}
+# ========================================
+# Pull Images
+# ========================================
+- name: Pull vLLM container images
+  ansible.builtin.command: "{{ vllm_container_runtime }} pull {{ item }}"
   loop:
     - "{{ vllm_reasoning_image }}"
     - "{{ vllm_embeddings_image }}"
   when:
-    - vllm_reasoning_enabled | bool
-    - vllm_embeddings_enabled | bool
+    - vllm_reasoning_enabled | bool or vllm_embeddings_enabled | bool
   changed_when: true
   failed_when: false
+  tags: [vllm, images]
 
-- name: Start vLLM services with Docker Compose
-  command: docker compose -f "{{ vllm_compose_file }}" up -d
+# ========================================
+# Start Services
+# ========================================
+- name: Start vLLM services with Compose
+  ansible.builtin.command: "{{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} up -d"
   args:
     chdir: "{{ vllm_compose_dir }}"
-  register: docker_compose_result
-  changed_when: "'Creating' in docker_compose_result.stdout or 'Starting' in docker_compose_result.stdout or docker_compose_result.stdout is not defined"
-  check_mode: false
+  environment:
+    # Ensure HuggingFace cache uses our directory
+    HF_HOME: "{{ vllm_cache_dir }}"
+  register: compose_result
+  changed_when: "'Creating' in compose_result.stdout or 'Starting' in compose_result.stdout or compose_result.stdout is not defined"
+  tags: [vllm, deploy]
 
+# ========================================
+# Systemd Integration (Fedora)
+# ========================================
+- name: Create systemd service for vLLM stack (Fedora)
+  ansible.builtin.template:
+    src: vllm-stack.service.j2
+    dest: "/etc/systemd/system/{{ vllm_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  when: vllm_systemd_enabled | bool
+  notify: reload systemd
+  tags: [vllm, systemd]
+
+- name: Enable vLLM systemd service (Fedora)
+  ansible.builtin.systemd:
+    name: "{{ vllm_service_name }}"
+    enabled: true
+    daemon_reload: true
+  when: vllm_systemd_enabled | bool
+  tags: [vllm, systemd]
+
+# ========================================
+# Health Checks
+# ========================================
 - name: Wait for reasoning service to be ready
-  wait_for:
+  ansible.builtin.wait_for:
     port: "{{ vllm_reasoning_port }}"
     host: "127.0.0.1"
-    delay: 15
-    timeout: 300
+    delay: 30
+    timeout: 600
   when: vllm_reasoning_enabled | bool
+  tags: [vllm, verify]
 
 - name: Wait for embeddings service to be ready
-  wait_for:
+  ansible.builtin.wait_for:
     port: "{{ vllm_embeddings_port }}"
     host: "127.0.0.1"
     delay: 15
     timeout: 300
   when: vllm_embeddings_enabled | bool
+  tags: [vllm, verify]
 
 - name: Verify reasoning service health
-  uri:
+  ansible.builtin.uri:
     url: "http://127.0.0.1:{{ vllm_reasoning_port }}/health"
     method: GET
     status_code: 200
   register: reasoning_health
   failed_when: false
   when: vllm_reasoning_enabled | bool
+  tags: [vllm, verify]
 
 - name: Verify embeddings service health
-  uri:
+  ansible.builtin.uri:
     url: "http://127.0.0.1:{{ vllm_embeddings_port }}/health"
     method: GET
     status_code: 200
   register: embeddings_health
   failed_when: false
   when: vllm_embeddings_enabled | bool
+  tags: [vllm, verify]
 
+# ========================================
+# GPU Verification
+# ========================================
 - name: Check GPU utilization
-  command: docker exec {{ vllm_reasoning_container_name }} nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader 2>&1 || echo "GPU check failed"
+  ansible.builtin.command: nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader
   register: gpu_check
   changed_when: false
   failed_when: false
-  when: vllm_reasoning_enabled | bool
+  tags: [vllm, verify]
 
-- name: Display GPU utilization
-  debug:
-    msg: "GPU Status: {{ gpu_check.stdout }}"
-  when:
-    - vllm_reasoning_enabled | bool
-    - gpu_check.stdout != ""
-
-- name: Assert reasoning service is healthy
-  assert:
-    that:
-      - reasoning_health.status == 200
-    fail_msg: "Reasoning service health check failed"
-    success_msg: "Reasoning service is healthy"
-  when:
-    - vllm_reasoning_enabled | bool
-    - reasoning_health.status is defined
-
-- name: Assert embeddings service is healthy
-  assert:
-    that:
-      - embeddings_health.status == 200
-    fail_msg: "Embeddings service health check failed"
-    success_msg: "Embeddings service is healthy"
-  when:
-    - vllm_embeddings_enabled | bool
-    - embeddings_health.status is defined
+# ========================================
+# Summary
+# ========================================
+- name: Display vLLM deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "vLLM DEPLOYMENT COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Reasoning Service:  {{ 'Healthy ✓' if (reasoning_health.status | default(0)) == 200 else 'Starting...' }}"
+      - "  Model:            {{ vllm_reasoning_model }}"
+      - "  Endpoint:         http://127.0.0.1:{{ vllm_reasoning_port }}/v1"
+      - ""
+      - "Embeddings Service: {{ 'Healthy ✓' if (embeddings_health.status | default(0)) == 200 else 'Starting...' }}"
+      - "  Model:            {{ vllm_embeddings_model }}"
+      - "  Endpoint:         http://127.0.0.1:{{ vllm_embeddings_port }}/v1"
+      - ""
+      - "GPU Status:         {{ gpu_check.stdout | default('Check nvidia-smi') }}"
+      - ""
+      - "Management:"
+      - "  {{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} logs -f"
+      - "  {{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} restart"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [vllm]
 

@@ -1,17 +1,29 @@
 # {{ ansible_managed }}
+# LiteLLM Proxy Service
+# Uses {{ litellm_container_runtime }}-compose for container management
+
 [Unit]
-Description=LiteLLM Proxy (Docker Compose)
+Description=LiteLLM Proxy ({{ litellm_container_runtime | capitalize }})
+After=network-online.target
+Wants=network-online.target
+{% if litellm_container_runtime == 'podman' %}
+After=podman.socket
+{% else %}
 After=docker.service
 Requires=docker.service
+{% endif %}
 
 [Service]
 Type=oneshot
-WorkingDirectory={{ litellm_workdir }}
-ExecStart=/usr/bin/docker compose -f {{ litellm_compose_path }} up -d
-ExecReload=/usr/bin/docker compose -f {{ litellm_compose_path }} up -d
-ExecStop=/usr/bin/docker compose -f {{ litellm_compose_path }} down
 RemainAfterExit=yes
-TimeoutStartSec=0
+WorkingDirectory={{ litellm_workdir }}
+
+ExecStart=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} up -d
+ExecReload=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} restart
+ExecStop=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} down
+
+TimeoutStartSec=120
+TimeoutStopSec=60
 
 [Install]
 WantedBy=multi-user.target

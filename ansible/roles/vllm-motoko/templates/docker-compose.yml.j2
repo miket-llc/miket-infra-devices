@@ -1,4 +1,6 @@
 # {{ ansible_managed }}
+# vLLM Services for Motoko
+# Compatible with both Docker and Podman (via podman-compose)
 version: "3.9"
 
 services:
@@ -7,19 +9,35 @@ services:
     image: {{ vllm_reasoning_image }}
     container_name: {{ vllm_reasoning_container_name }}
     command: >
-      python -m vllm.entrypoints.openai.api_server
       --model {{ vllm_reasoning_model }}
-      {% if vllm_reasoning_quantization is defined %}--quantization {{ vllm_reasoning_quantization }}{% endif %}
+{% if vllm_reasoning_quantization is defined and vllm_reasoning_quantization %}
+      --quantization {{ vllm_reasoning_quantization }}
+{% endif %}
       --host 0.0.0.0
       --port 8000
       --max-model-len {{ vllm_reasoning_max_len }}
       --gpu-memory-utilization {{ vllm_reasoning_gpu_util }}
       --tensor-parallel-size 1
+      --trust-remote-code
     ports:
       - "{{ vllm_reasoning_port }}:8000"
-    {% if vllm_network_mode == "host" %}
+{% if vllm_network_mode == "host" %}
     network_mode: host
-    {% endif %}
+{% endif %}
+    volumes:
+      - {{ vllm_cache_dir }}:/root/.cache/huggingface:Z
+      - {{ vllm_models_dir }}:/models:Z
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - NVIDIA_VISIBLE_DEVICES=all
+    # GPU access via CDI (Podman) or deploy (Docker)
+{% if vllm_container_runtime == 'podman' %}
+    devices:
+      - nvidia.com/gpu=all
+    security_opt:
+      - label:disable
+{% else %}
     deploy:
       resources:
         reservations:
@@ -27,13 +45,14 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+{% endif %}
     restart: {{ vllm_restart_policy }}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 60s
+      retries: 5
+      start_period: 180s
 {% endif %}
 
 {% if vllm_embeddings_enabled | bool %}
@@ -41,17 +60,31 @@ services:
     image: {{ vllm_embeddings_image }}
     container_name: {{ vllm_embeddings_container_name }}
     command: >
-      python -m vllm.entrypoints.openai.api_server
       --model {{ vllm_embeddings_model }}
       --host 0.0.0.0
       --port 8000
       --gpu-memory-utilization {{ vllm_embeddings_gpu_util }}
       --tensor-parallel-size 1
+      --trust-remote-code
     ports:
       - "{{ vllm_embeddings_port }}:8000"
-    {% if vllm_network_mode == "host" %}
+{% if vllm_network_mode == "host" %}
     network_mode: host
-    {% endif %}
+{% endif %}
+    volumes:
+      - {{ vllm_cache_dir }}:/root/.cache/huggingface:Z
+      - {{ vllm_models_dir }}:/models:Z
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+      - TRANSFORMERS_CACHE=/root/.cache/huggingface
+      - NVIDIA_VISIBLE_DEVICES=all
+    # GPU access via CDI (Podman) or deploy (Docker)
+{% if vllm_container_runtime == 'podman' %}
+    devices:
+      - nvidia.com/gpu=all
+    security_opt:
+      - label:disable
+{% else %}
     deploy:
       resources:
         reservations:
@@ -59,12 +92,13 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+{% endif %}
     restart: {{ vllm_restart_policy }}
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 60s
+      retries: 5
+      start_period: 120s
 {% endif %}
 

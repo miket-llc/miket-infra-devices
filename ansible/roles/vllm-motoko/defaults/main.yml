@@ -4,31 +4,42 @@
 # Default variables for vLLM deployment on Motoko
 # Override in group_vars/motoko.yml or host_vars/motoko/ as needed
 
+# Container runtime (podman or docker)
+vllm_container_runtime: "{{ 'podman' if ansible_distribution == 'Fedora' else 'docker' }}"
+
 # Reasoning model configuration
 vllm_reasoning_enabled: true
-vllm_reasoning_model: "mistralai/Mistral-7B-Instruct-v0.2-AWQ"
+vllm_reasoning_model: "TheBloke/Mistral-7B-Instruct-v0.2-AWQ"
 vllm_reasoning_quantization: "awq"
 vllm_reasoning_port: 8001
 vllm_reasoning_gpu_util: 0.45
 vllm_reasoning_max_len: 4096
 vllm_reasoning_container_name: "vllm-reasoning-motoko"
-vllm_reasoning_image: "vllm/vllm-openai:latest"
+vllm_reasoning_image: "docker.io/vllm/vllm-openai:latest"
 
 # Embeddings model configuration
 vllm_embeddings_enabled: true
 vllm_embeddings_model: "BAAI/bge-base-en-v1.5"
 vllm_embeddings_port: 8200
-vllm_embeddings_gpu_util: 0.30
+vllm_embeddings_gpu_util: 0.25
 vllm_embeddings_container_name: "vllm-embeddings-motoko"
-vllm_embeddings_image: "vllm/vllm-openai:latest"
+vllm_embeddings_image: "docker.io/vllm/vllm-openai:latest"
 
-# Docker Compose configuration
-vllm_compose_dir: "/opt/vllm-motoko"
+# Compose configuration (use /space on Fedora)
+vllm_compose_dir: "{{ '/space/apps/vllm' if ansible_distribution == 'Fedora' else '/opt/vllm-motoko' }}"
 vllm_compose_file: "{{ vllm_compose_dir }}/docker-compose.yml"
 
+# Model and cache directories
+vllm_models_dir: "{{ vllm_compose_dir }}/models"
+vllm_cache_dir: "{{ vllm_compose_dir }}/cache"
+
 # Network configuration
-vllm_network_mode: "bridge"  # or "host" for better performance
+vllm_network_mode: "bridge"
 
 # Service management
 vllm_restart_policy: "unless-stopped"
+
+# Systemd service (for Fedora with Podman)
+vllm_systemd_enabled: "{{ ansible_distribution == 'Fedora' }}"
+vllm_service_name: "vllm-stack"
 

@@ -4,8 +4,18 @@
 # Handlers for vLLM Motoko role
 
 - name: restart vllm services
-  command: docker compose -f "{{ vllm_compose_file }}" restart
+  ansible.builtin.command: "{{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} restart"
   args:
     chdir: "{{ vllm_compose_dir }}"
   listen: restart vllm services
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart vllm systemd service
+  ansible.builtin.systemd:
+    name: "{{ vllm_service_name }}"
+    state: restarted
+  when: vllm_systemd_enabled | bool
 

@@ -3,6 +3,13 @@
 ---
 # Handlers for podman_base role
 
+- name: restart podman
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: restarted
+    scope: system
+  failed_when: false
+
 - name: restart podman socket
   ansible.builtin.systemd:
     name: podman.socket
@@ -17,8 +24,7 @@
   become: true
   become_user: "{{ podman_user }}"
 
-
-
-
-
-
+- name: reset podman storage
+  ansible.builtin.command: podman system reset --force
+  failed_when: false
+  changed_when: true

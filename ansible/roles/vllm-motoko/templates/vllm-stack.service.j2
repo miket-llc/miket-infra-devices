@@ -1,0 +1,37 @@
+# {{ ansible_managed }}
+# vLLM Stack Systemd Service
+# Manages vLLM containers via podman-compose/docker-compose
+
+[Unit]
+Description=vLLM AI Model Serving Stack
+After=network-online.target
+Wants=network-online.target
+{% if vllm_container_runtime == 'podman' %}
+After=podman.socket
+{% else %}
+After=docker.service
+Requires=docker.service
+{% endif %}
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ vllm_compose_dir }}
+Environment=HF_HOME={{ vllm_cache_dir }}
+Environment=TRANSFORMERS_CACHE={{ vllm_cache_dir }}
+
+ExecStart={{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} up -d
+ExecStop={{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} down
+ExecReload={{ vllm_container_runtime }}-compose -f {{ vllm_compose_file }} restart
+
+# Restart configuration
+Restart=on-failure
+RestartSec=30
+
+# Resource limits
+TimeoutStartSec=600
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
+
