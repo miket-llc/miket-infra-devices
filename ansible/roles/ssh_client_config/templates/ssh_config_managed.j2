@@ -9,6 +9,10 @@
 # Deployed via: make deploy-ssh-config
 # Role: ansible/roles/ssh_client_config
 # Docs: docs/runbooks/ssh-user-mapping.md
+#
+# ARCHITECTURE:
+#   Linux/macOS: Tailscale SSH (no keys - ACLs handle auth via Entra ID)
+#   Windows: OpenSSH Server (keys required - Tailscale SSH not supported)
 
 # ============================================================================
 # Global Defaults for Tailscale Mesh
@@ -17,48 +21,45 @@ Host *.{{ tailnet_domain }}
     StrictHostKeyChecking {{ ssh_strict_host_key_checking }}
     ServerAliveInterval 60
     ServerAliveCountMax 3
-{% if ssh_forward_agent %}
-    ForwardAgent yes
-{% endif %}
 
-{% if ansible_system == 'Darwin' %}
 # ============================================================================
-# 1Password SSH Agent (macOS only)
-# ============================================================================
-Host *.{{ tailnet_domain }} 100.*
-    IdentityAgent "{{ onepassword_agent_sock }}"
-
-{% endif %}
-# ============================================================================
-# Linux Servers - use mdt (automation account)
+# Linux Servers - Tailscale SSH (NO keys needed)
+# Auth handled by Tailscale ACLs, identity from Entra ID
 # ============================================================================
 {% for host in ssh_user_mapping.linux_hosts %}
 Host {{ host }} {{ host }}.{{ tailnet_domain }}
     User {{ ssh_user_mapping.linux_user }}
     HostName {{ host }}.{{ tailnet_domain }}
+    # Tailscale SSH - no IdentityFile needed
 
 {% endfor %}
 # ============================================================================
-# macOS Devices - use primary user
+# macOS Devices - Tailscale SSH (NO keys needed)
+# Auth handled by Tailscale ACLs, identity from Entra ID
 # ============================================================================
 {% for host in ssh_user_mapping.macos_hosts %}
 Host {{ host }} {{ host }}.{{ tailnet_domain }}
     User {{ ssh_user_mapping.macos_user }}
     HostName {{ host }}.{{ tailnet_domain }}
+    # Tailscale SSH - no IdentityFile needed
 
 {% endfor %}
 # ============================================================================
-# Windows Devices - SSH available but WinRM preferred for Ansible
+# Windows Devices - OpenSSH Server (keys REQUIRED)
+# Tailscale SSH not supported on Windows
+# Uses 1Password SSH agent on macOS, filesystem key on Linux
 # ============================================================================
 {% for host in ssh_user_mapping.windows_hosts %}
 Host {{ host }} {{ host }}.{{ tailnet_domain }}
     User {{ ssh_user_mapping.windows_user }}
     HostName {{ host }}.{{ tailnet_domain }}
+{% if ansible_system == 'Darwin' %}
+    IdentityAgent "{{ onepassword_agent_sock }}"
+{% endif %}
 
 {% endfor %}
 # ============================================================================
-# Tailscale IP fallback - use mdt for direct IP access
+# Tailscale IP fallback
 # ============================================================================
 Host 100.*
     User {{ ssh_user_mapping.linux_user }}
-
