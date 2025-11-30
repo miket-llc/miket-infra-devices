@@ -37,7 +37,7 @@ Both playbooks now work consistently for all Windows workstations.
 
 ### 5. Documentation Updates
 **Files:**
-- `docs/architecture/account-architecture.md` - Removed Microsoft account references
+- `docs/reference/account-architecture.md` - Removed Microsoft account references
 - `docs/runbooks/armitage-docker-nvidia-debug.md` - Updated paths to use `mdt` user
 - `docs/WINDOWS_WORKSTATION_CONSISTENCY.md` - New comprehensive guide
 - `docs/armitage-connectivity-troubleshooting.md` - Troubleshooting guide
@@ -141,7 +141,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/windows-vllm-deploy.yml -e "ta
 3. `ansible/playbooks/configure-windows-rdp.yml` - Updated to target windows_workstations
 4. `ansible/playbooks/windows-vllm-deploy.yml` - Updated default target
 5. `ansible/roles/windows-vllm-deploy/defaults/main.yml` - Hardcoded mdt user
-6. `docs/architecture/account-architecture.md` - Removed Microsoft account references
+6. `docs/reference/account-architecture.md` - Removed Microsoft account references
 7. `docs/runbooks/armitage-docker-nvidia-debug.md` - Updated paths
 8. `docs/WINDOWS_WORKSTATION_CONSISTENCY.md` - Created consistency guide
 

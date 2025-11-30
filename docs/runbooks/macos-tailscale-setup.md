@@ -303,6 +303,6 @@ ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml
 - [Bootstrap Script](../../scripts/bootstrap-macos.sh)
 - [Unified Tailscale Role](../../ansible/roles/tailscale/)
 - [Count-Zero Setup](../../devices/count-zero/ENABLE_REMOTE_MANAGEMENT.md)
-- [Tailnet Architecture](../architecture/tailnet.md)
+- [Tailnet Architecture](../reference/tailnet.md)
 - [IaC/CaC Principles](../architecture/iac-cac-principles.md)
 

@@ -1,5 +1,7 @@
 # Caddy + OIDC vs. Cloudflare Tunnel for device ingress
 
+> **Archived:** Cloudflare Tunnel + Access with Entra SSO is now the mandatory ingress pattern per `docs/architecture/PHC_VNEXT_ARCHITECTURE.md`. This comparison is kept for historical context only.
+
 ## Quick comparison
 
 | Area | Caddy + OIDC (Entra) on tailnet | Cloudflare Tunnel |

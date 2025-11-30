@@ -20,7 +20,7 @@ The `mdt` account is the dedicated automation account for infrastructure managem
 - **Deployment**: Automated deployment and configuration  
 - **Tooling**: Automation tooling and scripts
 
-This account is separate from user accounts and used exclusively by Ansible and infrastructure automation. See [Account Architecture](../architecture/account-architecture.md) for complete details.
+This account is separate from user accounts and used exclusively by Ansible and infrastructure automation. See [Account Architecture](../reference/account-architecture.md) for complete details.
 
 ## User Mapping Table
 

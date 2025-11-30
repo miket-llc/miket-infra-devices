@@ -1,13 +1,15 @@
 # 🎯 Device Infrastructure Status Dashboard
 
-**Date:** 2025-11-23  
-**Architecture Version:** v1.2.3 (Windows mounts/OS cloud redeploy)  
-**Status:** ✅ **PRODUCTION-READY - Comprehensive Review Complete**  
-**Last Updated:** 2025-11-23 00:00 EST
+**Date:** 2025-11-29
+**Architecture Version:** v1.2.3 (Windows mounts/OS cloud redeploy)
+**Status:** ✅ **PRODUCTION-READY - Comprehensive Review Complete**
+**Last Updated:** 2025-11-29 00:00 EST
 
 ---
 
 ## 📊 Current Status Summary
+
+**Latest Update (2025-11-29):** Documentation consolidated into canonical architecture set (`docs/architecture/PHC_VNEXT_ARCHITECTURE.md`, filesystem/devices docs, components) with redundant architecture notes archived. See `docs/communications/COMMUNICATION_LOG.md` for the refactor entry.
 
 | Component | Status | Details |
 |-----------|--------|---------|

@@ -87,7 +87,7 @@ This repository follows Infrastructure as Code (IaC) and Configuration as Code (
 - ✅ Configuration templates
 - ✅ Documentation
 - ✅ Scripts and automation
-- ❌ Secrets (use Ansible Vault)
+- ❌ Secrets (store in Azure Key Vault; consume via secrets-sync)
 - ❌ Generated files (use `.gitignore`)
 
 ### 6. Secrets Management
@@ -103,6 +103,7 @@ This repository follows Infrastructure as Code (IaC) and Configuration as Code (
 - Use Azure Key Vault (AKV) as the sole secrets store for automation
 - Keep AKV-backed env files under configuration management; never commit unencrypted secrets
 - Avoid Vaultwarden and Ansible Vault except for short-lived bootstrap access to AKV
+- Humans pull credentials from 1Password; automation never reads from 1Password
 - Rotate AKV secrets regularly and re-sync to hosts
 
 ### 7. Testing Before Applying

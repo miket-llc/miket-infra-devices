@@ -10,7 +10,7 @@ Motoko (and other servers) keep getting disconnected from Tailscale when other c
 
 ## Solution: Use Enrollment Keys for Servers
 
-Per the architecture documentation (`docs/architecture/tailnet.md`):
+Per the architecture documentation (`docs/reference/tailnet.md`):
 > **Key rotation** – Ephemeral auth keys are used for unattended servers; they are renewed via the automation controller at least every 90 days.
 
 ### For Motoko (Ansible Control Node)
@@ -57,6 +57,6 @@ For now, use `/tmp/quick-reconnect-motoko.sh` to quickly reconnect after disconn
 
 ## Related Documentation
 
-- [Tailnet Architecture](../architecture/tailnet.md)
+- [Tailnet Architecture](../reference/tailnet.md)
 - [Reconnect Motoko Guide](./reconnect-motoko-tailscale.md)
 
