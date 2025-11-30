@@ -198,6 +198,7 @@ See [Armitage Model Validation Runbook](docs/runbooks/armitage-model-validation.
 - **[EXECUTION_TRACKER.md](docs/product/EXECUTION_TRACKER.md)** - Task tracking and agent deliverables
 - **[TEAM_ROLES.md](docs/product/TEAM_ROLES.md)** - Agent responsibilities and coordination
 - **[COMMUNICATION_LOG.md](docs/communications/COMMUNICATION_LOG.md)** - Chronological action log
+- **Architecture:** [PHC vNext](docs/architecture/PHC_VNEXT_ARCHITECTURE.md), [Devices](docs/architecture/Miket_Infra_Devices_Architecture.md), [Filesystem](docs/architecture/FILESYSTEM_ARCHITECTURE.md), and component docs in `docs/architecture/components/`
 
 **Key Runbooks:**
 - **[TAILSCALE_DEVICE_SETUP.md](docs/runbooks/TAILSCALE_DEVICE_SETUP.md)** - Device enrollment and SSH configuration

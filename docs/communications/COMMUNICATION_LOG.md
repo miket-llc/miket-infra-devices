@@ -1,3 +1,20 @@
+## 2025-11-29 – Architecture Doc Consolidation {#2025-11-29-architecture-doc-consolidation}
+
+### Context
+Aligned documentation with PHC vNext, filesystem v2.1, secrets, and Nextcloud architecture rules. Goal: one canonical architecture document per system with subordinate component docs.
+
+### Actions Taken
+- Created canonical architecture set:
+  - `docs/architecture/PHC_VNEXT_ARCHITECTURE.md`
+  - `docs/architecture/FILESYSTEM_ARCHITECTURE.md`
+  - `docs/architecture/Miket_Infra_Devices_Architecture.md`
+  - Component docs under `docs/architecture/components/` for Nextcloud and Secrets.
+- Relocated prior architecture notes to reference/archive for clarity (`docs/reference/account-architecture.md`, `docs/reference/tailnet.md`, `docs/reference/iac-cac-principles.md`, `docs/reference/b2-space-mirror-review.md`, archived Caddy vs. Cloudflare comparison).
+- Updated navigation: `docs/README.md`, root `README.md`, and `docs/product/STATUS.md` now point to canonical architecture. STATUS log reflects the consolidation.
+
+### Result
+- Single source of truth per system with clear component hierarchy; redundant/contradicting guidance removed or archived.
+
 ## 2025-11-29 – Motoko Fedora 43 Migration {#2025-11-29-motoko-fedora-migration}
 
 ### Context
@@ -991,7 +1008,7 @@ Executing PHC_PROMPT.md infrastructure phases in order: Storage backplane → AI
 - Bastion/jump host access: ✅ Tailscale SSH operational (`tailscale ssh mdt@motoko`)
 - MFA enforcement: ✅ Cloudflare Access + Entra ID (MFA required for all remote apps: NoMachine, SSH, admin tools)
 - Role scoping: ✅ Least-privilege Entra ID groups (`group:devs`, `group:owners`); admin tools restricted to `group:owners` only
-- Access patterns: ✅ Documented in [docs/runbooks/cloudflare-access-mapping.md](../runbooks/cloudflare-access-mapping.md), [docs/runbooks/fix-motoko-ssh-connection.md](../runbooks/fix-motoko-ssh-connection.md), [docs/architecture/tailnet.md](../architecture/tailnet.md)
+- Access patterns: ✅ Documented in [docs/runbooks/cloudflare-access-mapping.md](../runbooks/cloudflare-access-mapping.md), [docs/runbooks/fix-motoko-ssh-connection.md](../runbooks/fix-motoko-ssh-connection.md), [docs/reference/tailnet.md](../reference/tailnet.md)
 - Logging destinations: ✅ Tailscale (admin console), Cloudflare Access (dashboard), device logs (`/var/log/auth.log`, Windows Event Log)
 
 **Phase 4: Service Catalog Surfacing** ✅ COMPLETE

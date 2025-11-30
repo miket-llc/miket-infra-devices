@@ -1,40 +1,30 @@
 # Documentation
 
-This directory collects architecture notes, runbooks, and reference material to support operating all managed devices. Each subdirectory should focus on a specific topic so documentation stays easy to navigate.
+This tree holds the permanent, canonical documentation for **miket-infra-devices**. Architecture is singular and lives in the `docs/architecture/` folder with subordinate component docs. Reference, runbooks, product, and communications are organized so every topic has one home.
+
+## Where to start
+- **New contributors / PMs:** Read `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` for the PHC big picture, then `docs/architecture/Miket_Infra_Devices_Architecture.md` for endpoint scope.
+- **Operators:** Follow runbooks in `docs/runbooks/` and the secrets patterns in `docs/architecture/components/SECRETS_ARCHITECTURE.md`.
+- **Storage/UX:** See `docs/architecture/FILESYSTEM_ARCHITECTURE.md` for Flux/Space/Time rules and `docs/architecture/components/NEXTCLOUD_PHC_ARCHITECTURE.md` for Nextcloud constraints.
+- **Status/decisions:** `docs/product/STATUS.md`, `docs/product/EXECUTION_TRACKER.md`, and `docs/communications/COMMUNICATION_LOG.md`.
 
 ## Structure
+- **`architecture/`** – Canonical design docs
+  - `FILESYSTEM_ARCHITECTURE.md`
+  - `PHC_VNEXT_ARCHITECTURE.md`
+  - `Miket_Infra_Devices_Architecture.md`
+  - `components/` (e.g., `NEXTCLOUD_PHC_ARCHITECTURE.md`, `SECRETS_ARCHITECTURE.md`)
+- **`reference/`** – Detailed specs and decision support (account model, tailnet, IaC/CaC, space-mirror review)
+- **`runbooks/`** – Operational procedures and troubleshooting
+- **`product/`** – Roadmaps, status, execution tracking, team structure
+- **`communications/`** – COMMUNICATION_LOG and coordination records
+- **`archive/`** – Historical content kept for context (superseded by canonical docs)
+- **`guides/` / `initiatives/` / `migration/`** – Deep dives and project documentation linked from the canonical architecture
 
-- **`architecture/`** - System design, principles, and architectural decisions
-- **`communications/`** - COMMUNICATION_LOG.md (chronological action log)
-- **`product/`** - Management documents (STATUS.md, EXECUTION_TRACKER.md, TEAM_ROLES.md)
-- **`runbooks/`** - Permanent operational procedures and troubleshooting guides
-- **`migration/`** - Migration plans and procedures
-- **`archive/`** - Historical documentation (read-only reference)
+## Standards
+1. **Single source of truth** – Architecture lives once; other docs must reference it.
+2. **No ephemeral docs** – Point-in-time notes belong in `docs/communications/COMMUNICATION_LOG.md`.
+3. **Secrets discipline** – AKV is SoR; `.env` caches come from `secrets-sync`; 1Password is human-only.
+4. **IaC/CaC first** – Prefer Terraform/Terragrunt + Ansible over ad-hoc scripts; document changes alongside code.
 
-## Documentation Standards
-
-### Principles
-
-1. **Single Source of Truth** - Each topic documented once, referenced elsewhere
-2. **Permanent vs. Ephemeral** - Only permanent docs in this tree; ephemeral content goes in COMMUNICATION_LOG.md
-3. **Current State** - STATUS.md, EXECUTION_TRACKER.md, COMMUNICATION_LOG.md updated immediately after actions
-4. **No Duplication** - Reference existing docs, don't recreate
-5. **Organized by Purpose** - Runbooks for operations, architecture for design, product for management
-
-### What Goes Where
-
-**Point-in-time reports** → `docs/communications/COMMUNICATION_LOG.md` (summarized)
-**Operational procedures** → `docs/runbooks/`
-**System architecture** → `docs/architecture/` or `docs/product/`
-**Current status** → `docs/product/STATUS.md`
-**Task tracking** → `docs/product/EXECUTION_TRACKER.md`
-**Historical reference** → `docs/archive/` (read-only)
-
-### What NOT to Create
-
-- ❌ Ephemeral .md files in root directory
-- ❌ Duplicate status or tracking files
-- ❌ Point-in-time reports as separate files
-- ❌ Artifact .txt files (log outcomes, delete reports)
-
-See `docs/product/TEAM_ROLES.md` for complete documentation protocols.
+Use `docs/product/TEAM_ROLES.md` for full documentation protocols and ownership.
