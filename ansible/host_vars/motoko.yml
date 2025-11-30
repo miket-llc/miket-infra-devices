@@ -122,24 +122,21 @@ litellm_image: ghcr.io/berriai/litellm:main-v1.55.4
 # ========================================
 # vLLM Configuration
 # ========================================
+# RTX 2080 Max-Q (8GB VRAM) - optimized for lightweight workloads
+# Focus on embeddings for GraphDB, NLP, etc. Not suited for large LLMs.
 vllm_enabled: true
 vllm_compose_dir: /podman/apps/vllm
 vllm_compose_file: /podman/apps/vllm/docker-compose.yml
-vllm_models_dir: /podman/apps/vllm/models
 vllm_cache_dir: /podman/apps/vllm/cache
 
-# Reasoning model (Mistral 7B AWQ - fits in 8GB VRAM with embeddings)
-vllm_reasoning_enabled: true
-vllm_reasoning_model: "TheBloke/Mistral-7B-Instruct-v0.2-AWQ"
-vllm_reasoning_port: 8001
-vllm_reasoning_gpu_util: 0.45
-vllm_reasoning_max_len: 4096
+# Reasoning model DISABLED - RTX 2080 Max-Q not suited for large models
+vllm_reasoning_enabled: false
 
-# Embeddings model (BGE Base - lightweight)
+# Embeddings model (BGE Base - lightweight, fast)
 vllm_embeddings_enabled: true
 vllm_embeddings_model: "BAAI/bge-base-en-v1.5"
 vllm_embeddings_port: 8200
-vllm_embeddings_gpu_util: 0.25
+vllm_embeddings_gpu_util: 0.50
 
 # ========================================
 # Nextcloud Configuration
