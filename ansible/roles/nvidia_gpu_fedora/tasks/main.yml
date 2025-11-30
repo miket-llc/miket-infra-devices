@@ -100,11 +100,15 @@
       tags: [gpu, repos]
 
     # ========================================
-    # Ensure kernel-devel is installed (needed for akmods)
+    # Ensure kernel packages are complete (needed for akmods + nvidia_modeset)
     # ========================================
-    - name: Install kernel-devel for current kernel
+    # kernel-devel: Required for building kernel modules (akmods)
+    # kernel-modules: Contains video.ko (acpi_video) needed by nvidia_modeset
+    - name: Install required kernel packages for current kernel
       ansible.builtin.dnf:
-        name: "kernel-devel-{{ ansible_kernel }}"
+        name:
+          - "kernel-devel-{{ ansible_kernel }}"
+          - "kernel-modules-{{ ansible_kernel }}"
         state: present
       tags: [gpu, install]
 
