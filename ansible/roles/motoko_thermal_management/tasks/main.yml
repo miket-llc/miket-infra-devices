@@ -1,0 +1,575 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Motoko Thermal Management Role
+# Aggressive fan and thermal management for Alienware laptop (lid-closed operation)
+
+- name: Display thermal management deployment info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "MOTOKO THERMAL MANAGEMENT DEPLOYMENT"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Configuration:"
+      - "  - Aggressive mode: {{ thermald_aggressive_mode }}"
+      - "  - CPU thresholds: Normal <{{ cpu_thermal_normal }}°C, Hot <{{ cpu_thermal_hot }}°C"
+      - "  - GPU thresholds: Normal <{{ gpu_thermal_normal }}°C, Hot <{{ gpu_thermal_hot }}°C"
+      - "  - Monitoring interval: {{ thermal_monitor_interval }}s"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [thermal, always]
+
+# =============================================================================
+# Install Thermal Management Packages
+# =============================================================================
+
+- name: Install thermal management packages
+  ansible.builtin.dnf:
+    name: "{{ thermal_management_packages }}"
+    state: present
+  tags: [thermal, packages]
+
+- name: Install lm-sensors if available (optional)
+  ansible.builtin.dnf:
+    name: lm-sensors
+    state: present
+  register: sensors_install
+  failed_when: false
+  changed_when: sensors_install.rc == 0
+  tags: [thermal, packages]
+
+- name: Detect sensors (non-interactive, only if lm-sensors installed)
+  ansible.builtin.command: sensors-detect --auto
+  changed_when: false
+  failed_when: false
+  when: sensors_install.rc == 0
+  tags: [thermal, sensors]
+
+# =============================================================================
+# Configure thermald (Linux Thermal Daemon)
+# =============================================================================
+
+- name: Create thermald configuration directory
+  ansible.builtin.file:
+    path: /etc/thermald
+    state: directory
+    mode: '0755'
+  tags: [thermal, thermald]
+
+- name: Configure thermald for aggressive cooling (lid-closed operation)
+  ansible.builtin.copy:
+    dest: /etc/thermald/thermal-conf.xml
+    content: |
+      <?xml version="1.0"?>
+      <!-- Managed by Ansible - motoko_thermal_management role -->
+      <!-- Aggressive thermal management for Alienware laptop with lid closed -->
+      <ThermalConfiguration>
+        <Platform>
+          <Name>Alienware Laptop (Lid Closed)</Name>
+          <ProductName>*</ProductName>
+          <Preference>QUIET</Preference>
+          <ThermalZones>
+            <!-- CPU Package Temperature -->
+            <ThermalZone>
+              <Type>cpu</Type>
+              <TripPoints>
+                <!-- Normal operation: < 55°C -->
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_normal }}000</Temperature>
+                  <Type>passive</Type>
+                  <SensorType>cpu</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+                <!-- Warm: 55-65°C - preventive cooling (start early) -->
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_warm }}000</Temperature>
+                  <Type>passive</Type>
+                  <SensorType>cpu</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+                <!-- Hot: 65-75°C - aggressive cooling (prevent spikes) -->
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_hot }}000</Temperature>
+                  <Type>passive</Type>
+                  <SensorType>cpu</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+                <!-- Critical: > 75°C - maximum cooling + throttling (prevent 100°C) -->
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_critical }}000</Temperature>
+                  <Type>critical</Type>
+                  <SensorType>cpu</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+              </TripPoints>
+            </ThermalZone>
+            <!-- Intel Core i9-9980HK specific configuration -->
+            <ThermalZone>
+              <Type>x86_pkg_temp</Type>
+              <TripPoints>
+                <!-- More aggressive thresholds for package temp (prevent 100°C spikes) -->
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_normal }}000</Temperature>
+                  <Type>passive</Type>
+                  <SensorType>x86_pkg_temp</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_warm }}000</Temperature>
+                  <Type>passive</Type>
+                  <SensorType>x86_pkg_temp</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_hot }}000</Temperature>
+                  <Type>passive</Type>
+                  <SensorType>x86_pkg_temp</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+                <TripPoint>
+                  <Temperature>{{ cpu_thermal_critical }}000</Temperature>
+                  <Type>critical</Type>
+                  <SensorType>x86_pkg_temp</SensorType>
+                  <CoolingDevice>cpufreq</CoolingDevice>
+                  <SamplingPeriod>1</SamplingPeriod>
+                </TripPoint>
+              </TripPoints>
+            </ThermalZone>
+          </ThermalZones>
+        </Platform>
+      </ThermalConfiguration>
+    mode: '0644'
+    backup: yes
+  notify: restart thermald
+  tags: [thermal, thermald]
+
+- name: Create thermald systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/thermald.service.d
+    state: directory
+    mode: '0755'
+  tags: [thermal, thermald]
+
+- name: Create thermald systemd override for aggressive mode
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/thermald.service.d/override.conf
+    content: |
+      # Managed by Ansible - motoko_thermal_management role
+      # Aggressive thermal management for lid-closed operation
+      [Service]
+      # Use custom config file for aggressive cooling
+      ExecStart=
+      ExecStart=/usr/sbin/thermald --loglevel=info --config-file=/etc/thermald/thermal-conf.xml
+      # Restart on failure
+      Restart=always
+      RestartSec=5
+      # Increase timeout since thermald may take time to initialize
+      TimeoutStartSec=60
+    mode: '0644'
+  notify: reload systemd
+  tags: [thermal, thermald]
+
+- name: Enable and start thermald service
+  ansible.builtin.systemd:
+    name: thermald
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [thermal, thermald]
+
+# =============================================================================
+# CPU Power Limiting (prevent thermal spikes)
+# =============================================================================
+
+- name: Check if RAPL power limiting is available
+  ansible.builtin.stat:
+    path: /sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw
+  register: rapl_available
+  tags: [thermal, power_limit]
+
+- name: Set CPU power limit via RAPL (if available)
+  ansible.builtin.shell: |
+    # Set power limit in microwatts (35W = 35000000 uW)
+    echo {{ cpu_power_limit_watts * 1000000 }} > /sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/constraint_0_power_limit_uw
+    # Enable the limit
+    echo 1 > /sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/constraint_0_enabled
+  when:
+    - cpu_power_limit_enabled | default(false)
+    - rapl_available.stat.exists
+  changed_when: true
+  failed_when: false
+  tags: [thermal, power_limit]
+
+- name: Create CPU power limit script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/cpu-power-limit.sh
+    content: |
+      #!/bin/bash
+      # Managed by Ansible - motoko_thermal_management role
+      # CPU power limiting to prevent thermal spikes
+      
+      RAPL_PATH="/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0"
+      POWER_LIMIT_UW={{ cpu_power_limit_watts * 1000000 }}
+      
+      # Set long-term power limit (constraint_0)
+      if [ -f "${RAPL_PATH}/constraint_0_power_limit_uw" ]; then
+        echo "$POWER_LIMIT_UW" > "${RAPL_PATH}/constraint_0_power_limit_uw" 2>/dev/null || true
+        echo 1 > "${RAPL_PATH}/constraint_0_enabled" 2>/dev/null || true
+      fi
+      
+      # Also set short-term limit (constraint_1) to prevent spikes
+      if [ -f "${RAPL_PATH}/constraint_1_power_limit_uw" ]; then
+        echo "$POWER_LIMIT_UW" > "${RAPL_PATH}/constraint_1_power_limit_uw" 2>/dev/null || true
+        echo 1 > "${RAPL_PATH}/constraint_1_enabled" 2>/dev/null || true
+      fi
+    mode: '0755'
+  when: cpu_power_limit_enabled | default(false)
+  tags: [thermal, power_limit]
+
+- name: Create CPU power limit systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cpu-power-limit.service
+    content: |
+      # Managed by Ansible - motoko_thermal_management role
+      # CPU power limiting to prevent thermal spikes
+      [Unit]
+      Description=Set CPU Power Limit for Thermal Protection
+      After=sysinit.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/cpu-power-limit.sh
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  when: cpu_power_limit_enabled | default(false)
+  notify: reload systemd
+  tags: [thermal, power_limit]
+
+- name: Enable CPU power limit service
+  ansible.builtin.systemd:
+    name: cpu-power-limit
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: cpu_power_limit_enabled | default(false)
+  tags: [thermal, power_limit]
+
+# =============================================================================
+# CPU Frequency Capping & Turbo Disable (prevent 100°C spikes)
+# =============================================================================
+
+- name: Disable CPU turbo boost (prevent thermal spikes)
+  ansible.builtin.shell: |
+    echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo
+  when: cpu_turbo_disable | default(false)
+  changed_when: true
+  failed_when: false
+  tags: [thermal, cpu_freq]
+
+- name: Set CPU max frequency cap
+  ansible.builtin.shell: |
+    for cpu in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
+      if [ -f "${cpu}/scaling_max_freq" ]; then
+        FREQ_KHZ=$(({{ cpu_freq_cap_mhz }} * 1000))
+        MAX_FREQ=$(cat "${cpu}/cpuinfo_max_freq")
+        if [ "$FREQ_KHZ" -lt "$MAX_FREQ" ]; then
+          echo "$FREQ_KHZ" > "${cpu}/scaling_max_freq" 2>/dev/null || true
+        fi
+      fi
+    done
+  when: cpu_freq_cap_enabled | default(false)
+  changed_when: true
+  failed_when: false
+  tags: [thermal, cpu_freq]
+
+- name: Create CPU frequency cap systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cpu-freq-cap.service
+    content: |
+      # Managed by Ansible - motoko_thermal_management role
+      # CPU frequency capping to prevent thermal spikes
+      [Unit]
+      Description=Set CPU Frequency Cap for Thermal Protection
+      After=sysinit.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/cpu-freq-cap.sh
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  when: cpu_freq_cap_enabled | default(false) or cpu_turbo_disable | default(false)
+  notify: reload systemd
+  tags: [thermal, cpu_freq]
+
+- name: Create CPU frequency cap script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/cpu-freq-cap.sh
+    content: |
+      #!/bin/bash
+      # Managed by Ansible - motoko_thermal_management role
+      # CPU frequency capping and turbo disable to prevent thermal spikes
+      
+      # Disable turbo boost (prevents short bursts to 5.0 GHz)
+      if [ -f /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
+        echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
+      fi
+      
+      # Set max frequency cap (additional protection)
+      # Note: With turbo disabled, CPU is limited to base freq, but we cap it explicitly
+      if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq ]; then
+        FREQ_KHZ=$(({{ cpu_freq_cap_mhz }} * 1000))
+        for cpu in /sys/devices/system/cpu/cpu[0-9]*/cpufreq; do
+          if [ -f "${cpu}/scaling_max_freq" ]; then
+            # Get current max and base frequencies
+            MAX_FREQ=$(cat "${cpu}/cpuinfo_max_freq" 2>/dev/null || echo "0")
+            BASE_FREQ=$(cat "${cpu}/cpuinfo_min_freq" 2>/dev/null || echo "0")
+            # Use the lower of: our cap, or base freq (if turbo disabled)
+            if [ "$FREQ_KHZ" -gt 0 ] && [ "$MAX_FREQ" -gt 0 ]; then
+              # Cap to our limit, but not below base frequency
+              if [ "$FREQ_KHZ" -lt "$MAX_FREQ" ]; then
+                echo "$FREQ_KHZ" > "${cpu}/scaling_max_freq" 2>/dev/null || true
+              fi
+            fi
+          fi
+        done
+      fi
+    mode: '0755'
+  when: cpu_freq_cap_enabled | default(false) or cpu_turbo_disable | default(false)
+  tags: [thermal, cpu_freq]
+
+- name: Enable CPU frequency cap service
+  ansible.builtin.systemd:
+    name: cpu-freq-cap
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: cpu_freq_cap_enabled | default(false) or cpu_turbo_disable | default(false)
+  tags: [thermal, cpu_freq]
+
+# =============================================================================
+# CPU/System Thermal Monitor (complements GPU thermal monitor)
+# =============================================================================
+
+- name: Create CPU/system thermal monitor script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/cpu-thermal-monitor
+    content: |
+      #!/bin/bash
+      # Managed by Ansible - motoko_thermal_management role
+      # Monitors CPU/system temperature and writes thermal state to file
+      # Complements GPU thermal monitor from motoko_ai_profile role
+
+      NORMAL_TEMP={{ cpu_thermal_normal }}
+      WARM_TEMP={{ cpu_thermal_warm }}
+      HOT_TEMP={{ cpu_thermal_hot }}
+      CRITICAL_TEMP={{ cpu_thermal_critical }}
+      STATE_FILE=/tmp/cpu_thermal_state
+      TEMP_FILE=/tmp/cpu_temperature
+
+      # Get CPU package temperature (most accurate for Intel)
+      get_cpu_temp() {
+        # Try sensors first (most reliable - Package id 0 is CPU package temp)
+        if command -v sensors >/dev/null 2>&1; then
+          # Look for "Package id 0:" line and extract temperature
+          TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | sed -n 's/.*+\([0-9]*\)\.[0-9]*°C.*/\1/p' | head -1)
+          if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -lt 150 ]; then
+            echo "$TEMP"
+            return 0
+          fi
+          # Fallback to Tdie or Tctl if Package not found
+          TEMP=$(sensors 2>/dev/null | grep -E "Tdie|Tctl" | head -1 | sed -n 's/.*+\([0-9]*\)\.[0-9]*°C.*/\1/p' | head -1)
+          if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -lt 150 ]; then
+            echo "$TEMP"
+            return 0
+          fi
+        fi
+        
+        # Fallback to thermal zones (x86_pkg_temp is CPU package)
+        for zone in /sys/class/thermal/thermal_zone*/temp; do
+          if [ -f "$zone" ]; then
+            TYPE=$(cat "$(dirname "$zone")/type" 2>/dev/null)
+            if echo "$TYPE" | grep -qiE "x86_pkg_temp"; then
+              TEMP=$(cat "$zone" 2>/dev/null | awk '{print int($1/1000)}')
+              if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -lt 150 ]; then
+                echo "$TEMP"
+                return 0
+              fi
+            fi
+          fi
+        done
+        
+        # Last resort: any CPU-related thermal zone
+        for zone in /sys/class/thermal/thermal_zone*/temp; do
+          if [ -f "$zone" ]; then
+            TYPE=$(cat "$(dirname "$zone")/type" 2>/dev/null)
+            if echo "$TYPE" | grep -qiE "cpu|package"; then
+              TEMP=$(cat "$zone" 2>/dev/null | awk '{print int($1/1000)}')
+              if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -lt 150 ]; then
+                echo "$TEMP"
+                return 0
+              fi
+            fi
+          fi
+        done
+        
+        echo "0"
+        return 1
+      }
+
+      while true; do
+        TEMP=$(get_cpu_temp)
+        echo "$TEMP" > "$TEMP_FILE"
+        
+        if [ "$TEMP" -ge "$CRITICAL_TEMP" ]; then
+          echo "critical" > "$STATE_FILE"
+        elif [ "$TEMP" -ge "$HOT_TEMP" ]; then
+          echo "hot" > "$STATE_FILE"
+        elif [ "$TEMP" -ge "$WARM_TEMP" ]; then
+          echo "warm" > "$STATE_FILE"
+        elif [ "$TEMP" -ge "$NORMAL_TEMP" ]; then
+          echo "normal" > "$STATE_FILE"
+        else
+          echo "cool" > "$STATE_FILE"
+        fi
+        
+        sleep {{ thermal_monitor_interval }}
+      done
+    mode: '0755'
+  tags: [thermal, monitor]
+
+- name: Create CPU thermal monitor systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cpu-thermal-monitor.service
+    content: |
+      # Managed by Ansible - motoko_thermal_management role
+      [Unit]
+      Description=CPU/System Thermal State Monitor
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/cpu-thermal-monitor
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  notify: reload systemd
+  tags: [thermal, monitor]
+
+- name: Enable CPU thermal monitor service
+  ansible.builtin.systemd:
+    name: cpu-thermal-monitor
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [thermal, monitor]
+
+# =============================================================================
+# Integrated Thermal Status Script (CPU + GPU)
+# =============================================================================
+
+- name: Create integrated thermal status script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/thermal-status
+    content: |
+      #!/bin/bash
+      # Managed by Ansible - motoko_thermal_management role
+      # Shows integrated CPU and GPU thermal status
+
+      echo "═══════════════════════════════════════════════════════════"
+      echo "MOTOKO THERMAL STATUS"
+      echo "═══════════════════════════════════════════════════════════"
+      echo ""
+      
+      # CPU Status
+      if [ -f /tmp/cpu_thermal_state ]; then
+        CPU_STATE=$(cat /tmp/cpu_thermal_state)
+        CPU_TEMP=$(cat /tmp/cpu_temperature 2>/dev/null || echo "N/A")
+        echo "CPU Temperature: ${CPU_TEMP}°C (State: ${CPU_STATE})"
+      else
+        echo "CPU Temperature: Monitoring not active"
+      fi
+      
+      # GPU Status
+      if [ -f /tmp/gpu_thermal_state ]; then
+        GPU_STATE=$(cat /tmp/gpu_thermal_state)
+        GPU_TEMP=$(cat /tmp/gpu_temperature 2>/dev/null || echo "N/A")
+        echo "GPU Temperature: ${GPU_TEMP}°C (State: ${GPU_STATE})"
+      else
+        echo "GPU Temperature: Monitoring not active"
+      fi
+      
+      echo ""
+      echo "Detailed Sensors:"
+      if command -v sensors >/dev/null 2>&1; then
+        sensors | grep -E "(Package|Core|GPU|temp)" | head -15
+      else
+        echo "sensors command not available"
+      fi
+      
+      echo ""
+      echo "System Load:"
+      uptime
+      
+      echo ""
+      echo "═══════════════════════════════════════════════════════════"
+    mode: '0755'
+  tags: [thermal, tools]
+
+# =============================================================================
+# Summary
+# =============================================================================
+
+- name: Wait for services to initialize
+  ansible.builtin.pause:
+    seconds: 5
+  tags: [thermal, verify]
+
+- name: Verify thermal management services
+  ansible.builtin.shell: |
+    echo "Service Status:"
+    systemctl is-active thermald || echo "thermald: not active"
+    systemctl is-active cpu-thermal-monitor || echo "cpu-thermal-monitor: not active"
+    echo ""
+    echo "Current Temperatures:"
+    /usr/local/bin/thermal-status 2>/dev/null || echo "Status script not ready"
+  register: verify_result
+  changed_when: false
+  tags: [thermal, verify]
+
+- name: Display deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "MOTOKO THERMAL MANAGEMENT DEPLOYMENT COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "{{ verify_result.stdout_lines | default(['Status check pending...']) }}"
+      - ""
+      - "Thermal Management:"
+      - "  - thermald: Aggressive cooling enabled"
+      - "  - CPU Monitor: /tmp/cpu_thermal_state"
+      - "  - GPU Monitor: /tmp/gpu_thermal_state (from motoko_ai_profile)"
+      - ""
+      - "Check Status:"
+      - "  /usr/local/bin/thermal-status"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [thermal, always]
+

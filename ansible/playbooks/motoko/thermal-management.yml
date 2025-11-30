@@ -1,0 +1,58 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Motoko Thermal Management Playbook
+# Deploys aggressive fan and thermal management for lid-closed operation
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory/hosts.yml \
+#     ansible/playbooks/motoko/thermal-management.yml
+#
+# Tags:
+#   - thermal: All thermal management tasks
+#   - thermald: thermald configuration only
+#   - monitor: Monitoring services only
+#   - packages: Package installation only
+
+- name: Deploy Thermal Management to Motoko
+  hosts: motoko
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: motoko_thermal_management
+      tags: [thermal, always]
+
+  pre_tasks:
+    - name: Verify running on Fedora
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+        fail_msg: "This playbook is designed for Fedora systems"
+        quiet: true
+      tags: [thermal, validate]
+
+    - name: Display deployment context
+      ansible.builtin.debug:
+        msg:
+          - "Deploying thermal management for:"
+          - "  Device: {{ inventory_hostname }}"
+          - "  OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "  CPU: {{ ansible_processor_vcpus }} cores"
+          - "  Purpose: Aggressive fan management for lid-closed operation"
+      tags: [thermal, always]
+
+  post_tasks:
+    - name: Verify thermal management is active
+      ansible.builtin.command: /usr/local/bin/thermal-status
+      register: thermal_status
+      changed_when: false
+      failed_when: false
+      tags: [thermal, verify]
+
+    - name: Display final status
+      ansible.builtin.debug:
+        msg:
+          - "{{ thermal_status.stdout_lines | default(['Status check failed']) }}"
+      tags: [thermal, verify]
+
