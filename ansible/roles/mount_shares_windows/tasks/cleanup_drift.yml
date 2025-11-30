@@ -1,0 +1,72 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Drift cleanup tasks for Windows mounts
+# Remove stale mapped drives and prepare for fresh configuration
+
+- name: Create cleanup timestamp
+  set_fact:
+    cleanup_timestamp: "{{ ansible_date_time.date }}"
+
+- name: Remove existing mapped drives
+  win_shell: |
+    $drives = @("X", "S", "T")
+    foreach ($drive in $drives) {
+        $driveLetter = "${drive}:"
+        if (Test-Path $driveLetter) {
+            try {
+                Remove-PSDrive -Name $drive -Force -ErrorAction SilentlyContinue
+                Write-Output "Unmapped drive $driveLetter"
+            } catch {
+                Write-Output "Could not unmap $driveLetter : $_"
+            }
+        }
+        
+        # Remove persistent network drive mappings
+        try {
+            net use $driveLetter /delete /y 2>&1 | Out-Null
+            Write-Output "Removed persistent mapping for $driveLetter"
+        } catch {
+            # Ignore errors if drive wasn't mapped
+        }
+    }
+  register: drive_cleanup
+  changed_when: drive_cleanup.stdout != ""
+  ignore_errors: yes
+
+- name: Display drive cleanup results
+  debug:
+    var: drive_cleanup.stdout_lines
+  when: drive_cleanup.stdout_lines is defined
+
+- name: Remove old scheduled tasks
+  win_shell: |
+    $tasks = Get-ScheduledTask -TaskName "*MikeT*Mount*" -ErrorAction SilentlyContinue
+    foreach ($task in $tasks) {
+        Write-Output "Removing scheduled task: $($task.TaskName)"
+        Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false
+    }
+  register: task_cleanup
+  changed_when: task_cleanup.stdout != ""
+  ignore_errors: yes
+
+- name: Display task cleanup results
+  debug:
+    var: task_cleanup.stdout_lines
+  when: task_cleanup.stdout_lines is defined
+
+- name: Ensure cleanup directory on S: exists (if accessible)
+  win_file:
+    path: "S:\\devices\\{{ ansible_hostname }}\\{{ ansible_user }}\\cleanup-{{ cleanup_timestamp }}"
+    state: directory
+  when: false  # Only create if S: is already mounted
+  ignore_errors: yes
+
+- name: Log cleanup completion
+  debug:
+    msg: |
+      Windows drift cleanup completed:
+      - Removed existing drive mappings
+      - Removed old scheduled tasks
+      - Ready for fresh mount configuration
+

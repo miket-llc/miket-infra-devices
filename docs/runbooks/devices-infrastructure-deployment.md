@@ -155,12 +155,12 @@ ansible-playbook -i inventory/hosts.yml playbooks/validate-devices-infrastructur
 - [ ] Device subdirectories created: `count-zero/`, `wintermute/`, `armitage/`
 
 **macOS (count-zero):**
-- [ ] `/mkt` directory exists (sudo required to view)
-- [ ] SMB mounts active: `mount | grep /mkt`
+- [ ] `~/.mkt` directory exists: `ls -la ~/.mkt`
+- [ ] SMB mounts active: `mount | grep ~/.mkt`
 - [ ] User symlinks correct: `ls -la ~/ | grep -E 'flux|space|time'`
-- [ ] `~/flux` → `/mkt/flux`
-- [ ] `~/space` → `/mkt/space`
-- [ ] `~/time` → `/mkt/time`
+- [ ] `~/flux` → `~/.mkt/flux`
+- [ ] `~/space` → `~/.mkt/space`
+- [ ] `~/time` → `~/.mkt/time`
 - [ ] Sync script exists: `~/.scripts/oscloud-sync/sync_to_devices.sh`
 - [ ] LaunchAgents loaded: `launchctl list | grep com.miket`
 - [ ] Loop check passes: `~/.scripts/check_oscloud_loops.sh`
@@ -201,13 +201,13 @@ Get-Content C:\Scripts\oscloud-sync\sync.log -Tail 50
 
 ### macOS: Mounts Not Appearing
 
-**Symptoms:** `/mkt/*` directories empty or not mounted
+**Symptoms:** `~/.mkt/*` directories empty or not mounted
 
 **Diagnosis:**
 ```bash
-mount | grep /mkt
-launchctl list | grep com.miket.mountshares
-cat /tmp/com.miket.mountshares.err
+mount | grep ~/.mkt
+launchctl list | grep com.miket.storage-connect
+cat ~/.scripts/mount_shares.err
 ```
 
 **Common Causes:**
@@ -228,8 +228,8 @@ az account show
 az login
 
 # Reload LaunchAgent
-launchctl unload ~/Library/LaunchAgents/com.miket.mountshares.plist
-launchctl load ~/Library/LaunchAgents/com.miket.mountshares.plist
+launchctl unload ~/Library/LaunchAgents/com.miket.storage-connect.plist
+launchctl load ~/Library/LaunchAgents/com.miket.storage-connect.plist
 ```
 
 ### macOS: Symlinks Not Created
@@ -244,12 +244,13 @@ cat /tmp/com.miket.usersymlinks.err
 
 **Resolution:**
 ```bash
-# Manual symlink creation
-~/.scripts/create_user_symlinks.sh
+# Symlinks are created automatically by mount script
+# Re-run mount script to recreate symlinks
+~/.scripts/mount_shares.sh
 
-# Reload LaunchAgent
-launchctl unload ~/Library/LaunchAgents/com.miket.usersymlinks.plist
-launchctl load ~/Library/LaunchAgents/com.miket.usersymlinks.plist
+# Or reload LaunchAgent
+launchctl unload ~/Library/LaunchAgents/com.miket.storage-connect.plist
+launchctl load ~/Library/LaunchAgents/com.miket.storage-connect.plist
 ```
 
 ### Windows: Drives Not Mapped

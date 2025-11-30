@@ -4,6 +4,23 @@
 
 ## Quick Diagnosis
 
+### Option 1: Run Diagnostic Playbook (Recommended)
+
+From motoko:
+```bash
+cd /path/to/kvo
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/diagnose-mount-drift.yml --limit count-zero
+```
+
+This will generate a comprehensive drift report showing:
+- Mount status for all three shares (flux, space, time)
+- Whether paths are symlinks or shadow directories
+- LaunchAgent status
+- Secrets file status
+- Network connectivity to motoko
+
+### Option 2: Run Troubleshooting Script
+
 Run the troubleshooting script on count-zero:
 ```bash
 ./scripts/troubleshoot-count-zero-space.sh

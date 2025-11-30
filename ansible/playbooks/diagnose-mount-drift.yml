@@ -1,0 +1,204 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Diagnostic Playbook: Inventory Mount Drift
+#
+# This playbook discovers the current state of Flux/Space/Time mounts
+# and identifies drift from filesystem spec v2.1
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/diagnose-mount-drift.yml
+
+- name: Diagnose macOS Mount Drift
+  hosts: macos
+  gather_facts: yes
+  become: false
+  
+  tasks:
+    - name: Check if ~/.mkt directory exists
+      stat:
+        path: "{{ ansible_env.HOME }}/.mkt"
+      register: mkt_dir
+    
+    - name: Check mount point directories
+      stat:
+        path: "{{ ansible_env.HOME }}/.mkt/{{ item }}"
+      loop:
+        - flux
+        - space
+        - time
+      register: mount_point_dirs
+    
+    - name: Check user-level paths (flux/space/time)
+      stat:
+        path: "{{ ansible_env.HOME }}/{{ item }}"
+      loop:
+        - flux
+        - space
+        - time
+      register: user_paths
+    
+    - name: Capture current mounts
+      shell: mount | grep -E '(flux|space|time)' || true
+      register: current_mounts
+      changed_when: false
+    
+    - name: Check LaunchAgent status
+      shell: launchctl list | grep -E 'com\.miket\.(storage-connect|mountshares|usersymlinks)' || true
+      register: launchagent_status
+      changed_when: false
+    
+    - name: Check secrets file
+      stat:
+        path: "{{ ansible_env.HOME }}/.mkt/mounts.env"
+      register: secrets_file
+    
+    - name: Check for shadow directories (directories where symlinks should be)
+      shell: |
+        for path in flux space time; do
+          if [ -d "${HOME}/${path}" ] && [ ! -L "${HOME}/${path}" ]; then
+            echo "${path}: SHADOW_DIR"
+            if [ -d "${HOME}/${path}" ]; then
+              file_count=$(find "${HOME}/${path}" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')
+              echo "${path}_files: ${file_count}"
+            fi
+          elif [ -L "${HOME}/${path}" ]; then
+            target=$(readlink "${HOME}/${path}")
+            echo "${path}: SYMLINK -> ${target}"
+          elif [ ! -e "${HOME}/${path}" ]; then
+            echo "${path}: MISSING"
+          else
+            echo "${path}: UNKNOWN_TYPE"
+          fi
+        done
+      register: path_analysis
+      changed_when: false
+    
+    - name: Test Tailscale connectivity to motoko
+      command: ping -c 2 motoko
+      register: motoko_ping
+      changed_when: false
+      failed_when: false
+    
+    - name: Generate drift report
+      set_fact:
+        drift_report:
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          hostname: "{{ inventory_hostname }}"
+          user: "{{ ansible_env.USER }}"
+          platform: "macOS"
+          mkt_dir_exists: "{{ mkt_dir.stat.exists }}"
+          mount_points:
+            flux:
+              exists: "{{ (mount_point_dirs.results | selectattr('item', 'equalto', 'flux') | first).stat.exists }}"
+              isdir: "{{ (mount_point_dirs.results | selectattr('item', 'equalto', 'flux') | first).stat.isdir | default(false) }}"
+            space:
+              exists: "{{ (mount_point_dirs.results | selectattr('item', 'equalto', 'space') | first).stat.exists }}"
+              isdir: "{{ (mount_point_dirs.results | selectattr('item', 'equalto', 'space') | first).stat.isdir | default(false) }}"
+            time:
+              exists: "{{ (mount_point_dirs.results | selectattr('item', 'equalto', 'time') | first).stat.exists }}"
+              isdir: "{{ (mount_point_dirs.results | selectattr('item', 'equalto', 'time') | first).stat.isdir | default(false) }}"
+          user_paths:
+            flux:
+              exists: "{{ (user_paths.results | selectattr('item', 'equalto', 'flux') | first).stat.exists }}"
+              islnk: "{{ (user_paths.results | selectattr('item', 'equalto', 'flux') | first).stat.islnk | default(false) }}"
+              isdir: "{{ (user_paths.results | selectattr('item', 'equalto', 'flux') | first).stat.isdir | default(false) }}"
+            space:
+              exists: "{{ (user_paths.results | selectattr('item', 'equalto', 'space') | first).stat.exists }}"
+              islnk: "{{ (user_paths.results | selectattr('item', 'equalto', 'space') | first).stat.islnk | default(false) }}"
+              isdir: "{{ (user_paths.results | selectattr('item', 'equalto', 'space') | first).stat.isdir | default(false) }}"
+            time:
+              exists: "{{ (user_paths.results | selectattr('item', 'equalto', 'time') | first).stat.exists }}"
+              islnk: "{{ (user_paths.results | selectattr('item', 'equalto', 'time') | first).stat.islnk | default(false) }}"
+              isdir: "{{ (user_paths.results | selectattr('item', 'equalto', 'time') | first).stat.isdir | default(false) }}"
+          current_mounts: "{{ current_mounts.stdout_lines }}"
+          launchagents: "{{ launchagent_status.stdout_lines }}"
+          secrets_file_exists: "{{ secrets_file.stat.exists }}"
+          secrets_file_perms: "{{ secrets_file.stat.mode | default('N/A') }}"
+          motoko_reachable: "{{ motoko_ping.rc == 0 }}"
+          path_analysis: "{{ path_analysis.stdout_lines }}"
+    
+    - name: Display drift report
+      debug:
+        var: drift_report
+        verbosity: 0
+    
+    - name: Save drift report to file
+      copy:
+        content: "{{ drift_report | to_nice_json }}"
+        dest: "/tmp/{{ inventory_hostname }}-mount-drift-{{ ansible_date_time.date }}.json"
+      delegate_to: localhost
+      become: false
+
+- name: Diagnose Windows Mount Drift
+  hosts: windows
+  gather_facts: yes
+  
+  tasks:
+    - name: Check for mapped drives
+      win_shell: |
+        $result = @{
+          X_drive = Test-Path X:\
+          S_drive = Test-Path S:\
+          T_drive = Test-Path T:\
+        }
+        $result | ConvertTo-Json
+      register: drive_status
+      changed_when: false
+    
+    - name: Get drive details
+      win_shell: |
+        Get-PSDrive -PSProvider FileSystem | 
+          Where-Object {$_.Name -in @('X','S','T')} | 
+          Select-Object Name, DisplayRoot, Description | 
+          ConvertTo-Json
+      register: drive_details
+      changed_when: false
+      failed_when: false
+    
+    - name: Check secrets file
+      win_stat:
+        path: "{{ ansible_env.USERPROFILE }}\\.mkt\\mounts.env"
+      register: win_secrets_file
+      failed_when: false
+    
+    - name: Test connectivity to motoko
+      win_shell: Test-Connection -ComputerName motoko -Count 2 -Quiet
+      register: win_motoko_ping
+      changed_when: false
+      failed_when: false
+    
+    - name: Check scheduled task for mount script
+      win_shell: |
+        Get-ScheduledTask -TaskName "*MikeT*" -ErrorAction SilentlyContinue | 
+          Select-Object TaskName, State | 
+          ConvertTo-Json
+      register: scheduled_tasks
+      changed_when: false
+      failed_when: false
+    
+    - name: Generate Windows drift report
+      set_fact:
+        drift_report_win:
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          hostname: "{{ inventory_hostname }}"
+          user: "{{ ansible_user }}"
+          platform: "Windows"
+          drives: "{{ drive_status.stdout | from_json }}"
+          drive_details: "{{ drive_details.stdout | default('{}') | from_json }}"
+          secrets_file_exists: "{{ win_secrets_file.stat.exists | default(false) }}"
+          motoko_reachable: "{{ win_motoko_ping.stdout | trim | bool }}"
+          scheduled_tasks: "{{ scheduled_tasks.stdout | default('[]') | from_json }}"
+    
+    - name: Display Windows drift report
+      debug:
+        var: drift_report_win
+        verbosity: 0
+    
+    - name: Save Windows drift report to file
+      copy:
+        content: "{{ drift_report_win | to_nice_json }}"
+        dest: "/tmp/{{ inventory_hostname }}-mount-drift-{{ ansible_date_time.date }}.json"
+      delegate_to: localhost
+      become: false
+

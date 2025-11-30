@@ -1,0 +1,35 @@
+# Samba configuration for PHC Storage
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Generated: {{ ansible_date_time.iso8601 }}
+
+[global]
+	workgroup = {{ smb_workgroup }}
+	security = user
+	passdb backend = tdbsam
+
+	# Logging
+	log file = /var/log/samba/log.%m
+	max log size = 50
+
+	# Performance tuning
+	socket options = TCP_NODELAY IPTOS_LOWDELAY
+	read raw = yes
+	write raw = yes
+	oplocks = yes
+	max xmit = 65536
+	dead time = 15
+	getwd cache = yes
+
+# PHC Storage Shares (Flux/Space/Time)
+{% for share in smb_shares %}
+
+[{{ share.name }}]
+	comment = {{ share.comment }}
+	path = {{ share.path }}
+	valid users = {{ smb_username }}
+	browseable = yes
+	writable = yes
+	create mask = 0664
+	directory mask = 0775
+{% endfor %}
+

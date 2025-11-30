@@ -1,0 +1,62 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy SMB Server on motoko
+# Shares /flux, /space, /time for PHC workstations
+#
+# Usage:
+#   ansible-playbook -i ../../inventory/hosts.yml playbooks/motoko/deploy-smb-server.yml
+
+- name: Deploy Samba Server on motoko
+  hosts: motoko
+  gather_facts: yes
+  
+  tasks:
+    - name: Verify running on motoko
+      assert:
+        that:
+          - inventory_hostname == 'motoko'
+        fail_msg: "This playbook must only run on motoko"
+        success_msg: "Running on motoko"
+    
+    - name: Verify storage directories exist
+      stat:
+        path: "{{ item }}"
+      loop:
+        - /flux
+        - /space
+        - /time
+      register: storage_dirs
+      become: yes
+    
+    - name: Assert storage directories exist
+      assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        fail_msg: "Storage directory {{ item.item }} does not exist"
+        success_msg: "Storage directory {{ item.item }} exists"
+      loop: "{{ storage_dirs.results }}"
+    
+    - name: Deploy SMB server role
+      include_role:
+        name: ../../roles/smb_server
+    
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          SMB SERVER DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          Shares configured:
+          - //motoko/flux  → /flux
+          - //motoko/space → /space
+          - //motoko/time  → /time
+          
+          Valid user: mdt
+          Service: smb.service (running)
+          Firewall: samba service enabled
+          
+          Clients can now mount these shares via Tailscale.
+

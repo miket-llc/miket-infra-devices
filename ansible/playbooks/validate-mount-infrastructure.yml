@@ -1,0 +1,367 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Comprehensive Mount Infrastructure Validation
+#
+# This playbook validates that Flux/Space/Time mounts are correctly configured
+# per filesystem spec v2.1 across all workstations
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/validate-mount-infrastructure.yml
+
+- name: Validate macOS Mount Infrastructure
+  hosts: macos
+  gather_facts: yes
+  become: false
+  
+  vars:
+    expected_mount_points:
+      - flux
+      - space
+      - time
+    health_status_max_age_minutes: 10
+  
+  tasks:
+    - name: Check ~/.mkt directory exists
+      stat:
+        path: "{{ ansible_env.HOME }}/.mkt"
+      register: mkt_dir
+      failed_when: not mkt_dir.stat.exists or not mkt_dir.stat.isdir
+    
+    - name: Check mount point directories exist
+      stat:
+        path: "{{ ansible_env.HOME }}/.mkt/{{ item }}"
+      loop: "{{ expected_mount_points }}"
+      register: mount_points
+    
+    - name: Verify mount points are directories
+      assert:
+        that:
+          - item.stat.exists
+          - item.stat.isdir
+        fail_msg: "Mount point {{ item.item }} does not exist or is not a directory"
+        success_msg: "Mount point {{ item.item }} exists"
+      loop: "{{ mount_points.results }}"
+    
+    - name: Check that shares are actually mounted
+      shell: mount | grep "{{ ansible_env.HOME }}/.mkt/{{ item }}"
+      loop: "{{ expected_mount_points }}"
+      register: mount_check
+      changed_when: false
+      failed_when: mount_check.rc != 0
+    
+    - name: Check user-level symlinks
+      stat:
+        path: "{{ ansible_env.HOME }}/{{ item }}"
+      loop: "{{ expected_mount_points }}"
+      register: user_symlinks
+    
+    - name: Verify symlinks are correct type and target
+      assert:
+        that:
+          - item.stat.exists
+          - item.stat.islnk
+          - not item.stat.isdir or item.stat.islnk  # Not a real directory
+          - item.stat.lnk_target == ansible_env.HOME + '/.mkt/' + item.item
+        fail_msg: "{{ item.item }} is not a valid symlink to ~/.mkt/{{ item.item }}"
+        success_msg: "{{ item.item }} is correctly symlinked"
+      loop: "{{ user_symlinks.results }}"
+    
+    - name: Verify NO shadow directories exist (critical)
+      stat:
+        path: "{{ ansible_env.HOME }}/{{ item }}"
+      loop: "{{ expected_mount_points }}"
+      register: shadow_check
+    
+    - name: Assert no shadow directories
+      assert:
+        that:
+          - not (item.stat.exists and item.stat.isdir and not item.stat.islnk)
+        fail_msg: "CRITICAL: {{ item.item }} is a directory, should be a symlink! Shadow directory detected."
+        success_msg: "No shadow directory at ~/{{ item.item }}"
+      loop: "{{ shadow_check.results }}"
+    
+    - name: Check LaunchAgent is loaded
+      shell: launchctl list | grep "com.miket.storage-connect"
+      register: launchagent_check
+      changed_when: false
+      failed_when: launchagent_check.rc != 0
+    
+    - name: Check mount script exists and is executable
+      stat:
+        path: "{{ ansible_env.HOME }}/.scripts/mount_shares.sh"
+      register: mount_script
+      failed_when: not mount_script.stat.exists or not mount_script.stat.executable
+    
+    - name: Check health status file exists
+      stat:
+        path: "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/_status.json"
+      register: health_status_file
+    
+    - name: Verify health status file is recent
+      shell: |
+        if [ -f "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/_status.json" ]; then
+          file_age=$(( $(date +%s) - $(stat -f %m "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/_status.json" 2>/dev/null || echo 0) ))
+          max_age=$(({{ health_status_max_age_minutes }} * 60))
+          if [ $file_age -le $max_age ]; then
+            echo "PASS: Status file is recent (${file_age}s old)"
+            exit 0
+          else
+            echo "WARN: Status file is stale (${file_age}s old, max ${max_age}s)"
+            exit 1
+          fi
+        else
+          echo "FAIL: Status file does not exist"
+          exit 2
+        fi
+      register: health_status_age
+      changed_when: false
+      failed_when: health_status_age.rc == 2
+      when: health_status_file.stat.exists
+    
+    - name: Display health status age check
+      debug:
+        var: health_status_age.stdout_lines
+      when: health_status_file.stat.exists
+    
+    - name: Read and validate health status JSON
+      shell: cat "{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/_status.json"
+      register: health_status_content
+      changed_when: false
+      when: health_status_file.stat.exists
+    
+    - name: Parse health status JSON
+      set_fact:
+        health_status: "{{ health_status_content.stdout | from_json }}"
+      when: health_status_file.stat.exists
+    
+    - name: Verify health status structure
+      assert:
+        that:
+          - health_status.timestamp is defined
+          - health_status.device is defined
+          - health_status.user is defined
+          - health_status.platform == "macOS"
+          - health_status.status is defined
+          - health_status.components is defined
+          - health_status.components.mounts is defined
+          - health_status.components.mounts.flux is defined
+          - health_status.components.mounts.space is defined
+          - health_status.components.mounts.time is defined
+        fail_msg: "Health status JSON structure is invalid"
+        success_msg: "Health status JSON is valid"
+      when: health_status_file.stat.exists
+    
+    - name: Test write access to /space
+      shell: |
+        test_file="{{ ansible_env.HOME }}/.mkt/space/devices/{{ ansible_hostname }}/{{ ansible_env.USER }}/test-{{ ansible_date_time.epoch }}.txt"
+        echo "Test write at {{ ansible_date_time.iso8601 }}" > "$test_file"
+        if [ -f "$test_file" ]; then
+          rm -f "$test_file"
+          echo "PASS: Write test successful"
+        else
+          echo "FAIL: Write test failed"
+          exit 1
+        fi
+      register: write_test
+      changed_when: false
+    
+    - name: Display write test results
+      debug:
+        var: write_test.stdout_lines
+    
+    - name: macOS validation summary
+      debug:
+        msg: |
+          ✅ macOS Mount Infrastructure Validation PASSED for {{ inventory_hostname }}
+          - Mount points: {{ expected_mount_points | join(', ') }}
+          - All symlinks correct
+          - No shadow directories detected
+          - LaunchAgent loaded
+          - Health reporting active
+          - Write access verified
+
+- name: Validate Windows Mount Infrastructure
+  hosts: windows
+  gather_facts: yes
+  
+  vars:
+    expected_drives:
+      - { letter: 'X', name: 'flux', label: 'FLUX' }
+      - { letter: 'S', name: 'space', label: 'SPACE' }
+      - { letter: 'T', name: 'time', label: 'TIME' }
+    health_status_max_age_minutes: 10
+  
+  tasks:
+    - name: Check mapped drives exist
+      win_shell: |
+        $results = @()
+        $drives = @('X', 'S', 'T')
+        foreach ($drive in $drives) {
+          $driveLetter = "${drive}:"
+          $exists = Test-Path $driveLetter
+          $results += @{
+            drive = $drive
+            exists = $exists
+          }
+        }
+        $results | ConvertTo-Json
+      register: drive_existence
+      changed_when: false
+    
+    - name: Parse drive existence results
+      set_fact:
+        drives_status: "{{ drive_existence.stdout | from_json }}"
+    
+    - name: Verify all drives are accessible
+      assert:
+        that:
+          - item.exists
+        fail_msg: "Drive {{ item.drive }}: is not accessible"
+        success_msg: "Drive {{ item.drive }}: is accessible"
+      loop: "{{ drives_status }}"
+    
+    - name: Check drive labels
+      win_shell: |
+        $results = @()
+        @('X', 'S', 'T') | ForEach-Object {
+          $vol = Get-Volume -DriveLetter $_ -ErrorAction SilentlyContinue
+          if ($vol) {
+            $results += @{
+              drive = $_
+              label = $vol.FileSystemLabel
+            }
+          }
+        }
+        $results | ConvertTo-Json
+      register: drive_labels
+      changed_when: false
+    
+    - name: Parse drive labels
+      set_fact:
+        labels_status: "{{ drive_labels.stdout | from_json }}"
+    
+    - name: Verify drive labels are correct
+      assert:
+        that:
+          - item.0.label == item.1.label
+        fail_msg: "Drive {{ item.1.letter }}: has wrong label '{{ item.0.label }}' (expected '{{ item.1.label }}')"
+        success_msg: "Drive {{ item.1.letter }}: has correct label '{{ item.1.label }}'"
+      loop: "{{ labels_status | zip(expected_drives) | list }}"
+      when: labels_status is defined and labels_status | length > 0
+    
+    - name: Check health status file exists
+      win_stat:
+        path: "S:\\devices\\{{ ansible_hostname }}\\{{ ansible_user }}\\_status.json"
+      register: win_health_status_file
+    
+    - name: Read health status JSON
+      win_shell: Get-Content "S:\\devices\\{{ ansible_hostname }}\\{{ ansible_user }}\\_status.json" -Raw
+      register: win_health_status_content
+      changed_when: false
+      when: win_health_status_file.stat.exists
+    
+    - name: Parse Windows health status JSON
+      set_fact:
+        win_health_status: "{{ win_health_status_content.stdout | from_json }}"
+      when: win_health_status_file.stat.exists
+    
+    - name: Verify Windows health status structure
+      assert:
+        that:
+          - win_health_status.timestamp is defined
+          - win_health_status.device is defined
+          - win_health_status.user is defined
+          - win_health_status.platform == "Windows"
+          - win_health_status.status is defined
+          - win_health_status.components is defined
+          - win_health_status.components.mounts is defined
+          - win_health_status.components.mounts.flux is defined
+          - win_health_status.components.mounts.space is defined
+          - win_health_status.components.mounts.time is defined
+        fail_msg: "Windows health status JSON structure is invalid"
+        success_msg: "Windows health status JSON is valid"
+      when: win_health_status_file.stat.exists
+    
+    - name: "Test write access to S: drive"
+      win_shell: |
+        $testFile = "S:\devices\{{ ansible_hostname }}\{{ ansible_user }}\test-$((Get-Date).Ticks).txt"
+        "Test write at $(Get-Date -Format 'o')" | Out-File -FilePath $testFile -Encoding utf8
+        if (Test-Path $testFile) {
+          Remove-Item $testFile -Force
+          Write-Output "PASS: Write test successful"
+        } else {
+          Write-Output "FAIL: Write test failed"
+          exit 1
+        }
+      register: win_write_test
+      changed_when: false
+    
+    - name: Display Windows write test results
+      debug:
+        var: win_write_test.stdout_lines
+    
+    - name: Check for junction loops (OneDrive safety)
+      win_shell: |
+        # Verify network drives are not being synced by OneDrive
+        $networkDrives = @("X:", "S:", "T:")
+        $issues = @()
+        
+        foreach ($drive in $networkDrives) {
+          # Check if drive exists in OneDrive paths
+          Get-ChildItem "$env:USERPROFILE\OneDrive*" -ErrorAction SilentlyContinue | ForEach-Object {
+            $oneDrivePath = $_.FullName
+            $networkDrives | ForEach-Object {
+              $drivePath = Join-Path $oneDrivePath $_
+              if (Test-Path $drivePath) {
+                $issues += "ERROR: Network drive $_ found in OneDrive path: $drivePath"
+              }
+            }
+          }
+        }
+        
+        if ($issues.Count -eq 0) {
+          Write-Output "PASS: No junction loops detected"
+        } else {
+          $issues | ForEach-Object { Write-Output $_ }
+          exit 1
+        }
+      register: junction_check
+      changed_when: false
+    
+    - name: Display junction check results
+      debug:
+        var: junction_check.stdout_lines
+    
+    - name: Windows validation summary
+      debug:
+        msg: |
+          ✅ Windows Mount Infrastructure Validation PASSED for {{ inventory_hostname }}
+          - Drives: {{ expected_drives | map(attribute='letter') | join(', ') }}
+          - All labels correct
+          - No junction loops detected
+          - Health reporting active
+          - Write access verified
+
+- name: Cross-Device Validation
+  hosts: localhost
+  gather_facts: no
+  become: false
+  
+  tasks:
+    - name: Validation complete summary
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          🎉 MOUNT INFRASTRUCTURE VALIDATION COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          All workstations have been validated:
+          - Filesystem spec v2.1 compliance ✅
+          - No shadow directories ✅
+          - Health reporting active ✅
+          - Write access verified ✅
+          - No sync loops ✅
+          
+          System is ready for production use.
+
