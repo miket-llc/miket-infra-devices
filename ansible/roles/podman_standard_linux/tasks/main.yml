@@ -1,0 +1,382 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Standard Linux Role
+# Installs and configures Podman as the standard container runtime on Linux
+#
+# Features:
+# - Podman as primary runtime (Docker-compatible)
+# - Docker CLI compatibility layer (podman-docker or wrapper)
+# - Rootless container support
+# - Systemd integration for container services
+# - Optional NVIDIA Container Toolkit integration
+#
+# Supports: Fedora, Ubuntu, Debian, and other major Linux distributions
+
+- name: Validate running on Linux
+  ansible.builtin.assert:
+    that:
+      - ansible_system == 'Linux'
+    fail_msg: "This role is designed for Linux systems only"
+    quiet: true
+  tags: [podman_standard, containers, validate]
+
+- name: Display runtime standard banner
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN STANDARD LINUX - Container Runtime Installation"
+      - "═══════════════════════════════════════════════════════════"
+      - "Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      - "Primary Runtime: Podman"
+      - "Docker CLI Compat: Enabled"
+      - "═══════════════════════════════════════════════════════════"
+  tags: [podman_standard, containers, always]
+
+# ========================================
+# Install Podman and Tools
+# ========================================
+- name: Install Podman and container tools (Fedora/RHEL/CentOS)
+  ansible.builtin.dnf:
+    name: "{{ podman_packages }}"
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [podman_standard, containers, install]
+
+- name: Install Podman and container tools (Ubuntu/Debian)
+  ansible.builtin.apt:
+    name: "{{ podman_packages_debian }}"
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+  tags: [podman_standard, containers, install]
+
+- name: Check if Docker/moby-engine is installed (RedHat family)
+  ansible.builtin.command: rpm -q moby-engine docker-ce
+  register: moby_check_rpm
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ansible_os_family == "RedHat"
+  tags: [podman_standard, containers, install]
+
+- name: Check if Docker is installed (Debian family)
+  ansible.builtin.command: dpkg -l docker.io docker-ce
+  register: moby_check_deb
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ansible_os_family == "Debian"
+  tags: [podman_standard, containers, install]
+
+- name: Set Docker conflict fact
+  ansible.builtin.set_fact:
+    docker_installed: >-
+      {{
+        (ansible_os_family == "RedHat" and moby_check_rpm.rc == 0) or
+        (ansible_os_family == "Debian" and moby_check_deb.rc == 0)
+      }}
+  tags: [podman_standard, containers, install]
+
+- name: Install podman-docker for CLI compatibility (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: podman-docker
+    state: present
+  when:
+    - podman_install_docker_compat | bool
+    - ansible_os_family == "RedHat"
+    - not docker_installed
+  tags: [podman_standard, containers, install]
+
+- name: Create Docker CLI wrapper script (Ubuntu/Debian)
+  ansible.builtin.copy:
+    dest: /usr/local/bin/docker
+    content: |
+      #!/bin/bash
+      # Docker CLI compatibility wrapper for Podman
+      # Managed by Ansible podman_standard_linux role
+      exec podman "$@"
+    mode: '0755'
+  when:
+    - podman_install_docker_compat | bool
+    - ansible_os_family == "Debian"
+    - not docker_installed
+  tags: [podman_standard, containers, install]
+
+- name: Create docker-compose CLI wrapper (Ubuntu/Debian)
+  ansible.builtin.copy:
+    dest: /usr/local/bin/docker-compose
+    content: |
+      #!/bin/bash
+      # Docker Compose compatibility wrapper for Podman Compose
+      # Managed by Ansible podman_standard_linux role
+      exec podman-compose "$@"
+    mode: '0755'
+  when:
+    - podman_install_docker_compat | bool
+    - ansible_os_family == "Debian"
+    - not docker_installed
+  tags: [podman_standard, containers, install]
+
+- name: Warn about Docker conflict
+  ansible.builtin.debug:
+    msg: 
+      - "⚠️  WARNING: Docker (moby-engine or docker-ce) is installed"
+      - "Docker and Podman should not run as competing runtimes on the same host"
+      - "To complete migration to Podman:"
+      - "  1. Export existing Docker containers"
+      - "  2. Stop and disable Docker daemon: systemctl stop docker && systemctl disable docker"
+      - "  3. Remove Docker packages: dnf remove moby-engine docker-ce (or apt remove docker.io)"
+      - "  4. Re-run this playbook to install podman-docker compatibility"
+  when: docker_installed
+  tags: [podman_standard, containers, install]
+
+- name: Install cockpit-podman for web UI (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: cockpit-podman
+    state: present
+  when:
+    - podman_install_cockpit | bool
+    - ansible_os_family == "RedHat"
+  tags: [podman_standard, containers, install]
+
+- name: Note cockpit-podman not available on Debian/Ubuntu
+  ansible.builtin.debug:
+    msg: "ℹ️  cockpit-podman is not available in standard Ubuntu/Debian repos (Fedora/RHEL only)"
+  when:
+    - podman_install_cockpit | bool
+    - ansible_os_family == "Debian"
+  tags: [podman_standard, containers, install]
+
+# ========================================
+# Configure Container Registries
+# ========================================
+- name: Ensure containers.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/containers/registries.conf.d
+    state: directory
+    mode: '0755'
+  tags: [podman_standard, containers, config]
+
+- name: Configure unqualified search registries
+  ansible.builtin.copy:
+    dest: /etc/containers/registries.conf.d/00-search.conf
+    content: |
+      # Configured by Ansible podman_standard_linux role
+      # Unqualified image search registries
+      unqualified-search-registries = {{ podman_registries_search | to_json }}
+    mode: '0644'
+  tags: [podman_standard, containers, config]
+
+# ========================================
+# Configure Custom Storage Paths
+# ========================================
+- name: Ensure storage.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/containers/storage.conf.d
+    state: directory
+    mode: '0755'
+  when: podman_configure_storage | bool
+  tags: [podman_standard, containers, storage]
+
+- name: Create custom graphroot directory
+  ansible.builtin.file:
+    path: "{{ podman_graphroot }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  when:
+    - podman_create_storage_dirs | bool
+    - podman_graphroot | length > 0
+  tags: [podman_standard, containers, storage]
+
+- name: Configure Podman storage.conf for custom paths
+  ansible.builtin.copy:
+    dest: /etc/containers/storage.conf.d/00-custom-storage.conf
+    content: |
+      # Configured by Ansible podman_standard_linux role
+      # Custom storage paths for container images and runtime data
+      [storage]
+      driver = "{{ podman_storage_driver }}"
+      {% if podman_graphroot | length > 0 %}
+      graphroot = "{{ podman_graphroot }}"
+      {% endif %}
+      {% if podman_runroot | length > 0 %}
+      runroot = "{{ podman_runroot }}"
+      {% endif %}
+      
+      [storage.options]
+      # Use native overlay diff for better performance
+      mount_program = "/usr/bin/fuse-overlayfs"
+      
+      [storage.options.overlay]
+      # Enable metacopy for faster container creation
+      mountopt = "nodev,metacopy=on"
+    mode: '0644'
+  when:
+    - podman_configure_storage | bool
+    - podman_graphroot | length > 0 or podman_runroot | length > 0
+  notify: restart podman
+  tags: [podman_standard, containers, storage]
+
+# ========================================
+# Enable Podman Socket (API)
+# ========================================
+- name: Enable podman socket (system-wide)
+  ansible.builtin.systemd:
+    name: podman.socket
+    enabled: true
+    state: started
+  when: podman_enable_socket | bool
+  tags: [podman_standard, containers, socket]
+
+# ========================================
+# Rootless Podman Setup
+# ========================================
+- name: Enable linger for rootless containers
+  ansible.builtin.command: loginctl enable-linger {{ podman_user }}
+  register: linger_result
+  changed_when: false
+  failed_when: linger_result.rc != 0
+  when: podman_enable_linger | bool
+  tags: [podman_standard, containers, rootless]
+
+- name: Check linger status
+  ansible.builtin.command: loginctl show-user {{ podman_user }} --property=Linger
+  register: linger_check
+  changed_when: false
+  failed_when: false
+  tags: [podman_standard, containers, rootless]
+
+- name: Create user systemd directory
+  ansible.builtin.file:
+    path: "/home/{{ podman_user }}/.config/systemd/user"
+    state: directory
+    mode: '0755'
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+  tags: [podman_standard, containers, rootless]
+
+# ========================================
+# NVIDIA Container Toolkit Integration
+# ========================================
+- name: Check if NVIDIA drivers are installed
+  ansible.builtin.command: nvidia-smi
+  register: nvidia_check
+  changed_when: false
+  failed_when: false
+  when: podman_nvidia_enabled | bool
+  tags: [podman_standard, containers, nvidia]
+
+- name: Add NVIDIA container toolkit repository (RHEL/Fedora)
+  ansible.builtin.get_url:
+    url: "https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo"
+    dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+    mode: '0644'
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - ansible_os_family == "RedHat"
+  tags: [podman_standard, containers, nvidia]
+
+- name: Install NVIDIA Container Toolkit (RHEL/Fedora)
+  ansible.builtin.dnf:
+    name: nvidia-container-toolkit
+    state: present
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - ansible_os_family == "RedHat"
+  tags: [podman_standard, containers, nvidia]
+
+- name: Add NVIDIA container toolkit GPG key (Ubuntu/Debian)
+  ansible.builtin.apt_key:
+    url: https://nvidia.github.io/libnvidia-container/gpgkey
+    state: present
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - ansible_os_family == "Debian"
+  tags: [podman_standard, containers, nvidia]
+
+- name: Add NVIDIA container toolkit repository (Ubuntu/Debian)
+  ansible.builtin.apt_repository:
+    repo: "deb https://nvidia.github.io/libnvidia-container/stable/deb/$(ARCH) /"
+    state: present
+    filename: nvidia-container-toolkit
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - ansible_os_family == "Debian"
+  tags: [podman_standard, containers, nvidia]
+
+- name: Install NVIDIA Container Toolkit (Ubuntu/Debian)
+  ansible.builtin.apt:
+    name: nvidia-container-toolkit
+    state: present
+    update_cache: true
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+    - ansible_os_family == "Debian"
+  tags: [podman_standard, containers, nvidia]
+
+- name: Configure Podman for NVIDIA runtime
+  ansible.builtin.command: nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+  register: nvidia_cdi
+  changed_when: "'Generated' in nvidia_cdi.stdout or nvidia_cdi.rc == 0"
+  failed_when: false
+  when:
+    - podman_nvidia_enabled | bool
+    - nvidia_check.rc == 0
+  tags: [podman_standard, containers, nvidia]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify Podman installation
+  ansible.builtin.command: podman --version
+  register: podman_version
+  changed_when: false
+  tags: [podman_standard, containers, verify]
+
+- name: Verify Podman can run containers
+  ansible.builtin.command: podman run --rm docker.io/library/alpine:latest echo "Podman works!"
+  register: podman_test
+  changed_when: false
+  failed_when: false
+  tags: [podman_standard, containers, verify]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display Podman configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "PODMAN STANDARD LINUX - CONFIGURATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Distribution:       {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      - "Podman Version:     {{ podman_version.stdout }}"
+      - "Docker Compat:      {{ 'Yes' if podman_install_docker_compat else 'No' }}"
+      - "Docker Installed:   {{ 'CONFLICT!' if docker_installed else 'No (Good)' }}"
+      - "Rootless User:      {{ podman_user }}"
+      - "Linger Enabled:     {{ linger_check.stdout | default('unknown') }}"
+      - "NVIDIA Support:     {{ 'Yes' if (nvidia_check.rc | default(1)) == 0 else 'No' }}"
+      - "Container Test:     {{ 'Passed ✓' if (podman_test.rc | default(1)) == 0 else 'Failed ✗' }}"
+      - ""
+      - "Registries:"
+      - "{% for reg in podman_registries_search %}  - {{ reg }}\n{% endfor %}"
+      - ""
+      - "Usage (all commands work):"
+      - "  docker ps          # Maps to: podman ps"
+      - "  docker run nginx   # Maps to: podman run nginx"
+      - "  docker-compose up  # Maps to: podman-compose up"
+      - "  podman ps          # Native Podman"
+      - ""
+      - "Documentation: docs/CONTAINERS_RUNTIME_STANDARD.md"
+      - "═══════════════════════════════════════════════════════════"
+  tags: [podman_standard, containers]
+

@@ -1,0 +1,65 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Standard Linux Role Defaults
+# Configures Podman as the standard container runtime on all Linux hosts
+# Provides Docker CLI compatibility for muscle memory
+# Supports: Fedora, Ubuntu, Debian, and other major distributions
+
+# Podman packages to install (Fedora/RHEL/CentOS)
+podman_packages:
+  - podman
+  - podman-compose
+  - buildah
+  - skopeo
+
+# Podman packages to install (Ubuntu/Debian)
+podman_packages_debian:
+  - podman
+  - buildah
+  - skopeo
+  - python3-pip  # For podman-compose via pip
+
+# Install podman-docker (provides docker CLI compatibility)
+podman_install_docker_compat: true
+
+# Install cockpit-podman for web UI (optional)
+podman_install_cockpit: false
+
+# Configure registries (unqualified search)
+podman_registries_search:
+  - docker.io
+  - quay.io
+  - ghcr.io
+
+# User for rootless podman (typically the primary user)
+podman_user: mdt
+
+# Enable lingering for rootless containers (keep running after logout)
+podman_enable_linger: true
+
+# Enable podman socket for API access
+podman_enable_socket: true
+
+# Storage configuration
+podman_storage_driver: overlay
+
+# Custom storage paths (override to use secondary drive)
+# Leave empty to use defaults (/var/lib/containers for root, ~/.local/share/containers for rootless)
+podman_graphroot: ""           # Container image/layer storage (e.g., /space/containers/engine/podman)
+podman_runroot: ""             # Runtime data (e.g., /run/containers/storage)
+
+# Configure storage.conf when custom paths are set
+podman_configure_storage: true
+
+# NVIDIA Container Toolkit integration
+podman_nvidia_enabled: true
+
+# Create graphroot directory structure
+podman_create_storage_dirs: true
+
+
+
+
+
+

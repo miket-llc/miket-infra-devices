@@ -1,0 +1,36 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for podman_base role
+
+- name: restart podman
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: restarted
+    scope: system
+  failed_when: false
+
+- name: restart podman socket
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: restarted
+    scope: system
+
+- name: restart podman socket user
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: restarted
+    scope: user
+  become: true
+  become_user: "{{ podman_user }}"
+
+- name: reset podman storage
+  ansible.builtin.command: podman system reset --force
+  failed_when: false
+  changed_when: true
+
+
+
+
+
+
