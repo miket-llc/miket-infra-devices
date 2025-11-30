@@ -89,7 +89,7 @@ ansible-playbook -i inventory/hosts.yml \
 
 ## Related Documentation
 
-- [Architecture Review](../ARCHITECTURE_REVIEW.md)
+- [miket-infra-devices Architecture](../architecture/Miket_Infra_Devices_Architecture.md)
 - [PHC Prompt](../../PHC_PROMPT.md)
 - [Communication Log](../communications/COMMUNICATION_LOG.md)
 

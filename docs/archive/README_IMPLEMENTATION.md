@@ -57,7 +57,8 @@ devices/
     └── config.yml                  # ✅ Expanded
 
 docs/
-├── ARCHITECTURE_REVIEW.md          # ✅ NEW
+├── archive/
+│   └── ARCHITECTURE_REVIEW.md      # ✅ Archived (superseded by canonical architecture docs)
 ├── migration/
 │   └── MIGRATION_PLAN.md          # ✅ NEW
 ├── IMPLEMENTATION_SUMMARY.md       # ✅ NEW
