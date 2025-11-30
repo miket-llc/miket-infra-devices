@@ -1,7 +1,15 @@
 # SSH User Mapping Configuration
 
 ## Overview
+
 This document describes our user mapping strategy without full SSO.
+
+**Deploy SSH config automatically:**
+```bash
+make deploy-ssh-config
+```
+
+This uses the Ansible role `ssh_client_config` to deploy standardized SSH config to all workstations.
 
 ## Automation Account: `mdt`
 
@@ -26,29 +34,23 @@ This account is separate from user accounts and used exclusively by Ansible and 
 | wintermute    | mdt          | -                 | Automation account (MDT)  |
 | armitage      | mdt          | -                 | Automation account (MDT)  |
 
-## SSH Config Template
+## SSH Config Deployment
 
-Add to `~/.ssh/config`:
+SSH config is deployed via Ansible role `ssh_client_config`:
 
-```ssh
-# Linux servers - use mdt
-Host *.pangolin-vega.ts.net motoko armitage wintermute
-    User mdt
-    IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-    ForwardAgent yes
+```bash
+# Deploy to all workstations
+make deploy-ssh-config
 
-# macOS devices - use current user
-Host count-zero* 
-    User miket
-    IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-    ForwardAgent yes
-
-# Default for Tailscale IPs
-Host 100.*
-    User mdt
-    IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-    ForwardAgent yes
+# Deploy to specific host
+cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ssh-config.yml -l count-zero
 ```
+
+The role deploys a standardized config from `ansible/roles/ssh_client_config/templates/ssh_config.j2` which includes:
+- Correct user mappings per device type
+- 1Password SSH agent configuration on macOS
+- Tailscale hostnames
+- Fallback for Tailscale IPs
 
 ## Tailscale SSH Usage
 

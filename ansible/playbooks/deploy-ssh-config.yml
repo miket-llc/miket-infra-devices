@@ -1,0 +1,34 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Deploy SSH Client Configuration
+# Standardizes SSH config across all workstations for consistent Tailscale UX
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ssh-config.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ssh-config.yml -l count-zero
+#
+# What this does:
+#   1. Backs up existing SSH config
+#   2. Deploys standardized config with correct user mappings
+#   3. Configures 1Password SSH agent on macOS
+#
+# Architecture:
+#   - SSH policy (ACLs): miket-infra (Terraform)
+#   - SSH config (device): miket-infra-devices (Ansible)
+#   - See: docs/runbooks/ssh-user-mapping.md
+
+---
+- name: Deploy SSH Client Configuration
+  hosts: all_workstations
+  gather_facts: true
+  
+  vars:
+    # Override for local execution on control node
+    ansible_become: false
+  
+  roles:
+    - role: ssh_client_config
+      tags:
+        - ssh
+        - config
+

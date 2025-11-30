@@ -1,0 +1,55 @@
+# {{ ansible_managed }}
+# SSH Client Configuration for Tailscale Mesh
+# Deployed via Ansible role: ssh_client_config
+# See: docs/runbooks/ssh-user-mapping.md
+
+# ============================================================================
+# Global Defaults
+# ============================================================================
+Host *
+    StrictHostKeyChecking {{ ssh_strict_host_key_checking }}
+    ForwardAgent {{ 'yes' if ssh_forward_agent else 'no' }}
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+
+{% if ansible_system == 'Darwin' %}
+# ============================================================================
+# 1Password SSH Agent (macOS)
+# ============================================================================
+Host *
+    IdentityAgent "{{ onepassword_agent_sock }}"
+
+{% endif %}
+# ============================================================================
+# Linux Servers - use mdt (automation account)
+# ============================================================================
+{% for host in ssh_user_mapping.linux_hosts %}
+Host {{ host }} {{ host }}.{{ tailnet_domain }}
+    User {{ ssh_user_mapping.linux_user }}
+    HostName {{ host }}.{{ tailnet_domain }}
+
+{% endfor %}
+# ============================================================================
+# macOS Devices - use primary user
+# ============================================================================
+{% for host in ssh_user_mapping.macos_hosts %}
+Host {{ host }} {{ host }}.{{ tailnet_domain }}
+    User {{ ssh_user_mapping.macos_user }}
+    HostName {{ host }}.{{ tailnet_domain }}
+
+{% endfor %}
+# ============================================================================
+# Windows Devices - SSH available but WinRM preferred
+# ============================================================================
+{% for host in ssh_user_mapping.windows_hosts %}
+Host {{ host }} {{ host }}.{{ tailnet_domain }}
+    User {{ ssh_user_mapping.windows_user }}
+    HostName {{ host }}.{{ tailnet_domain }}
+
+{% endfor %}
+# ============================================================================
+# Tailscale IP fallback - use mdt for direct IP access
+# ============================================================================
+Host 100.*
+    User {{ ssh_user_mapping.linux_user }}
+

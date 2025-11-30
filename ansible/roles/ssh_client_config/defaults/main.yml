@@ -1,0 +1,41 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# SSH Client Configuration Role - Defaults
+# Deploys standardized SSH config for Tailscale mesh connectivity
+
+# Tailnet domain
+tailnet_domain: "pangolin-vega.ts.net"
+
+# User mapping by device/platform
+# See: docs/runbooks/ssh-user-mapping.md
+ssh_user_mapping:
+  # Linux servers use mdt (automation account)
+  linux_hosts:
+    - motoko
+  linux_user: mdt
+  
+  # Windows servers use mdt (via WinRM, not SSH)
+  windows_hosts:
+    - armitage
+    - wintermute
+  windows_user: mdt
+  
+  # macOS uses primary user
+  macos_hosts:
+    - count-zero
+  macos_user: miket
+
+# SSH config location (platform-specific, overridden in vars/)
+ssh_config_dir: "{{ ansible_env.HOME }}/.ssh"
+ssh_config_file: "{{ ssh_config_dir }}/config"
+
+# Backup existing config before overwriting
+backup_existing_config: true
+
+# SSH options
+ssh_strict_host_key_checking: "accept-new"
+ssh_forward_agent: true
+
+# 1Password SSH agent socket (for macOS)
+onepassword_agent_sock: "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+

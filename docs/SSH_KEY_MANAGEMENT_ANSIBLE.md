@@ -1,4 +1,6 @@
-# SSH Key Management - Ansible Vault Approach
+# SSH Key Management
+
+This is the canonical documentation for SSH key management in miket-infra-devices.
 
 ## Philosophy
 
@@ -9,6 +11,15 @@ SSH keys for infrastructure management are:
 4. **Version controlled patterns** via playbooks, not the keys themselves
 
 This follows the Ansible best practice of keeping keys on the control node and deploying them automatically.
+
+## Related Resources
+
+| Resource | Purpose |
+|----------|---------|
+| `ansible/roles/ssh_client_config/` | Ansible role for SSH client config |
+| `ansible/playbooks/deploy-ssh-config.yml` | Deploy SSH config to workstations |
+| `docs/runbooks/ssh-user-mapping.md` | User mapping by device type |
+| `make deploy-ssh-config` | One-command SSH config deployment |
 
 ## Key Locations
 

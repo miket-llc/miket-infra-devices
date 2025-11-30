@@ -1,0 +1,52 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# SSH Client Configuration Role
+# Deploys standardized SSH config for Tailscale mesh connectivity
+#
+# Usage in playbook:
+#   roles:
+#     - role: ssh_client_config
+#
+# This role:
+#   1. Creates ~/.ssh directory with correct permissions
+#   2. Backs up existing SSH config (if any)
+#   3. Deploys standardized SSH config from template
+#   4. Sets correct file permissions
+
+---
+- name: Ensure SSH directory exists
+  ansible.builtin.file:
+    path: "{{ ssh_config_dir }}"
+    state: directory
+    mode: '0700'
+    owner: "{{ ansible_user_id }}"
+
+- name: Check for existing SSH config
+  ansible.builtin.stat:
+    path: "{{ ssh_config_file }}"
+  register: existing_ssh_config
+
+- name: Backup existing SSH config
+  ansible.builtin.copy:
+    src: "{{ ssh_config_file }}"
+    dest: "{{ ssh_config_file }}.backup-{{ ansible_date_time.iso8601_basic_short }}"
+    remote_src: true
+    mode: '0600'
+  when:
+    - existing_ssh_config.stat.exists
+    - backup_existing_config | bool
+
+- name: Deploy standardized SSH config
+  ansible.builtin.template:
+    src: ssh_config.j2
+    dest: "{{ ssh_config_file }}"
+    mode: '0600'
+    owner: "{{ ansible_user_id }}"
+    backup: false
+  register: ssh_config_deployed
+
+- name: Display SSH config deployment status
+  ansible.builtin.debug:
+    msg: "SSH config deployed to {{ ssh_config_file }}"
+  when: ssh_config_deployed.changed
+

@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -35,7 +35,11 @@ help:
 	@echo "  validate-nextcloud         - Validate Nextcloud pure façade compliance"
 	@echo "  test-nextcloud             - Run Nextcloud smoke tests"
 	@echo ""
-	@echo "Utility:
+	@echo "Tailscale & SSH:"
+	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
+	@echo "  deploy-ssh-config       - Deploy standardized SSH config to workstations"
+	@echo ""
+	@echo "Utility:"
 	@echo "  backup-configs          - Backup current configurations"
 	@echo "  health-check            - Check health of all services"
 	@echo "  test-context            - Run context window smoke tests"
@@ -340,4 +344,42 @@ validate-nextcloud:
 	@echo ""
 	@echo "Running smoke tests..."
 	@python3 $(TESTS_DIR)/nextcloud_smoke.py
+
+# ========================================
+# Tailscale & SSH Configuration
+# ========================================
+
+# E2E verification of Tailscale mesh connectivity
+verify-tailscale:
+	@echo "========================================"
+	@echo "Tailscale E2E Verification"
+	@echo "========================================"
+	@echo ""
+	@./scripts/verify-tailscale-e2e.sh
+
+# Quick verification (skip SSH auth tests)
+verify-tailscale-quick:
+	@./scripts/verify-tailscale-e2e.sh --quick
+
+# Deploy standardized SSH config to workstations
+deploy-ssh-config:
+	@echo "========================================"
+	@echo "SSH Config Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy standardized SSH config to all workstations:"
+	@echo "  - Consistent user mappings (mdt for Linux/Windows, miket for macOS)"
+	@echo "  - Tailscale hostnames configured"
+	@echo "  - 1Password SSH agent on macOS"
+	@echo ""
+	@read -p "Continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "Deploying SSH config..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ssh-config.yml; \
+	else \
+		echo "Deployment cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ SSH config deployed!"
 
