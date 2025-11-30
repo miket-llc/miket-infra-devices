@@ -1,0 +1,64 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Motoko Thermal Management Role Defaults
+# Aggressive fan management for Alienware laptop with lid closed
+# Intel Core i9-9980HK + RTX 2080 Max-Q
+
+# Enable thermal management
+motoko_thermal_enabled: true
+
+# thermald configuration
+thermald_enabled: true
+thermald_aggressive_mode: true  # Aggressive cooling for lid-closed operation
+
+# CPU thermal thresholds (Intel Core i9-9980HK)
+# VERY aggressive thresholds to prevent thermal spikes with lid closed
+# Lower thresholds = more proactive cooling (prevents 100°C spikes)
+# Note: Individual cores can spike to 100°C even if package temp is lower
+# These thresholds target package temp to prevent sustained high temps
+cpu_thermal_normal: 55      # Below this: normal operation
+cpu_thermal_warm: 65        # Above normal, below this: increase cooling (preventive)
+cpu_thermal_hot: 75         # Above warm, below this: aggressive cooling (preventive)
+cpu_thermal_critical: 85    # Above this: maximum cooling + throttling (prevent 100°C)
+
+# CPU power limiting (complementary to thermal thresholds)
+# Intel Core i9-9980HK TDP: 45W base, can boost higher
+# Limiting power helps prevent thermal spikes
+cpu_power_limit_enabled: true
+cpu_power_limit_watts: 30   # Limit to 30W to prevent spikes (aggressive for lid-closed)
+
+# CPU frequency capping (additional thermal protection)
+# Prevents CPU from boosting to max frequency, reducing heat generation
+cpu_freq_cap_enabled: true
+cpu_freq_cap_mhz: 3000      # Cap at 3.0 GHz (9980HK base is 2.4 GHz, max boost ~5.0 GHz)
+
+# Disable CPU turbo boost (most aggressive)
+# Prevents short bursts that cause 100°C spikes
+cpu_turbo_disable: true
+
+# GPU thermal thresholds (already configured in motoko_ai_profile, but we monitor)
+# These are for reference and integration
+gpu_thermal_normal: 70
+gpu_thermal_hot: 80
+gpu_thermal_critical: 85
+
+# Fan control settings
+# Alienware laptops may use proprietary fan control, but we configure what we can
+fan_control_enabled: true
+fan_aggressive_mode: true  # Always run fans more aggressively with lid closed
+
+# Thermal monitoring interval (seconds)
+thermal_monitor_interval: 10
+
+# System load thresholds for fan adjustment
+system_load_normal: 2.0      # Below this: normal fan speed
+system_load_high: 4.0        # Above this: increase fan speed
+system_load_critical: 8.0    # Above this: maximum fan speed
+
+# Package dependencies
+# Note: lm-sensors may not be available in all Fedora versions
+# The thermal monitor script can fall back to thermal zones if sensors unavailable
+thermal_management_packages:
+  - thermald
+

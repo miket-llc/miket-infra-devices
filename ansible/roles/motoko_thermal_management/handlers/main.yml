@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for motoko_thermal_management role
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart thermald
+  ansible.builtin.systemd:
+    name: thermald
+    state: restarted
+
+- name: restart cpu thermal monitor
+  ansible.builtin.systemd:
+    name: cpu-thermal-monitor
+    state: restarted
+
