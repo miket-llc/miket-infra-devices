@@ -5,19 +5,19 @@
 # Verifies the stack is healthy and properly configured
 
 - name: Check Nextcloud container is running
-  ansible.builtin.command: docker ps --filter "name=nextcloud-app" --format "{{ '{{.Status}}' }}"
+  ansible.builtin.command: podman ps --filter "name=nextcloud-app" --format "{{ '{{.Status}}' }}"
   register: container_status
   changed_when: false
   failed_when: "'Up' not in container_status.stdout"
 
 - name: Check PostgreSQL container is running
-  ansible.builtin.command: docker ps --filter "name=nextcloud-db" --format "{{ '{{.Status}}' }}"
+  ansible.builtin.command: podman ps --filter "name=nextcloud-db" --format "{{ '{{.Status}}' }}"
   register: db_status
   changed_when: false
   failed_when: "'Up' not in db_status.stdout"
 
 - name: Check Redis container is running
-  ansible.builtin.command: docker ps --filter "name=nextcloud-redis" --format "{{ '{{.Status}}' }}"
+  ansible.builtin.command: podman ps --filter "name=nextcloud-redis" --format "{{ '{{.Status}}' }}"
   register: redis_status
   changed_when: false
   failed_when: "'Up' not in redis_status.stdout"
@@ -44,7 +44,7 @@
 
 - name: Check external storage mounts are configured
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ files_external:list --output=json
+    podman exec -u 33 nextcloud-app php occ files_external:list --output=json
   register: ext_mounts
   changed_when: false
   failed_when: false
@@ -71,7 +71,7 @@
 # Pure Façade Validation
 - name: Check skeleton directory configuration
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ config:system:get skeletondirectory
+    podman exec -u 33 nextcloud-app php occ config:system:get skeletondirectory
   register: skeleton_dir_check
   changed_when: false
   failed_when: false

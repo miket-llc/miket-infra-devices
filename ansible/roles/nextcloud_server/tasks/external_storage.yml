@@ -5,6 +5,18 @@
 # Configures local mounts to /space/mike directories
 # Uses Nextcloud OCC (command line interface)
 
+# Ensure filesystem permissions allow www-data (uid 33) to write
+# This is critical - without this, uploads will fail with 403 Forbidden
+- name: Ensure external storage directories are writable by www-data
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    group: "33"
+    mode: "g+rwX"
+    recurse: yes
+  loop: "{{ nextcloud_external_mounts }}"
+  become: true
+
 - name: Skip external storage if Nextcloud not ready
   ansible.builtin.debug:
     msg: "Skipping external storage config - Nextcloud not ready. Re-run playbook after container is healthy."
@@ -12,7 +24,7 @@
 
 - name: Check Nextcloud occ status for external storage
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ status --output=json
+    podman exec -u 33 nextcloud-app php occ status --output=json
   register: occ_status
   changed_when: false
   failed_when: false
@@ -20,7 +32,7 @@
 
 - name: Check if External Storage app is enabled
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ app:list --output=json
+    podman exec -u 33 nextcloud-app php occ app:list --output=json
   register: app_list
   changed_when: false
   when: 
@@ -29,7 +41,7 @@
 
 - name: Enable External Storage app
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ app:enable files_external
+    podman exec -u 33 nextcloud-app php occ app:enable files_external
   register: enable_external
   changed_when: "'enabled' in enable_external.stdout"
   when:
@@ -39,7 +51,7 @@
 
 - name: Check existing external mounts
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ files_external:list --output=json
+    podman exec -u 33 nextcloud-app php occ files_external:list --output=json
   register: existing_mounts
   changed_when: false
   when: 
@@ -57,7 +69,7 @@
 # This ensures mounts are available immediately for any user including OIDC users
 - name: Configure external storage mounts (admin-level)
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ files_external:create
+    podman exec -u 33 nextcloud-app php occ files_external:create
     "/{{ item.name }}"
     local
     null::null
@@ -73,7 +85,7 @@
 
 - name: Set mount permissions (read/write)
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ files_external:option
+    podman exec -u 33 nextcloud-app php occ files_external:option
     "{{ item.name }}"
     enable_sharing true
   loop: "{{ nextcloud_external_mounts }}"

@@ -1,10 +1,11 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Docker Compose Deployment for Nextcloud Stack
+# Podman Compose Deployment for Nextcloud Stack
 # Deploys: Nextcloud + PostgreSQL + Redis
+# Requires: Fedora with podman
 
-- name: Render Nextcloud docker-compose.yml
+- name: Render Nextcloud compose file
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ nextcloud_compose_path }}"
@@ -13,96 +14,49 @@
     mode: "0644"
   notify: restart nextcloud
 
-- name: Check for existing Docker installation (Fedora)
-  ansible.builtin.command: which docker
-  register: docker_check_fedora
-  changed_when: false
-  failed_when: false
-  when: ansible_distribution == "Fedora"
-
-- name: Check if Podman is installed (Fedora)
+- name: Check if Podman is installed
   ansible.builtin.command: which podman
-  register: podman_check_fedora
+  register: podman_check
   changed_when: false
   failed_when: false
-  when: ansible_distribution == "Fedora"
 
-- name: Install Podman (Fedora)
+- name: Install Podman
   ansible.builtin.dnf:
     name: podman
     state: present
-  when:
-    - ansible_distribution == "Fedora"
-    - podman_check_fedora.rc != 0
+  when: podman_check.rc != 0
 
-- name: Check if docker-compose is installed (Fedora)
-  ansible.builtin.command: which docker-compose
-  register: compose_check_fedora
+- name: Check if podman-compose is installed
+  ansible.builtin.command: which podman-compose
+  register: compose_check
   changed_when: false
   failed_when: false
-  when: ansible_distribution == "Fedora"
 
-- name: Install docker-compose (Fedora)
+- name: Install podman-compose
   ansible.builtin.dnf:
-    name: docker-compose
+    name: podman-compose
     state: present
-  when:
-    - ansible_distribution == "Fedora"
-    - compose_check_fedora.rc != 0
+  when: compose_check.rc != 0
 
-- name: Install Podman-Docker wrapper (Fedora)
-  ansible.builtin.dnf:
-    name: podman-docker
-    state: present
-  when:
-    - ansible_distribution == "Fedora"
-    - docker_check_fedora.rc != 0
-
-- name: Enable Podman socket (Fedora)
+- name: Enable Podman socket
   ansible.builtin.systemd:
     name: podman.socket
     enabled: true
     state: started
-  when: ansible_distribution == "Fedora"
-
-- name: Check if Docker is installed
-  ansible.builtin.command: which docker
-  register: docker_check
-  changed_when: false
-  failed_when: false
-
-- name: Install Docker + Compose plugin (Debian/Ubuntu only)
-  ansible.builtin.apt:
-    name:
-      - docker.io
-      - docker-compose-plugin
-    state: present
-    update_cache: true
-  when:
-    - ansible_os_family == "Debian"
-    - docker_check.rc != 0
-  tags: [packages]
-
-- name: Ensure Docker service is running
-  ansible.builtin.systemd:
-    name: docker
-    state: started
-    enabled: true
-  when: ansible_os_family == "Debian"
 
 - name: Pull Nextcloud stack images
-  ansible.builtin.command: docker compose -f "{{ nextcloud_compose_path }}" pull
+  ansible.builtin.command: podman compose -f "{{ nextcloud_compose_path }}" pull
   args:
     chdir: "{{ nextcloud_workdir }}"
-  register: docker_pull
-  changed_when: "'Pull complete' in docker_pull.stdout or 'Downloaded newer image' in docker_pull.stdout"
+  register: podman_pull
+  changed_when: "'Pull complete' in podman_pull.stdout or 'Downloaded newer image' in podman_pull.stdout"
 
 - name: Start Nextcloud stack
-  ansible.builtin.command: docker compose -f "{{ nextcloud_compose_path }}" up -d
+  ansible.builtin.command: podman compose -f "{{ nextcloud_compose_path }}" up -d
   args:
     chdir: "{{ nextcloud_workdir }}"
-  register: docker_compose_result
-  changed_when: "'Creating' in docker_compose_result.stdout or 'Starting' in docker_compose_result.stdout"
+  register: podman_compose_result
+  changed_when: "'Creating' in podman_compose_result.stdout or 'Starting' in podman_compose_result.stdout"
 
 - name: Create Nextcloud systemd service
   ansible.builtin.template:
@@ -121,7 +75,7 @@
     daemon_reload: true
 
 - name: Wait for Nextcloud container to start (max 60s)
-  ansible.builtin.command: docker ps --filter "name=nextcloud-app" --format "{{ '{{.Status}}' }}"
+  ansible.builtin.command: podman ps --filter "name=nextcloud-app" --format "{{ '{{.Status}}' }}"
   register: container_wait
   until: "'Up' in container_wait.stdout"
   retries: 12
@@ -148,5 +102,4 @@
 - name: Report Nextcloud startup status
   ansible.builtin.debug:
     msg: >-
-      Nextcloud status: {{ 'READY' if nextcloud_is_ready else 'NOT READY - check docker logs nextcloud-app' }}
-
+      Nextcloud status: {{ 'READY' if nextcloud_is_ready else 'NOT READY - check: podman logs nextcloud-app' }}

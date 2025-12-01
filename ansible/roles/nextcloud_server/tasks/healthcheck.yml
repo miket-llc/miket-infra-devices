@@ -1,0 +1,71 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Nextcloud Health Check and Auto-Recovery Setup
+# Deploys monitoring script and systemd timer for reliable operation
+# Addresses podman DNS race condition that can cause DB connectivity failures
+
+- name: Deploy health check script
+  ansible.builtin.template:
+    src: nextcloud-healthcheck.sh.j2
+    dest: "{{ nextcloud_bin_path }}/nextcloud-healthcheck.sh"
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart nextcloud-healthcheck timer
+
+- name: Deploy health check service
+  ansible.builtin.template:
+    src: nextcloud-healthcheck.service.j2
+    dest: /etc/systemd/system/nextcloud-healthcheck.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart nextcloud-healthcheck timer
+
+- name: Deploy health check timer
+  ansible.builtin.template:
+    src: nextcloud-healthcheck.timer.j2
+    dest: /etc/systemd/system/nextcloud-healthcheck.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart nextcloud-healthcheck timer
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start health check timer
+  ansible.builtin.systemd:
+    name: nextcloud-healthcheck.timer
+    enabled: true
+    state: started
+
+- name: Display health check status
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════
+      NEXTCLOUD HEALTH CHECK CONFIGURED
+      ═══════════════════════════════════════════════════════════
+      
+      Health Check Script: {{ nextcloud_bin_path }}/nextcloud-healthcheck.sh
+      Timer: nextcloud-healthcheck.timer (every 5 minutes)
+      
+      Features:
+      ✅ Detects database connectivity failures (podman DNS race)
+      ✅ Auto-restarts stack on failure
+      ✅ Post-start validation in nextcloud.service
+      ✅ Runs 2 minutes after boot to catch startup issues
+      
+      Manual commands:
+      - Check status: {{ nextcloud_bin_path }}/nextcloud-healthcheck.sh check
+      - Force recovery: {{ nextcloud_bin_path }}/nextcloud-healthcheck.sh recover
+      - Timer status: systemctl status nextcloud-healthcheck.timer
+      
+      ═══════════════════════════════════════════════════════════
+

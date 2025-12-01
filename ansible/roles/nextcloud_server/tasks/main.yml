@@ -35,6 +35,9 @@
   ansible.builtin.include_tasks: home_sweeper.yml
   when: nextcloud_home_sweeper_enabled | default(true)
 
+- name: Include health check and auto-recovery tasks
+  ansible.builtin.include_tasks: healthcheck.yml
+
 - name: Include validation tasks
   ansible.builtin.include_tasks: validate.yml
 

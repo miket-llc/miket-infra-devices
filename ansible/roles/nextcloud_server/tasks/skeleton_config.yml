@@ -7,7 +7,7 @@
 
 - name: Check Nextcloud occ status (skip if not ready)
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ status --output=json
+    podman exec -u 33 nextcloud-app php occ status --output=json
   register: occ_status
   changed_when: false
   failed_when: false
@@ -20,7 +20,7 @@
 
 - name: Disable skeleton directory for new users
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ config:system:set skeletondirectory --value="{{ nextcloud_skeleton_directory }}"
+    podman exec -u 33 nextcloud-app php occ config:system:set skeletondirectory --value="{{ nextcloud_skeleton_directory }}"
   register: skeleton_config
   changed_when: "'System config value skeletondirectory set' in skeleton_config.stdout"
   when: 
@@ -29,7 +29,7 @@
 
 - name: Disable default files app initial content
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ config:app:set firstrunwizard show --value=0
+    podman exec -u 33 nextcloud-app php occ config:app:set firstrunwizard show --value=0
   register: firstrun_config
   changed_when: "'Config value show for app firstrunwizard set' in firstrun_config.stdout"
   failed_when: false
@@ -39,7 +39,7 @@
 
 - name: Find skeleton directory location in container
   ansible.builtin.command: >
-    docker exec nextcloud-app find /var/www/html -type d -name skeleton
+    podman exec nextcloud-app find /var/www/html -type d -name skeleton
   register: skeleton_dirs
   changed_when: false
   failed_when: false
@@ -49,7 +49,7 @@
 
 - name: Clear skeleton directory contents
   ansible.builtin.command: >
-    docker exec nextcloud-app sh -c "rm -rf {{ item }}/*"
+    podman exec nextcloud-app sh -c "rm -rf {{ item }}/*"
   loop: "{{ skeleton_dirs.stdout_lines | default([]) }}"
   changed_when: true
   failed_when: false

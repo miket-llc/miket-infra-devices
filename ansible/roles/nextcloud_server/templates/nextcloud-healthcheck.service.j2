@@ -1,0 +1,23 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# Nextcloud Health Check Service
+# Runs periodic health checks with auto-recovery
+
+[Unit]
+Description=Nextcloud Health Check and Auto-Recovery
+After=nextcloud.service
+Requires=nextcloud.service
+
+[Service]
+Type=oneshot
+ExecStart={{ nextcloud_bin_path }}/nextcloud-healthcheck.sh recover
+TimeoutStartSec=180
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nextcloud-healthcheck
+
+# Run as root to access podman
+User=root
+Group=root
+

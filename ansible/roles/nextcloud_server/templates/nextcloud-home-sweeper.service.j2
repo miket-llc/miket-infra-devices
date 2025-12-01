@@ -4,7 +4,7 @@
 [Unit]
 Description=Nextcloud Home Sweeper - Detect stray files in internal user homes
 Documentation=file:///home/mdt/miket-infra-devices/docs/guides/nextcloud_on_motoko.md
-After=docker.service nextcloud.service
+After=podman.socket nextcloud.service
 
 [Service]
 Type=oneshot

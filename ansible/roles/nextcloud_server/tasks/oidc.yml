@@ -11,14 +11,14 @@
 
 - name: Install user_oidc app
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ app:install user_oidc
+    podman exec -u 33 nextcloud-app php occ app:install user_oidc
   register: oidc_install
   changed_when: "'installed' in oidc_install.stdout"
   failed_when: false
 
 - name: Enable user_oidc app
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ app:enable user_oidc
+    podman exec -u 33 nextcloud-app php occ app:enable user_oidc
   register: oidc_enable
   changed_when: "'enabled' in oidc_enable.stdout"
   failed_when: oidc_enable.rc != 0 and 'already enabled' not in oidc_enable.stdout
@@ -78,7 +78,7 @@
 # Configure Nextcloud OIDC provider
 - name: Configure Entra ID OIDC provider
   ansible.builtin.shell: |
-    docker exec -u 33 nextcloud-app php occ user_oidc:provider "Entra ID" \
+    podman exec -u 33 nextcloud-app php occ user_oidc:provider "Entra ID" \
       --clientid="{{ oidc_client_id }}" \
       --clientsecret="{{ oidc_client_secret }}" \
       --discoveryuri="https://login.microsoftonline.com/{{ nextcloud_entra_tenant_id }}/v2.0/.well-known/openid-configuration" \
@@ -98,7 +98,7 @@
 
 - name: Verify OIDC provider configuration
   ansible.builtin.command: >
-    docker exec -u 33 nextcloud-app php occ user_oidc:provider "Entra ID" --output=json
+    podman exec -u 33 nextcloud-app php occ user_oidc:provider "Entra ID" --output=json
   register: oidc_verify
   changed_when: false
 

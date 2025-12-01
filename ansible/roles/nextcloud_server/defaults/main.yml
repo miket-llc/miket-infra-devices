@@ -5,8 +5,8 @@
 # These values align with PHC invariants - do not modify paths without
 # reviewing docs/guides/nextcloud_on_motoko.md
 
-# Container runtime (podman or docker)
-nextcloud_container_runtime: "{{ 'podman' if ansible_distribution == 'Fedora' else 'docker' }}"
+# Container runtime - standardized on podman
+nextcloud_container_runtime: podman
 
 # Stack deployment location
 # On Fedora: use /flux/apps/nextcloud (runtime config)

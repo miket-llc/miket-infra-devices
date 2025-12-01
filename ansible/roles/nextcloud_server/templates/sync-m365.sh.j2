@@ -98,7 +98,7 @@ log "=========================================="
 
 # Trigger Nextcloud file scan
 log "Triggering Nextcloud file scan..."
-docker exec nextcloud-app php occ files:scan mike --path="/mike/files/ms365" 2>/dev/null || true
+podman exec nextcloud-app php occ files:scan mike --path="/mike/files/ms365" 2>/dev/null || true
 
 log "Done."
 

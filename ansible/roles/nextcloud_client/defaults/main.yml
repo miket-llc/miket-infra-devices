@@ -4,8 +4,11 @@
 # Nextcloud Client Role Defaults
 # Configuration for desktop client installation and setup
 
-# Server URL (via Cloudflare Access)
-nextcloud_server_url: https://nextcloud.miket.io
+# Server URL
+# For Tailscale devices: use motoko.pangolin-vega.ts.net (direct tailnet access)
+# For external devices: use nextcloud.miket.io (Cloudflare Access)
+# Default to Tailscale URL for tailnet devices (can be overridden per host)
+nextcloud_server_url: https://motoko.pangolin-vega.ts.net
 
 # Local sync root
 # Must NOT be:

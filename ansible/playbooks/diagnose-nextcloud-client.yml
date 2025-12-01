@@ -1,0 +1,205 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Diagnose Nextcloud Client Connection Issues
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/diagnose-nextcloud-client.yml --limit count-zero
+
+- name: Diagnose Nextcloud Client on macOS
+  hosts: macos
+  become: false
+  gather_facts: true
+
+  tasks:
+    - name: Check if Nextcloud app is installed
+      ansible.builtin.stat:
+        path: /Applications/Nextcloud.app
+      register: nextcloud_app
+
+    - name: Check if Nextcloud process is running
+      ansible.builtin.shell: |
+        ps aux | grep -i nextcloud | grep -v grep || echo "NOT_RUNNING"
+      register: nextcloud_process
+      changed_when: false
+
+    - name: Check Nextcloud config directory
+      ansible.builtin.stat:
+        path: "{{ ansible_user_dir }}/Library/Preferences/Nextcloud"
+      register: nextcloud_config_dir
+
+    - name: Check sync root directory
+      ansible.builtin.stat:
+        path: "{{ ansible_user_dir }}/nc"
+      register: sync_root
+
+    - name: Test Tailscale server connectivity
+      ansible.builtin.uri:
+        url: https://motoko.pangolin-vega.ts.net
+        method: HEAD
+        status_code: [200, 301, 302, 401, 403]
+        timeout: 10
+      register: tailscale_connectivity
+      ignore_errors: true
+
+    - name: Test Cloudflare server connectivity
+      ansible.builtin.uri:
+        url: https://nextcloud.miket.io
+        method: HEAD
+        status_code: [200, 301, 302, 401, 403]
+        timeout: 10
+      register: cloudflare_connectivity
+      ignore_errors: true
+
+    - name: Check Tailscale status
+      ansible.builtin.shell: |
+        tailscale status 2>/dev/null | head -5 || echo "TAILSCALE_NOT_RUNNING"
+      register: tailscale_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check for Nextcloud logs
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_user_dir }}/Library/Logs/Nextcloud"
+        patterns: "*.log"
+      register: nextcloud_logs
+      ignore_errors: true
+
+    - name: Display diagnostic summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          NEXTCLOUD CLIENT DIAGNOSTIC REPORT
+          ═══════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          User: {{ ansible_user }}
+          
+          📦 Installation:
+          {% if nextcloud_app.stat.exists %}
+          ✅ Nextcloud.app: INSTALLED at /Applications/Nextcloud.app
+          {% else %}
+          ❌ Nextcloud.app: NOT INSTALLED
+          {% endif %}
+          
+          🔄 Process Status:
+          {% if 'NOT_RUNNING' in nextcloud_process.stdout %}
+          ❌ Nextcloud process: NOT RUNNING
+          {% else %}
+          ✅ Nextcloud process: RUNNING
+          {{ nextcloud_process.stdout }}
+          {% endif %}
+          
+          ⚙️  Configuration:
+          {% if nextcloud_config_dir.stat.exists %}
+          ✅ Config directory: EXISTS at {{ nextcloud_config_dir.stat.path }}
+          {% else %}
+          ❌ Config directory: MISSING
+          {% endif %}
+          
+          📁 Sync Root:
+          {% if sync_root.stat.exists %}
+          ✅ Sync root: EXISTS at {{ sync_root.stat.path }}
+          {% else %}
+          ❌ Sync root: MISSING
+          {% endif %}
+          
+          🌐 Server Connectivity:
+          {% if tailscale_connectivity.status is defined and tailscale_connectivity.status in [200, 301, 302, 401, 403] %}
+          ✅ Tailscale: https://motoko.pangolin-vega.ts.net (HTTP {{ tailscale_connectivity.status }})
+          {% else %}
+          ❌ Tailscale: https://motoko.pangolin-vega.ts.net UNREACHABLE
+          {% endif %}
+          {% if cloudflare_connectivity.status is defined and cloudflare_connectivity.status in [200, 301, 302, 401, 403] %}
+          ✅ Cloudflare: https://nextcloud.miket.io (HTTP {{ cloudflare_connectivity.status }})
+          {% else %}
+          ❌ Cloudflare: https://nextcloud.miket.io UNREACHABLE
+          {% endif %}
+          
+          🔗 Tailscale:
+          {% if 'TAILSCALE_NOT_RUNNING' in tailscale_status.stdout %}
+          ❌ Tailscale: NOT RUNNING
+          {% else %}
+          ✅ Tailscale: RUNNING
+          {{ tailscale_status.stdout | regex_replace('^', '  ') }}
+          {% endif %}
+          
+          📋 Logs:
+          {% if nextcloud_logs.files | length > 0 %}
+          ✅ Found {{ nextcloud_logs.files | length }} log file(s)
+          {% for log in nextcloud_logs.files %}
+          - {{ log.path }}
+          {% endfor %}
+          {% else %}
+          ⚠️  No log files found
+          {% endif %}
+          
+          ═══════════════════════════════════════════════════════════
+          
+          RECOMMENDED ACTIONS:
+          {% if not nextcloud_app.stat.exists %}
+          1. Install Nextcloud: ansible-playbook playbooks/deploy-nextcloud-client.yml --limit {{ inventory_hostname }}
+          {% elif 'NOT_RUNNING' in nextcloud_process.stdout %}
+          2. Launch Nextcloud: open -a Nextcloud
+          {% elif not tailscale_connectivity.status is defined and not cloudflare_connectivity.status is defined %}
+          3. Check network/Tailscale connectivity
+          4. Verify Nextcloud is running on motoko: systemctl status nextcloud
+          {% elif not nextcloud_config_dir.stat.exists %}
+          5. Reconfigure Nextcloud client (launch app and log in)
+          {% else %}
+          6. Check Nextcloud menu bar icon for sync status
+          7. Try logging out and back in if connection lost
+          {% endif %}
+          
+          See: docs/runbooks/troubleshoot-count-zero-nextcloud.md
+          ═══════════════════════════════════════════════════════════
+
+- name: Diagnose Nextcloud Client on Windows
+  hosts: windows_workstations
+  gather_facts: true
+
+  tasks:
+    - name: Check if Nextcloud is installed
+      ansible.windows.win_stat:
+        path: "C:\\Program Files\\Nextcloud\\nextcloud.exe"
+      register: nextcloud_exe
+
+    - name: Check if Nextcloud process is running
+      ansible.windows.win_shell: |
+        Get-Process -Name nextcloud -ErrorAction SilentlyContinue | Select-Object -Property Id,ProcessName,StartTime
+      register: nextcloud_process
+      failed_when: false
+
+    - name: Check Nextcloud config directory
+      ansible.windows.win_stat:
+        path: "{{ ansible_env.APPDATA }}\\Nextcloud"
+      register: nextcloud_config_dir
+
+    - name: Test server connectivity
+      ansible.windows.win_shell: |
+        try {
+          $response = Invoke-WebRequest -Uri "https://nextcloud.miket.io" -Method Head -TimeoutSec 10 -ErrorAction Stop
+          Write-Output "SUCCESS: HTTP $($response.StatusCode)"
+        } catch {
+          Write-Output "FAILED: $($_.Exception.Message)"
+        }
+      register: server_connectivity
+
+    - name: Display Windows diagnostic summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          NEXTCLOUD CLIENT DIAGNOSTIC REPORT (Windows)
+          ═══════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          
+          Installation: {{ 'INSTALLED' if nextcloud_exe.stat.exists else 'NOT INSTALLED' }}
+          Process: {{ 'RUNNING' if nextcloud_process.stdout else 'NOT RUNNING' }}
+          Config: {{ 'EXISTS' if nextcloud_config_dir.stat.exists else 'MISSING' }}
+          Server: {{ server_connectivity.stdout }}
+          
+          See: docs/runbooks/troubleshoot-count-zero-nextcloud.md
+          ═══════════════════════════════════════════════════════════
+

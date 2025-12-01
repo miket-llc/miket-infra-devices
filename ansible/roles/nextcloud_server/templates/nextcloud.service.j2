@@ -1,15 +1,13 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 # Managed by Ansible - do not edit directly
+#
+# Nextcloud Stack Service (Podman)
+# Includes post-start validation to handle podman DNS race conditions
 
 [Unit]
-Description=Nextcloud Stack (Docker Compose)
-{% if ansible_distribution == 'Fedora' %}
+Description=Nextcloud Stack (Podman Compose)
 Requires=podman.socket
 After=podman.socket network-online.target
-{% else %}
-Requires=docker.service
-After=docker.service network-online.target
-{% endif %}
 Wants=network-online.target
 
 [Service]
@@ -17,14 +15,26 @@ Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory={{ nextcloud_workdir }}
 EnvironmentFile={{ nextcloud_env_path }}
-ExecStartPre=/usr/bin/docker compose pull --quiet
-ExecStart=/usr/bin/docker compose up -d --remove-orphans
-ExecStop=/usr/bin/docker compose down
-ExecReload=/usr/bin/docker compose restart
 
-# Restart policy
+# Pre-start: ensure clean state and pull images
+ExecStartPre=/usr/bin/podman compose pull --quiet
+
+# Start the stack
+ExecStart=/usr/bin/podman compose up -d --remove-orphans
+
+# Post-start: wait for containers to be healthy, then validate DB connectivity
+# This catches the podman DNS race condition and auto-recovers
+ExecStartPost=/bin/bash -c 'sleep 15 && {{ nextcloud_bin_path }}/nextcloud-healthcheck.sh recover'
+
+ExecStop=/usr/bin/podman compose down
+ExecReload=/usr/bin/podman compose restart
+
+# Restart policy - auto-recover from failures
 Restart=on-failure
 RestartSec=30
+
+# Give enough time for health check and recovery
+TimeoutStartSec=300
 
 # Logging
 StandardOutput=journal
@@ -33,4 +43,3 @@ SyslogIdentifier=nextcloud
 
 [Install]
 WantedBy=multi-user.target
-

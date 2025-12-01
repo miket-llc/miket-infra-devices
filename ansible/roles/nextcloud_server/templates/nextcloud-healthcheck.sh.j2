@@ -1,0 +1,159 @@
+#!/bin/bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# Nextcloud Health Check and Auto-Recovery Script
+# Validates database connectivity and auto-restarts on failure
+# Called by systemd timer and post-start hook
+
+set -euo pipefail
+
+SCRIPT_NAME="nextcloud-healthcheck"
+LOG_TAG="nextcloud-healthcheck"
+MAX_RETRIES=3
+RETRY_DELAY=10
+CONTAINER_NAME="nextcloud-app"
+DB_CONTAINER="nextcloud-db"
+COMPOSE_DIR="{{ nextcloud_workdir }}"
+
+log() {
+    logger -t "$LOG_TAG" "$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [$LOG_TAG] $1"
+}
+
+check_container_running() {
+    local container=$1
+    podman ps --format "{{ '{{' }}.Names{{ '}}' }}" | grep -q "^${container}$"
+}
+
+check_db_connectivity() {
+    # Check if nextcloud-app can reach the database via internal DNS
+    podman exec "$CONTAINER_NAME" php -r "
+        \$host = 'nextcloud-db';
+        \$port = 5432;
+        \$timeout = 5;
+        \$socket = @fsockopen(\$host, \$port, \$errno, \$errstr, \$timeout);
+        if (\$socket) {
+            fclose(\$socket);
+            exit(0);
+        } else {
+            error_log(\"Cannot connect to \$host:\$port - \$errstr\");
+            exit(1);
+        }
+    " 2>/dev/null
+}
+
+check_nextcloud_status() {
+    # Check if Nextcloud responds properly (not HTTP 500)
+    local response
+    response=$(podman exec "$CONTAINER_NAME" curl -sf http://localhost/status.php 2>/dev/null || echo "FAILED")
+    
+    if [[ "$response" == "FAILED" ]]; then
+        return 1
+    fi
+    
+    # Verify it's valid JSON with installed=true
+    echo "$response" | grep -q '"installed":true'
+}
+
+restart_stack() {
+    log "Restarting Nextcloud stack..."
+    cd "$COMPOSE_DIR"
+    
+    # Full stop to clear network state
+    podman compose down --timeout 30 2>/dev/null || true
+    
+    # Wait for cleanup
+    sleep 5
+    
+    # Start fresh
+    podman compose up -d --remove-orphans
+    
+    # Wait for containers to be healthy
+    local wait_time=0
+    local max_wait=120
+    
+    while [[ $wait_time -lt $max_wait ]]; do
+        if check_container_running "$DB_CONTAINER" && \
+           check_container_running "$CONTAINER_NAME"; then
+            log "Containers started, waiting for health..."
+            sleep 10
+            
+            if check_db_connectivity && check_nextcloud_status; then
+                log "Stack restarted successfully - all checks passing"
+                return 0
+            fi
+        fi
+        
+        sleep 5
+        wait_time=$((wait_time + 5))
+    done
+    
+    log "ERROR: Stack failed to recover after restart"
+    return 1
+}
+
+main() {
+    local mode="${1:-check}"
+    
+    log "Running health check (mode: $mode)..."
+    
+    # Check if containers are running
+    if ! check_container_running "$CONTAINER_NAME"; then
+        log "ERROR: Container $CONTAINER_NAME not running"
+        if [[ "$mode" == "recover" ]]; then
+            restart_stack
+            exit $?
+        fi
+        exit 1
+    fi
+    
+    if ! check_container_running "$DB_CONTAINER"; then
+        log "ERROR: Container $DB_CONTAINER not running"
+        if [[ "$mode" == "recover" ]]; then
+            restart_stack
+            exit $?
+        fi
+        exit 1
+    fi
+    
+    # Check database connectivity (the race condition issue)
+    local retry=0
+    while [[ $retry -lt $MAX_RETRIES ]]; do
+        if check_db_connectivity; then
+            break
+        fi
+        
+        log "WARN: Database connectivity check failed (attempt $((retry + 1))/$MAX_RETRIES)"
+        retry=$((retry + 1))
+        
+        if [[ $retry -lt $MAX_RETRIES ]]; then
+            sleep $RETRY_DELAY
+        fi
+    done
+    
+    if [[ $retry -eq $MAX_RETRIES ]]; then
+        log "ERROR: Database connectivity failed after $MAX_RETRIES attempts"
+        if [[ "$mode" == "recover" ]]; then
+            restart_stack
+            exit $?
+        fi
+        exit 1
+    fi
+    
+    # Check Nextcloud status endpoint
+    if ! check_nextcloud_status; then
+        log "ERROR: Nextcloud status check failed (HTTP 500 or invalid response)"
+        if [[ "$mode" == "recover" ]]; then
+            restart_stack
+            exit $?
+        fi
+        exit 1
+    fi
+    
+    log "Health check PASSED - all systems operational"
+    exit 0
+}
+
+main "$@"
+

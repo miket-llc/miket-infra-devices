@@ -31,11 +31,11 @@ mkdir -p "$BACKUP_DIR"
 
 # Put Nextcloud in maintenance mode
 log "Enabling maintenance mode..."
-docker exec nextcloud-app php occ maintenance:mode --on 2>/dev/null || true
+podman exec nextcloud-app php occ maintenance:mode --on 2>/dev/null || true
 
 # Dump database
 log "Dumping PostgreSQL database..."
-docker exec nextcloud-db pg_dump \
+podman exec nextcloud-db pg_dump \
     -U "${NEXTCLOUD_DB_USER}" \
     -d nextcloud \
     --clean \
@@ -44,7 +44,7 @@ docker exec nextcloud-db pg_dump \
 
 # Disable maintenance mode
 log "Disabling maintenance mode..."
-docker exec nextcloud-app php occ maintenance:mode --off 2>/dev/null || true
+podman exec nextcloud-app php occ maintenance:mode --off 2>/dev/null || true
 
 # Verify backup
 if [[ -s "$BACKUP_FILE" ]]; then

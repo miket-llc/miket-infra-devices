@@ -1,0 +1,23 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit directly
+#
+# Nextcloud Health Check Timer
+# Runs every 5 minutes to detect and recover from failures
+
+[Unit]
+Description=Nextcloud Health Check Timer
+Documentation=file://{{ nextcloud_workdir }}/README.md
+
+[Timer]
+# Run 2 minutes after boot to catch startup failures
+OnBootSec=2min
+# Then every 5 minutes
+OnUnitActiveSec=5min
+# Randomize slightly to avoid thundering herd
+RandomizedDelaySec=30
+# Persist timer state across reboots
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
