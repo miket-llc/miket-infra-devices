@@ -1,0 +1,153 @@
+# Podman-Only Guardrail - miket-infra-devices
+# Prevents Docker daemon/runtime references from being reintroduced
+# Platform Standard: Podman-only for all container workloads
+#
+# Note: Docker CLI compatibility (via podman-docker) is allowed and expected.
+# This guardrail blocks Docker daemon/runtime usage, not CLI muscle memory.
+#
+# Reference: docs/reference/CONTAINERS_RUNTIME_STANDARD.md
+
+name: Podman-Only Guardrail
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  check-no-docker-daemon:
+    name: Verify No Docker Daemon References
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for Docker daemon/runtime references
+        id: docker-check
+        run: |
+          echo "🔍 Scanning for Docker daemon/runtime references..."
+          echo ""
+          
+          # Patterns that indicate Docker daemon usage (not CLI compatibility)
+          # These are things that would require the Docker daemon to be running
+          DAEMON_PATTERNS=(
+            "systemctl.*docker"
+            "docker.service"
+            "docker.socket"
+            "moby-engine"
+            "docker-ce"
+            "Docker Desktop"
+            "docker daemon"
+          )
+          
+          # Patterns in Ansible that indicate Docker module usage
+          ANSIBLE_PATTERNS=(
+            "community.docker"
+            "docker_container:"
+            "docker_image:"
+            "docker_network:"
+            "docker_volume:"
+          )
+          
+          # Paths to exclude (historical/archive content)
+          EXCLUDE_PATHS=(
+            "docs/archive/"
+            "docs/migration/"
+            ".github/workflows/podman-only-guardrail.yml"
+          )
+          
+          FOUND=0
+          
+          # Check for Docker daemon patterns
+          echo "📁 Checking for Docker daemon/service references..."
+          for pattern in "${DAEMON_PATTERNS[@]}"; do
+            if grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null | \
+               grep -v "docs/archive/" | grep -v "docs/migration/" | grep -v ".github/workflows/podman-only-guardrail.yml" | \
+               grep -v "# podman-docker" | grep -v "podman-docker package" | head -5; then
+              echo "⚠️  Found pattern: $pattern"
+              FOUND=1
+            fi
+          done
+          
+          if [ $FOUND -eq 0 ]; then
+            echo "✅ No Docker daemon references found"
+          fi
+          echo ""
+          
+          # Check for Docker Ansible modules
+          echo "📁 Checking for Docker Ansible module usage..."
+          ANSIBLE_FOUND=0
+          for pattern in "${ANSIBLE_PATTERNS[@]}"; do
+            if grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null | head -5; then
+              echo "❌ Found Docker Ansible module: $pattern"
+              ANSIBLE_FOUND=1
+            fi
+          done
+          
+          if [ $ANSIBLE_FOUND -eq 0 ]; then
+            echo "✅ No Docker Ansible modules found"
+          else
+            FOUND=1
+          fi
+          echo ""
+          
+          # Check for docker-compose files (should be podman-compose)
+          echo "📁 Checking for docker-compose files..."
+          if find . -name "docker-compose*.yml" -o -name "docker-compose*.yaml" 2>/dev/null | grep -v "docs/archive/" | head -5; then
+            echo "❌ docker-compose files found (should be podman-compose)"
+            FOUND=1
+          else
+            echo "✅ No docker-compose files found"
+          fi
+          echo ""
+          
+          # Check for Dockerfiles (should be Containerfile for Podman)
+          echo "📁 Checking for Dockerfiles..."
+          if find . -name "Dockerfile*" 2>/dev/null | grep -v "docs/archive/" | head -5; then
+            echo "⚠️  Dockerfile found (consider using Containerfile for Podman)"
+            # Note: Dockerfiles work with Podman, so this is a warning, not a failure
+          else
+            echo "✅ No Dockerfiles found"
+          fi
+          echo ""
+          
+          if [ $FOUND -eq 1 ]; then
+            echo ""
+            echo "═══════════════════════════════════════════════════════════════"
+            echo "❌ GUARDRAIL VIOLATION: Docker daemon/module references detected"
+            echo ""
+            echo "Platform Standard: Podman-only (no Docker daemon)"
+            echo ""
+            echo "Docker CLI compatibility (via podman-docker) is allowed."
+            echo "Docker daemon, service, or Ansible module usage is NOT allowed."
+            echo ""
+            echo "Please update your changes to use Podman patterns:"
+            echo "  - docker.service → podman.socket"
+            echo "  - community.docker → containers.podman"
+            echo "  - docker-compose.yml → podman-compose.yml"
+            echo ""
+            echo "Reference: docs/reference/CONTAINERS_RUNTIME_STANDARD.md"
+            echo "═══════════════════════════════════════════════════════════════"
+            exit 1
+          else
+            echo "═══════════════════════════════════════════════════════════════"
+            echo "✅ GUARDRAIL PASSED: No Docker daemon/module references found"
+            echo ""
+            echo "Note: Docker CLI commands (docker ps, docker run) are allowed"
+            echo "      as they map to Podman via podman-docker compatibility."
+            echo "═══════════════════════════════════════════════════════════════"
+          fi
+
+      - name: Report Docker CLI compatibility references (info only)
+        if: always()
+        run: |
+          echo ""
+          echo "ℹ️  Docker CLI compatibility mentions (expected, these map to Podman):"
+          grep -rn "docker ps\|docker run\|docker build\|docker exec" . --include="*.md" 2>/dev/null | \
+            grep -v "docs/archive/" | head -10 || echo "  None found in active docs"
+          echo ""
+          echo "These CLI commands work because podman-docker provides compatibility."
