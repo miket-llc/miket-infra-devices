@@ -10,6 +10,14 @@
     state: present
   become: yes
 
+- name: Enable SELinux boolean for Samba to export PHC storage
+  ansible.posix.seboolean:
+    name: samba_export_all_rw
+    state: true
+    persistent: true
+  become: yes
+  when: ansible_selinux.status == 'enabled'
+
 - name: Backup existing smb.conf
   ansible.builtin.copy:
     src: /etc/samba/smb.conf
