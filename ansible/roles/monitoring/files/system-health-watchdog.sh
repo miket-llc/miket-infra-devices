@@ -45,16 +45,17 @@ check_gnome_shell_errors() {
     echo "$error_count"
 }
 
-check_docker_crashloops() {
+check_container_crashloops() {
     # Find containers that are restarting constantly
+    # Platform Standard: Podman-only (docker command maps to podman via podman-docker)
     local crashloop_containers
-    crashloop_containers=$(docker ps -a --filter "status=restarting" --format "{{.Names}}" 2>/dev/null || echo "")
+    crashloop_containers=$(podman ps -a --filter "status=restarting" --format "{{.Names}}" 2>/dev/null || echo "")
     if [[ -n "$crashloop_containers" ]]; then
         log "WARNING: Crash-looping containers detected: $crashloop_containers"
         for container in $crashloop_containers; do
             log "Stopping crash-looping container: $container"
-            docker stop "$container" 2>/dev/null || true
-            docker update --restart=no "$container" 2>/dev/null || true
+            podman stop "$container" 2>/dev/null || true
+            podman update --restart=no "$container" 2>/dev/null || true
         done
     fi
 }
@@ -126,7 +127,7 @@ main() {
     done
     
     # Check for specific issues
-    check_docker_crashloops
+    check_container_crashloops
     check_tailscale_runaway
     
     # Check GNOME Shell health
