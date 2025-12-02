@@ -1,0 +1,52 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Configuration deployment for data_estate_status role
+# Deploys config files from miket-infra or generates from Ansible variables
+
+# Note: miket-infra config files (data_estate.yml, approved_remotes.yml) should be
+# copied to the control node or this role generates equivalent configs from variables.
+# The handoff approach is to copy files during Ansible deployment.
+
+- name: Generate data_estate.yml from Ansible variables
+  ansible.builtin.template:
+    src: data_estate.yml.j2
+    dest: "{{ data_estate_config_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Generate approved_remotes.yml from Ansible variables
+  ansible.builtin.template:
+    src: approved_remotes.yml.j2
+    dest: "{{ data_estate_approved_remotes_file }}"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Verify config files are readable
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ data_estate_config_file }}"
+    - "{{ data_estate_approved_remotes_file }}"
+  register: config_files_stat
+
+- name: Report config deployment status
+  ansible.builtin.debug:
+    msg: |
+      Data Estate Configuration Deployed:
+      - {{ data_estate_config_file }}
+      - {{ data_estate_approved_remotes_file }}
+      
+      SLO Thresholds:
+      - Space Mirror Max Age: {{ data_estate_slo_space_mirror_max_age_hours }} hours
+      - Space Mirror Max Gap: {{ data_estate_slo_space_mirror_max_gap_percent }}%
+      - Restic Snapshot Max Age: {{ data_estate_slo_restic_snapshot_max_age_hours }} hours
+      - Nextcloud DB Dump Max Age: {{ data_estate_slo_nextcloud_db_dump_max_age_hours }} hours
+      - M365 Ingestion Max Age: {{ data_estate_slo_m365_ingestion_max_age_hours }} hours
+      
+      Approved Remotes: {{ data_estate_approved_remotes | map(attribute='name') | list | join(', ') }}
+

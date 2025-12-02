@@ -1,0 +1,86 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Prerequisites for data_estate_status role
+# Ensures required tools and directories exist
+
+- name: Install required packages
+  ansible.builtin.package:
+    name: "{{ data_estate_required_packages }}"
+    state: present
+  become: true
+
+- name: Check if yq is installed
+  ansible.builtin.command: which yq
+  register: yq_check
+  changed_when: false
+  failed_when: false
+
+- name: Install yq if missing (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: yq
+    state: present
+  become: true
+  when:
+    - yq_check.rc != 0
+    - ansible_os_family == "RedHat"
+
+- name: Check if restic is installed
+  ansible.builtin.command: which restic
+  register: restic_check
+  changed_when: false
+  failed_when: false
+
+- name: Warn if restic is not installed
+  ansible.builtin.debug:
+    msg: "WARNING: restic is not installed. Restic snapshot checks will fail. Install via data-lifecycle role."
+  when: restic_check.rc != 0
+
+- name: Check if rclone is installed
+  ansible.builtin.command: which rclone
+  register: rclone_check
+  changed_when: false
+  failed_when: false
+
+- name: Warn if rclone is not installed
+  ansible.builtin.debug:
+    msg: "WARNING: rclone is not installed. B2 mirror and unknown remote checks will fail."
+  when: rclone_check.rc != 0
+
+- name: Check if credentials file exists
+  ansible.builtin.stat:
+    path: "{{ data_estate_credentials_file }}"
+  register: credentials_file_stat
+
+- name: Warn if credentials file is missing
+  ansible.builtin.debug:
+    msg: "WARNING: {{ data_estate_credentials_file }} not found. Run secrets_sync role first."
+  when: not credentials_file_stat.stat.exists
+
+- name: Ensure config directory exists
+  ansible.builtin.file:
+    path: "{{ data_estate_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Ensure JSON output directory exists
+  ansible.builtin.file:
+    path: "{{ data_estate_json_output_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Ensure Markdown output directory exists
+  ansible.builtin.file:
+    path: "{{ data_estate_markdown_output_dir }}"
+    state: directory
+    owner: root
+    group: "33"  # www-data UID for Nextcloud container access
+    mode: '2775'
+  become: true
+

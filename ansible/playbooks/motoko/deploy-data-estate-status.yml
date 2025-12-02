@@ -1,0 +1,143 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy Data Estate Status Collector to motoko
+#
+# This playbook deploys the data estate status collector which monitors:
+# - Backup freshness (restic snapshots, B2 mirror, Nextcloud DB dumps, M365 ingestion)
+# - Cloud remote inventory (detects unknown/unapproved remotes)
+#
+# The collector generates JSON and Markdown status files for the Nextcloud dashboard.
+#
+# Prerequisites:
+# - data-lifecycle role deployed (provides restic, rclone, backup services)
+# - secrets_sync role deployed (provides /etc/miket/storage-credentials.env)
+# - nextcloud_server role deployed (provides M365 sync, DB backup services)
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-data-estate-status.yml
+#
+# After deployment:
+# 1. Run the collector manually: sudo systemctl start data-estate-status.service
+# 2. Check outputs: cat /space/_services/nextcloud/dashboard/data-estate-status.md
+# 3. Configure Nextcloud Welcome widget (manual admin step)
+
+- name: Deploy Data Estate Status Collector
+  hosts: motoko
+  become: true
+  gather_facts: true
+
+  vars:
+    # Override defaults here if needed
+    # data_estate_timer_schedule: "*-*-* 0/6:00:00"
+
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          Deploying Data Estate Status Collector to {{ inventory_hostname }}
+          ============================================================
+          
+          This will deploy:
+          - Collector script: /usr/local/bin/data-estate-status.sh
+          - Systemd timer: data-estate-status.timer (every 6 hours)
+          - Config files: /etc/miket-infra/data-estate/
+          - Output files:
+            - /space/_ops/data-estate/status.json
+            - /space/_services/nextcloud/dashboard/data-estate-status.md
+          
+          Prerequisites:
+          - data-lifecycle role (restic, rclone, backup services)
+          - secrets_sync role (B2/restic credentials)
+          - nextcloud_server role (M365 sync, DB backup)
+          ============================================================
+
+    - name: Check if data-lifecycle services exist
+      ansible.builtin.command: systemctl list-unit-files space-mirror.service
+      register: data_lifecycle_check
+      changed_when: false
+      failed_when: false
+
+    - name: Warn if data-lifecycle not deployed
+      ansible.builtin.debug:
+        msg: |
+          WARNING: data-lifecycle services not found.
+          Some checks (space mirror, restic) may fail.
+          Deploy data-lifecycle role first for full functionality.
+      when: data_lifecycle_check.rc != 0
+
+  roles:
+    - role: data_estate_status
+
+  post_tasks:
+    - name: Run initial collector execution
+      ansible.builtin.command: "{{ data_estate_script_path }}"
+      register: initial_run
+      changed_when: false
+      failed_when: false
+      vars:
+        data_estate_script_path: /usr/local/bin/data-estate-status.sh
+
+    - name: Display initial run results
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          Initial Collector Run Results
+          ============================================================
+          
+          Exit Code: {{ initial_run.rc }}
+          
+          {% if initial_run.rc == 0 %}
+          SUCCESS: Collector completed successfully.
+          {% elif initial_run.rc == 1 %}
+          WARNING: Collector completed with CRITICAL status.
+          Some SLO thresholds may be exceeded.
+          {% else %}
+          ERROR: Collector failed to run.
+          Check logs: journalctl -u data-estate-status.service -n 50
+          {% endif %}
+          
+          Output Files:
+          - JSON: /space/_ops/data-estate/status.json
+          - Markdown: /space/_services/nextcloud/dashboard/data-estate-status.md
+          
+          ============================================================
+          Next Steps:
+          ============================================================
+          
+          1. View the status:
+             cat /space/_services/nextcloud/dashboard/data-estate-status.md
+          
+          2. View detailed JSON:
+             jq . /space/_ops/data-estate/status.json
+          
+          3. Configure Nextcloud Welcome widget:
+             - Log into Nextcloud as admin
+             - Go to Dashboard
+             - Click "Customize" or gear icon
+             - Enable "Welcome" widget
+          
+          4. Monitor timer:
+             systemctl status data-estate-status.timer
+             systemctl list-timers data-estate-status.timer
+          
+          ============================================================
+
+    - name: Show collector output preview
+      ansible.builtin.command: cat /space/_services/nextcloud/dashboard/data-estate-status.md
+      register: markdown_preview
+      changed_when: false
+      failed_when: false
+
+    - name: Display Markdown preview
+      ansible.builtin.debug:
+        msg: |
+          ============================================================
+          Data Estate Status Preview
+          ============================================================
+          
+          {{ markdown_preview.stdout | default('Unable to read status file') }}
+          
+          ============================================================
+

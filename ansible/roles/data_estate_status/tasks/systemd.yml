@@ -1,0 +1,73 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Systemd deployment for data_estate_status role
+# Deploys service and timer units for the collector
+
+- name: Deploy data estate status systemd service
+  ansible.builtin.template:
+    src: data-estate-status.service.j2
+    dest: /etc/systemd/system/data-estate-status.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Reload systemd
+
+- name: Deploy data estate status systemd timer
+  ansible.builtin.template:
+    src: data-estate-status.timer.j2
+    dest: /etc/systemd/system/data-estate-status.timer
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Reload systemd
+
+- name: Flush handlers to reload systemd
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start data estate status timer
+  ansible.builtin.systemd:
+    name: data-estate-status.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true
+
+- name: Get timer status
+  ansible.builtin.command: systemctl status data-estate-status.timer --no-pager
+  register: timer_status
+  changed_when: false
+  failed_when: false
+
+- name: Get next scheduled run
+  ansible.builtin.command: systemctl list-timers data-estate-status.timer --no-pager
+  register: timer_schedule
+  changed_when: false
+  failed_when: false
+
+- name: Report systemd deployment status
+  ansible.builtin.debug:
+    msg: |
+      Data Estate Status Systemd Units Deployed:
+      - Service: /etc/systemd/system/data-estate-status.service
+      - Timer: /etc/systemd/system/data-estate-status.timer
+      - Schedule: {{ data_estate_timer_schedule }}
+      
+      Timer Status:
+      {{ timer_status.stdout | default('Unable to get status') }}
+      
+      Next Scheduled Run:
+      {{ timer_schedule.stdout | default('Unable to get schedule') }}
+      
+      Manual Commands:
+        # Run collector immediately
+        sudo systemctl start data-estate-status.service
+        
+        # Check timer status
+        systemctl status data-estate-status.timer
+        
+        # View logs
+        journalctl -u data-estate-status.service -n 50
+

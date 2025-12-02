@@ -1,0 +1,28 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# data-estate-status.timer
+# Data Estate Status Collector - systemd timer unit
+# Runs the collector every 6 hours to update status files
+#
+# Deployed by Ansible data_estate_status role
+
+[Unit]
+Description=Data Estate Status Collector Timer
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
+
+[Timer]
+# Run every 6 hours (at 00:00, 06:00, 12:00, 18:00)
+OnCalendar={{ data_estate_timer_schedule }}
+
+# Allow some flexibility in timing
+AccuracySec={{ data_estate_timer_accuracy }}
+
+# Run immediately if a scheduled run was missed (e.g., system was off)
+Persistent={{ data_estate_timer_persistent | lower }}
+
+# Randomize start time slightly to avoid thundering herd
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target
+

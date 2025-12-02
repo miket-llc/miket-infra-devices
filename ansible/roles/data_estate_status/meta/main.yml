@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+galaxy_info:
+  author: MikeT LLC
+  description: >
+    Data Estate Status Collector - monitors backup freshness, B2 mirror gaps,
+    M365 ingestion, and unknown cloud remotes. Generates JSON and Markdown
+    status files for Nextcloud dashboard widget integration.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "43"
+    - name: EL
+      versions:
+        - "9"
+
+dependencies:
+  # Requires data-lifecycle role for restic/rclone and backup services
+  # Requires secrets_sync role for /etc/miket/storage-credentials.env
+  # Requires nextcloud_server role for M365 sync and DB backup services
+  []
+

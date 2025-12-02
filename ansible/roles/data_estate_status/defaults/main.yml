@@ -1,0 +1,126 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Default variables for data_estate_status role
+# Data Estate Status Collector - monitors backup freshness, cloud sync, and remote inventory
+
+# =============================================================================
+# SLO Thresholds (from miket-infra DATA_ESTATE_SPEC)
+# =============================================================================
+
+# Maximum age in hours before status becomes WARNING/CRITICAL
+data_estate_slo_space_mirror_max_age_hours: 24
+data_estate_slo_space_mirror_warning_age_hours: 18
+data_estate_slo_space_mirror_max_gap_percent: 5.0
+data_estate_slo_space_mirror_warning_gap_percent: 1.0
+
+data_estate_slo_restic_snapshot_max_age_hours: 24
+data_estate_slo_restic_snapshot_warning_age_hours: 18
+
+data_estate_slo_nextcloud_db_dump_max_age_hours: 24
+data_estate_slo_nextcloud_db_dump_warning_age_hours: 18
+
+data_estate_slo_m365_ingestion_max_age_hours: 24
+data_estate_slo_m365_ingestion_warning_age_hours: 18
+
+# =============================================================================
+# Approved Cloud Remotes (from miket-infra approved_remotes.yml)
+# Any remote not in this list triggers CRITICAL status
+# =============================================================================
+
+data_estate_approved_remotes:
+  - name: b2-space-mirror
+    type: b2
+    bucket: miket-space-mirror
+    purpose: "1:1 mirror of /space SoR"
+  - name: b2-restic
+    type: b2
+    bucket: miket-backups-restic
+    purpose: "Restic backup repository for /flux"
+  - name: onedrive-business
+    type: onedrive
+    purpose: "M365 one-way ingestion source"
+  # Add any additional approved remotes here
+
+# =============================================================================
+# Paths and Configuration
+# =============================================================================
+
+# Config files (copied from miket-infra)
+data_estate_config_dir: /etc/miket-infra/data-estate
+data_estate_config_file: "{{ data_estate_config_dir }}/data_estate.yml"
+data_estate_approved_remotes_file: "{{ data_estate_config_dir }}/approved_remotes.yml"
+
+# Output paths
+data_estate_json_output_dir: /space/_ops/data-estate
+data_estate_json_output_file: "{{ data_estate_json_output_dir }}/status.json"
+data_estate_markdown_output_dir: /space/_services/nextcloud/dashboard
+data_estate_markdown_output_file: "{{ data_estate_markdown_output_dir }}/data-estate-status.md"
+
+# Script location
+data_estate_script_path: /usr/local/bin/data-estate-status.sh
+
+# Credentials file (from secrets_sync role)
+data_estate_credentials_file: /etc/miket/storage-credentials.env
+
+# =============================================================================
+# Restic Repository Configuration
+# =============================================================================
+
+data_estate_restic_repos:
+  - name: flux-cloud
+    repo: "b2:miket-backups-restic:flux"
+    description: "Cloud backup of /flux to B2"
+    use_cloud_credentials: true
+  - name: flux-local
+    repo: "/space/snapshots/flux-local"
+    description: "Local hourly snapshots of /flux"
+    use_cloud_credentials: false
+    password_file: /root/.restic-local-pass
+
+# =============================================================================
+# B2 Mirror Configuration
+# =============================================================================
+
+data_estate_b2_mirror_bucket: miket-space-mirror
+data_estate_b2_mirror_source: /space
+
+# =============================================================================
+# Service Names (for journal log parsing)
+# =============================================================================
+
+data_estate_service_space_mirror: space-mirror.service
+data_estate_service_flux_backup: flux-backup.service
+data_estate_service_flux_local: flux-local.service
+data_estate_service_m365_sync: nextcloud-m365-sync.service
+data_estate_service_db_backup: nextcloud-db-backup.service
+
+# =============================================================================
+# Nextcloud Database Backup Path
+# =============================================================================
+
+data_estate_nextcloud_db_backup_path: /space/_services/nextcloud/db-backups
+
+# =============================================================================
+# M365 Ingestion Path
+# =============================================================================
+
+data_estate_m365_ingestion_path: /space/mike/inbox/ms365
+
+# =============================================================================
+# Timer Configuration
+# =============================================================================
+
+data_estate_timer_schedule: "*-*-* 0/6:00:00"  # Every 6 hours
+data_estate_timer_accuracy: 5min
+data_estate_timer_persistent: true
+
+# =============================================================================
+# Required Tools
+# =============================================================================
+
+data_estate_required_packages:
+  - jq
+  - bc
+  # yq is installed separately (not in standard repos)
+

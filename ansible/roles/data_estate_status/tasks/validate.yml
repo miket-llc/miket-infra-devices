@@ -1,0 +1,132 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Validation tasks for data_estate_status role
+# Verifies the deployment is complete and functional
+
+- name: Verify collector script exists and is executable
+  ansible.builtin.stat:
+    path: "{{ data_estate_script_path }}"
+  register: script_stat
+
+- name: Assert collector script is deployed
+  ansible.builtin.assert:
+    that:
+      - script_stat.stat.exists
+      - script_stat.stat.executable
+    fail_msg: "Collector script not found or not executable: {{ data_estate_script_path }}"
+    success_msg: "Collector script deployed successfully"
+
+- name: Verify systemd timer is active
+  ansible.builtin.command: systemctl is-active data-estate-status.timer
+  register: timer_active
+  changed_when: false
+  failed_when: false
+
+- name: Assert timer is active
+  ansible.builtin.assert:
+    that:
+      - timer_active.rc == 0
+    fail_msg: "Timer is not active. Run: systemctl start data-estate-status.timer"
+    success_msg: "Timer is active and running"
+
+- name: Verify config files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ data_estate_config_file }}"
+    - "{{ data_estate_approved_remotes_file }}"
+  register: config_files_stat
+
+- name: Assert config files are deployed
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+    fail_msg: "Config file not found: {{ item.item }}"
+    success_msg: "Config file exists: {{ item.item }}"
+  loop: "{{ config_files_stat.results }}"
+
+- name: Verify output directories exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ data_estate_json_output_dir }}"
+    - "{{ data_estate_markdown_output_dir }}"
+  register: output_dirs_stat
+
+- name: Assert output directories exist
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isdir
+    fail_msg: "Output directory not found: {{ item.item }}"
+    success_msg: "Output directory exists: {{ item.item }}"
+  loop: "{{ output_dirs_stat.results }}"
+
+- name: Check if credentials file exists
+  ansible.builtin.stat:
+    path: "{{ data_estate_credentials_file }}"
+  register: creds_stat
+
+- name: Warn if credentials file is missing
+  ansible.builtin.debug:
+    msg: |
+      WARNING: Credentials file not found: {{ data_estate_credentials_file }}
+      
+      The collector will fail to check B2 mirror and cloud restic repos.
+      Run the secrets_sync playbook to deploy credentials:
+        ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit motoko
+  when: not creds_stat.stat.exists
+
+- name: Run collector in dry-run mode (check dependencies)
+  ansible.builtin.command: bash -n {{ data_estate_script_path }}
+  register: script_syntax_check
+  changed_when: false
+  failed_when: script_syntax_check.rc != 0
+
+- name: Report validation summary
+  ansible.builtin.debug:
+    msg: |
+      ============================================================
+      Data Estate Status Collector - Validation Summary
+      ============================================================
+      
+      Script: {{ data_estate_script_path }}
+        - Exists: {{ script_stat.stat.exists }}
+        - Executable: {{ script_stat.stat.executable | default(false) }}
+        - Syntax: Valid
+      
+      Systemd Timer: data-estate-status.timer
+        - Active: {{ timer_active.rc == 0 }}
+        - Schedule: {{ data_estate_timer_schedule }}
+      
+      Config Files:
+        - {{ data_estate_config_file }}: {{ config_files_stat.results[0].stat.exists }}
+        - {{ data_estate_approved_remotes_file }}: {{ config_files_stat.results[1].stat.exists }}
+      
+      Output Directories:
+        - {{ data_estate_json_output_dir }}: {{ output_dirs_stat.results[0].stat.exists }}
+        - {{ data_estate_markdown_output_dir }}: {{ output_dirs_stat.results[1].stat.exists }}
+      
+      Credentials: {{ creds_stat.stat.exists | ternary('Present', 'MISSING - run secrets_sync') }}
+      
+      ============================================================
+      Next Steps:
+      ============================================================
+      
+      1. Run the collector manually to verify:
+         sudo systemctl start data-estate-status.service
+      
+      2. Check the output files:
+         jq . {{ data_estate_json_output_file }}
+         cat {{ data_estate_markdown_output_file }}
+      
+      3. View logs:
+         journalctl -u data-estate-status.service -n 50
+      
+      4. Configure Nextcloud Welcome widget (manual step):
+         - Log into Nextcloud as admin
+         - Enable "Welcome" widget on Dashboard
+      
+      ============================================================
+

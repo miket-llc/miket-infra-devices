@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Data Estate Status Collector Role
+# Monitors backup freshness, B2 mirror gaps, M365 ingestion, and unknown cloud remotes
+# Generates JSON and Markdown status files for Nextcloud dashboard widget
+
+- name: Include prerequisites tasks
+  ansible.builtin.include_tasks: prerequisites.yml
+
+- name: Include config deployment tasks
+  ansible.builtin.include_tasks: config.yml
+
+- name: Include script deployment tasks
+  ansible.builtin.include_tasks: script.yml
+
+- name: Include systemd deployment tasks
+  ansible.builtin.include_tasks: systemd.yml
+
+- name: Include Nextcloud dashboard tasks
+  ansible.builtin.include_tasks: nextcloud_dashboard.yml
+
+- name: Include validation tasks
+  ansible.builtin.include_tasks: validate.yml
+

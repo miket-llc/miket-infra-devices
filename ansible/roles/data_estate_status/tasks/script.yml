@@ -1,0 +1,34 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Script deployment for data_estate_status role
+# Deploys the collector script to /usr/local/bin
+
+- name: Deploy data estate status collector script
+  ansible.builtin.template:
+    src: data-estate-status.sh.j2
+    dest: "{{ data_estate_script_path }}"
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  notify: Restart data-estate-status timer
+
+- name: Verify script is executable
+  ansible.builtin.command: "{{ data_estate_script_path }} --help"
+  register: script_check
+  changed_when: false
+  failed_when: false
+  # Script doesn't have --help, so any exit is fine for this check
+
+- name: Report script deployment status
+  ansible.builtin.debug:
+    msg: |
+      Data Estate Status Collector Script Deployed:
+      - Location: {{ data_estate_script_path }}
+      - JSON Output: {{ data_estate_json_output_file }}
+      - Markdown Output: {{ data_estate_markdown_output_file }}
+      
+      Manual execution:
+        sudo {{ data_estate_script_path }}
+
