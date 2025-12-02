@@ -1,0 +1,243 @@
+---
+# ============================================================================
+# SELinux Configuration for Podman Container Scripts
+# ============================================================================
+# Configures SELinux contexts for container scripts and healthchecks
+# 
+# Background: SELinux in enforcing mode blocks container scripts from executing
+# Solution: Set proper SELinux contexts (container_file_t) for container scripts
+# 
+# Usage:
+#   ansible-playbook playbooks/selinux-podman-containers.yml
+#   ansible-playbook playbooks/selinux-podman-containers.yml --limit motoko
+# ============================================================================
+
+- name: Configure SELinux for Podman Container Scripts
+  hosts: linux_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Container script paths that need SELinux context
+    container_script_paths:
+      - path: /podman/apps/nextcloud/bin/nextcloud-healthcheck.sh
+        context: container_file_t
+        description: "Nextcloud healthcheck script"
+      # Add other container scripts here as needed
+      # - path: /podman/apps/other-service/bin/healthcheck.sh
+      #   context: container_file_t
+      #   description: "Other service healthcheck"
+    
+    # SELinux file contexts for container directories
+    container_file_contexts:
+      - path: /podman/apps
+        context: container_file_t
+        filetype: "d"
+        description: "Podman apps directory"
+      - path: /podman/apps/.*/bin/.*
+        context: container_file_t
+        filetype: "f"
+        description: "Container bin scripts"
+      - path: /podman/apps/.*/bin/.*\.sh$
+        context: container_file_t
+        filetype: "f"
+        description: "Container shell scripts"
+  
+  tasks:
+    # ========================================================================
+    # Pre-checks
+    # ========================================================================
+    
+    - name: Check if SELinux is enabled
+      ansible.builtin.command: getenforce
+      register: selinux_status
+      changed_when: false
+      failed_when: false
+      tags: [always]
+    
+    - name: Display SELinux status
+      ansible.builtin.debug:
+        msg: "SELinux status: {{ selinux_status.stdout }}"
+      tags: [always]
+    
+    - name: Skip if SELinux is disabled
+      ansible.builtin.meta: end_host
+      when: selinux_status.stdout == "Disabled"
+      tags: [always]
+    
+    # ========================================================================
+    # Install SELinux Tools
+    # ========================================================================
+    
+    - name: Install SELinux management tools (Fedora)
+      ansible.builtin.dnf:
+        name:
+          - policycoreutils-python-utils
+          - selinux-policy-devel
+        state: present
+      when: ansible_os_family == "RedHat"
+      tags: [packages]
+    
+    - name: Install SELinux management tools (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name:
+          - policycoreutils
+          - selinux-policy-dev
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+      tags: [packages]
+    
+    # ========================================================================
+    # Set SELinux Contexts for Container Scripts
+    # ========================================================================
+    
+    - name: Check if container script paths exist
+      ansible.builtin.stat:
+        path: "{{ item.path }}"
+      register: script_paths
+      loop: "{{ container_script_paths }}"
+      tags: [scripts]
+    
+    - name: Set SELinux context on container scripts (immediate)
+      ansible.builtin.command: chcon -t {{ item.item.context }} {{ item.item.path }}
+      register: chcon_result
+      changed_when: chcon_result.rc == 0
+      failed_when: chcon_result.rc != 0
+      loop: "{{ script_paths.results }}"
+      when: 
+        - item.stat.exists
+        - item.stat.isreg is defined
+        - item.stat.isreg
+      tags: [scripts]
+    
+    - name: Set permanent SELinux file context for container scripts
+      ansible.builtin.shell: semanage fcontext -a -t {{ item.item.context }} "{{ item.item.path }}" || true
+      register: semanage_result
+      changed_when: "'already defined' not in semanage_result.stderr"
+      failed_when: >
+        semanage_result.rc != 0
+        and "'already defined' not in semanage_result.stderr"
+        and "'No such file' not in semanage_result.stderr"
+      loop: "{{ script_paths.results }}"
+      when: 
+        - item.stat.exists
+        - item.stat.isreg is defined
+        - item.stat.isreg
+        - ansible_os_family == "RedHat"
+      tags: [scripts]
+    
+    - name: Restore SELinux contexts (applies permanent contexts)
+      ansible.builtin.command: restorecon -v {{ item.item.path }}
+      register: restorecon_result
+      changed_when: "'restored' in restorecon_result.stdout"
+      loop: "{{ script_paths.results }}"
+      when: 
+        - item.stat.exists
+        - item.stat.isreg is defined
+        - item.stat.isreg
+        - ansible_os_family == "RedHat"
+      tags: [scripts]
+    
+    # ========================================================================
+    # Set SELinux File Contexts for Container Directories (Patterns)
+    # ========================================================================
+    
+    - name: Set permanent SELinux file context patterns for container directories
+      ansible.builtin.shell: |
+        semanage fcontext -a -t {{ item.context }} -{{ item.filetype }} "{{ item.path }}" || true
+      register: semanage_pattern_result
+      changed_when: "'already defined' not in semanage_pattern_result.stderr"
+      failed_when: >
+        semanage_pattern_result.rc != 0
+        and "'already defined' not in semanage_pattern_result.stderr"
+      loop: "{{ container_file_contexts }}"
+      when: ansible_os_family == "RedHat"
+      tags: [patterns]
+    
+    - name: Restore SELinux contexts for container directories (applies patterns)
+      ansible.builtin.command: restorecon -R -v {{ item.path.split('/')[0:2] | join('/') }}
+      register: restorecon_pattern_result
+      changed_when: "'restored' in restorecon_pattern_result.stdout"
+      loop: "{{ container_file_contexts }}"
+      when: ansible_os_family == "RedHat"
+      tags: [patterns]
+    
+    # ========================================================================
+    # Check for SELinux AVC Denials Related to Containers
+    # ========================================================================
+    
+    - name: Check for SELinux AVC denials related to containers
+      ansible.builtin.shell: |
+        ausearch -m AVC -ts recent | grep -iE 'container|podman|nextcloud.*healthcheck' || echo "No denials found"
+      register: avc_denials
+      changed_when: false
+      failed_when: false
+      tags: [audit]
+    
+    - name: Display AVC denials
+      ansible.builtin.debug:
+        msg: "{{ avc_denials.stdout_lines }}"
+      when: "'No denials' not in avc_denials.stdout"
+      tags: [audit]
+    
+    # ========================================================================
+    # Verification
+    # ========================================================================
+    
+    - name: Verify SELinux contexts on container scripts
+      ansible.builtin.command: ls -Z {{ item.path }}
+      register: context_check
+      changed_when: false
+      loop: "{{ container_script_paths }}"
+      when: 
+        - script_paths.results | selectattr('item.path', 'equalto', item.path) | map(attribute='stat.exists') | first | default(false)
+      tags: [always, verify]
+    
+    - name: Display SELinux context verification
+      ansible.builtin.debug:
+        msg: |
+          {{ item.item.description }}: {{ item.stdout }}
+      loop: "{{ context_check.results }}"
+      loop_control:
+        label: "{{ item.item.description }}"
+      tags: [always, verify]
+    
+    # ========================================================================
+    # Summary
+    # ========================================================================
+    
+    - name: Display SELinux configuration summary
+      ansible.builtin.debug:
+        msg: |
+          ╔════════════════════════════════════════════════════════════════╗
+          ║  SELinux Configuration for Podman Container Scripts
+          ║  
+          ║  SELinux Mode: {{ selinux_status.stdout }}
+          ║  Container Scripts: Configured with container_file_t context
+          ║  
+          ║  ✅ Container scripts should now execute properly
+          ║  
+          ║  Next: Test container healthchecks
+          ╚════════════════════════════════════════════════════════════════╝
+      tags: [always]
+    
+    - name: Display next steps
+      ansible.builtin.debug:
+        msg: |
+          
+          📋 Next Steps:
+          
+          1. Test Nextcloud healthcheck:
+             podman exec nextcloud /podman/apps/nextcloud/bin/nextcloud-healthcheck.sh
+          
+          2. Monitor for AVC denials:
+             sudo ausearch -m AVC -ts recent | grep -i container
+          
+          3. To check SELinux contexts:
+             ls -Z /podman/apps/nextcloud/bin/nextcloud-healthcheck.sh
+          
+          4. To verify file contexts are permanent:
+             semanage fcontext -l | grep podman
+          
+      tags: [always]
