@@ -1,205 +1,221 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Ansible role: nomachine_server
-# Installs and configures NoMachine server on Linux, Windows, and macOS
-# NoMachine provides point-to-point remote desktop access
+# =============================================================================
+# NOMACHINE SERVER ROLE
+# =============================================================================
+#
+# Installs and configures NoMachine server on Linux, Windows, and macOS.
+# Uses local binaries from role's files/nomachine/ directory.
+#
+# =============================================================================
 
+# ============================================
+# LINUX INSTALLATION
+# ============================================
 - name: Install NoMachine server (Linux)
+  when: ansible_system == "Linux"
   block:
-    - name: Detect Linux distribution
-      ansible.builtin.set_fact:
-        nomachine_package_type: "{{ 'deb' if (ansible_facts.pkg_mgr | default('apt')) == 'apt' else 'rpm' }}"
-        nomachine_arch: "{{ 'x86_64' if ansible_facts.architecture == 'x86_64' else 'arm64' }}"
-      when: ansible_system == "Linux"
-
-    - name: Check if NoMachine is already installed
-      ansible.builtin.shell:
-        cmd: dpkg -l | grep -q nomachine || rpm -q nomachine || exit 1
-      register: nomachine_installed_check
+    - name: Check if NoMachine is installed (Linux)
+      ansible.builtin.command:
+        cmd: rpm -q nomachine
+      register: nomachine_rpm_check
       changed_when: false
       failed_when: false
-      when: ansible_system == "Linux"
 
-    - name: Download NoMachine for Linux using wget (handles redirects better)
-      ansible.builtin.shell:
-        cmd: wget -q --show-progress -O /tmp/nomachine.deb "https://download.nomachine.com/download/8.11/Linux/nomachine_8.11.3_4_{{ nomachine_arch }}.deb" || curl -L -o /tmp/nomachine.deb "https://download.nomachine.com/download/8.11/Linux/nomachine_8.11.3_4_{{ nomachine_arch }}.deb"
-      when:
-        - ansible_system == "Linux"
-        - nomachine_package_type == "deb"
-        - nomachine_installed_check.rc != 0
-      register: nomachine_download_deb
-      failed_when: false
+    - name: Set installation facts (Linux)
+      ansible.builtin.set_fact:
+        nomachine_is_installed: "{{ nomachine_rpm_check.rc == 0 }}"
+        nomachine_installed_version: "{{ nomachine_rpm_check.stdout | regex_search('nomachine-([0-9.]+)', '\\1') | first | default('none') if nomachine_rpm_check.rc == 0 else 'none' }}"
 
-    - name: Verify downloaded deb file
-      ansible.builtin.shell:
-        cmd: file /tmp/nomachine.deb | grep -q "Debian binary" || exit 1
-      register: deb_verify
-      when:
-        - ansible_system == "Linux"
-        - nomachine_package_type == "deb"
-        - nomachine_installed_check.rc != 0
-        - nomachine_download_deb is succeeded
-      failed_when: deb_verify.rc != 0
+    - name: Display version status (Linux)
+      ansible.builtin.debug:
+        msg: |
+          NoMachine Status:
+            Installed: {{ nomachine_is_installed }}
+            Current Version: {{ nomachine_installed_version }}
+            Target Version: {{ nomachine_version }}
+            Action: {{ 'None needed' if (nomachine_is_installed and nomachine_installed_version == nomachine_version) else 'Install/Upgrade' }}
 
-    - name: Download NoMachine for Linux (RPM)
-      ansible.builtin.shell:
-        cmd: |
-          rm -f /tmp/nomachine.rpm
-          curl -L -o /tmp/nomachine.rpm "https://download.nomachine.com/download/8.14/Linux/nomachine_8.14.2_1_{{ nomachine_arch }}.rpm"
-      when:
-        - ansible_system == "Linux"
-        - nomachine_package_type == "rpm"
-        - nomachine_installed_check.rc != 0
-      register: nomachine_download_rpm
+    - name: Copy NoMachine RPM to target (Linux)
+      ansible.builtin.copy:
+        src: "{{ nomachine_binary_base }}/linux/{{ nomachine_rpm_filename }}"
+        dest: "/tmp/{{ nomachine_rpm_filename }}"
+        mode: '0644'
+      when: not nomachine_is_installed or nomachine_installed_version != nomachine_version
+      register: nomachine_rpm_copied
 
-    - name: Verify downloaded RPM file
-      ansible.builtin.shell:
-        cmd: file /tmp/nomachine.rpm | grep -q "RPM" || exit 1
-      register: rpm_verify
-      when:
-        - ansible_system == "Linux"
-        - nomachine_package_type == "rpm"
-        - nomachine_installed_check.rc != 0
-        - nomachine_download_rpm is succeeded
-      failed_when: rpm_verify.rc != 0
-
-    - name: Install NoMachine (Debian/Ubuntu)
-      ansible.builtin.apt:
-        deb: /tmp/nomachine.deb
-        state: present
+    - name: Install NoMachine (Linux)
+      ansible.builtin.command:
+        cmd: rpm -Uvh --nodeps --nodigest --nosignature "/tmp/{{ nomachine_rpm_filename }}"
       become: yes
-      when:
-        - ansible_system == "Linux"
-        - nomachine_package_type == "deb"
-        - nomachine_installed_check.rc != 0
-        - deb_verify.rc == 0
+      when: nomachine_rpm_copied.changed | default(false)
+      register: nomachine_installed
 
-    - name: Install NoMachine (RHEL/CentOS/Fedora)
-      ansible.builtin.dnf:
-        name: /tmp/nomachine.rpm
-        state: present
-        disable_gpg_check: yes
-      become: yes
-      when:
-        - ansible_system == "Linux"
-        - nomachine_package_type == "rpm"
-        - nomachine_installed_check.rc != 0
-        - rpm_verify.rc == 0
+    - name: Clean up RPM file (Linux)
+      ansible.builtin.file:
+        path: "/tmp/{{ nomachine_rpm_filename }}"
+        state: absent
+      when: nomachine_rpm_copied.changed | default(false)
 
-    - name: Get Tailscale IP address
+    - name: Get Tailscale IP address (Linux)
       ansible.builtin.command:
         cmd: tailscale ip -4
-      register: tailscale_ip
+      register: tailscale_ip_result
       changed_when: false
       failed_when: false
-      when: ansible_system == "Linux"
 
-    - name: Configure NoMachine to bind to Tailscale interface only
+    - name: Set Tailscale IP fact (Linux)
+      ansible.builtin.set_fact:
+        nomachine_bind_ip: "{{ tailscale_ip_result.stdout | default('0.0.0.0') }}"
+
+    - name: Check if NoMachine config exists (Linux)
+      ansible.builtin.stat:
+        path: /usr/NX/etc/server.cfg
+      register: nomachine_config_stat
+
+    - name: Configure NoMachine ServerName (Linux)
       ansible.builtin.lineinfile:
         path: /usr/NX/etc/server.cfg
-        regexp: '^NXDListenAddress'
-        line: "NXDListenAddress {{ tailscale_ip.stdout }}"
+        regexp: '^#?ServerName\s*='
+        line: "ServerName = {{ inventory_hostname }}.pangolin-vega.ts.net"
         backup: yes
       become: yes
-      when:
-        - ansible_system == "Linux"
-        - tailscale_ip.stdout != ""
-      register: nomachine_bind_updated
+      when: 
+        - nomachine_config_stat.stat.exists
+        - nomachine_tailscale_only | bool
+      notify: Restart NoMachine
 
-    - name: Configure NoMachine to accept connections from Tailscale subnet only
-      ansible.builtin.lineinfile:
-        path: /usr/NX/etc/server.cfg
-        regexp: '^AcceptFrom'
-        line: 'AcceptFrom 100.64.0.0/10'
-        backup: yes
-      become: yes
-      when: ansible_system == "Linux"
-      register: nomachine_config_updated
-
-    - name: Restart NoMachine service if config changed
-      ansible.builtin.systemd:
-        name: "{{ nomachine_service_name }}"
-        state: restarted
-      become: yes
-      when:
-        - ansible_system == "Linux"
-        - nomachine_config_updated.changed
-
-    - name: Ensure NoMachine service is enabled and started
+    - name: Ensure NoMachine service is enabled and started (Linux)
       ansible.builtin.systemd:
         name: "{{ nomachine_service_name }}"
         enabled: yes
         state: started
         daemon_reload: yes
       become: yes
-      when: ansible_system == "Linux"
+      when: nomachine_config_stat.stat.exists
 
-  when: ansible_system == "Linux"
+    - name: Open NoMachine port in firewall for Tailscale (Linux)
+      ansible.posix.firewalld:
+        port: "{{ nomachine_port }}/tcp"
+        zone: "{{ nomachine_firewall_zone }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      become: yes
+      failed_when: false
 
+# ============================================
+# WINDOWS INSTALLATION
+# ============================================
 - name: Install NoMachine server (Windows)
+  when: ansible_os_family == "Windows"
   block:
-    - name: Check if NoMachine is installed
-      ansible.builtin.win_stat:
+    - name: Check if NoMachine is installed (Windows)
+      ansible.windows.win_stat:
         path: "{{ nomachine_install_path_windows }}\\bin\\nxserver.exe"
       register: nomachine_installed_win
 
-    - name: Download NoMachine for Windows
-      ansible.builtin.win_get_url:
-        url: https://download.nomachine.com/download/8.11/Windows/nomachine.exe
-        dest: C:\Windows\Temp\nomachine.exe
+    - name: Copy NoMachine installer to target (Windows)
+      ansible.windows.win_copy:
+        src: "{{ nomachine_binary_base }}/windows/{{ nomachine_exe_filename }}"
+        dest: "C:\\Windows\\Temp\\{{ nomachine_exe_filename }}"
       when: not nomachine_installed_win.stat.exists
+      register: nomachine_exe_copied
 
     - name: Install NoMachine (Windows)
-      ansible.builtin.win_shell: |
-        Start-Process -FilePath "C:\Windows\Temp\nomachine.exe" -ArgumentList "/S" -Wait -NoNewWindow
-      when: not nomachine_installed_win.stat.exists
+      ansible.windows.win_shell: |
+        Start-Process -FilePath "C:\Windows\Temp\{{ nomachine_exe_filename }}" -ArgumentList "/S" -Wait -NoNewWindow
+      when: nomachine_exe_copied.changed | default(false)
       register: nomachine_install_win
 
+    - name: Clean up installer (Windows)
+      ansible.windows.win_file:
+        path: "C:\\Windows\\Temp\\{{ nomachine_exe_filename }}"
+        state: absent
+      when: nomachine_exe_copied.changed | default(false)
+
     - name: Ensure NoMachine service is running (Windows)
-      ansible.builtin.win_service:
-        name: "{{ nomachine_service_name }}"
+      ansible.windows.win_service:
+        name: nxservice64
         state: started
         start_mode: auto
-      when: nomachine_installed_win.stat.exists or nomachine_install_win is succeeded
+      when: nomachine_installed_win.stat.exists or (nomachine_install_win.changed | default(false))
 
-  when: ansible_system == "Windows"
-
+# ============================================
+# MACOS INSTALLATION
+# ============================================
 - name: Install NoMachine server (macOS)
+  when: ansible_system == "Darwin"
   block:
-    - name: Check if NoMachine is installed
+    - name: Check if NoMachine is installed (macOS)
       ansible.builtin.stat:
         path: "{{ nomachine_install_path_macos }}"
       register: nomachine_installed_macos
 
-    - name: Download NoMachine for macOS
-      ansible.builtin.get_url:
-        url: https://download.nomachine.com/download/8.11/MacOSX/nomachine.pkg
-        dest: /tmp/nomachine.pkg
-        mode: '0644'
+    - name: Create temp directory for DMG mount (macOS)
+      ansible.builtin.file:
+        path: /tmp/nomachine_mount
+        state: directory
+        mode: '0755'
       when: not nomachine_installed_macos.stat.exists
 
-    - name: Install NoMachine (macOS)
-      ansible.builtin.command:
-        cmd: installer -pkg /tmp/nomachine.pkg -target /
-      become: yes
+    - name: Copy NoMachine DMG to target (macOS)
+      ansible.builtin.copy:
+        src: "{{ nomachine_binary_base }}/macos/{{ nomachine_dmg_filename }}"
+        dest: "/tmp/{{ nomachine_dmg_filename }}"
+        mode: '0644'
       when: not nomachine_installed_macos.stat.exists
+      register: nomachine_dmg_copied
+
+    - name: Mount DMG (macOS)
+      ansible.builtin.command:
+        cmd: hdiutil attach "/tmp/{{ nomachine_dmg_filename }}" -mountpoint /tmp/nomachine_mount -nobrowse
+      when: nomachine_dmg_copied.changed | default(false)
+      register: dmg_mounted
+
+    - name: Install NoMachine from DMG (macOS)
+      ansible.builtin.command:
+        cmd: installer -pkg "/tmp/nomachine_mount/NoMachine.pkg" -target /
+      become: yes
+      when: dmg_mounted.changed | default(false)
       register: nomachine_install_macos
+
+    - name: Unmount DMG (macOS)
+      ansible.builtin.command:
+        cmd: hdiutil detach /tmp/nomachine_mount
+      when: dmg_mounted.changed | default(false)
+      failed_when: false
+
+    - name: Clean up DMG file (macOS)
+      ansible.builtin.file:
+        path: "/tmp/{{ nomachine_dmg_filename }}"
+        state: absent
+      when: nomachine_dmg_copied.changed | default(false)
 
     - name: Ensure NoMachine service is running (macOS)
       ansible.builtin.command:
         cmd: launchctl load -w /Library/LaunchDaemons/com.nomachine.nxserver.plist
       become: yes
-      when: nomachine_installed_macos.stat.exists or nomachine_install_macos is succeeded
+      when: nomachine_installed_macos.stat.exists or (nomachine_install_macos.changed | default(false))
       failed_when: false
+      changed_when: false
 
-  when: ansible_system == "Darwin"
-
-- name: Verify NoMachine service status
+# ============================================
+# VERIFICATION (ALL PLATFORMS)
+# ============================================
+- name: Verify NoMachine installation
   ansible.builtin.debug:
     msg:
-      - "✅ NoMachine server installed and configured"
-      - "Service: {{ nomachine_service_name }}"
+      - "═══════════════════════════════════════════════════════════"
+      - "NOMACHINE INSTALLATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Version: {{ nomachine_version }}"
       - "Port: {{ nomachine_port }}"
-      - "Connect to: {{ inventory_hostname }}.pangolin-vega.ts.net:{{ nomachine_port }}"
-
+      - "Service: {{ nomachine_service_name }}"
+      - ""
+      - "Connect via: {{ inventory_hostname }}.pangolin-vega.ts.net:{{ nomachine_port }}"
+      - ""
+      - "Security: Tailnet-only access ({{ nomachine_accept_from }})"
+      - "═══════════════════════════════════════════════════════════"

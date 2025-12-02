@@ -1,0 +1,91 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# DEPLOY NOMACHINE
+# =============================================================================
+#
+# Deploys NoMachine remote desktop server to target hosts.
+#
+# USAGE:
+#   # Deploy to all hosts with nomachine role
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nomachine.yml
+#
+#   # Deploy to specific host
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nomachine.yml --limit atom
+#
+#   # Check mode (dry run)
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nomachine.yml --check
+#
+# PREREQUISITES:
+#   - NoMachine binaries in ansible/files/nomachine/
+#   - Target host in inventory with appropriate connection settings
+#   - Tailscale connected on target
+#
+# =============================================================================
+
+- name: Deploy NoMachine Remote Desktop Server
+  hosts: "{{ target_hosts | default('atom') }}"
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NOMACHINE DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Target: {{ inventory_hostname }}
+          OS: {{ ansible_system }} {{ ansible_distribution | default('') }} {{ ansible_distribution_version | default('') }}
+          
+          NoMachine provides secure point-to-point remote desktop access
+          over Tailnet. Binaries are deployed from local repo storage.
+          
+          ═══════════════════════════════════════════════════════════════
+
+    - name: Verify Tailscale is connected
+      ansible.builtin.command:
+        cmd: tailscale status --json
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if Tailscale not connected
+      ansible.builtin.fail:
+        msg: "Tailscale is not connected. NoMachine requires Tailnet for secure access."
+      when: tailscale_status.rc != 0
+
+  roles:
+    - role: nomachine_server
+      tags: [nomachine]
+
+  post_tasks:
+    - name: Verify NoMachine service is running (Linux)
+      ansible.builtin.command:
+        cmd: /usr/NX/bin/nxserver --status
+      register: nxserver_status
+      changed_when: false
+      failed_when: false
+      when: ansible_system == "Linux"
+
+    - name: Display service status
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NOMACHINE DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          {{ nxserver_status.stdout | default('Service status check skipped') }}
+          
+          CONNECTION INFO:
+            Host: {{ inventory_hostname }}.pangolin-vega.ts.net
+            Port: 4000
+          
+          TEST CONNECTION:
+            From NoMachine client, connect to:
+            {{ inventory_hostname }}.pangolin-vega.ts.net:4000
+          
+          ═══════════════════════════════════════════════════════════════
+

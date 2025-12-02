@@ -1,11 +1,48 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Defaults for nomachine_server role
+# =============================================================================
+# NOMACHINE SERVER ROLE - DEFAULTS
+# =============================================================================
+#
+# NoMachine provides point-to-point remote desktop access over Tailnet.
+# Binaries are stored locally in ansible/files/nomachine/ to avoid
+# unreliable internet downloads.
+#
+# =============================================================================
 
+# Current version (update when new binaries are added)
+nomachine_version: "9.2.18"
+
+# Binary storage location (on motoko, accessible to all devices)
+# Binaries are stored in /space/software/nomachine/ to avoid Git repo bloat
+nomachine_binary_base: "/space/software/nomachine"
+
+# Platform-specific filenames
+nomachine_rpm_filename: "nomachine_9.2.18_3_x86_64.rpm"
+nomachine_dmg_filename: "nomachine_9.2.18_1.dmg"
+nomachine_exe_filename: "nomachine_9.2.18_1_x64.exe"
+
+# SHA256 checksums for verification
+nomachine_rpm_checksum: "sha256:a4ff04c604197a32f59c2b675b26ab1ca724f6e89b4ecdf7f1fb626cc7f9e378"
+nomachine_dmg_checksum: "sha256:1ae4101f188453a9b3d7a082bef404badcae72afd40505096ece36dcb0b3cb77"
+nomachine_exe_checksum: "sha256:b69a07a85656ccc7a2223b282a2e95ceb9fc1b8c72a073429a7ec058632668b0"
+
+# Service configuration
 nomachine_port: 4000
 nomachine_service_name: nxserver
+
+# Installation paths
 nomachine_install_path_linux: /usr/NX
 nomachine_install_path_windows: "C:\\Program Files\\NoMachine"
 nomachine_install_path_macos: /Applications/NoMachine.app
 
+# Tailnet security settings
+# NoMachine will only bind to Tailscale interface and accept connections
+# from Tailscale CGNAT range (100.64.0.0/10)
+nomachine_tailscale_only: true
+nomachine_accept_from: "100.64.0.0/10"
+
+# Firewall configuration
+# Port 4000 should be open only for Tailscale traffic
+nomachine_firewall_zone: trusted
