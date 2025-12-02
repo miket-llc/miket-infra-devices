@@ -78,3 +78,16 @@ vllm:
 # This node serves: chat-fast (default, low-latency chat)
 ai_node_roles:
   - chat-fast
+
+# ========================================
+# Netdata Monitoring Configuration
+# ========================================
+# armitage is a Netdata CHILD node
+# Streams metrics to motoko parent
+netdata_role: child
+
+# Tailscale IP will be auto-detected during deployment
+# netdata_tailscale_ip: 100.x.x.x
+
+# Cloud connectivity DISABLED (self-hosted only)
+netdata_cloud_enabled: false

@@ -1,0 +1,36 @@
+# Netdata Prometheus Endpoint Collector Configuration
+# Managed by Ansible - Do not edit manually
+# {{ ansible_managed }}
+#
+# Host: {{ inventory_hostname }}
+# Generated: {{ ansible_date_time.iso8601 | default('unknown') }}
+#
+# This collector scrapes Prometheus-format /metrics endpoints.
+# Documentation: https://learn.netdata.cloud/docs/collecting-metrics/generic-collecting/prometheus-endpoint
+
+# =============================================================================
+# PROMETHEUS ENDPOINT JOBS
+# =============================================================================
+
+{% if netdata_enable_litellm_prometheus | bool %}
+jobs:
+  # LiteLLM Proxy Metrics
+  # Collects request counts, latencies, token usage, etc.
+  - name: litellm
+    url: {{ netdata_litellm_metrics_url }}
+    # Scrape interval (default: 1s)
+    update_every: 5
+    # Timeout for HTTP request
+    timeout: 5
+    # Expected response format
+    expected_prefix: "# HELP"
+    # Add labels for identification
+    selector:
+      allow:
+        - "*"
+{% else %}
+# LiteLLM Prometheus scraping is disabled
+# To enable, set netdata_enable_litellm_prometheus: true in host_vars
+jobs: []
+{% endif %}
+

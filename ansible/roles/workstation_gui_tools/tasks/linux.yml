@@ -55,40 +55,98 @@
       tags: [workstation_gui, vscode]
 
 # ========================================
-# Cursor Installation (AppImage)
+# Cursor Installation
 # ========================================
 - name: Cursor installation block
   when: cursor_enabled | bool
   block:
-    - name: Create Cursor installation directory
+    # Fedora/RHEL - Use RPM package (preferred)
+    - name: Get Cursor download info from API (Fedora/RHEL)
+      ansible.builtin.uri:
+        url: "{{ cursor_linux_api_url }}"
+        return_content: yes
+      register: cursor_api_response
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, cursor]
+
+    - name: Parse Cursor RPM URL
+      ansible.builtin.set_fact:
+        cursor_rpm_url: "{{ (cursor_api_response.content | from_json).rpmUrl }}"
+      when:
+        - ansible_os_family == 'RedHat'
+        - cursor_api_response is succeeded
+      tags: [workstation_gui, cursor]
+
+    - name: Check if Cursor is already installed (Fedora/RHEL)
+      ansible.builtin.shell: rpm -q cursor
+      register: cursor_rpm_check
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, cursor]
+
+    - name: Install Cursor RPM (Fedora/RHEL)
+      ansible.builtin.dnf:
+        name: "{{ cursor_rpm_url }}"
+        state: present
+        disable_gpg_check: yes
+      when:
+        - ansible_os_family == 'RedHat'
+        - cursor_rpm_check.rc != 0
+        - cursor_rpm_url is defined
+      tags: [workstation_gui, cursor]
+
+    # Debian/Ubuntu - Use AppImage
+    - name: Create Cursor installation directory (Debian/Ubuntu)
       ansible.builtin.file:
         path: "{{ cursor_linux_install_dir }}"
         state: directory
         mode: '0755'
+      when: ansible_os_family == 'Debian'
       tags: [workstation_gui, cursor]
 
-    - name: Check if Cursor is already installed
+    - name: Get Cursor download info from API (Debian/Ubuntu)
+      ansible.builtin.uri:
+        url: "{{ cursor_linux_api_url }}"
+        return_content: yes
+      register: cursor_api_response_deb
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, cursor]
+
+    - name: Parse Cursor AppImage URL
+      ansible.builtin.set_fact:
+        cursor_appimage_url: "{{ (cursor_api_response_deb.content | from_json).downloadUrl }}"
+      when:
+        - ansible_os_family == 'Debian'
+        - cursor_api_response_deb is succeeded
+      tags: [workstation_gui, cursor]
+
+    - name: Check if Cursor is already installed (Debian/Ubuntu)
       ansible.builtin.stat:
         path: "{{ cursor_linux_install_dir }}/cursor.AppImage"
       register: cursor_installed
+      when: ansible_os_family == 'Debian'
       tags: [workstation_gui, cursor]
 
-    - name: Download Cursor AppImage
+    - name: Download Cursor AppImage (Debian/Ubuntu)
       ansible.builtin.get_url:
-        url: "{{ cursor_linux_appimage_url }}"
+        url: "{{ cursor_appimage_url | default(cursor_linux_appimage_url) }}"
         dest: "{{ cursor_linux_install_dir }}/cursor.AppImage"
         mode: '0755'
-      when: not cursor_installed.stat.exists
+      when:
+        - ansible_os_family == 'Debian'
+        - not cursor_installed.stat.exists
       tags: [workstation_gui, cursor]
 
-    - name: Create Cursor symlink in /usr/local/bin
+    - name: Create Cursor symlink in /usr/local/bin (Debian/Ubuntu)
       ansible.builtin.file:
         src: "{{ cursor_linux_install_dir }}/cursor.AppImage"
         dest: /usr/local/bin/cursor
         state: link
+      when: ansible_os_family == 'Debian'
       tags: [workstation_gui, cursor]
 
-    - name: Create Cursor desktop entry
+    - name: Create Cursor desktop entry (Debian/Ubuntu)
       ansible.builtin.copy:
         dest: /usr/share/applications/cursor.desktop
         content: |
@@ -103,7 +161,9 @@
           StartupNotify=true
           Terminal=false
         mode: '0644'
-      when: workstation_create_desktop_entries | bool
+      when:
+        - ansible_os_family == 'Debian'
+        - workstation_create_desktop_entries | bool
       tags: [workstation_gui, cursor]
 
 # ========================================

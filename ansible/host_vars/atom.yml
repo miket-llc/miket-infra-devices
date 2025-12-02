@@ -1,0 +1,180 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# ATOM HOST CONFIGURATION
+# =============================================================================
+#
+# Fedora Workstation - Resilience Node (Battery-Backed)
+#
+# OS:       Fedora Workstation 43 (GNOME)
+# Hardware: Lenovo ThinkPad X1 Carbon (2012)
+# CPU:      Intel Core i7-3667U
+# RAM:      8GB
+# Storage:  224GB SSD
+# GPU:      Intel HD Graphics 4000 (integrated)
+#
+# Role:     Resilience Node
+#           Last device standing when power fails
+#           Battery-backed = implicit UPS
+#
+# Purpose:
+#   - Prove the network still exists (node_exporter metrics)
+#   - Maintain SSH foothold for recovery operations
+#   - Optionally: send alerts when infrastructure is down
+#
+# Design:   Simplicity and reliability over features
+#           Minimal services = fewer failure points
+#
+# =============================================================================
+
+# ========================================
+# Device Identity
+# ========================================
+device_role: resilience-node
+device_description: "Battery-backed resilience node for infrastructure continuity"
+
+# Tailscale identity (from miket-infra)
+tailscale_ip: 100.120.122.13
+tailscale_hostname: atom.pangolin-vega.ts.net
+
+# ========================================
+# Ansible Connection
+# ========================================
+# Uses Tailscale SSH - password from AKV
+ansible_host: atom.pangolin-vega.ts.net
+ansible_user: mdt
+ansible_become: true
+ansible_python_interpreter: /usr/bin/python3
+
+# Password lookup from Azure Key Vault (per miket-infra invariants)
+ansible_password: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name atom-ansible-password --query value -o tsv') | trim }}"
+
+# ========================================
+# Resilience Node Configuration
+# ========================================
+# Power management - critical for resilience role
+
+# Battery thresholds
+resilience_node_low_battery_warning: 5
+resilience_node_critical_battery_percent: 2
+resilience_node_critical_battery_action: shutdown
+
+# Boot target - keep GNOME (user's choice)
+resilience_node_boot_target: graphical.target
+
+# ========================================
+# Monitoring Configuration
+# ========================================
+resilience_node_exporter_enabled: true
+resilience_node_exporter_port: 9100
+
+# ========================================
+# Hardware Constraints
+# ========================================
+# Document what this device CANNOT do
+
+# No GPU compute - Intel integrated only
+gpu:
+  vendor: Intel
+  model: HD Graphics 4000
+  compute_capable: false
+
+# Low memory - not suited for heavy workloads
+memory_gb: 8
+
+# ========================================
+# Services (Minimal by Design)
+# ========================================
+# Only essential services for resilience role
+
+atom_services:
+  - prometheus-node-exporter   # Metrics for Prometheus
+  - tailscaled                 # Tailscale daemon
+  - firewalld                  # Firewall
+
+# ========================================
+# Workstation GUI Tools
+# ========================================
+# atom is a workstation too - needs GUI tools
+workstation_gui_tools_enabled: true
+vscode_enabled: true
+cursor_enabled: true
+warp_enabled: true
+
+# ========================================
+# Network Shares (PHC Mounts)
+# ========================================
+# Mount /space, /flux, /time from motoko
+# NOTE: These depend on motoko being available - acceptable tradeoff
+# Core resilience function (metrics, SSH) works without mounts
+smb_server: motoko.pangolin-vega.ts.net
+smb_username: mdt
+# Password from Azure Key Vault
+smb_password: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name motoko-smb-password --query value -o tsv') | trim }}"
+
+# ========================================
+# Services NOT Running (by design)
+# ========================================
+# Document what we intentionally don't run
+
+# NOT a container host
+podman_enabled: false
+docker_enabled: false
+
+# NOT running AI workloads
+vllm_enabled: false
+litellm_enabled: false
+
+# NOT providing storage
+smb_enabled: false
+nfs_enabled: false
+
+# ========================================
+# Firewall Configuration
+# ========================================
+resilience_node_firewall_ports:
+  - 9100/tcp    # node_exporter (Prometheus)
+
+# ========================================
+# SELinux Technical Debt
+# ========================================
+# Document the workaround for Tailscale SSH
+selinux_notes: |
+  sshd_t domain is in permissive mode for Tailscale SSH.
+  This is accepted technical debt - Tailscale SSH uses a non-standard
+  mechanism that SELinux's sshd_t policy doesn't anticipate.
+  
+  Risk: Low - only accessible via tailnet
+  Future: Create custom policy module if AVC denials cause issues
+
+# ========================================
+# Tags (defined in miket-infra)
+# ========================================
+# Reference only - tags applied via Tailscale API in miket-infra
+tailscale_tags:
+  - tag:server
+  - tag:linux
+  - tag:workstation
+
+# ========================================
+# Netdata Monitoring Configuration
+# ========================================
+# Cloud-centric model: standalone agent claimed to Netdata Cloud
+
+# Use pre-defined Tailscale IP from above
+netdata_tailscale_ip: "{{ tailscale_ip }}"
+
+# LIGHTWEIGHT MODE: Reduce resource usage on this constrained node
+# Disables heavy plugins (apps, cgroups, tc, idlejitter, perf)
+netdata_lightweight_mode: true
+
+# Collector settings for atom (minimal - resilience node)
+# - Containers: Disabled (no Podman on this node)
+# - LiteLLM: Disabled (not running on this node)
+# - Nvidia GPU: Disabled (Intel integrated only)
+# - Linux Sensors: Enabled (battery monitoring is important!)
+netdata_enable_containers: false
+netdata_enable_litellm_prometheus: false
+netdata_enable_nvidia_gpu: false
+netdata_enable_linux_sensors: true

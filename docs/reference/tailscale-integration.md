@@ -32,6 +32,7 @@ Tags are **applied** to devices using scripts in this repo:
 | armitage | `tag:workstation,tag:windows,tag:gaming` | `scripts/Setup-Tailscale.ps1` |
 | wintermute | `tag:workstation,tag:windows,tag:gaming` | `scripts/Setup-Tailscale.ps1` |
 | count-zero | `tag:workstation,tag:macos` | `scripts/setup-tailscale.sh` |
+| atom | `tag:server,tag:linux,tag:workstation` | `scripts/setup-tailscale.sh` |
 
 ### 2. ACL Rules
 
@@ -172,6 +173,10 @@ ansible all -i ansible/inventory/hosts.yml \
 │  count-zero (100.x.x.x)                        │
 │  Tags: workstation, macos                      │
 │  Role: MacBook Development                     │
+│                                                  │
+│  atom (100.120.122.13)                         │
+│  Tags: server, linux, workstation              │
+│  Role: Resilience Node (battery-backed)        │
 │                                                  │
 └─────────────────────────────────────────────────┘
 ```

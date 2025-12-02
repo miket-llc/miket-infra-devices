@@ -1,0 +1,232 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# ATOM RESILIENCE VALIDATION PLAYBOOK
+# =============================================================================
+#
+# Validates that atom is correctly configured as a resilience node.
+# Run this after site.yml to verify all configurations are in place.
+#
+# USAGE:
+#   ansible-playbook -i inventory/hosts.yml playbooks/atom/validate-resilience.yml
+#
+# This playbook performs:
+#   - Power management verification
+#   - Service status checks
+#   - Network connectivity tests
+#   - Configuration persistence checks
+#
+# =============================================================================
+
+- name: Validate Atom Resilience Node Configuration
+  hosts: atom
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_results: []
+
+  tasks:
+    - name: Display validation banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ATOM RESILIENCE NODE VALIDATION
+          ═══════════════════════════════════════════════════════════════
+          
+          Running comprehensive validation of resilience node configuration.
+          
+          Tests:
+            1. Power management configuration
+            2. Systemd target masking
+            3. Service status
+            4. Firewall configuration
+            5. Network connectivity
+            6. SELinux status
+          
+          ═══════════════════════════════════════════════════════════════
+
+    # ========================================
+    # Power Management Validation
+    # ========================================
+    - name: Check logind configuration exists
+      ansible.builtin.stat:
+        path: /etc/systemd/logind.conf.d/99-resilience-node.conf
+      register: logind_config
+      
+    - name: Validate logind HandleLidSwitch
+      ansible.builtin.shell: grep -E "^HandleLidSwitch=ignore" /etc/systemd/logind.conf.d/99-resilience-node.conf
+      register: lid_switch_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check UPower configuration exists
+      ansible.builtin.stat:
+        path: /etc/UPower/UPower.conf
+      register: upower_config
+
+    - name: Check dconf power settings
+      ansible.builtin.stat:
+        path: /etc/dconf/db/local.d/00-power
+      register: dconf_power
+
+    - name: Check dconf power locks
+      ansible.builtin.stat:
+        path: /etc/dconf/db/local.d/locks/power
+      register: dconf_locks
+
+    # ========================================
+    # Systemd Target Masking Validation
+    # ========================================
+    - name: Check masked targets
+      ansible.builtin.shell: systemctl is-enabled {{ item }} 2>/dev/null || echo "masked"
+      register: target_status
+      changed_when: false
+      failed_when: false
+      loop:
+        - sleep.target
+        - suspend.target
+        - hibernate.target
+        - hybrid-sleep.target
+
+    # ========================================
+    # Service Status Validation
+    # ========================================
+    - name: Check node_exporter service
+      ansible.builtin.systemd:
+        name: prometheus-node-exporter
+      register: node_exporter_status
+
+    - name: Check tailscaled service
+      ansible.builtin.systemd:
+        name: tailscaled
+      register: tailscaled_status
+
+    - name: Check firewalld service
+      ansible.builtin.systemd:
+        name: firewalld
+      register: firewalld_status
+
+    # ========================================
+    # Firewall Validation
+    # ========================================
+    - name: Check tailscale0 in trusted zone
+      ansible.builtin.shell: firewall-cmd --zone=trusted --list-interfaces | grep -q tailscale0
+      register: firewall_interface
+      changed_when: false
+      failed_when: false
+
+    - name: Check port 9100 is open
+      ansible.builtin.shell: firewall-cmd --list-ports | grep -q "9100/tcp"
+      register: firewall_port
+      changed_when: false
+      failed_when: false
+
+    # ========================================
+    # Network Connectivity Validation
+    # ========================================
+    - name: Test node_exporter metrics endpoint
+      ansible.builtin.uri:
+        url: http://localhost:9100/metrics
+        method: GET
+        return_content: false
+        status_code: 200
+      register: metrics_check
+      failed_when: false
+
+    - name: Check Tailscale status
+      ansible.builtin.command: tailscale status --json
+      register: tailscale_status
+      changed_when: false
+
+    # ========================================
+    # SELinux Validation
+    # ========================================
+    - name: Check SELinux status
+      ansible.builtin.command: getenforce
+      register: selinux_mode
+      changed_when: false
+
+    - name: Check sshd_t permissive status
+      ansible.builtin.shell: semanage permissive -l 2>/dev/null | grep -q sshd_t
+      register: sshd_permissive
+      changed_when: false
+      failed_when: false
+      when: selinux_mode.stdout == 'Enforcing'
+
+    # ========================================
+    # Battery Status
+    # ========================================
+    - name: Get battery capacity
+      ansible.builtin.slurp:
+        src: /sys/class/power_supply/BAT0/capacity
+      register: battery_capacity
+      failed_when: false
+
+    - name: Get battery status
+      ansible.builtin.slurp:
+        src: /sys/class/power_supply/BAT0/status
+      register: battery_status
+      failed_when: false
+
+    # ========================================
+    # Validation Summary
+    # ========================================
+    - name: Display validation results
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          VALIDATION RESULTS
+          ═══════════════════════════════════════════════════════════════
+          
+          POWER MANAGEMENT:
+            {{ '✅' if logind_config.stat.exists else '❌' }} /etc/systemd/logind.conf.d/99-resilience-node.conf exists
+            {{ '✅' if lid_switch_check.rc == 0 else '❌' }} HandleLidSwitch=ignore
+            {{ '✅' if upower_config.stat.exists else '❌' }} /etc/UPower/UPower.conf exists
+            {{ '✅' if dconf_power.stat.exists else '❌' }} dconf power settings exist
+            {{ '✅' if dconf_locks.stat.exists else '❌' }} dconf power locks exist
+          
+          SYSTEMD TARGETS (should be masked):
+          {% for result in target_status.results %}
+            {{ '✅' if 'masked' in result.stdout else '❌' }} {{ result.item }}: {{ result.stdout }}
+          {% endfor %}
+          
+          SERVICES:
+            {{ '✅' if node_exporter_status.status.ActiveState == 'active' else '❌' }} prometheus-node-exporter: {{ node_exporter_status.status.ActiveState }}
+            {{ '✅' if tailscaled_status.status.ActiveState == 'active' else '❌' }} tailscaled: {{ tailscaled_status.status.ActiveState }}
+            {{ '✅' if firewalld_status.status.ActiveState == 'active' else '❌' }} firewalld: {{ firewalld_status.status.ActiveState }}
+          
+          FIREWALL:
+            {{ '✅' if firewall_interface.rc == 0 else '❌' }} tailscale0 in trusted zone
+            {{ '✅' if firewall_port.rc == 0 else '❌' }} Port 9100/tcp open
+          
+          NETWORK:
+            {{ '✅' if metrics_check.status == 200 else '❌' }} node_exporter metrics endpoint (http://localhost:9100/metrics)
+            {{ '✅' if tailscale_status.rc == 0 else '❌' }} Tailscale connected
+          
+          SELINUX:
+            ℹ️  Mode: {{ selinux_mode.stdout }}
+            {{ '✅' if sshd_permissive.rc == 0 else '⚠️' }} sshd_t permissive (required for Tailscale SSH)
+          
+          BATTERY:
+            ℹ️  Capacity: {{ (battery_capacity.content | default('') | b64decode | trim) | default('N/A') }}%
+            ℹ️  Status: {{ (battery_status.content | default('') | b64decode | trim) | default('N/A') }}
+          
+          ═══════════════════════════════════════════════════════════════
+          
+          MANUAL TESTS REQUIRED:
+          
+          These tests require physical interaction and cannot be automated:
+          
+          [ ] Lid close while on AC → Verify system does NOT sleep
+          [ ] Lid close while on battery → Verify system does NOT sleep
+          [ ] Idle for 30+ minutes → Verify system does NOT sleep
+          [ ] Unplug AC at 5% battery → Verify warning (if configured)
+          [ ] Unplug AC at 2% battery → Verify graceful shutdown
+          [ ] Reboot → Verify all services start automatically
+          [ ] Hard power cycle → Verify configuration survives
+          [ ] Kernel update + reboot → Verify configuration survives
+          
+          ═══════════════════════════════════════════════════════════════
+

@@ -24,3 +24,10 @@ litellm_systemd_enabled: "{{ ansible_distribution == 'Fedora' }}"
 # Whether secrets are required (from Azure Key Vault)
 litellm_require_secrets: true
 
+# ========================================
+# Observability Settings
+# ========================================
+# NOTE: Prometheus metrics (success_callback: ["prometheus"]) requires LiteLLM Enterprise.
+# Default disabled - monitoring via container metrics and /health endpoint instead.
+litellm_prometheus_enabled: false
+

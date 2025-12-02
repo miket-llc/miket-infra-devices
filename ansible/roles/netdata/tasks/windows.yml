@@ -1,0 +1,143 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NETDATA WINDOWS INSTALLATION TASKS
+# =============================================================================
+#
+# Installs Netdata on Windows using the official MSI installer
+# Configures as child node streaming to motoko parent
+#
+# =============================================================================
+
+# ========================================
+# Pre-requisites
+# ========================================
+
+- name: Create Netdata directory
+  ansible.windows.win_file:
+    path: C:\Program Files\Netdata
+    state: directory
+  tags: [netdata, install]
+
+- name: Create Netdata config directory
+  ansible.windows.win_file:
+    path: C:\ProgramData\Netdata\etc\netdata
+    state: directory
+  tags: [netdata, install]
+
+# ========================================
+# Download and Install
+# ========================================
+
+- name: Check if Netdata is already installed
+  ansible.windows.win_service:
+    name: Netdata
+  register: netdata_service_check
+  failed_when: false
+  tags: [netdata, install]
+
+- name: Download Netdata MSI installer
+  ansible.windows.win_get_url:
+    url: "{{ netdata_windows_msi_url }}"
+    dest: C:\Windows\Temp\netdata-x64.msi
+    force: false
+  when: netdata_service_check.state is not defined or netdata_service_check.state != 'running'
+  tags: [netdata, install]
+
+- name: Install Netdata via MSI
+  ansible.windows.win_package:
+    path: C:\Windows\Temp\netdata-x64.msi
+    state: present
+    arguments: /qn
+  register: netdata_install_result
+  when: netdata_service_check.state is not defined or netdata_service_check.state != 'running'
+  tags: [netdata, install]
+
+# ========================================
+# Configuration
+# ========================================
+
+- name: Deploy netdata.conf (Windows)
+  ansible.windows.win_template:
+    src: netdata.conf.j2
+    dest: C:\ProgramData\Netdata\etc\netdata\netdata.conf
+    backup: true
+  notify: Restart netdata windows
+  tags: [netdata, configure]
+
+- name: Deploy stream.conf (Windows)
+  ansible.windows.win_template:
+    src: stream.conf.j2
+    dest: C:\ProgramData\Netdata\etc\netdata\stream.conf
+    backup: true
+  notify: Restart netdata windows
+  tags: [netdata, configure]
+
+# ========================================
+# Firewall Configuration
+# ========================================
+
+- name: Allow Netdata through Windows Firewall (Tailscale only)
+  ansible.windows.win_firewall_rule:
+    name: "Netdata Web UI (Tailscale)"
+    localport: "{{ netdata_web_port }}"
+    action: allow
+    direction: in
+    protocol: tcp
+    remoteip: "{{ netdata_tailscale_cidr }}"
+    state: present
+    enabled: true
+  when: netdata_configure_firewall | bool
+  tags: [netdata, firewall]
+
+- name: Block Netdata from non-Tailscale networks
+  ansible.windows.win_firewall_rule:
+    name: "Netdata Web UI (Block Public)"
+    localport: "{{ netdata_web_port }}"
+    action: block
+    direction: in
+    protocol: tcp
+    remoteip: any
+    state: present
+    enabled: true
+  when: netdata_configure_firewall | bool
+  tags: [netdata, firewall]
+
+# ========================================
+# Service Management
+# ========================================
+
+- name: Ensure Netdata service is running
+  ansible.windows.win_service:
+    name: Netdata
+    start_mode: auto
+    state: started
+  tags: [netdata, service]
+
+# ========================================
+# Verification
+# ========================================
+
+- name: Wait for Netdata to be ready (Windows)
+  ansible.windows.win_wait_for:
+    port: "{{ netdata_web_port }}"
+    host: 127.0.0.1
+    timeout: 60
+  tags: [netdata, verify]
+
+- name: Verify Netdata is responding (Windows)
+  ansible.windows.win_uri:
+    url: "http://127.0.0.1:{{ netdata_web_port }}/api/v1/info"
+    return_content: true
+  register: netdata_info_win
+  failed_when: false
+  changed_when: false
+  tags: [netdata, verify]
+
+- name: Display Netdata status (Windows)
+  ansible.builtin.debug:
+    msg: |
+      Netdata Status: {{ 'RUNNING' if netdata_info_win.status_code == 200 else 'NOT RESPONDING' }}
+  tags: [netdata, verify]
+

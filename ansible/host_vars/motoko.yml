@@ -183,3 +183,24 @@ firewall_extra_ports:
   - 8000/tcp   # LiteLLM
   - 8001/tcp   # vLLM reasoning
   - 8200/tcp   # Embeddings API
+  - 19999/tcp  # Netdata Web UI
+
+# ========================================
+# Netdata Monitoring Configuration
+# ========================================
+# Cloud-centric model: standalone agent claimed to Netdata Cloud
+
+# Tailscale IP for binding (get via: tailscale ip -4)
+# Will be auto-detected if not set
+# netdata_tailscale_ip: 100.x.x.x
+
+# Collector settings for motoko
+# - Containers: Podman containers on this host
+# - LiteLLM: Prometheus metrics DISABLED (requires LiteLLM Enterprise)
+# - Nvidia GPU: RTX 2080 monitoring
+# - Linux Sensors: CPU temps, fans, voltages
+netdata_enable_containers: true
+netdata_enable_litellm_prometheus: false  # LiteLLM prometheus callback requires Enterprise license
+netdata_litellm_metrics_url: "http://127.0.0.1:8000/metrics"
+netdata_enable_nvidia_gpu: true
+netdata_enable_linux_sensors: true

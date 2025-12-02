@@ -136,3 +136,13 @@ model_list:
 general_settings:
   database_url: null  # No database - stateless operation
 
+# ============================================================================
+# OBSERVABILITY NOTE
+# ============================================================================
+# Prometheus callback (success_callback: ["prometheus"]) requires LiteLLM Enterprise.
+# For now, monitoring is via:
+#   - Netdata container metrics (CPU, memory, network via cgroups)
+#   - LiteLLM /health endpoint for liveness
+#   - Container logs (podman logs litellm)
+# Future: Consider LiteLLM Enterprise or custom metrics endpoint
+

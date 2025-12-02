@@ -1,0 +1,214 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# ATOM SITE PLAYBOOK
+# =============================================================================
+#
+# Resilience Node configuration for atom
+#
+# Takes a fresh Fedora Workstation 43 installation (with Tailscale already
+# authenticated) and configures it as a resilience node - battery-backed
+# device that stays alive when power fails.
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/site.yml
+#
+#   Specific components (via tags):
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/site.yml --tags power
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/site.yml --tags monitoring
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/site.yml --tags firewall
+#
+#   Dry run (check mode):
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/site.yml --check
+#
+# PREREQUISITES:
+#   - Fresh Fedora Workstation 43 installation
+#   - Tailscale authenticated (tailscale up already performed)
+#   - SSH access via Tailscale
+#   - atom-ansible-password in Azure Key Vault
+#
+# DESIGN PRINCIPLES:
+#   - Simplicity over features (minimal services)
+#   - Reliability over capability (fewer failure points)
+#   - Boring and bulletproof (no experimental features)
+#
+# =============================================================================
+
+- name: Configure Atom - Resilience Node (Battery-Backed)
+  hosts: atom
+  become: true
+  gather_facts: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ATOM RESILIENCE NODE DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          Architecture:   {{ ansible_architecture }}
+          
+          Role:           Resilience Node
+          Purpose:        Last device standing when power fails
+          
+          Deployment Phases:
+            1. resilience_node  - Power management, metrics, firewall
+            2. tailscale_node   - Verify Tailscale connection
+          
+          Design Principles:
+            - Simplicity over features
+            - Reliability over capability
+            - Boring and bulletproof
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+    - name: Verify Fedora Workstation
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+        fail_msg: "This playbook requires Fedora"
+        success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+      tags: [always]
+
+    - name: Verify battery is present (resilience node requirement)
+      ansible.builtin.stat:
+        path: /sys/class/power_supply/BAT0
+      register: battery_check
+      tags: [always]
+
+    - name: Warn if no battery detected
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  WARNING: No battery detected at /sys/class/power_supply/BAT0
+          
+          Resilience nodes are designed for battery-backed operation.
+          The device will still be configured, but resilience role is compromised.
+      when: not battery_check.stat.exists
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Resilience Node Configuration
+    # ========================================
+    # - Power management (never sleep, shutdown at 2%)
+    # - Package baseline (minimal)
+    # - node_exporter (Prometheus metrics)
+    # - Firewall configuration
+    # - SELinux workaround for Tailscale SSH
+    - role: resilience_node
+      tags: [resilience, power, monitoring, firewall, selinux]
+
+    # ========================================
+    # Phase 2: Tailscale Node Verification
+    # ========================================
+    # - Ensure tailscaled is running
+    # - Verify connection to tailnet
+    # - Expose tailnet facts (IP, hostname)
+    - role: tailscale_node
+      tags: [tailscale, network]
+
+    # ========================================
+    # Phase 3: Workstation GUI Tools
+    # ========================================
+    # - Cursor (AI code editor)
+    # - Warp Terminal
+    # - VS Code
+    # These ARE essential - can't do recovery work without tools!
+    - role: workstation_gui_tools
+      tags: [workstation, gui, tools]
+
+    # ========================================
+    # Phase 4: NoMachine Server
+    # ========================================
+    # - Remote desktop access for when you're not physically there
+    # - Essential for a node you might need to access remotely
+    - role: nomachine_server
+      tags: [nomachine, remote]
+
+    # ========================================
+    # Phase 5: Network Shares (PHC Mounts)
+    # ========================================
+    # - Mount /space, /flux, /time from motoko
+    # - Create user symlinks
+    # - Need access to files for recovery work
+    - role: mount_shares_linux
+      tags: [mounts, shares, storage]
+
+  post_tasks:
+    - name: Get battery status
+      ansible.builtin.slurp:
+        src: /sys/class/power_supply/BAT0/capacity
+      register: battery_capacity
+      failed_when: false
+      changed_when: false
+      tags: [always]
+
+    - name: Get power source
+      ansible.builtin.slurp:
+        src: /sys/class/power_supply/BAT0/status
+      register: battery_status
+      failed_when: false
+      changed_when: false
+      tags: [always]
+
+    - name: Display deployment completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ATOM RESILIENCE NODE DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Power Management
+             - Lid switch: ignore (never sleep)
+             - Idle action: ignore (never sleep)
+             - Critical battery: shutdown at 2%
+             - Sleep targets: masked
+          
+          ✅ GNOME
+             - Boot target: graphical.target (preserved)
+             - Power settings: locked (never sleep)
+          
+          ✅ Monitoring
+             - node_exporter: port 9100
+             - Verify: curl http://localhost:9100/metrics
+          
+          ✅ Tailscale
+             - IP: {{ tailscale_ip | default('check tailscale status') }}
+             - DNS: {{ tailscale_dns_name | default(inventory_hostname + '.pangolin-vega.ts.net') }}
+          
+          ✅ Firewall
+             - tailscale0 in trusted zone
+             - Port 9100/tcp open
+          
+          ⚠️  SELinux
+             - sshd_t in permissive mode (Tailscale SSH workaround)
+          
+          📊 Current Status
+             - Battery: {{ (battery_capacity.content | default('') | b64decode | trim) | default('N/A') }}%
+             - Power: {{ (battery_status.content | default('') | b64decode | trim) | default('N/A') }}
+          
+          ═══════════════════════════════════════════════════════════════
+          
+          VALIDATION CHECKLIST:
+          
+          [ ] Lid close while on AC → Does NOT sleep
+          [ ] Lid close while on battery → Does NOT sleep  
+          [ ] Idle for extended period → Does NOT sleep
+          [ ] tailscale status → Connected
+          [ ] curl http://localhost:9100/metrics → Returns metrics
+          [ ] ssh atom.pangolin-vega.ts.net → Works from another device
+          [ ] After reboot → All services running
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+

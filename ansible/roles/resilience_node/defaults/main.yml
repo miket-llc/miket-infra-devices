@@ -1,0 +1,125 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# RESILIENCE NODE ROLE DEFAULTS
+# =============================================================================
+#
+# Configures battery-backed laptops as resilience nodes - devices that stay
+# alive during power failures to provide:
+#   - Network presence proof (node_exporter metrics)
+#   - SSH foothold for recovery operations
+#   - Infrastructure status monitoring
+#
+# Design Principle: Simplicity and reliability over features.
+#   - Minimal services = fewer failure points
+#   - If it's not essential for resilience, don't run it
+#   - The device should be boring and bulletproof
+#
+# =============================================================================
+
+# ========================================
+# Power Management Configuration
+# ========================================
+
+# Lid switch behavior - NEVER sleep, even with lid closed
+resilience_node_lid_switch: ignore
+resilience_node_lid_switch_external_power: ignore
+resilience_node_lid_switch_docked: ignore
+
+# Idle actions - NEVER sleep on idle
+resilience_node_idle_action: ignore
+resilience_node_idle_action_sec: 0
+
+# Power button behavior
+resilience_node_power_key: poweroff
+resilience_node_power_key_long_press: poweroff
+
+# AC power behavior - NEVER sleep when plugged in
+resilience_node_sleep_on_ac: false
+
+# Battery thresholds
+resilience_node_low_battery_warning: 5      # Warn at 5%
+resilience_node_critical_battery_action: shutdown  # Action at critical
+resilience_node_critical_battery_percent: 2  # Critical at 2%
+
+# UPower configuration
+resilience_node_upower_ignore_lid: true
+
+# GNOME power settings (dconf)
+resilience_node_gnome_sleep_ac: 0           # 0 = never
+resilience_node_gnome_sleep_battery: 0      # 0 = never
+resilience_node_gnome_idle_dim: false
+resilience_node_gnome_ambient_enabled: false
+
+# ========================================
+# Systemd Targets to Mask
+# ========================================
+# These targets are masked to prevent any suspend/hibernate actions
+
+resilience_node_mask_targets:
+  - sleep.target
+  - suspend.target
+  - hibernate.target
+  - hybrid-sleep.target
+
+# ========================================
+# Boot Configuration
+# ========================================
+# Keep GNOME (graphical.target) - user's choice
+# This is NOT a headless server
+
+resilience_node_boot_target: graphical.target
+
+# ========================================
+# Package Baseline
+# ========================================
+# Minimal packages for resilience node operation
+# Each package must justify its presence
+
+resilience_node_packages:
+  - vim-minimal           # Basic editor for emergency fixes
+  - htop                  # Process monitoring
+  - tree                  # Directory inspection
+  - tmux                  # Session persistence
+  - rsync                 # File transfer
+  - curl                  # HTTP debugging
+  - jq                    # JSON parsing
+  - lsof                  # File descriptor debugging
+  - net-tools             # Network utilities (netstat)
+  - bind-utils            # DNS debugging (dig, nslookup)
+
+# Packages intentionally NOT installed (document why)
+# - podman/docker: Not a container host
+# - git: No development workloads
+# - gcc/make: No compilation
+# - nvidia drivers: Intel-only GPU
+
+# ========================================
+# Node Exporter Configuration
+# ========================================
+resilience_node_exporter_enabled: true
+resilience_node_exporter_package: prometheus-node-exporter
+resilience_node_exporter_port: 9100
+resilience_node_exporter_service: prometheus-node-exporter
+
+# ========================================
+# Firewall Configuration
+# ========================================
+# tailscale0 interface is trusted
+# Only node_exporter port exposed
+
+resilience_node_firewall_zone: trusted
+resilience_node_firewall_interface: tailscale0
+resilience_node_firewall_ports:
+  - 9100/tcp    # node_exporter (Prometheus metrics)
+
+# ========================================
+# SELinux Configuration
+# ========================================
+# Tailscale SSH requires sshd_t domain adjustments
+# Document this as accepted technical debt
+
+resilience_node_selinux_permissive_domains:
+  - sshd_t      # Required for Tailscale SSH
+

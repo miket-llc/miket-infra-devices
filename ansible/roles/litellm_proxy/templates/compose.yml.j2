@@ -1,0 +1,23 @@
+# {{ ansible_managed }}
+# LiteLLM Proxy Container
+# Managed via podman-compose
+version: "3.9"
+
+services:
+  litellm:
+    image: {{ litellm_image }}
+    container_name: litellm
+    env_file:
+      - {{ litellm_env_path }}
+    command: --config /app/config/config.yaml --port {{ litellm_port }}
+    network_mode: host
+    volumes:
+      - {{ litellm_config_path }}:/app/config/config.yaml:ro,Z
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:{{ litellm_port }}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+

@@ -4,6 +4,48 @@
 # Last Updated: 2025-11-06
 
 devices:
+  resilience_nodes:
+    atom:
+      hostname: atom
+      fqdn: atom.pangolin-vega.ts.net
+      os: Fedora 43 Workstation
+      codename: workstation
+      type: Resilience Node
+      hardware:
+        model: Lenovo ThinkPad X1 Carbon (2012)
+        cpu: Intel Core i7-3667U
+        gpu: Intel HD Graphics 4000
+        memory_gb: 8
+        storage_gb: 224
+        battery: true
+      services:
+        - prometheus-node-exporter
+        - tailscaled
+        - firewalld
+      power_policy:
+        lid_close: ignore
+        idle_action: ignore
+        critical_battery_action: shutdown
+        critical_battery_percent: 2
+        low_battery_warning: 5
+        masked_targets:
+          - sleep.target
+          - suspend.target
+          - hibernate.target
+          - hybrid-sleep.target
+      network:
+        tailscale_ip: 100.120.122.13
+        ssh_enabled: true
+        ssh_auth: tailscale
+      selinux:
+        mode: enforcing
+        sshd_t: permissive  # Technical debt for Tailscale SSH
+      notes: |
+        Resilience node - battery-backed device that stays alive during power failures.
+        Purpose: Network presence proof, SSH foothold for recovery, alert origin.
+        Design: Minimal services, boring and bulletproof.
+        NOT a container host. NOT for heavy workloads.
+        
   servers:
     motoko:
       hostname: motoko

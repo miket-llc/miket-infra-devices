@@ -52,6 +52,11 @@ scrape_configs:
         labels:
           device: motoko
           role: server
+      - targets:
+          - atom.tailnet-name.ts.net:9100
+        labels:
+          device: atom
+          role: resilience
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^.]+)\..+'

@@ -18,9 +18,12 @@ vscode_channel: stable  # stable, insiders
 # Cursor Configuration
 # ========================================
 cursor_enabled: true
-# Cursor AppImage URL for Linux
-cursor_linux_appimage_url: "https://downloader.cursor.sh/linux/appImage/x64"
+# Cursor installation for Linux
+# Use the API to get the latest download URL
+cursor_linux_api_url: "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable"
 cursor_linux_install_dir: "/opt/cursor"
+# Fallback direct URL (may be outdated)
+cursor_linux_appimage_url: "https://downloads.cursor.com/production/latest/linux/x64/Cursor-latest-x86_64.AppImage"
 
 # ========================================
 # Warp Terminal Configuration

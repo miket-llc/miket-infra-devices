@@ -1,0 +1,195 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NETDATA MONITORING DEPLOYMENT PLAYBOOK
+# =============================================================================
+#
+# Deploys Netdata agents for Cloud-centric monitoring (Homelab subscription)
+#
+# Architecture:
+#   - Each node runs a standalone Netdata Agent
+#   - All agents are claimed to Netdata Cloud (Homelab Space) via ACLK
+#   - Netdata Cloud is the primary monitoring UI
+#   - Local dashboards are secondary (break-glass, tailnet-only)
+#   - NO parent/child streaming - Cloud handles aggregation
+#
+# Nodes:
+#   - motoko (Fedora) - server/core
+#   - atom (Fedora) - resilience node
+#   - count-zero (macOS) - workstation
+#   - wintermute (Windows) - GPU workstation
+#   - armitage (Windows) - GPU workstation
+#   - [Future: AI node / Minisforum X1]
+#
+# Prerequisites:
+#   - Netdata Cloud claim tokens in Azure Key Vault:
+#     - netdata-cloud-claim-token
+#     - netdata-cloud-space-id
+#   - Run secrets-sync to populate .env files before this playbook
+#
+# =============================================================================
+#
+# USAGE:
+#
+#   Deploy to ALL Netdata nodes:
+#     ansible-playbook -i inventory/hosts.yml playbooks/deploy-netdata.yml
+#
+#   Deploy to specific host:
+#     ansible-playbook -i inventory/hosts.yml playbooks/deploy-netdata.yml --limit atom
+#
+#   Deploy Linux/macOS only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/deploy-netdata.yml --limit 'netdata_nodes:!windows'
+#
+#   Claim only (skip install):
+#     ansible-playbook -i inventory/hosts.yml playbooks/deploy-netdata.yml --tags claim
+#
+# =============================================================================
+
+# ============================================================================
+# PHASE 1: Deploy Netdata Agents
+# ============================================================================
+
+- name: Deploy Netdata Agents (Cloud-Centric)
+  hosts: netdata_nodes
+  gather_facts: true
+  # become varies by OS - set in tasks
+
+  vars:
+    # Load Netdata Cloud tokens from environment (sourced from AKV via secrets-sync)
+    netdata_cloud_claim_token: "{{ lookup('env', 'NETDATA_CLOUD_CLAIM_TOKEN') | default('') }}"
+    netdata_cloud_space_id: "{{ lookup('env', 'NETDATA_CLOUD_SPACE_ID') | default('e34dd9ca-162e-4cb4-9ef2-eaa903442327') }}"
+
+  pre_tasks:
+    - name: Set become for Linux hosts
+      ansible.builtin.set_fact:
+        ansible_become: true
+      when: ansible_system == 'Linux'
+
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NETDATA CLOUD DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          OS:   {{ ansible_system }} / {{ ansible_os_family | default('Unknown') }}
+          
+          Architecture: Single Agent → Netdata Cloud (Homelab)
+          
+          This node will:
+            - Run a standalone Netdata agent
+            - Connect to Netdata Cloud via ACLK
+            - Appear in the unified Cloud dashboard
+          
+          Primary UI: https://app.netdata.cloud
+          Local UI:   http://{{ inventory_hostname }}.pangolin-vega.ts.net:19999 (secondary)
+          
+          Cloud Claim Token: {{ 'CONFIGURED' if netdata_cloud_claim_token | length > 0 else 'NOT SET - will skip claiming' }}
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    - role: netdata
+      tags: [netdata]
+
+  post_tasks:
+    - name: Display completion status
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NETDATA DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          Host: {{ inventory_hostname }}
+          
+          Local Dashboard (secondary, tailnet-only):
+            http://127.0.0.1:19999
+            http://{{ inventory_hostname }}.pangolin-vega.ts.net:19999
+          
+          Primary Dashboard:
+            https://app.netdata.cloud
+          
+          To verify this node in Cloud:
+            1. Open https://app.netdata.cloud
+            2. Navigate to Nodes
+            3. Confirm {{ inventory_hostname }} appears and shows live metrics
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+
+# ============================================================================
+# PHASE 2: Validate Cloud Connectivity
+# ============================================================================
+
+- name: Validate Netdata Cloud Connectivity
+  hosts: netdata_nodes
+  gather_facts: false
+  tags: [validate, verify]
+
+  tasks:
+    - name: Set become for Linux hosts
+      ansible.builtin.set_fact:
+        ansible_become: true
+      when: ansible_system == 'Linux'
+
+    - name: Check ACLK status (Linux/macOS)
+      ansible.builtin.command: netdatacli aclk-state
+      register: aclk_status
+      changed_when: false
+      failed_when: false
+      when: ansible_system != 'Win32NT'
+
+    - name: Display ACLK status
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NETDATA CLOUD STATUS: {{ inventory_hostname }}
+          ═══════════════════════════════════════════════════════════════
+          
+          {{ aclk_status.stdout | default('ACLK status unavailable') }}
+          
+          ═══════════════════════════════════════════════════════════════
+      when: ansible_system != 'Win32NT'
+
+
+# ============================================================================
+# PHASE 3: Summary
+# ============================================================================
+
+- name: Deployment Summary
+  hosts: localhost
+  gather_facts: false
+  tags: [summary]
+
+  tasks:
+    - name: Display final summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NETDATA CLOUD DEPLOYMENT SUMMARY
+          ═══════════════════════════════════════════════════════════════
+          
+          Architecture: Single Agent + Netdata Cloud (Homelab)
+          
+          Primary UI: https://app.netdata.cloud
+          
+          Expected Nodes:
+            - motoko (Fedora, server)
+            - atom (Fedora, resilience)
+            - count-zero (macOS, workstation)
+            - wintermute (Windows, GPU)
+            - armitage (Windows, GPU)
+          
+          Local dashboards are available on each node via tailnet
+          for break-glass debugging.
+          
+          To verify:
+            1. Open https://app.netdata.cloud
+            2. Navigate to Nodes
+            3. Confirm all expected nodes appear with live metrics
+          
+          ═══════════════════════════════════════════════════════════════

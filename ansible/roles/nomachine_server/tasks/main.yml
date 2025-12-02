@@ -44,13 +44,25 @@
 
     - name: Download NoMachine for Linux (RPM)
       ansible.builtin.shell:
-        cmd: wget -q --show-progress -O /tmp/nomachine.rpm "https://download.nomachine.com/download/8.11/Linux/nomachine_8.11.3_4_{{ nomachine_arch }}.rpm" || curl -L -o /tmp/nomachine.rpm "https://download.nomachine.com/download/8.11/Linux/nomachine_8.11.3_4_{{ nomachine_arch }}.rpm"
+        cmd: |
+          rm -f /tmp/nomachine.rpm
+          curl -L -o /tmp/nomachine.rpm "https://download.nomachine.com/download/8.14/Linux/nomachine_8.14.2_1_{{ nomachine_arch }}.rpm"
       when:
         - ansible_system == "Linux"
         - nomachine_package_type == "rpm"
         - nomachine_installed_check.rc != 0
       register: nomachine_download_rpm
-      failed_when: false
+
+    - name: Verify downloaded RPM file
+      ansible.builtin.shell:
+        cmd: file /tmp/nomachine.rpm | grep -q "RPM" || exit 1
+      register: rpm_verify
+      when:
+        - ansible_system == "Linux"
+        - nomachine_package_type == "rpm"
+        - nomachine_installed_check.rc != 0
+        - nomachine_download_rpm is succeeded
+      failed_when: rpm_verify.rc != 0
 
     - name: Install NoMachine (Debian/Ubuntu)
       ansible.builtin.apt:
@@ -63,16 +75,17 @@
         - nomachine_installed_check.rc != 0
         - deb_verify.rc == 0
 
-    - name: Install NoMachine (RHEL/CentOS)
-      ansible.builtin.yum:
+    - name: Install NoMachine (RHEL/CentOS/Fedora)
+      ansible.builtin.dnf:
         name: /tmp/nomachine.rpm
         state: present
+        disable_gpg_check: yes
       become: yes
       when:
         - ansible_system == "Linux"
         - nomachine_package_type == "rpm"
         - nomachine_installed_check.rc != 0
-        - nomachine_download_rpm is succeeded
+        - rpm_verify.rc == 0
 
     - name: Get Tailscale IP address
       ansible.builtin.command:

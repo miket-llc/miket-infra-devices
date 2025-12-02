@@ -11,6 +11,7 @@ tailscale_device_tags:
   wintermute: "tag:workstation,tag:windows,tag:gaming"
   armitage: "tag:workstation,tag:windows,tag:gaming"
   count-zero: "tag:workstation,tag:macos"
+  atom: "tag:server,tag:linux,tag:workstation"  # Resilience node
 
 # Tailscale configuration flags
 tailscale_accept_dns: true  # REQUIRED for MagicDNS

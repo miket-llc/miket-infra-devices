@@ -11,3 +11,15 @@ restrict_to_tailscale: true
 nomachine_version: "9.2.18"
 nomachine_port: 4000
 
+# ========================================
+# Netdata Monitoring Configuration
+# ========================================
+# count-zero is a Netdata CHILD node
+# Streams metrics to motoko parent (installed via Homebrew)
+netdata_role: child
+
+# Tailscale IP will be auto-detected during deployment
+# netdata_tailscale_ip: 100.x.x.x
+
+# Cloud connectivity DISABLED (self-hosted only)
+netdata_cloud_enabled: false

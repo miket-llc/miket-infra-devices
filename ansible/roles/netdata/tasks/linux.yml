@@ -1,0 +1,333 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NETDATA LINUX INSTALLATION TASKS
+# =============================================================================
+#
+# Installs Netdata agent for Cloud-centric monitoring (Homelab)
+# Supports Fedora (primary) and Debian/Ubuntu (secondary)
+#
+# Architecture:
+#   - Standalone agent claimed to Netdata Cloud
+#   - Cloud is the primary UI; local dashboard is secondary
+#   - NO parent/child streaming
+#
+# =============================================================================
+
+# ========================================
+# Installation
+# ========================================
+
+- name: Check if Netdata is already installed
+  ansible.builtin.command: which netdata
+  register: netdata_installed_check
+  changed_when: false
+  failed_when: false
+  tags: [netdata, install]
+
+- name: Get current Netdata version
+  ansible.builtin.command: netdata -v
+  register: netdata_version_check
+  changed_when: false
+  failed_when: false
+  when: netdata_installed_check.rc == 0
+  tags: [netdata, install]
+
+- name: Check if currently running nightly when stable is requested
+  ansible.builtin.set_fact:
+    netdata_needs_channel_switch: "{{ (netdata_version_check.stdout | default('')) is search('nightly') and netdata_channel == 'stable' }}"
+  when: netdata_installed_check.rc == 0
+  tags: [netdata, install]
+
+# For channel switches, reinstall with Cloud claiming
+- name: Reinstall Netdata to switch channel (with Cloud claiming)
+  ansible.builtin.shell: |
+    # Uninstall existing installation
+    if [ -x /usr/libexec/netdata/netdata-uninstaller.sh ]; then
+      /usr/libexec/netdata/netdata-uninstaller.sh --yes --force
+    elif [ -x /opt/netdata/usr/libexec/netdata/netdata-uninstaller.sh ]; then
+      /opt/netdata/usr/libexec/netdata/netdata-uninstaller.sh --yes --force
+    fi
+    # Install with Cloud claiming in one step
+    wget -O /tmp/netdata-kickstart.sh {{ netdata_kickstart_url }} && \
+    sh /tmp/netdata-kickstart.sh \
+      --stable-channel \
+      --claim-token {{ netdata_cloud_claim_token }} \
+      --claim-rooms {{ netdata_cloud_rooms }} \
+      --claim-url {{ netdata_cloud_claim_url }}
+  when: netdata_needs_channel_switch | default(false)
+  register: netdata_channel_switch
+  tags: [netdata, install]
+
+# Fresh install with Cloud claiming in one step
+- name: Install Netdata with Cloud claiming ({{ netdata_channel }} channel)
+  ansible.builtin.shell: |
+    wget -O /tmp/netdata-kickstart.sh {{ netdata_kickstart_url }} && \
+    sh /tmp/netdata-kickstart.sh \
+      --stable-channel \
+      --claim-token {{ netdata_cloud_claim_token }} \
+      --claim-rooms {{ netdata_cloud_rooms }} \
+      --claim-url {{ netdata_cloud_claim_url }}
+  args:
+    creates: /usr/sbin/netdata
+  register: netdata_kickstart_install
+  when: netdata_installed_check.rc != 0
+  tags: [netdata, install]
+
+- name: Check Netdata version after installation
+  ansible.builtin.command: netdata -v
+  register: netdata_final_version
+  changed_when: false
+  failed_when: false
+  tags: [netdata, install]
+
+- name: Display installed Netdata version
+  ansible.builtin.debug:
+    msg: "Netdata version: {{ netdata_final_version.stdout | default('unknown') }} (channel: {{ netdata_channel }})"
+  tags: [netdata, install]
+
+# ========================================
+# Configuration Directories
+# ========================================
+
+- name: Ensure Netdata configuration directory exists
+  ansible.builtin.file:
+    path: /etc/netdata
+    state: directory
+    owner: netdata
+    group: netdata
+    mode: '0755'
+  tags: [netdata, configure]
+
+# ========================================
+# Configuration Files
+# ========================================
+
+- name: Deploy netdata.conf
+  ansible.builtin.template:
+    src: netdata.conf.j2
+    dest: /etc/netdata/netdata.conf
+    owner: netdata
+    group: netdata
+    mode: '0644'
+    backup: true
+  notify: Restart netdata
+  tags: [netdata, configure]
+
+- name: Deploy stream.conf (streaming disabled - Cloud is aggregator)
+  ansible.builtin.template:
+    src: stream.conf.j2
+    dest: /etc/netdata/stream.conf
+    owner: netdata
+    group: netdata
+    mode: '0640'
+    backup: true
+  notify: Restart netdata
+  tags: [netdata, configure]
+
+- name: Deploy cloud.conf (Cloud enabled - Homelab subscription)
+  ansible.builtin.template:
+    src: cloud.conf.j2
+    dest: /etc/netdata/cloud.conf
+    owner: netdata
+    group: netdata
+    mode: '0640'
+    backup: true
+  notify: Restart netdata
+  tags: [netdata, configure]
+
+# ========================================
+# Collector Configuration (go.d.plugin)
+# ========================================
+
+- name: Ensure go.d configuration directory exists
+  ansible.builtin.file:
+    path: /etc/netdata/go.d
+    state: directory
+    owner: netdata
+    group: netdata
+    mode: '0755'
+  tags: [netdata, configure, collectors]
+
+- name: Deploy go.d.conf (collector enablement)
+  ansible.builtin.template:
+    src: go.d.conf.j2
+    dest: /etc/netdata/go.d.conf
+    owner: netdata
+    group: netdata
+    mode: '0644'
+    backup: true
+  notify: Restart netdata
+  tags: [netdata, configure, collectors]
+
+# --- Prometheus collector for LiteLLM ---
+- name: Deploy prometheus.conf for LiteLLM metrics
+  ansible.builtin.template:
+    src: go.d/prometheus.conf.j2
+    dest: /etc/netdata/go.d/prometheus.conf
+    owner: netdata
+    group: netdata
+    mode: '0644'
+    backup: true
+  when: netdata_enable_litellm_prometheus | bool
+  notify: Restart netdata
+  tags: [netdata, configure, collectors]
+
+# --- Nvidia GPU monitoring ---
+- name: Check if nvidia-smi is available
+  ansible.builtin.command: which nvidia-smi
+  register: nvidia_smi_check
+  changed_when: false
+  failed_when: false
+  when: netdata_enable_nvidia_gpu | bool
+  tags: [netdata, configure, collectors]
+
+- name: Deploy nvidia_smi.conf for GPU monitoring
+  ansible.builtin.template:
+    src: go.d/nvidia_smi.conf.j2
+    dest: /etc/netdata/go.d/nvidia_smi.conf
+    owner: netdata
+    group: netdata
+    mode: '0644'
+    backup: true
+  when:
+    - netdata_enable_nvidia_gpu | bool
+    - nvidia_smi_check.rc == 0
+  notify: Restart netdata
+  tags: [netdata, configure, collectors]
+
+- name: Warn if nvidia-smi not found but GPU monitoring requested
+  ansible.builtin.debug:
+    msg: "WARNING: netdata_enable_nvidia_gpu is true but nvidia-smi not found. GPU monitoring will not work."
+  when:
+    - netdata_enable_nvidia_gpu | bool
+    - nvidia_smi_check.rc != 0
+  tags: [netdata, configure, collectors]
+
+# --- Linux hardware sensors ---
+- name: Install lm_sensors for hardware monitoring
+  ansible.builtin.package:
+    name: lm_sensors
+    state: present
+  when: netdata_enable_linux_sensors | bool
+  tags: [netdata, configure, collectors]
+
+- name: Deploy sensors.conf for hardware sensors
+  ansible.builtin.template:
+    src: go.d/sensors.conf.j2
+    dest: /etc/netdata/go.d/sensors.conf
+    owner: netdata
+    group: netdata
+    mode: '0644'
+    backup: true
+  when: netdata_enable_linux_sensors | bool
+  notify: Restart netdata
+  tags: [netdata, configure, collectors]
+
+# ========================================
+# Firewall Configuration (firewalld)
+# ========================================
+# Local dashboard access via tailnet only
+
+- name: Check if firewalld is active
+  ansible.builtin.systemd:
+    name: firewalld
+  register: firewalld_status
+  failed_when: false
+  changed_when: false
+  tags: [netdata, firewall]
+
+- name: Get default firewalld zone
+  ansible.builtin.command: firewall-cmd --get-default-zone
+  register: default_zone
+  changed_when: false
+  when:
+    - netdata_configure_firewall | bool
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [netdata, firewall]
+
+- name: Add rich rule for Tailscale CIDR access to Netdata
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='{{ netdata_tailscale_cidr }}' port port='{{ netdata_web_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - netdata_configure_firewall | bool
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [netdata, firewall]
+
+- name: Add rich rule for localhost access to Netdata
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='127.0.0.1' port port='{{ netdata_web_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - netdata_configure_firewall | bool
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [netdata, firewall]
+
+# ========================================
+# Lightweight Mode (for constrained nodes)
+# ========================================
+
+- name: Disable heavy plugins for lightweight mode
+  ansible.builtin.lineinfile:
+    path: /etc/netdata/netdata.conf
+    regexp: "^\\s*{{ item }}\\s*="
+    line: "    {{ item }} = no"
+    insertafter: '^\[plugins\]'
+  loop: "{{ netdata_disabled_plugins_lightweight }}"
+  when: netdata_lightweight_mode | bool
+  notify: Restart netdata
+  tags: [netdata, configure]
+
+# ========================================
+# Service Management
+# ========================================
+
+- name: Enable and start Netdata service
+  ansible.builtin.systemd:
+    name: "{{ netdata_service_name }}"
+    enabled: "{{ netdata_service_enabled }}"
+    state: "{{ netdata_service_state }}"
+    daemon_reload: true
+  tags: [netdata, service]
+
+# ========================================
+# Verification
+# ========================================
+
+- name: Wait for Netdata to be ready
+  ansible.builtin.wait_for:
+    port: "{{ netdata_web_port }}"
+    host: 127.0.0.1
+    timeout: 30
+  tags: [netdata, verify]
+
+- name: Verify Netdata is responding
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ netdata_web_port }}/api/v1/info"
+    return_content: true
+  register: netdata_info
+  failed_when: false
+  changed_when: false
+  tags: [netdata, verify]
+
+- name: Display Netdata status
+  ansible.builtin.debug:
+    msg: |
+      Netdata Status: {{ 'RUNNING' if netdata_info.status == 200 else 'NOT RESPONDING' }}
+      {% if netdata_info.status == 200 %}
+      Version: {{ (netdata_info.content | from_json).version | default('unknown') }}
+      Cloud Enabled: {{ (netdata_info.content | from_json)['cloud-enabled'] | default('unknown') }}
+      ACLK Available: {{ (netdata_info.content | from_json)['aclk-available'] | default('unknown') }}
+      {% endif %}
+  tags: [netdata, verify]

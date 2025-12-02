@@ -1,0 +1,36 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NETDATA HANDLERS
+# =============================================================================
+
+- name: Restart netdata
+  ansible.builtin.service:
+    name: "{{ netdata_service_name }}"
+    state: restarted
+  when:
+    - ansible_system == 'Linux'
+
+- name: Restart netdata windows
+  ansible.windows.win_service:
+    name: Netdata
+    state: restarted
+  when: ansible_system == 'Win32NT'
+
+- name: Restart netdata macos
+  ansible.builtin.command: brew services restart netdata
+  when: ansible_system == 'Darwin'
+
+- name: Reload netdata
+  ansible.builtin.service:
+    name: "{{ netdata_service_name }}"
+    state: reloaded
+  when: ansible_system == 'Linux'
+
+- name: Reload firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+  when: ansible_os_family == 'RedHat'
+

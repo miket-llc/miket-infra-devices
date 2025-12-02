@@ -1,0 +1,346 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# RESILIENCE NODE ROLE
+# =============================================================================
+#
+# Configures battery-backed laptops as resilience nodes
+# Purpose: Last device standing when power fails
+#
+# This role:
+#   ✓ Configures power management (never sleep, shutdown at 2% battery)
+#   ✓ Deploys minimal package baseline
+#   ✓ Configures node_exporter for metrics
+#   ✓ Sets up firewall for Tailscale
+#   ✓ Documents SELinux technical debt
+#
+# This role does NOT:
+#   ✗ Install Tailscale (done via bootstrap)
+#   ✗ Configure container runtime (not a container host)
+#   ✗ Change boot target from GNOME (user's choice)
+#
+# =============================================================================
+
+- name: Display resilience node configuration banner
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      RESILIENCE NODE CONFIGURATION
+      ═══════════════════════════════════════════════════════════════
+      
+      Host:           {{ inventory_hostname }}
+      Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+      Kernel:         {{ ansible_kernel }}
+      
+      Role:           Resilience Node (battery-backed)
+      Purpose:        Last device standing when power fails
+      
+      Configuration:
+        - Power: Never sleep, shutdown at {{ resilience_node_critical_battery_percent }}%
+        - Boot: {{ resilience_node_boot_target }} (GNOME preserved)
+        - Metrics: node_exporter on port {{ resilience_node_exporter_port }}
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [always]
+
+- name: Verify Fedora distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role requires Fedora"
+    success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+  tags: [always]
+
+# ========================================
+# DNS Configuration (persistent fallback DNS)
+# ========================================
+# Without this, external package downloads may fail
+# This survives reboots unlike resolvectl commands
+
+- name: Ensure resolved.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    mode: '0755'
+  tags: [dns, network]
+
+- name: Configure persistent fallback DNS servers
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/fallback-dns.conf
+    content: |
+      # Managed by Ansible - resilience_node role
+      # Ensures external DNS resolution works even when local DNS fails
+      [Resolve]
+      DNS=8.8.8.8 1.1.1.1
+      FallbackDNS=8.8.4.4 1.0.0.1
+    mode: '0644'
+  notify: restart systemd-resolved
+  tags: [dns, network]
+
+# ========================================
+# Package Baseline
+# ========================================
+- name: Install resilience node baseline packages
+  ansible.builtin.dnf:
+    name: "{{ resilience_node_packages }}"
+    state: present
+  tags: [packages]
+
+# ========================================
+# Power Management: systemd-logind
+# ========================================
+- name: Ensure logind.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    mode: '0755'
+  tags: [power]
+
+- name: Configure systemd-logind for resilience node
+  ansible.builtin.copy:
+    dest: /etc/systemd/logind.conf.d/99-resilience-node.conf
+    content: |
+      # Managed by Ansible - resilience_node role
+      # RESILIENCE NODE: Never sleep, stay alive during power events
+      [Login]
+      HandleLidSwitch={{ resilience_node_lid_switch }}
+      HandleLidSwitchExternalPower={{ resilience_node_lid_switch_external_power }}
+      HandleLidSwitchDocked={{ resilience_node_lid_switch_docked }}
+      IdleAction={{ resilience_node_idle_action }}
+      IdleActionSec={{ resilience_node_idle_action_sec }}
+      HandlePowerKey={{ resilience_node_power_key }}
+      HandlePowerKeyLongPress={{ resilience_node_power_key_long_press }}
+    mode: '0644'
+    backup: yes
+  notify: restart systemd-logind
+  tags: [power]
+
+# ========================================
+# Power Management: UPower
+# ========================================
+- name: Ensure UPower configuration directory exists
+  ansible.builtin.file:
+    path: /etc/UPower
+    state: directory
+    mode: '0755'
+  tags: [power]
+
+- name: Configure UPower for resilience node
+  ansible.builtin.copy:
+    dest: /etc/UPower/UPower.conf
+    content: |
+      # Managed by Ansible - resilience_node role
+      # RESILIENCE NODE: Battery-backed operation
+      [UPower]
+      IgnoreLid={{ resilience_node_upower_ignore_lid | lower }}
+      NoPollBatteries=false
+      
+      # Critical battery action - shutdown to prevent data loss
+      PercentageLow={{ resilience_node_low_battery_warning }}
+      PercentageCritical={{ resilience_node_critical_battery_percent }}
+      PercentageAction={{ resilience_node_critical_battery_percent }}
+      CriticalPowerAction={{ resilience_node_critical_battery_action }}
+    mode: '0644'
+    backup: yes
+  notify: restart upower
+  tags: [power]
+
+# ========================================
+# Power Management: GNOME dconf
+# ========================================
+- name: Ensure dconf local.d directory exists
+  ansible.builtin.file:
+    path: /etc/dconf/db/local.d
+    state: directory
+    mode: '0755'
+  tags: [power, gnome]
+
+- name: Ensure dconf locks directory exists
+  ansible.builtin.file:
+    path: /etc/dconf/db/local.d/locks
+    state: directory
+    mode: '0755'
+  tags: [power, gnome]
+
+- name: Configure GNOME power settings via dconf
+  ansible.builtin.copy:
+    dest: /etc/dconf/db/local.d/00-power
+    content: |
+      # Managed by Ansible - resilience_node role
+      # RESILIENCE NODE: GNOME power settings - never sleep
+      [org/gnome/settings-daemon/plugins/power]
+      sleep-inactive-ac-type='nothing'
+      sleep-inactive-ac-timeout={{ resilience_node_gnome_sleep_ac }}
+      sleep-inactive-battery-type='nothing'
+      sleep-inactive-battery-timeout={{ resilience_node_gnome_sleep_battery }}
+      idle-dim={{ resilience_node_gnome_idle_dim | lower }}
+      ambient-enabled={{ resilience_node_gnome_ambient_enabled | lower }}
+    mode: '0644'
+  notify: update dconf
+  tags: [power, gnome]
+
+- name: Lock GNOME power settings to prevent user override
+  ansible.builtin.copy:
+    dest: /etc/dconf/db/local.d/locks/power
+    content: |
+      # Managed by Ansible - resilience_node role
+      # Lock power settings for resilience node operation
+      /org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type
+      /org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-timeout
+      /org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type
+      /org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-timeout
+    mode: '0644'
+  notify: update dconf
+  tags: [power, gnome]
+
+# ========================================
+# Power Management: Mask Sleep Targets
+# ========================================
+- name: Mask power management targets (prevent any suspend/hibernate)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop: "{{ resilience_node_mask_targets }}"
+  notify: reload systemd daemon
+  tags: [power]
+
+# ========================================
+# Node Exporter (Prometheus Metrics)
+# ========================================
+- name: Check if node_exporter is already installed
+  ansible.builtin.stat:
+    path: /usr/bin/node_exporter
+  register: node_exporter_binary
+  tags: [monitoring]
+
+- name: Install node_exporter (if not present)
+  ansible.builtin.dnf:
+    name: "{{ resilience_node_exporter_package }}"
+    state: present
+  when:
+    - resilience_node_exporter_enabled
+    - not node_exporter_binary.stat.exists
+  failed_when: false
+  tags: [monitoring]
+
+- name: Enable and start node_exporter
+  ansible.builtin.systemd:
+    name: "{{ resilience_node_exporter_service }}"
+    enabled: true
+    state: started
+  when: resilience_node_exporter_enabled
+  tags: [monitoring]
+
+# ========================================
+# Firewall Configuration
+# ========================================
+- name: Ensure firewalld is running
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  tags: [firewall]
+
+- name: Add tailscale0 interface to trusted zone
+  ansible.posix.firewalld:
+    zone: "{{ resilience_node_firewall_zone }}"
+    interface: "{{ resilience_node_firewall_interface }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  tags: [firewall]
+
+- name: Open node_exporter port in firewall
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ resilience_node_firewall_ports }}"
+  tags: [firewall]
+
+# ========================================
+# SELinux Configuration
+# ========================================
+- name: Check SELinux status
+  ansible.builtin.command: getenforce
+  register: selinux_status
+  changed_when: false
+  check_mode: false
+  tags: [selinux]
+
+- name: Set sshd_t to permissive (Tailscale SSH workaround)
+  ansible.builtin.command: semanage permissive -a sshd_t
+  when:
+    - selinux_status.stdout == 'Enforcing'
+    - "'sshd_t' in resilience_node_selinux_permissive_domains"
+  register: selinux_permissive_result
+  changed_when: selinux_permissive_result.rc == 0
+  failed_when: false
+  tags: [selinux]
+
+- name: Document SELinux technical debt
+  ansible.builtin.debug:
+    msg:
+      - "⚠️  SELinux TECHNICAL DEBT"
+      - "    Domain sshd_t is in permissive mode for Tailscale SSH"
+      - "    This is a known workaround - Tailscale SSH uses a non-standard"
+      - "    mechanism that SELinux's sshd_t policy doesn't anticipate."
+      - ""
+      - "    To audit AVC denials:"
+      - "      ausearch -m AVC -ts recent | grep sshd_t"
+      - ""
+      - "    Future improvement: Create custom policy module for Tailscale SSH"
+  when: selinux_status.stdout == 'Enforcing'
+  tags: [selinux]
+
+# ========================================
+# Passwordless sudo for mdt
+# ========================================
+- name: Configure passwordless sudo for mdt user
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/mdt
+    content: |
+      # Managed by Ansible - resilience_node role
+      # Allow mdt user passwordless sudo for emergency maintenance
+      mdt ALL=(ALL) NOPASSWD: ALL
+    mode: '0440'
+    validate: /usr/sbin/visudo -cf %s
+  tags: [sudo]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display resilience node configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════════"
+      - "RESILIENCE NODE CONFIGURATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════════"
+      - ""
+      - "Power Management:"
+      - "  ✓ Lid switch: {{ resilience_node_lid_switch }}"
+      - "  ✓ Idle action: {{ resilience_node_idle_action }}"
+      - "  ✓ Low battery warning: {{ resilience_node_low_battery_warning }}%"
+      - "  ✓ Critical battery action: {{ resilience_node_critical_battery_action }} at {{ resilience_node_critical_battery_percent }}%"
+      - "  ✓ Masked targets: {{ resilience_node_mask_targets | join(', ') }}"
+      - ""
+      - "GNOME:"
+      - "  ✓ Sleep on AC: never ({{ resilience_node_gnome_sleep_ac }})"
+      - "  ✓ Sleep on battery: never ({{ resilience_node_gnome_sleep_battery }})"
+      - "  ✓ Power settings locked"
+      - ""
+      - "Monitoring:"
+      - "  ✓ node_exporter: port {{ resilience_node_exporter_port }}"
+      - ""
+      - "Firewall:"
+      - "  ✓ {{ resilience_node_firewall_interface }} in {{ resilience_node_firewall_zone }} zone"
+      - "  ✓ Ports: {{ resilience_node_firewall_ports | join(', ') }}"
+      - ""
+      - "SELinux:"
+      - "  ⚠️  sshd_t in permissive mode (Tailscale SSH workaround)"
+      - ""
+      - "═══════════════════════════════════════════════════════════════"
+  tags: [always]
+

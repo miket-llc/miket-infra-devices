@@ -44,6 +44,12 @@ case "$DEVICE_NAME" in
         ADVERTISE_ROUTES=""
         SSH_ENABLED="--ssh"
         ;;
+    atom)
+        # Resilience node - battery-backed, minimal services
+        TAGS="tag:server,tag:linux,tag:workstation"
+        ADVERTISE_ROUTES=""
+        SSH_ENABLED="--ssh"
+        ;;
     *)
         echo -e "${RED}Unknown device: $DEVICE_NAME${NC}"
         echo "Please add device configuration to this script"
