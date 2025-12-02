@@ -1,0 +1,41 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# AUTOFS LINUX MOUNTS - DEFAULTS
+# =============================================================================
+#
+# On-demand CIFS mounting via autofs
+# Avoids static fstab mounts that can crash the desktop on network hiccups
+#
+# =============================================================================
+
+# SMB server (Tailscale hostname)
+smb_server: "motoko.pangolin-vega.ts.net"
+smb_username: "mdt"
+
+# Credentials file location
+smb_credentials_file: "/root/.smbcredentials_motoko"
+
+# Autofs configuration
+autofs_mount_base: "/mnt/motoko"
+autofs_timeout: 300  # Unmount after 5 minutes idle
+
+# Shares to mount via autofs
+smb_shares:
+  - name: "flux"
+    path: "/flux"
+  - name: "space"
+    path: "/space"
+  - name: "time"
+    path: "/time"
+
+# User symlinks (created in user's home directory)
+user_symlinks:
+  - name: "flux"
+    link: "~/flux"
+  - name: "space"
+    link: "~/space"
+  - name: "time"
+    link: "~/time"
+

@@ -103,15 +103,24 @@ cursor_enabled: true
 warp_enabled: true
 
 # ========================================
-# Network Shares (PHC Mounts)
+# Network Shares - REMOVED (Resilience Hardening)
 # ========================================
-# Mount /space, /flux, /time from motoko
-# NOTE: These depend on motoko being available - acceptable tradeoff
-# Core resilience function (metrics, SSH) works without mounts
-smb_server: motoko.pangolin-vega.ts.net
-smb_username: mdt
-# Password from Azure Key Vault
-smb_password: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name motoko-smb-password --query value -o tsv') | trim }}"
+# CIFS mounts were removed on 2024-12-01 after a kernel bug caused a desktop freeze.
+#
+# INCIDENT: The CIFS kernel module (cfids_invalidation_worker) hit a
+# "scheduling while atomic" bug when the network to motoko hiccupped.
+# This cascaded to dbus failures and froze GNOME for hours.
+#
+# DECISION: Resilience nodes should have ZERO dependencies on other servers.
+# - Core function (node_exporter, SSH) doesn't need mounts
+# - Health reporting now uses SSH-based push (resilience-health.timer)
+# - If motoko is down, atom keeps working (that's the point!)
+#
+# To apply this change: ansible-playbook playbooks/atom/remove-cifs-mounts.yml
+#
+# smb_server: motoko.pangolin-vega.ts.net  # REMOVED
+# smb_username: mdt                         # REMOVED
+# smb_password: "..."                       # REMOVED
 
 # ========================================
 # Services NOT Running (by design)

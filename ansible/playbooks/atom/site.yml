@@ -136,13 +136,22 @@
       tags: [nomachine, remote]
 
     # ========================================
-    # Phase 5: Network Shares (PHC Mounts)
+    # Phase 5: Network Shares - REMOVED
     # ========================================
-    # - Mount /space, /flux, /time from motoko
-    # - Create user symlinks
-    # - Need access to files for recovery work
-    - role: mount_shares_linux
-      tags: [mounts, shares, storage]
+    # CIFS mounts were removed from atom on 2024-12-01 after a kernel bug
+    # (cfids_invalidation_worker) caused a desktop freeze.
+    #
+    # Resilience nodes should have ZERO dependencies on other servers.
+    # Health reporting now uses SSH-based push (resilience-health.timer).
+    #
+    # To remove existing mounts, run:
+    #   ansible-playbook -i inventory/hosts.yml playbooks/atom/remove-cifs-mounts.yml
+    #
+    # For future Linux workstations that need mounts, use:
+    #   role: mount_shares_linux_autofs  (on-demand mounting, won't freeze on network issues)
+    #
+    # - role: mount_shares_linux  # REMOVED - breaks resilience model
+    #   tags: [mounts, shares, storage]
 
   post_tasks:
     - name: Get battery status

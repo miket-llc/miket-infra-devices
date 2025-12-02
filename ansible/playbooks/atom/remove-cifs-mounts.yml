@@ -1,0 +1,264 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# REMOVE CIFS MOUNTS FROM ATOM
+# =============================================================================
+#
+# This playbook removes the static CIFS mounts from atom that caused the
+# desktop freeze incident on 2024-12-01.
+#
+# BACKGROUND:
+#   The CIFS kernel module has a bug (cfids_invalidation_worker) that can
+#   cause "scheduling while atomic" errors when network connections hiccup.
+#   This cascaded to dbus failures and froze GNOME.
+#
+# SOLUTION:
+#   - Remove static CIFS mounts from fstab
+#   - Unmount any currently mounted shares
+#   - Replace file-based health check with SSH-based push
+#   - Atom's core resilience role (node_exporter, SSH) doesn't need mounts
+#
+# USAGE:
+#   ansible-playbook -i inventory/hosts.yml playbooks/atom/remove-cifs-mounts.yml
+#
+# =============================================================================
+
+- name: Remove CIFS mounts from Atom (Resilience Hardening)
+  hosts: atom
+  become: true
+  gather_facts: true
+
+  vars:
+    smb_shares:
+      - mount_point: /mnt/flux
+        fstab_src: "//motoko.pangolin-vega.ts.net/flux"
+      - mount_point: /mnt/space
+        fstab_src: "//motoko.pangolin-vega.ts.net/space"
+      - mount_point: /mnt/time
+        fstab_src: "//motoko.pangolin-vega.ts.net/time"
+
+  tasks:
+    - name: Display removal banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          REMOVING CIFS MOUNTS FROM ATOM
+          ═══════════════════════════════════════════════════════════════
+          
+          This removes the static CIFS mounts that caused the GNOME freeze.
+          
+          Rationale:
+            - CIFS kernel bug can cause desktop freezes on network hiccups
+            - Resilience node should have ZERO dependencies on other servers
+            - Core function (node_exporter, SSH) works without mounts
+            - Health reporting will use SSH-based push instead
+          
+          ═══════════════════════════════════════════════════════════════
+
+    - name: Unmount CIFS shares (if mounted)
+      ansible.posix.mount:
+        path: "{{ item.mount_point }}"
+        state: unmounted
+      loop: "{{ smb_shares }}"
+      ignore_errors: true
+
+    - name: Remove CIFS entries from fstab
+      ansible.posix.mount:
+        path: "{{ item.mount_point }}"
+        src: "{{ item.fstab_src }}"
+        fstype: cifs
+        state: absent
+      loop: "{{ smb_shares }}"
+
+    - name: Remove SMB credentials file
+      ansible.builtin.file:
+        path: /root/.smbcredentials_motoko
+        state: absent
+
+    - name: Remove user symlinks to mounts
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /home/mdt/flux
+        - /home/mdt/space
+        - /home/mdt/time
+      become: false
+
+    - name: Stop old health check timer
+      ansible.builtin.systemd:
+        name: device-health.timer
+        state: stopped
+        enabled: false
+      ignore_errors: true
+
+    - name: Remove old health check files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/device-health.service
+        - /etc/systemd/system/device-health.timer
+        - /usr/local/bin/device_health_check.sh
+
+    - name: Deploy SSH-based health check script
+      ansible.builtin.copy:
+        content: |
+          #!/bin/bash
+          # Resilience Node Health Check - SSH-based push to motoko
+          # Does NOT require local mounts - pushes via SSH
+          
+          set -euo pipefail
+          
+          HOSTNAME=$(hostname -s)
+          USER="mdt"
+          MOTOKO="motoko.pangolin-vega.ts.net"
+          STATUS_DIR="/space/devices/${HOSTNAME}/${USER}"
+          STATUS_FILE="${STATUS_DIR}/_status.json"
+          
+          # Collect health data
+          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          # Check core services
+          NODE_EXPORTER=$(systemctl is-active prometheus-node-exporter 2>/dev/null || echo "inactive")
+          TAILSCALE=$(systemctl is-active tailscaled 2>/dev/null || echo "inactive")
+          FIREWALL=$(systemctl is-active firewalld 2>/dev/null || echo "inactive")
+          
+          # Get battery status
+          if [ -f /sys/class/power_supply/BAT0/capacity ]; then
+              BATTERY=$(cat /sys/class/power_supply/BAT0/capacity)
+          else
+              BATTERY="N/A"
+          fi
+          
+          if [ -f /sys/class/power_supply/BAT0/status ]; then
+              POWER_STATUS=$(cat /sys/class/power_supply/BAT0/status)
+          else
+              POWER_STATUS="Unknown"
+          fi
+          
+          # Determine overall status
+          if [ "$NODE_EXPORTER" = "active" ] && [ "$TAILSCALE" = "active" ]; then
+              OVERALL_STATUS="healthy"
+          else
+              OVERALL_STATUS="degraded"
+          fi
+          
+          # Build JSON
+          JSON_CONTENT=$(cat <<EOF
+          {
+            "timestamp": "${TIMESTAMP}",
+            "device": "${HOSTNAME}",
+            "user": "${USER}",
+            "platform": "Linux",
+            "role": "resilience-node",
+            "status": "${OVERALL_STATUS}",
+            "services": {
+              "node_exporter": "${NODE_EXPORTER}",
+              "tailscaled": "${TAILSCALE}",
+              "firewalld": "${FIREWALL}"
+            },
+            "battery": {
+              "capacity": "${BATTERY}",
+              "status": "${POWER_STATUS}"
+            },
+            "note": "Resilience node - no CIFS mounts by design"
+          }
+          EOF
+          )
+          
+          # Push to motoko via SSH
+          # Tailscale SSH handles authentication
+          if ssh -o ConnectTimeout=10 -o BatchMode=yes "${MOTOKO}" "mkdir -p ${STATUS_DIR} && cat > ${STATUS_FILE}" <<< "${JSON_CONTENT}"; then
+              echo "[$(date)] Health status pushed to ${MOTOKO}:${STATUS_FILE}"
+          else
+              echo "[$(date)] WARNING: Could not push health status to motoko (this is expected if motoko is down)"
+              # This is not a failure - resilience node should work even if motoko is unreachable
+              exit 0
+          fi
+        dest: /usr/local/bin/resilience_health_check.sh
+        mode: '0755'
+
+    - name: Create systemd service for SSH-based health check
+      ansible.builtin.copy:
+        content: |
+          [Unit]
+          Description=Push Resilience Node Health to Motoko (SSH-based)
+          After=network-online.target tailscaled.service
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/resilience_health_check.sh
+          User=mdt
+          # Don't fail if motoko is unreachable - that's expected during outages
+          SuccessExitStatus=0 1
+        dest: /etc/systemd/system/resilience-health.service
+
+    - name: Create systemd timer for SSH-based health check
+      ansible.builtin.copy:
+        content: |
+          [Unit]
+          Description=Run Resilience Health Check periodically
+
+          [Timer]
+          OnBootSec=2min
+          OnUnitActiveSec=1h
+          RandomizedDelaySec=5min
+
+          [Install]
+          WantedBy=timers.target
+        dest: /etc/systemd/system/resilience-health.timer
+
+    - name: Reload systemd and enable new timer
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable and start resilience health timer
+      ansible.builtin.systemd:
+        name: resilience-health.timer
+        state: started
+        enabled: true
+
+    - name: Run health check once to verify
+      ansible.builtin.command: /usr/local/bin/resilience_health_check.sh
+      become: false
+      register: health_check_result
+      ignore_errors: true
+
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          CIFS MOUNTS REMOVED - RESILIENCE HARDENED
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Removed:
+             - /mnt/flux (CIFS mount)
+             - /mnt/space (CIFS mount)
+             - /mnt/time (CIFS mount)
+             - ~/flux, ~/space, ~/time symlinks
+             - SMB credentials file
+             - Old device-health.service/timer
+          
+          ✅ Installed:
+             - /usr/local/bin/resilience_health_check.sh (SSH-based)
+             - resilience-health.service
+             - resilience-health.timer (runs hourly)
+          
+          Health Check Result:
+          {{ health_check_result.stdout | default('(no output)') }}
+          {{ health_check_result.stderr | default('') }}
+          
+          ═══════════════════════════════════════════════════════════════
+          
+          ATOM IS NOW A TRUE RESILIENCE NODE:
+          
+          - Zero dependencies on motoko being reachable
+          - CIFS kernel bugs cannot crash the desktop
+          - Core function (metrics, SSH) always works
+          - Health reporting is best-effort via SSH push
+          
+          ═══════════════════════════════════════════════════════════════
+

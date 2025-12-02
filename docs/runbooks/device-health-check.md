@@ -42,10 +42,17 @@ find /space/devices -name "_status.json" -print0 | xargs -0 -I {} sh -c 'echo "-
 - **Logs:** `C:\Scripts\oscloud-sync\sync.log`
 - **Force Health Check:** Re-run `C:\Scripts\Map-Drives.ps1`
 
-### Linux (`generic`)
-- **Mount Status:** `mount | grep cifs`
+### Linux (Resilience Nodes - `atom`)
+- **Mount Status:** None by design (no CIFS mounts)
+- **Logs:** `journalctl -u resilience-health.service`
+- **Force Health Check:** `systemctl start resilience-health.service`
+- **Note:** Uses SSH-based push to motoko, not local mounts
+
+### Linux (Workstations with autofs)
+- **Mount Status:** `mount | grep autofs` and `mount | grep cifs`
 - **Logs:** `journalctl -u device-health.service`
 - **Force Health Check:** `systemctl start device-health.service`
+- **Note:** Shares mount on-demand via autofs, unmount after 5min idle
 
 ## 3. Common Issues
 
@@ -58,8 +65,17 @@ find /space/devices -name "_status.json" -print0 | xargs -0 -I {} sh -c 'echo "-
 - **Fix:** Check if device is powered on. Check if cron/TaskScheduler/Systemd timer is running.
 
 ### Missing Status File
-- **Cause:** Device never successfully mounted `/space`.
+- **Cause:** Device never successfully mounted `/space` (or SSH push failed for resilience nodes).
 - **Fix:** Critical failure. Device cannot write to server. Troubleshoot network/auth immediately.
+- **Exception:** Resilience nodes (atom) may have missing status if motoko is down - this is expected.
+
+### Linux Desktop Freeze After Network Hiccup
+- **Cause:** CIFS kernel bug (`cfids_invalidation_worker`) on static fstab mounts.
+- **Fix:** SSH in and `sudo systemctl restart gdm`. Then remove CIFS mounts:
+  ```bash
+  ansible-playbook playbooks/atom/remove-cifs-mounts.yml
+  ```
+- **Prevention:** Use `mount_shares_linux_autofs` role instead of static mounts.
 
 
 

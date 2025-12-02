@@ -70,6 +70,44 @@ By design:
 - ❌ AI workloads (no GPU compute)
 - ❌ Storage services (SMB/NFS)
 - ❌ Heavy development tools
+- ❌ **CIFS mounts to motoko** (removed 2024-12-01, see incident below)
+
+## Network Shares: NONE
+
+**Atom has no CIFS mounts by design.** This is intentional resilience hardening.
+
+### Incident: Desktop Freeze (2024-12-01)
+
+On 2024-12-01, atom's GNOME desktop froze after the CIFS kernel module hit a bug:
+
+1. Network to motoko had a brief hiccup
+2. CIFS kernel module (`cfids_invalidation_worker`) tried to invalidate directory cache
+3. Kernel bug: "scheduling while atomic" - attempted to sleep while holding a lock
+4. Cascaded to dbus failures and systemd-logind errors
+5. GNOME Shell froze - mouse moved but UI was unresponsive
+
+**Recovery:** SSH to atom and restart GDM: `sudo systemctl restart gdm`
+
+### Resolution
+
+- Removed all CIFS mounts from atom (playbook: `playbooks/atom/remove-cifs-mounts.yml`)
+- Health reporting now uses SSH-based push instead of writing to mounted `/space`
+- Core resilience function (node_exporter, SSH) works regardless of motoko status
+
+### Health Reporting
+
+Atom pushes health status via SSH (not dependent on mounts):
+
+```bash
+# Timer-based (hourly)
+systemctl status resilience-health.timer
+
+# Manual check
+/usr/local/bin/resilience_health_check.sh
+```
+
+The health check pushes to `motoko:/space/devices/atom/mdt/_status.json` via SSH.
+If motoko is unreachable, the push fails silently - **this is expected and correct**.
 
 ## Firewall Configuration
 
@@ -216,6 +254,32 @@ firewall-cmd --zone=trusted --list-interfaces
 ---
 
 ## Troubleshooting
+
+### Desktop Frozen (UI Unresponsive)
+
+If the desktop is frozen (mouse moves but can't click anything):
+
+1. **SSH in and restart GDM:**
+   ```bash
+   ssh atom.pangolin-vega.ts.net
+   sudo systemctl restart gdm
+   ```
+
+2. **Check what caused it:**
+   ```bash
+   journalctl -b -1 --priority=err | tail -100
+   ```
+
+3. **Look for CIFS/kernel bugs:**
+   ```bash
+   journalctl -b -1 | grep -E "(cifs|BUG:|scheduling while atomic)"
+   ```
+
+If you see CIFS-related kernel bugs, ensure mounts were properly removed:
+```bash
+mount | grep cifs  # Should return nothing
+cat /etc/fstab | grep cifs  # Should return nothing
+```
 
 ### System Sleeps with Lid Closed
 
