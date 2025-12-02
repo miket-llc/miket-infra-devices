@@ -1,0 +1,102 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Complete Docker Removal from All Devices
+# Removes Docker Desktop from Windows workstations and Docker from Linux servers
+
+- name: Remove Docker from Windows Workstations
+  hosts: windows_workstations
+  gather_facts: false
+  tasks:
+    - name: Deploy Docker removal script
+      win_copy:
+        src: devices/wintermute/scripts/Remove-Docker-Complete.ps1
+        dest: C:\Users\{{ ansible_user }}\dev\miket-infra-devices\devices\wintermute\scripts\Remove-Docker-Complete.ps1
+
+    - name: Deploy Windows services disable script
+      win_copy:
+        src: devices/wintermute/scripts/Disable-WindowsServices-Complete.ps1
+        dest: C:\Users\{{ ansible_user }}\dev\miket-infra-devices\devices\wintermute\scripts\Disable-WindowsServices-Complete.ps1
+
+    - name: Remove Docker Desktop completely
+      win_shell: |
+        powershell -ExecutionPolicy Bypass -File "C:\Users\{{ ansible_user }}\dev\miket-infra-devices\devices\wintermute\scripts\Remove-Docker-Complete.ps1"
+      register: docker_removal
+      changed_when: "'Removal Complete' in docker_removal.stdout"
+
+    - name: Disable Windows Search and SysMain
+      win_shell: |
+        powershell -ExecutionPolicy Bypass -File "C:\Users\{{ ansible_user }}\dev\miket-infra-devices\devices\wintermute\scripts\Disable-WindowsServices-Complete.ps1"
+      register: services_disable
+      changed_when: "'Services Disabled' in services_disable.stdout"
+
+- name: Remove Docker from Linux Servers
+  hosts: linux
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Check if Docker is installed
+      command: which docker
+      register: docker_check
+      changed_when: false
+      failed_when: false
+
+    - name: Stop Docker service if running
+      systemd:
+        name: docker
+        state: stopped
+        enabled: false
+      when: docker_check.rc == 0
+      ignore_errors: true
+
+    - name: Stop Docker service (alternative name)
+      systemd:
+        name: docker.service
+        state: stopped
+        enabled: false
+      when: docker_check.rc == 0
+      ignore_errors: true
+
+    - name: Remove Docker packages (Ubuntu/Debian)
+      apt:
+        name:
+          - docker.io
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+          - docker-compose
+        state: absent
+        purge: true
+      when: ansible_os_family == "Debian"
+      ignore_errors: true
+
+    - name: Remove Docker packages (Fedora/RHEL)
+      dnf:
+        name:
+          - docker
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+          - docker-compose
+        state: absent
+      when: ansible_os_family == "RedHat"
+      ignore_errors: true
+
+    - name: Remove Docker data directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/docker
+        - /etc/docker
+        - /var/run/docker
+      ignore_errors: true
+
+    - name: Remove Docker group
+      group:
+        name: docker
+        state: absent
+      ignore_errors: true
+

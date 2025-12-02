@@ -3,6 +3,14 @@
 # Source: miket-infra DATA_ESTATE_SPEC.md
 
 ---
+# Feature Enablement
+# Components set to false will report NOT_CONFIGURED (neutral) instead of WARNING/CRITICAL
+enabled:
+  restic: {{ data_estate_restic_enabled | lower }}
+  nextcloud_db: {{ data_estate_nextcloud_db_enabled | lower }}
+  m365: {{ data_estate_m365_enabled | lower }}
+  space_mirror: {{ data_estate_space_mirror_enabled | lower }}
+
 # SLO Thresholds
 slos:
   space_mirror_max_age_hours: {{ data_estate_slo_space_mirror_max_age_hours }}
@@ -73,4 +81,8 @@ dashboard:
     json: status.json
     markdown: data-estate-status.md
   update_schedule: "{{ data_estate_timer_schedule }}"
+
+# rclone Configuration
+rclone:
+  config_path: "{{ data_estate_rclone_config_path }}"
 

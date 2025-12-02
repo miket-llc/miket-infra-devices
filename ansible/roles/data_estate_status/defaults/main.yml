@@ -64,6 +64,17 @@ data_estate_script_path: /usr/local/bin/data-estate-status.sh
 data_estate_credentials_file: /etc/miket/storage-credentials.env
 
 # =============================================================================
+# Feature Enablement Flags
+# Set to false for components not yet deployed/configured
+# When disabled, checks report NOT_CONFIGURED (neutral) instead of WARNING/CRITICAL
+# =============================================================================
+
+data_estate_restic_enabled: false  # Set to true after data-lifecycle role is deployed
+data_estate_nextcloud_db_enabled: false  # Set to true after nextcloud-db-backup is working
+data_estate_m365_enabled: true  # M365 sync is active
+data_estate_space_mirror_enabled: true  # Space mirror is active
+
+# =============================================================================
 # Restic Repository Configuration
 # =============================================================================
 
@@ -84,6 +95,15 @@ data_estate_restic_repos:
 
 data_estate_b2_mirror_bucket: miket-space-mirror
 data_estate_b2_mirror_source: /space
+
+# =============================================================================
+# rclone Configuration
+# =============================================================================
+
+# Explicit path to rclone config file for remote inspection
+# Set to empty string to skip remote inspection (recommended when using backend notation)
+# On motoko, we use backend notation (:b2:bucket) with env vars, so no config file exists
+data_estate_rclone_config_path: ""
 
 # =============================================================================
 # Service Names (for journal log parsing)

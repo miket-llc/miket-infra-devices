@@ -22,6 +22,12 @@ CREDENTIALS_FILE="{{ data_estate_credentials_file }}"
 JSON_OUTPUT="{{ data_estate_json_output_file }}"
 MARKDOWN_OUTPUT="{{ data_estate_markdown_output_file }}"
 
+# Feature Enablement Flags
+RESTIC_ENABLED="{{ data_estate_restic_enabled | lower }}"
+NEXTCLOUD_DB_ENABLED="{{ data_estate_nextcloud_db_enabled | lower }}"
+M365_ENABLED="{{ data_estate_m365_enabled | lower }}"
+SPACE_MIRROR_ENABLED="{{ data_estate_space_mirror_enabled | lower }}"
+
 # SLO Thresholds
 SLO_SPACE_MIRROR_MAX_AGE_HOURS={{ data_estate_slo_space_mirror_max_age_hours }}
 SLO_SPACE_MIRROR_WARNING_AGE_HOURS={{ data_estate_slo_space_mirror_warning_age_hours }}
@@ -42,6 +48,9 @@ M365_INGESTION_PATH="{{ data_estate_m365_ingestion_path }}"
 RESTIC_LOCAL_REPO="/space/snapshots/flux-local"
 RESTIC_LOCAL_PASS="/root/.restic-local-pass"
 
+# rclone config path (explicit, not assumed)
+RCLONE_CONFIG_PATH="{{ data_estate_rclone_config_path }}"
+
 # Service names for journal parsing
 SERVICE_SPACE_MIRROR="{{ data_estate_service_space_mirror }}"
 SERVICE_FLUX_BACKUP="{{ data_estate_service_flux_backup }}"
@@ -54,12 +63,25 @@ APPROVED_REMOTES="{{ data_estate_approved_remotes | map(attribute='name') | join
 
 {% raw %}
 # =============================================================================
+# Status Constants
+# =============================================================================
+
+# Status values (in order of severity)
+STATUS_OK="OK"
+STATUS_WARNING="WARNING"
+STATUS_CRITICAL="CRITICAL"
+STATUS_ERROR="ERROR"
+STATUS_NOT_CONFIGURED="NOT_CONFIGURED"
+STATUS_SUSPICIOUS="SUSPICIOUS"
+
+# =============================================================================
 # Globals for status tracking
 # =============================================================================
 
-OVERALL_STATUS="OK"
+OVERALL_STATUS="$STATUS_OK"
 CHECKS_PASSED=0
 CHECKS_TOTAL=0
+CHECKS_CONFIGURED=0  # Only count configured checks for compliance
 declare -A CHECK_RESULTS
 
 # =============================================================================
@@ -78,8 +100,11 @@ error() {
 load_credentials() {
     if [[ -f "$CREDENTIALS_FILE" ]]; then
         # shellcheck source=/dev/null
+        set +u  # Allow unset vars in env file
         source "$CREDENTIALS_FILE"
+        set -u
         log "Loaded credentials from $CREDENTIALS_FILE"
+        return 0
     else
         error "Credentials file not found: $CREDENTIALS_FILE"
         return 1
@@ -107,7 +132,7 @@ get_service_last_success() {
     
     # Get the last journal entry for the service with exit status 0
     last_entry=$(journalctl -u "$service" --no-pager -n 100 --output=json 2>/dev/null | \
-        jq -rs '[.[] | select(.MESSAGE != null and (.MESSAGE | test("Complete|completed|success"; "i")))] | last | .__REALTIME_TIMESTAMP // empty' 2>/dev/null || echo "")
+        jq -rs '[.[] | select(.MESSAGE != null and (.MESSAGE | test("Complete|completed|success|Transferred"; "i")))] | last | .__REALTIME_TIMESTAMP // empty' 2>/dev/null || echo "")
     
     if [[ -n "$last_entry" ]]; then
         # Convert microseconds to seconds and format as ISO timestamp
@@ -120,52 +145,74 @@ get_service_last_success() {
     fi
 }
 
-# Update overall status (escalates: OK -> WARNING -> CRITICAL)
+# Update overall status (escalates: OK -> WARNING -> CRITICAL -> ERROR)
+# NOT_CONFIGURED and SUSPICIOUS do not affect overall status
 update_overall_status() {
     local new_status="$1"
     case "$new_status" in
-        CRITICAL)
-            OVERALL_STATUS="CRITICAL"
+        "$STATUS_ERROR")
+            OVERALL_STATUS="$STATUS_ERROR"
             ;;
-        WARNING)
-            if [[ "$OVERALL_STATUS" != "CRITICAL" ]]; then
-                OVERALL_STATUS="WARNING"
+        "$STATUS_CRITICAL")
+            if [[ "$OVERALL_STATUS" != "$STATUS_ERROR" ]]; then
+                OVERALL_STATUS="$STATUS_CRITICAL"
             fi
+            ;;
+        "$STATUS_WARNING"|"$STATUS_SUSPICIOUS")
+            if [[ "$OVERALL_STATUS" != "$STATUS_ERROR" ]] && [[ "$OVERALL_STATUS" != "$STATUS_CRITICAL" ]]; then
+                OVERALL_STATUS="$STATUS_WARNING"
+            fi
+            ;;
+        "$STATUS_NOT_CONFIGURED")
+            # Does not affect overall status
             ;;
     esac
 }
 
 # Record check result
+# $1: check name
+# $2: status (OK, WARNING, CRITICAL, ERROR, NOT_CONFIGURED, SUSPICIOUS)
+# $3: value (numeric or string)
+# $4: threshold (numeric or string)
+# $5: message (human-readable)
+# $6: is_configured (true/false) - whether this check counts toward compliance
 record_check() {
     local name="$1"
     local status="$2"
     local value="$3"
     local threshold="$4"
     local message="$5"
+    local is_configured="${6:-true}"
     
     CHECKS_TOTAL=$((CHECKS_TOTAL + 1))
-    if [[ "$status" == "OK" ]]; then
-        CHECKS_PASSED=$((CHECKS_PASSED + 1))
+    
+    if [[ "$is_configured" == "true" ]]; then
+        CHECKS_CONFIGURED=$((CHECKS_CONFIGURED + 1))
+        if [[ "$status" == "$STATUS_OK" ]]; then
+            CHECKS_PASSED=$((CHECKS_PASSED + 1))
+        fi
+        update_overall_status "$status"
     fi
+    # NOT_CONFIGURED checks don't count toward pass/fail
     
     CHECK_RESULTS["${name}_status"]="$status"
     CHECK_RESULTS["${name}_value"]="$value"
     CHECK_RESULTS["${name}_threshold"]="$threshold"
     CHECK_RESULTS["${name}_message"]="$message"
+    CHECK_RESULTS["${name}_configured"]="$is_configured"
     
-    update_overall_status "$status"
-    log "Check $name: $status ($message)"
+    log "Check $name: $status ($message) [configured=$is_configured]"
 }
 
 # Format bytes to human readable
 format_bytes() {
     local bytes="$1"
     if [[ "$bytes" -ge 1099511627776 ]]; then
-        echo "$(echo "scale=2; $bytes / 1099511627776" | bc) TiB"
+        printf "%.2f TiB" "$(echo "scale=4; $bytes / 1099511627776" | bc)"
     elif [[ "$bytes" -ge 1073741824 ]]; then
-        echo "$(echo "scale=2; $bytes / 1073741824" | bc) GiB"
+        printf "%.2f GiB" "$(echo "scale=4; $bytes / 1073741824" | bc)"
     elif [[ "$bytes" -ge 1048576 ]]; then
-        echo "$(echo "scale=2; $bytes / 1048576" | bc) MiB"
+        printf "%.2f MiB" "$(echo "scale=4; $bytes / 1048576" | bc)"
     else
         echo "$bytes bytes"
     fi
@@ -179,182 +226,234 @@ check_restic_cloud_snapshot() {
     log "Checking restic cloud snapshot age..."
     
     local repo="b2:miket-backups-restic:flux"
-    local last_snapshot_time=""
-    local age_hours=-1
-    local status="CRITICAL"
+    local status="$STATUS_ERROR"
     local message=""
+    local age_hours=-1
     
-    # First check if restic is installed
-    if ! command -v restic &>/dev/null; then
-        status="WARNING"
-        message="restic not installed (deploy data-lifecycle role)"
-        record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+    # Check if feature is enabled
+    if [[ "$RESTIC_ENABLED" != "true" ]]; then
+        status="$STATUS_NOT_CONFIGURED"
+        message="Restic cloud backup monitoring disabled (not configured)"
+        record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "false"
         return
     fi
     
+    # Check if restic is installed
+    if ! command -v restic &>/dev/null; then
+        status="$STATUS_ERROR"
+        message="restic binary not found - install via data-lifecycle role"
+        record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
+        return
+    fi
+    
+    # Check credentials
     if [[ -z "${RESTIC_PASSWORD:-}" ]] || [[ -z "${B2_ACCOUNT_ID:-}" ]] || [[ -z "${B2_ACCOUNT_KEY:-}" ]]; then
-        message="Missing B2/restic credentials"
-        record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="Missing B2/restic credentials in $CREDENTIALS_FILE"
+        record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
     # Get latest snapshot
     local snapshot_json
-    if snapshot_json=$(restic -r "$repo" snapshots --json --latest 1 2>/dev/null); then
+    if snapshot_json=$(restic -r "$repo" snapshots --json --latest 1 2>&1); then
+        local last_snapshot_time
         last_snapshot_time=$(echo "$snapshot_json" | jq -r '.[0].time // empty' 2>/dev/null || echo "")
         if [[ -n "$last_snapshot_time" ]]; then
             age_hours=$(hours_since "$last_snapshot_time")
             if [[ "$age_hours" -lt 0 ]]; then
-                status="CRITICAL"
-                message="Unable to parse snapshot time"
+                status="$STATUS_ERROR"
+                message="Unable to parse snapshot timestamp"
             elif [[ "$age_hours" -le "$SLO_RESTIC_WARNING_AGE_HOURS" ]]; then
-                status="OK"
+                status="$STATUS_OK"
                 message="${age_hours}h ago (within ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
             elif [[ "$age_hours" -le "$SLO_RESTIC_MAX_AGE_HOURS" ]]; then
-                status="WARNING"
+                status="$STATUS_WARNING"
                 message="${age_hours}h ago (approaching ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
             else
-                status="CRITICAL"
+                status="$STATUS_CRITICAL"
                 message="${age_hours}h ago (exceeds ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
             fi
         else
-            status="WARNING"
-            message="No snapshots found in repository"
+            status="$STATUS_WARNING"
+            message="No snapshots found in repository (may be new)"
         fi
     else
-        message="Unable to connect to restic repository"
+        status="$STATUS_ERROR"
+        message="Failed to connect to restic repository: ${snapshot_json:0:100}"
     fi
     
-    record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+    record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
 }
 
 check_restic_local_snapshot() {
     log "Checking restic local snapshot age..."
     
     local repo="$RESTIC_LOCAL_REPO"
-    local last_snapshot_time=""
-    local age_hours=-1
-    local status="CRITICAL"
+    local status="$STATUS_ERROR"
     local message=""
+    local age_hours=-1
     
-    # First check if restic is installed
+    # Check if feature is enabled
+    if [[ "$RESTIC_ENABLED" != "true" ]]; then
+        status="$STATUS_NOT_CONFIGURED"
+        message="Restic local backup monitoring disabled (not configured)"
+        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "false"
+        return
+    fi
+    
+    # Check if restic is installed
     if ! command -v restic &>/dev/null; then
-        status="WARNING"
-        message="restic not installed (deploy data-lifecycle role)"
-        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="restic binary not found - install via data-lifecycle role"
+        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
+    # Check if repo exists
     if [[ ! -d "$repo" ]]; then
-        status="WARNING"
-        message="Local restic repo not initialized: $repo (deploy data-lifecycle role)"
-        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="Local restic repository not found: $repo"
+        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
+    # Check password file
     if [[ ! -f "$RESTIC_LOCAL_PASS" ]]; then
-        message="Local restic password file not found"
-        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="Local restic password file not found: $RESTIC_LOCAL_PASS"
+        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
     # Get latest snapshot
     local snapshot_json
-    if snapshot_json=$(restic -r "$repo" --password-file "$RESTIC_LOCAL_PASS" snapshots --json --latest 1 2>/dev/null); then
+    if snapshot_json=$(restic -r "$repo" --password-file "$RESTIC_LOCAL_PASS" snapshots --json --latest 1 2>&1); then
+        local last_snapshot_time
         last_snapshot_time=$(echo "$snapshot_json" | jq -r '.[0].time // empty' 2>/dev/null || echo "")
         if [[ -n "$last_snapshot_time" ]]; then
             age_hours=$(hours_since "$last_snapshot_time")
             if [[ "$age_hours" -lt 0 ]]; then
-                status="CRITICAL"
-                message="Unable to parse snapshot time"
+                status="$STATUS_ERROR"
+                message="Unable to parse snapshot timestamp"
             elif [[ "$age_hours" -le "$SLO_RESTIC_WARNING_AGE_HOURS" ]]; then
-                status="OK"
+                status="$STATUS_OK"
                 message="${age_hours}h ago (within ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
             elif [[ "$age_hours" -le "$SLO_RESTIC_MAX_AGE_HOURS" ]]; then
-                status="WARNING"
+                status="$STATUS_WARNING"
                 message="${age_hours}h ago (approaching ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
             else
-                status="CRITICAL"
+                status="$STATUS_CRITICAL"
                 message="${age_hours}h ago (exceeds ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
             fi
         else
-            status="WARNING"
+            status="$STATUS_WARNING"
             message="No snapshots found in local repository"
         fi
     else
-        message="Unable to read local restic repository"
+        status="$STATUS_ERROR"
+        message="Failed to read local restic repository"
     fi
     
-    record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message"
+    record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
 }
 
 check_space_mirror_age() {
     log "Checking space mirror sync age..."
     
-    local last_sync=""
-    local age_hours=-1
-    local status="CRITICAL"
+    local status="$STATUS_ERROR"
     local message=""
+    local age_hours=-1
+    
+    # Check if feature is enabled
+    if [[ "$SPACE_MIRROR_ENABLED" != "true" ]]; then
+        status="$STATUS_NOT_CONFIGURED"
+        message="Space mirror monitoring disabled (not configured)"
+        record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message" "false"
+        return
+    fi
     
     # Check if service exists
     if ! systemctl list-unit-files "$SERVICE_SPACE_MIRROR" &>/dev/null; then
-        status="WARNING"
-        message="Space mirror service not configured (deploy data-lifecycle role)"
-        record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="Space mirror service not found: $SERVICE_SPACE_MIRROR"
+        record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
     # Try to get last successful sync from journal
+    local last_sync
     last_sync=$(get_service_last_success "$SERVICE_SPACE_MIRROR")
     
     if [[ -n "$last_sync" ]]; then
         age_hours=$(hours_since "$last_sync")
         if [[ "$age_hours" -lt 0 ]]; then
-            status="CRITICAL"
-            message="Unable to parse last sync time"
+            status="$STATUS_ERROR"
+            message="Unable to parse last sync timestamp"
         elif [[ "$age_hours" -le "$SLO_SPACE_MIRROR_WARNING_AGE_HOURS" ]]; then
-            status="OK"
+            status="$STATUS_OK"
             message="${age_hours}h ago (within ${SLO_SPACE_MIRROR_MAX_AGE_HOURS}h RPO)"
         elif [[ "$age_hours" -le "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" ]]; then
-            status="WARNING"
+            status="$STATUS_WARNING"
             message="${age_hours}h ago (approaching ${SLO_SPACE_MIRROR_MAX_AGE_HOURS}h RPO)"
         else
-            status="CRITICAL"
+            status="$STATUS_CRITICAL"
             message="${age_hours}h ago (exceeds ${SLO_SPACE_MIRROR_MAX_AGE_HOURS}h RPO)"
         fi
     else
-        status="WARNING"
-        message="No successful sync found in journal (service may not have run yet)"
+        status="$STATUS_WARNING"
+        message="No successful sync found in journal (service may not have run)"
     fi
     
-    record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message"
+    record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message" "true"
 }
 
 check_space_mirror_gap() {
     log "Checking space mirror size gap..."
     
+    local status="$STATUS_ERROR"
+    local message=""
+    local gap_percent="0"
     local local_bytes=0
     local remote_bytes=0
-    local gap_bytes=0
-    local gap_percent=0
-    local status="CRITICAL"
-    local message=""
-    local direction=""
     
+    # Check if feature is enabled
+    if [[ "$SPACE_MIRROR_ENABLED" != "true" ]]; then
+        status="$STATUS_NOT_CONFIGURED"
+        message="Space mirror monitoring disabled (not configured)"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "false"
+        return
+    fi
+    
+    # Check credentials
     if [[ -z "${B2_APPLICATION_KEY_ID:-}" ]] || [[ -z "${B2_APPLICATION_KEY:-}" ]]; then
-        message="Missing B2 credentials for mirror check"
-        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message"
+        status="$STATUS_ERROR"
+        message="Missing B2 credentials for mirror gap check"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
         return
     fi
     
     # Get local size
-    if [[ -d "$SPACE_PATH" ]]; then
-        local_bytes=$(du -sb "$SPACE_PATH" 2>/dev/null | awk '{print $1}' || echo 0)
+    if [[ ! -d "$SPACE_PATH" ]]; then
+        status="$STATUS_ERROR"
+        message="Local path not found: $SPACE_PATH"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
+        return
     fi
     
-    if [[ "$local_bytes" -eq 0 ]]; then
-        message="Unable to determine local /space size"
-        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message"
+    local du_output
+    if ! du_output=$(du -sb "$SPACE_PATH" 2>&1); then
+        status="$STATUS_ERROR"
+        message="Failed to compute local size: ${du_output:0:100}"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
+        return
+    fi
+    local_bytes=$(echo "$du_output" | awk '{print $1}')
+    
+    if [[ -z "$local_bytes" ]] || [[ "$local_bytes" -eq 0 ]]; then
+        status="$STATUS_ERROR"
+        message="Local size is zero or invalid"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
         return
     fi
     
@@ -363,33 +462,55 @@ check_space_mirror_gap() {
     export RCLONE_B2_KEY="${B2_APPLICATION_KEY}"
     
     local remote_json
-    if remote_json=$(rclone size ":b2:${B2_BUCKET}" --json 2>/dev/null); then
-        remote_bytes=$(echo "$remote_json" | jq -r '.bytes // 0' 2>/dev/null || echo 0)
+    local rclone_stderr
+    # Capture stdout (JSON) separately from stderr (notices/errors)
+    rclone_stderr=$(mktemp)
+    if ! remote_json=$(rclone size ":b2:${B2_BUCKET}" --json 2>"$rclone_stderr"); then
+        local err_msg
+        err_msg=$(cat "$rclone_stderr" 2>/dev/null || echo "unknown error")
+        rm -f "$rclone_stderr"
+        status="$STATUS_ERROR"
+        message="Failed to query B2 bucket size: ${err_msg:0:100}"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
+        return
     fi
+    rm -f "$rclone_stderr"
     
-    if [[ "$remote_bytes" -eq 0 ]]; then
-        message="Unable to determine B2 mirror size (may be empty or unreachable)"
-        status="WARNING"
-        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message"
+    remote_bytes=$(echo "$remote_json" | jq -r '.bytes // 0' 2>/dev/null || echo "0")
+    
+    if [[ -z "$remote_bytes" ]] || [[ "$remote_bytes" == "null" ]]; then
+        status="$STATUS_ERROR"
+        message="Failed to parse B2 bucket size from response"
+        record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
         return
     fi
     
-    # Calculate gap and direction
+    # Calculate gap - always relative to LOCAL size (what we're backing up)
+    local gap_bytes
+    local direction=""
     local raw_gap=$((local_bytes - remote_bytes))
-    if [[ "$raw_gap" -lt 0 ]]; then
-        gap_bytes=$((-raw_gap))
-        direction="remote_larger"
-    else
+    
+    if [[ "$raw_gap" -ge 0 ]]; then
+        # Local > Remote: mirror is behind (normal case when syncing)
         gap_bytes=$raw_gap
-        direction="local_larger"
+        direction="behind"
+    else
+        # Remote > Local: SUSPICIOUS - B2 has more data than local
+        gap_bytes=$((-raw_gap))
+        direction="ahead"
     fi
     
-    # Calculate percentage relative to the larger of the two
-    local base_bytes=$local_bytes
-    if [[ "$remote_bytes" -gt "$local_bytes" ]]; then
-        base_bytes=$remote_bytes
+    # Calculate percentage relative to LOCAL (what we care about backing up)
+    if [[ "$local_bytes" -gt 0 ]]; then
+        gap_percent=$(echo "scale=2; ($gap_bytes * 100) / $local_bytes" | bc 2>/dev/null || echo "0")
+    else
+        gap_percent="0"
     fi
-    gap_percent=$(echo "scale=2; ($gap_bytes / $base_bytes) * 100" | bc 2>/dev/null || echo "0")
+    
+    # Ensure gap_percent is valid
+    if [[ -z "$gap_percent" ]] || [[ "$gap_percent" == "." ]]; then
+        gap_percent="0"
+    fi
     
     # Format sizes for display
     local local_human remote_human gap_human
@@ -397,55 +518,64 @@ check_space_mirror_gap() {
     remote_human=$(format_bytes "$remote_bytes")
     gap_human=$(format_bytes "$gap_bytes")
     
-    # Determine status
-    local gap_float
-    gap_float=$(echo "$gap_percent" | sed 's/^\./0./')
-    
-    # Build message with direction context
-    local direction_msg=""
-    if [[ "$direction" == "remote_larger" ]]; then
-        direction_msg="Remote has more data than local"
+    # Determine status based on direction and gap
+    if [[ "$direction" == "ahead" ]]; then
+        # SUSPICIOUS: Remote has MORE data than local
+        # This could indicate: stale B2 data, wrong bucket, deleted local files, config mismatch
+        status="$STATUS_SUSPICIOUS"
+        message="SUSPICIOUS: B2 has more data than local. Local: ${local_human}, Remote: ${remote_human}, Excess: ${gap_human} (${gap_percent}%). Investigate: stale B2 data? wrong bucket? deleted local files?"
     else
-        direction_msg="Local has more data than remote"
+        # Normal case: local >= remote, check if mirror is behind
+        local gap_float
+        gap_float=$(echo "$gap_percent" | sed 's/^\./0./')
+        
+        if (( $(echo "$gap_float <= $SLO_SPACE_MIRROR_WARNING_GAP_PERCENT" | bc -l 2>/dev/null || echo 0) )); then
+            status="$STATUS_OK"
+            message="Gap: ${gap_percent}% (${gap_human}). Local: ${local_human}, Remote: ${remote_human}"
+        elif (( $(echo "$gap_float <= $SLO_SPACE_MIRROR_MAX_GAP_PERCENT" | bc -l 2>/dev/null || echo 0) )); then
+            status="$STATUS_WARNING"
+            message="Gap: ${gap_percent}% (${gap_human}) - approaching ${SLO_SPACE_MIRROR_MAX_GAP_PERCENT}% threshold"
+        else
+            status="$STATUS_CRITICAL"
+            message="Gap: ${gap_percent}% (${gap_human}) - exceeds ${SLO_SPACE_MIRROR_MAX_GAP_PERCENT}% threshold. Local: ${local_human}, Remote: ${remote_human}"
+        fi
     fi
     
-    if (( $(echo "$gap_float <= $SLO_SPACE_MIRROR_WARNING_GAP_PERCENT" | bc -l) )); then
-        status="OK"
-        message="Gap: ${gap_percent}% (${gap_human}) - Local: ${local_human}, Remote: ${remote_human}"
-    elif (( $(echo "$gap_float <= $SLO_SPACE_MIRROR_MAX_GAP_PERCENT" | bc -l) )); then
-        status="WARNING"
-        message="Gap: ${gap_percent}% (${gap_human}) - ${direction_msg}"
-    else
-        status="CRITICAL"
-        message="Gap: ${gap_percent}% (${gap_human}) - ${direction_msg}. Local: ${local_human}, Remote: ${remote_human}"
-    fi
-    
-    record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message"
+    record_check "space_mirror_gap" "$status" "$gap_percent" "$SLO_SPACE_MIRROR_MAX_GAP_PERCENT" "$message" "true"
 }
 
 check_nextcloud_db_dump() {
     log "Checking Nextcloud DB dump age..."
     
-    local latest_dump=""
-    local age_hours=-1
-    local status="CRITICAL"
+    local status="$STATUS_ERROR"
     local message=""
+    local age_hours=-1
     
+    # Check if feature is enabled
+    if [[ "$NEXTCLOUD_DB_ENABLED" != "true" ]]; then
+        status="$STATUS_NOT_CONFIGURED"
+        message="Nextcloud DB backup monitoring disabled (not configured)"
+        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "false"
+        return
+    fi
+    
+    # Check if directory exists
     if [[ ! -d "$DB_BACKUP_PATH" ]]; then
-        status="WARNING"
-        message="DB backup directory not found (deploy nextcloud_server role with db_backup)"
-        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="DB backup directory not found: $DB_BACKUP_PATH"
+        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
     # Find latest dump file
-    latest_dump=$(find "$DB_BACKUP_PATH" -name "*.dump" -o -name "*.sql" -o -name "*.sql.gz" 2>/dev/null | \
+    local latest_dump
+    latest_dump=$(find "$DB_BACKUP_PATH" \( -name "*.dump" -o -name "*.sql" -o -name "*.sql.gz" \) 2>/dev/null | \
         xargs -r ls -t 2>/dev/null | head -1 || echo "")
     
     if [[ -z "$latest_dump" ]]; then
-        status="WARNING"
+        status="$STATUS_WARNING"
         message="No database dump files found in $DB_BACKUP_PATH"
-        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message"
+        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
@@ -458,54 +588,63 @@ check_nextcloud_db_dump() {
         age_hours=$(( (now - file_time) / 3600 ))
         
         if [[ "$age_hours" -le "$SLO_DB_DUMP_WARNING_AGE_HOURS" ]]; then
-            status="OK"
+            status="$STATUS_OK"
             message="${age_hours}h ago (within ${SLO_DB_DUMP_MAX_AGE_HOURS}h RPO)"
         elif [[ "$age_hours" -le "$SLO_DB_DUMP_MAX_AGE_HOURS" ]]; then
-            status="WARNING"
+            status="$STATUS_WARNING"
             message="${age_hours}h ago (approaching ${SLO_DB_DUMP_MAX_AGE_HOURS}h RPO)"
         else
-            status="CRITICAL"
+            status="$STATUS_CRITICAL"
             message="${age_hours}h ago (exceeds ${SLO_DB_DUMP_MAX_AGE_HOURS}h RPO)"
         fi
     else
+        status="$STATUS_ERROR"
         message="Unable to determine dump file age"
     fi
     
-    record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message"
+    record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
 }
 
 check_m365_ingestion() {
     log "Checking M365 ingestion age..."
     
-    local last_sync=""
-    local age_hours=-1
-    local status="CRITICAL"
+    local status="$STATUS_ERROR"
     local message=""
+    local age_hours=-1
+    
+    # Check if feature is enabled
+    if [[ "$M365_ENABLED" != "true" ]]; then
+        status="$STATUS_NOT_CONFIGURED"
+        message="M365 ingestion monitoring disabled (not configured)"
+        record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message" "false"
+        return
+    fi
     
     # Check if M365 sync service exists
     if ! systemctl list-unit-files "$SERVICE_M365_SYNC" &>/dev/null; then
-        status="WARNING"
-        message="M365 sync service not configured"
-        record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message"
+        status="$STATUS_ERROR"
+        message="M365 sync service not found: $SERVICE_M365_SYNC"
+        record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
     # Try to get last successful sync from journal
+    local last_sync
     last_sync=$(get_service_last_success "$SERVICE_M365_SYNC")
     
     if [[ -n "$last_sync" ]]; then
         age_hours=$(hours_since "$last_sync")
         if [[ "$age_hours" -lt 0 ]]; then
-            status="CRITICAL"
-            message="Unable to parse last sync time"
+            status="$STATUS_ERROR"
+            message="Unable to parse last sync timestamp"
         elif [[ "$age_hours" -le "$SLO_M365_WARNING_AGE_HOURS" ]]; then
-            status="OK"
+            status="$STATUS_OK"
             message="${age_hours}h ago (within ${SLO_M365_MAX_AGE_HOURS}h RPO)"
         elif [[ "$age_hours" -le "$SLO_M365_MAX_AGE_HOURS" ]]; then
-            status="WARNING"
+            status="$STATUS_WARNING"
             message="${age_hours}h ago (approaching ${SLO_M365_MAX_AGE_HOURS}h RPO)"
         else
-            status="CRITICAL"
+            status="$STATUS_CRITICAL"
             message="${age_hours}h ago (exceeds ${SLO_M365_MAX_AGE_HOURS}h RPO)"
         fi
     else
@@ -517,73 +656,76 @@ check_m365_ingestion() {
                 local now
                 now=$(date +%s)
                 age_hours=$(( (now - dir_time) / 3600 ))
-                status="WARNING"
+                status="$STATUS_WARNING"
                 message="No journal entry; directory last modified ${age_hours}h ago"
             else
-                status="WARNING"
-                message="No sync history found"
+                status="$STATUS_WARNING"
+                message="No sync history found in journal"
             fi
         else
-            status="WARNING"
+            status="$STATUS_ERROR"
             message="M365 ingestion directory not found: $M365_INGESTION_PATH"
         fi
     fi
     
-    record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message"
+    record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message" "true"
 }
 
 check_unknown_remotes() {
     log "Checking for unknown cloud remotes..."
     
-    local unknown_count=0
-    local unknown_list=""
-    local status="OK"
+    local status="$STATUS_OK"
     local message=""
+    local unknown_count=0
+    local unknown_remotes=()
     
     # Check if rclone is installed
     if ! command -v rclone &>/dev/null; then
-        status="WARNING"
-        message="rclone not installed - cannot check remotes"
-        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message"
-        return
-    fi
-    
-    # Get all configured rclone remotes
-    # Note: We check both user config and system config locations
-    local configured_remotes=""
-    local config_found=false
-    
-    # Try user config first
-    if [[ -f "$HOME/.config/rclone/rclone.conf" ]]; then
-        configured_remotes=$(rclone config dump --json 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
-        config_found=true
-    fi
-    
-    # Try system config
-    if [[ -f "/etc/rclone.conf" ]] && [[ -z "$configured_remotes" ]]; then
-        configured_remotes=$(RCLONE_CONFIG=/etc/rclone.conf rclone config dump --json 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
-        config_found=true
-    fi
-    
-    # If no config file found, that's OK - we use backend notation with env vars
-    if [[ "$config_found" == "false" ]] && [[ -z "$configured_remotes" ]]; then
-        status="OK"
-        message="No rclone config file (using backend notation with env vars - OK)"
+        status="$STATUS_ERROR"
+        message="rclone binary not found - cannot check remotes"
         CHECK_RESULTS["unknown_remotes_list"]="[]"
-        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message"
+        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message" "true"
         return
     fi
+    
+    # Check if rclone config path is set and exists
+    if [[ -z "$RCLONE_CONFIG_PATH" ]]; then
+        status="$STATUS_OK"
+        message="rclone config path not configured - remote inspection disabled"
+        CHECK_RESULTS["unknown_remotes_list"]="[]"
+        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message" "true"
+        return
+    fi
+    
+    if [[ ! -f "$RCLONE_CONFIG_PATH" ]]; then
+        status="$STATUS_WARNING"
+        message="rclone config file not found: $RCLONE_CONFIG_PATH"
+        CHECK_RESULTS["unknown_remotes_list"]="[]"
+        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message" "true"
+        return
+    fi
+    
+    if [[ ! -r "$RCLONE_CONFIG_PATH" ]]; then
+        status="$STATUS_ERROR"
+        message="Cannot read rclone config file (permission denied): $RCLONE_CONFIG_PATH"
+        CHECK_RESULTS["unknown_remotes_list"]="[]"
+        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message" "true"
+        return
+    fi
+    
+    # Get all configured rclone remotes from the explicit config file
+    local configured_remotes
+    configured_remotes=$(rclone --config "$RCLONE_CONFIG_PATH" config dump 2>/dev/null | jq -r 'keys[]' 2>/dev/null || echo "")
     
     if [[ -z "$configured_remotes" ]]; then
-        status="OK"
-        message="No rclone remotes configured"
+        status="$STATUS_OK"
+        message="No rclone remotes configured in $RCLONE_CONFIG_PATH"
         CHECK_RESULTS["unknown_remotes_list"]="[]"
-        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message"
+        record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message" "true"
         return
     fi
     
     # Check each remote against approved list
-    local unknown_remotes=()
     for remote in $configured_remotes; do
         local is_approved=false
         for approved in $APPROVED_REMOTES; do
@@ -600,18 +742,23 @@ check_unknown_remotes() {
     unknown_count=${#unknown_remotes[@]}
     
     if [[ "$unknown_count" -eq 0 ]]; then
-        status="OK"
-        message="All configured remotes are approved"
+        status="$STATUS_OK"
+        message="All ${#configured_remotes[@]} configured remotes are approved"
     else
-        status="CRITICAL"
+        status="$STATUS_CRITICAL"
+        local unknown_list
         unknown_list=$(printf '%s, ' "${unknown_remotes[@]}" | sed 's/, $//')
-        message="Found $unknown_count unknown remote(s): $unknown_list"
+        message="ALERT: $unknown_count unknown remote(s) detected: $unknown_list"
     fi
     
     # Store unknown remotes list for JSON output
-    CHECK_RESULTS["unknown_remotes_list"]=$(printf '%s\n' "${unknown_remotes[@]}" | jq -R . | jq -s . 2>/dev/null || echo "[]")
+    if [[ "$unknown_count" -gt 0 ]]; then
+        CHECK_RESULTS["unknown_remotes_list"]=$(printf '%s\n' "${unknown_remotes[@]}" | jq -R . | jq -s . 2>/dev/null || echo "[]")
+    else
+        CHECK_RESULTS["unknown_remotes_list"]="[]"
+    fi
     
-    record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message"
+    record_check "unknown_remotes" "$status" "$unknown_count" "0" "$message" "true"
 }
 
 # =============================================================================
@@ -622,8 +769,13 @@ generate_json_output() {
     log "Generating JSON output..."
     
     local compliance_pct=0
-    if [[ "$CHECKS_TOTAL" -gt 0 ]]; then
-        compliance_pct=$(echo "scale=1; ($CHECKS_PASSED / $CHECKS_TOTAL) * 100" | bc 2>/dev/null || echo "0")
+    if [[ "$CHECKS_CONFIGURED" -gt 0 ]]; then
+        compliance_pct=$(echo "scale=1; ($CHECKS_PASSED * 100) / $CHECKS_CONFIGURED" | bc 2>/dev/null || echo "0")
+    fi
+    
+    # Ensure compliance_pct is valid
+    if [[ -z "$compliance_pct" ]] || [[ "$compliance_pct" == "." ]]; then
+        compliance_pct="0"
     fi
     
     cat > "$JSON_OUTPUT" << JSONEOF
@@ -632,48 +784,56 @@ generate_json_output() {
   "overall_status": "$OVERALL_STATUS",
   "slo_compliance": {
     "passed": $CHECKS_PASSED,
+    "configured": $CHECKS_CONFIGURED,
     "total": $CHECKS_TOTAL,
     "percentage": $compliance_pct
   },
   "checks": {
     "restic_cloud_age": {
       "status": "${CHECK_RESULTS[restic_cloud_age_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[restic_cloud_age_configured]:-false},
       "value_hours": ${CHECK_RESULTS[restic_cloud_age_value]:--1},
       "threshold_hours": ${CHECK_RESULTS[restic_cloud_age_threshold]:-24},
       "message": "${CHECK_RESULTS[restic_cloud_age_message]:-No data}"
     },
     "restic_local_age": {
       "status": "${CHECK_RESULTS[restic_local_age_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[restic_local_age_configured]:-false},
       "value_hours": ${CHECK_RESULTS[restic_local_age_value]:--1},
       "threshold_hours": ${CHECK_RESULTS[restic_local_age_threshold]:-24},
       "message": "${CHECK_RESULTS[restic_local_age_message]:-No data}"
     },
     "space_mirror_age": {
       "status": "${CHECK_RESULTS[space_mirror_age_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[space_mirror_age_configured]:-false},
       "value_hours": ${CHECK_RESULTS[space_mirror_age_value]:--1},
       "threshold_hours": ${CHECK_RESULTS[space_mirror_age_threshold]:-24},
       "message": "${CHECK_RESULTS[space_mirror_age_message]:-No data}"
     },
     "space_mirror_gap": {
       "status": "${CHECK_RESULTS[space_mirror_gap_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[space_mirror_gap_configured]:-false},
       "value_percent": ${CHECK_RESULTS[space_mirror_gap_value]:-0},
       "threshold_percent": ${CHECK_RESULTS[space_mirror_gap_threshold]:-5},
       "message": "${CHECK_RESULTS[space_mirror_gap_message]:-No data}"
     },
     "nextcloud_db_age": {
       "status": "${CHECK_RESULTS[nextcloud_db_age_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[nextcloud_db_age_configured]:-false},
       "value_hours": ${CHECK_RESULTS[nextcloud_db_age_value]:--1},
       "threshold_hours": ${CHECK_RESULTS[nextcloud_db_age_threshold]:-24},
       "message": "${CHECK_RESULTS[nextcloud_db_age_message]:-No data}"
     },
     "m365_ingestion_age": {
       "status": "${CHECK_RESULTS[m365_ingestion_age_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[m365_ingestion_age_configured]:-false},
       "value_hours": ${CHECK_RESULTS[m365_ingestion_age_value]:--1},
       "threshold_hours": ${CHECK_RESULTS[m365_ingestion_age_threshold]:-24},
       "message": "${CHECK_RESULTS[m365_ingestion_age_message]:-No data}"
     },
     "unknown_remotes": {
       "status": "${CHECK_RESULTS[unknown_remotes_status]:-UNKNOWN}",
+      "configured": ${CHECK_RESULTS[unknown_remotes_configured]:-true},
       "count": ${CHECK_RESULTS[unknown_remotes_value]:-0},
       "remotes": ${CHECK_RESULTS[unknown_remotes_list]:-[]},
       "message": "${CHECK_RESULTS[unknown_remotes_message]:-No data}"
@@ -688,49 +848,54 @@ JSONEOF
 generate_markdown_output() {
     log "Generating Markdown output..."
     
-    # Status emoji mapping
-    local overall_emoji="?"
-    case "$OVERALL_STATUS" in
-        OK) overall_emoji="OK" ;;
-        WARNING) overall_emoji="WARN" ;;
-        CRITICAL) overall_emoji="CRIT" ;;
-    esac
-    
-    # Helper function for status emoji
+    # Status indicator function
     status_indicator() {
         case "$1" in
-            OK) echo "[OK]" ;;
-            WARNING) echo "[WARN]" ;;
-            CRITICAL) echo "[CRIT]" ;;
-            *) echo "[?]" ;;
+            "$STATUS_OK") echo "✅" ;;
+            "$STATUS_WARNING") echo "⚠️" ;;
+            "$STATUS_CRITICAL") echo "❗" ;;
+            "$STATUS_ERROR") echo "🔴" ;;
+            "$STATUS_NOT_CONFIGURED") echo "⏸️" ;;
+            "$STATUS_SUSPICIOUS") echo "🔍" ;;
+            *) echo "❓" ;;
         esac
     }
+    
+    # Overall status emoji
+    local overall_emoji
+    overall_emoji=$(status_indicator "$OVERALL_STATUS")
+    
+    # Calculate compliance
+    local compliance_pct=0
+    if [[ "$CHECKS_CONFIGURED" -gt 0 ]]; then
+        compliance_pct=$(echo "scale=0; ($CHECKS_PASSED * 100) / $CHECKS_CONFIGURED" | bc 2>/dev/null || echo "0")
+    fi
     
     cat > "$MARKDOWN_OUTPUT" << MDEOF
 # Data Estate Health Summary
 
 **Last Updated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')  
-**Overall Status:** **$overall_emoji**  
-**SLO Compliance:** $CHECKS_PASSED / $CHECKS_TOTAL checks passed
+**Overall Status:** ${overall_emoji} **${OVERALL_STATUS}**  
+**SLO Compliance:** ${CHECKS_PASSED}/${CHECKS_CONFIGURED} configured checks passed (${compliance_pct}%)
 
 ---
 
 ## Backups (Restic)
 
-### Cloud Backup (/flux to B2)
+### Cloud Backup (/flux → B2)
 $(status_indicator "${CHECK_RESULTS[restic_cloud_age_status]:-UNKNOWN}") ${CHECK_RESULTS[restic_cloud_age_message]:-No data}
 
-### Local Snapshots (/flux to /space/snapshots)
+### Local Snapshots (/flux → /space/snapshots)
 $(status_indicator "${CHECK_RESULTS[restic_local_age_status]:-UNKNOWN}") ${CHECK_RESULTS[restic_local_age_message]:-No data}
 
 ---
 
-## B2 Mirror (/space to miket-space-mirror)
+## B2 Mirror (/space → miket-space-mirror)
 
 ### Sync Age
 $(status_indicator "${CHECK_RESULTS[space_mirror_age_status]:-UNKNOWN}") ${CHECK_RESULTS[space_mirror_age_message]:-No data}
 
-### Size Gap
+### Size Comparison
 $(status_indicator "${CHECK_RESULTS[space_mirror_gap_status]:-UNKNOWN}") ${CHECK_RESULTS[space_mirror_gap_message]:-No data}
 
 ---
@@ -741,7 +906,7 @@ $(status_indicator "${CHECK_RESULTS[nextcloud_db_age_status]:-UNKNOWN}") ${CHECK
 
 ---
 
-## M365 Ingestion (OneDrive to /space/mike/inbox/ms365)
+## M365 Ingestion (OneDrive → /space/mike/inbox/ms365)
 
 $(status_indicator "${CHECK_RESULTS[m365_ingestion_age_status]:-UNKNOWN}") ${CHECK_RESULTS[m365_ingestion_age_message]:-No data}
 
@@ -750,6 +915,16 @@ $(status_indicator "${CHECK_RESULTS[m365_ingestion_age_status]:-UNKNOWN}") ${CHE
 ## Cloud Inventory
 
 $(status_indicator "${CHECK_RESULTS[unknown_remotes_status]:-UNKNOWN}") ${CHECK_RESULTS[unknown_remotes_message]:-No data}
+
+---
+
+### Legend
+- ✅ OK: Within SLO thresholds
+- ⚠️ WARNING: Approaching threshold
+- ❗ CRITICAL: Threshold exceeded
+- 🔴 ERROR: Check failed (investigate)
+- ⏸️ NOT_CONFIGURED: Feature disabled
+- 🔍 SUSPICIOUS: Unexpected state (investigate)
 
 ---
 
@@ -766,10 +941,11 @@ MDEOF
 
 main() {
     log "Starting Data Estate Status Collector..."
+    log "Feature flags: restic=$RESTIC_ENABLED, nextcloud_db=$NEXTCLOUD_DB_ENABLED, m365=$M365_ENABLED, space_mirror=$SPACE_MIRROR_ENABLED"
     
     # Load credentials
     if ! load_credentials; then
-        error "Failed to load credentials. Some checks will fail."
+        error "Failed to load credentials. Some checks may fail."
     fi
     
     # Run all checks
@@ -781,26 +957,25 @@ main() {
     check_m365_ingestion
     check_unknown_remotes
     
-    # Generate outputs
+    # Generate outputs (always, even if checks fail)
     generate_json_output
     generate_markdown_output
     
     # Summary
     log "Data Estate Status Collection Complete"
     log "Overall Status: $OVERALL_STATUS"
-    log "SLO Compliance: $CHECKS_PASSED / $CHECKS_TOTAL checks passed"
+    log "SLO Compliance: $CHECKS_PASSED / $CHECKS_CONFIGURED configured checks passed"
     
-    # Exit with appropriate code
-    # WARNING is acceptable (not a failure), only CRITICAL causes non-zero exit
+    # Exit codes:
+    # 0 = OK or WARNING (acceptable states)
+    # 1 = CRITICAL or ERROR (action required)
+    # NOT_CONFIGURED and SUSPICIOUS don't affect exit code if no other issues
     case "$OVERALL_STATUS" in
-        OK)
+        "$STATUS_OK"|"$STATUS_WARNING")
             exit 0
             ;;
-        WARNING)
-            exit 0  # Warnings are informational, not failures
-            ;;
-        CRITICAL)
-            exit 1  # Critical issues should be flagged
+        *)
+            exit 1
             ;;
     esac
 }
