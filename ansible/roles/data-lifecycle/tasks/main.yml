@@ -6,6 +6,26 @@
 - name: Setup Credentials
   include_tasks: credentials.yml
 
+# =============================================================================
+# Tool Installation
+# =============================================================================
+
+- name: Install restic for encrypted backups
+  ansible.builtin.package:
+    name: restic
+    state: present
+  when: data_lifecycle_install_restic | default(true) | bool
+
+- name: Install rclone for cloud sync
+  ansible.builtin.package:
+    name: rclone
+    state: present
+  when: data_lifecycle_install_rclone | default(true) | bool
+
+# =============================================================================
+# Directory Structure
+# =============================================================================
+
 - name: Ensure Flux directory structure exists
   file:
     path: "{{ item }}"
@@ -31,7 +51,23 @@
     - /space/media
     - /space/datasets
     - /space/archives
-    - /space/snapshots/flux-local
+    - "{{ data_lifecycle_restic_local_repo | default('/space/snapshots/flux-local') }}"
+
+- name: Ensure data estate markers directory exists
+  ansible.builtin.file:
+    path: "{{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Ensure data lifecycle logs directory exists
+  ansible.builtin.file:
+    path: "{{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
 
 - name: Check if local Restic password file exists
   stat:
@@ -131,6 +167,21 @@
     dest: /etc/systemd/system/flux-local.timer
     mode: '0644'
   notify: Reload Systemd
+
+# =============================================================================
+# Failure Notification Service
+# =============================================================================
+
+- name: Deploy failure-notify template service
+  ansible.builtin.template:
+    src: failure-notify@.service.j2
+    dest: /etc/systemd/system/failure-notify@.service
+    mode: '0644'
+  notify: Reload Systemd
+
+# =============================================================================
+# Enable Timers
+# =============================================================================
 
 - name: Enable and Start Timers
   systemd:

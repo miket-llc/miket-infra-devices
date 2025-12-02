@@ -4,13 +4,15 @@
 # Data Estate Status Collector - systemd service unit
 # Monitors backup freshness, B2 mirror gaps, M365 ingestion, and unknown cloud remotes
 #
+# Part of PHC Data Estate monitoring infrastructure
 # Deployed by Ansible data_estate_status role
 
 [Unit]
-Description=Data Estate Status Collector
+Description=Data Estate Status Collector (PHC monitoring)
 Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=network-online.target
 Wants=network-online.target
+OnFailure=failure-notify@%n.service
 
 [Service]
 Type=oneshot
@@ -39,8 +41,9 @@ ProtectHome=read-only
 # Allow write to output directories
 ReadWritePaths={{ data_estate_json_output_dir }}
 ReadWritePaths={{ data_estate_markdown_output_dir }}
+ReadWritePaths={{ data_estate_markers_dir | default('/space/_ops/data-estate/markers') }}
 
-# Allow read access to config and credentials
+# Allow read access to config, credentials, and markers
 ReadOnlyPaths={{ data_estate_config_dir }}
 ReadOnlyPaths=/etc/miket
 

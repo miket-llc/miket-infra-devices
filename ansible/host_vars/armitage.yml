@@ -20,7 +20,7 @@ hardware:
     vram_gb: 8
     driver_version: "latest"
     cuda_capable: true
-  memory_gb: 32
+  memory_gb: 16
   storage:
     - type: "NVMe SSD"
       size_gb: 2048

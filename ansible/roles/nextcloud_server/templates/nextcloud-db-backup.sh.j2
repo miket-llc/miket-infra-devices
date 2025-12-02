@@ -4,23 +4,101 @@
 #
 # Nextcloud PostgreSQL Backup Script
 # Runs before restic snapshots to ensure DB is included
+# Writes success marker for Data Estate collector
 
 set -euo pipefail
 
+# =============================================================================
 # Configuration
+# =============================================================================
+
 BACKUP_DIR="{{ nextcloud_db_backup_path }}"
 RETAIN_DAYS="{{ nextcloud_db_backup_retain_days }}"
 LOG_FILE="{{ nextcloud_log_path }}/db-backup.log"
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 BACKUP_FILE="${BACKUP_DIR}/nextcloud_db_${TIMESTAMP}.sql.gz"
+MARKERS_DIR="{{ nextcloud_markers_dir | default('/space/_ops/data-estate/markers') }}"
+MARKER_FILE="${MARKERS_DIR}/nextcloud_db.json"
+HOSTNAME=$(hostname)
+ENV_FILE="{{ nextcloud_env_path }}"
 
-# Source secrets for DB credentials
-source "{{ nextcloud_env_path }}"
+# =============================================================================
+# Helper Functions
+# =============================================================================
 
-# Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
+
+# Safely load environment file with special characters in values
+# Uses set -a to export all variables, with proper quoting
+load_env() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        log "ERROR: Environment file not found: $ENV_FILE"
+        exit 1
+    fi
+    
+    # Read env file safely - handle special characters in values
+    # The env file is expected to be in KEY=VALUE format
+    set -a
+    # shellcheck source=/dev/null
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+        # Remove any leading/trailing whitespace from key
+        key=$(echo "$key" | xargs)
+        # Export the variable (value may contain special chars)
+        export "$key"="$value"
+    done < "$ENV_FILE"
+    set +a
+}
+
+# Write marker file on success (atomic write)
+write_marker() {
+    local status="$1"
+    local message="${2:-}"
+    local dump_path="${3:-}"
+    local dump_size="${4:-0}"
+    
+    mkdir -p "$MARKERS_DIR"
+    local temp_file
+    temp_file=$(mktemp "${MARKERS_DIR}/.nextcloud_db.XXXXXX")
+    
+    cat > "$temp_file" << EOF
+{
+  "job": "nextcloud_db",
+  "host": "${HOSTNAME}",
+  "timestamp": "$(date -Iseconds)",
+  "db_name": "nextcloud",
+  "dump_path": "${dump_path}",
+  "dump_size_bytes": ${dump_size},
+  "status": "${status}",
+  "message": "${message}"
+}
+EOF
+    
+    # Atomic move - only updates marker if write succeeds
+    mv "$temp_file" "$MARKER_FILE"
+    chmod 644 "$MARKER_FILE"
+    log "Marker file updated: ${MARKER_FILE}"
+}
+
+# =============================================================================
+# Load Credentials
+# =============================================================================
+
+# Load environment with safe handling of special characters
+load_env
+
+# Validate required credentials
+if [[ -z "${NEXTCLOUD_DB_USER:-}" ]]; then
+    log "ERROR: NEXTCLOUD_DB_USER not set in environment"
+    exit 1
+fi
+
+# =============================================================================
+# Main Backup Logic
+# =============================================================================
 
 log "=========================================="
 log "Nextcloud Database Backup Started"
@@ -35,12 +113,20 @@ podman exec nextcloud-app php occ maintenance:mode --on 2>/dev/null || true
 
 # Dump database
 log "Dumping PostgreSQL database..."
-podman exec nextcloud-db pg_dump \
+if podman exec nextcloud-db pg_dump \
     -U "${NEXTCLOUD_DB_USER}" \
     -d nextcloud \
     --clean \
     --if-exists \
-    | gzip > "$BACKUP_FILE"
+    | gzip > "$BACKUP_FILE"; then
+    log "Database dump completed"
+else
+    EXIT_CODE=$?
+    log "ERROR: Database dump failed with exit code $EXIT_CODE"
+    # Disable maintenance mode before exiting
+    podman exec nextcloud-app php occ maintenance:mode --off 2>/dev/null || true
+    exit $EXIT_CODE
+fi
 
 # Disable maintenance mode
 log "Disabling maintenance mode..."
@@ -49,9 +135,14 @@ podman exec nextcloud-app php occ maintenance:mode --off 2>/dev/null || true
 # Verify backup
 if [[ -s "$BACKUP_FILE" ]]; then
     BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    BACKUP_SIZE_BYTES=$(stat -c %s "$BACKUP_FILE" 2>/dev/null || echo "0")
     log "Backup created successfully: $BACKUP_FILE ($BACKUP_SIZE)"
+    
+    # Write success marker
+    write_marker "success" "Backup completed successfully" "$BACKUP_FILE" "$BACKUP_SIZE_BYTES"
 else
     log "ERROR: Backup file is empty or not created!"
+    # Do NOT update marker on failure - preserve last success timestamp
     exit 1
 fi
 
@@ -65,5 +156,5 @@ log "Remaining backups: $BACKUP_COUNT"
 
 log "=========================================="
 log "Nextcloud Database Backup Completed"
-log "=========================================="
+log "==========================================
 

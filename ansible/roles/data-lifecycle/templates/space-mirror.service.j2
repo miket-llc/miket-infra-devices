@@ -1,10 +1,31 @@
 [Unit]
-Description=Mirror /space to Backblaze B2
+Description=Mirror /space to Backblaze B2 (rclone sync)
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=network-online.target
+Wants=network-online.target
+OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%n.service') }}
 
 [Service]
 Type=oneshot
+
+# Credentials from AKV via secrets_sync
 EnvironmentFile={{ data_lifecycle_env_file }}
+
+# Marker file directory for Data Estate collector
+Environment=DATA_LIFECYCLE_MARKERS_DIR={{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}
+Environment=DATA_LIFECYCLE_LOG_DIR={{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}
+
 ExecStart=/usr/local/bin/space-mirror.sh
 User=root
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=space-mirror
+
+# Timeout (generous for large syncs)
+TimeoutStartSec=14400
+
+[Install]
+WantedBy=multi-user.target
 

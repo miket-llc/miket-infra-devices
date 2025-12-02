@@ -98,7 +98,7 @@ devices:
         model: Alienware Gaming Laptop
         cpu: Intel Core i9-13900HX
         gpu: NVIDIA GeForce RTX 4070
-        memory_gb: 32
+        memory_gb: 16
         storage_tb: 3
       network:
         tailscale: enabled

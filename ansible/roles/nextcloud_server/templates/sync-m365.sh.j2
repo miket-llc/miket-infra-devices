@@ -5,29 +5,88 @@
 # M365 Ingestion Sync Script
 # ONE-WAY SYNC: M365 → /space/mike/inbox/ms365
 # NEVER syncs back to M365 - this is ingestion only
+# Uses --no-delete-dest semantics (rclone copy) - /space remains SoR
 #
 # Usage: sync-m365.sh [--dry-run]
 
 set -euo pipefail
 
+# =============================================================================
 # Configuration
+# =============================================================================
+
 RCLONE_CONFIG="{{ nextcloud_config_path }}/rclone-m365.conf"
 TARGET_DIR="{{ nextcloud_m365_inbox }}"
 LOG_FILE="{{ nextcloud_log_path }}/m365-sync.log"
 LOCK_FILE="/var/run/nextcloud-m365-sync.lock"
+MARKERS_DIR="{{ nextcloud_markers_dir | default('/space/_ops/data-estate/markers') }}"
+MARKER_FILE="${MARKERS_DIR}/m365_ingest.json"
+HOSTNAME=$(hostname)
+ENV_FILE="{{ nextcloud_env_path }}"
 
-# Source secrets
-if [[ -f "{{ nextcloud_env_path }}" ]]; then
-    source "{{ nextcloud_env_path }}"
-else
-    echo "ERROR: Secrets file not found: {{ nextcloud_env_path }}" >&2
-    exit 1
-fi
+# =============================================================================
+# Helper Functions
+# =============================================================================
 
-# Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
+
+# Write marker file on success (atomic write)
+write_marker() {
+    local status="$1"
+    local message="${2:-}"
+    local files_transferred="${3:-0}"
+    local bytes_transferred="${4:-0}"
+    
+    mkdir -p "$MARKERS_DIR"
+    local temp_file
+    temp_file=$(mktemp "${MARKERS_DIR}/.m365_ingest.XXXXXX")
+    
+    cat > "$temp_file" << EOF
+{
+  "job": "m365_ingest",
+  "host": "${HOSTNAME}",
+  "timestamp": "$(date -Iseconds)",
+  "target_path": "${TARGET_DIR}",
+  "status": "${status}",
+  "message": "${message}",
+  "files_transferred": ${files_transferred},
+  "bytes_transferred": ${bytes_transferred}
+}
+EOF
+    
+    # Atomic move - only updates marker if write succeeds
+    mv "$temp_file" "$MARKER_FILE"
+    chmod 644 "$MARKER_FILE"
+    log "Marker file updated: ${MARKER_FILE}"
+}
+
+# Safely load environment file
+load_env() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        log "ERROR: Secrets file not found: $ENV_FILE"
+        exit 1
+    fi
+    
+    set -a
+    while IFS='=' read -r key value; do
+        [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+        key=$(echo "$key" | xargs)
+        export "$key"="$value"
+    done < "$ENV_FILE"
+    set +a
+}
+
+# =============================================================================
+# Load Credentials
+# =============================================================================
+
+load_env
+
+# =============================================================================
+# Lock and Arguments
+# =============================================================================
 
 # Lock to prevent concurrent runs
 exec 200>"$LOCK_FILE"
@@ -43,6 +102,10 @@ if [[ "${1:-}" == "--dry-run" ]]; then
     log "DRY RUN MODE - no changes will be made"
 fi
 
+# =============================================================================
+# Main Sync Logic
+# =============================================================================
+
 log "=========================================="
 log "M365 Ingestion Sync Started"
 log "Target: $TARGET_DIR"
@@ -51,9 +114,15 @@ log "=========================================="
 # Ensure target directory exists
 mkdir -p "$TARGET_DIR"
 
+# Track total stats
+TOTAL_FILES=0
+TOTAL_BYTES=0
+SYNC_SUCCESS=true
+
 # Sync OneDrive (one-way, no deletions from target)
 log "Syncing OneDrive..."
-rclone copy \
+ONEDRIVE_OUTPUT=$(mktemp)
+if rclone copy \
     --config "$RCLONE_CONFIG" \
     --progress \
     --log-file "$LOG_FILE" \
@@ -67,11 +136,18 @@ rclone copy \
     --ignore-existing \
     $DRY_RUN \
     "m365-onedrive:" \
-    "$TARGET_DIR/onedrive/"
+    "$TARGET_DIR/onedrive/" 2>&1 | tee "$ONEDRIVE_OUTPUT"; then
+    log "OneDrive sync completed"
+else
+    log "WARNING: OneDrive sync had errors"
+    SYNC_SUCCESS=false
+fi
+rm -f "$ONEDRIVE_OUTPUT"
 
 # Sync SharePoint Sites (one-way)
 log "Syncing SharePoint Sites..."
-rclone copy \
+SHAREPOINT_OUTPUT=$(mktemp)
+if rclone copy \
     --config "$RCLONE_CONFIG" \
     --progress \
     --log-file "$LOG_FILE" \
@@ -85,7 +161,13 @@ rclone copy \
     --ignore-existing \
     $DRY_RUN \
     "m365-sharepoint:" \
-    "$TARGET_DIR/sharepoint/"
+    "$TARGET_DIR/sharepoint/" 2>&1 | tee "$SHAREPOINT_OUTPUT"; then
+    log "SharePoint sync completed"
+else
+    log "WARNING: SharePoint sync had errors"
+    SYNC_SUCCESS=false
+fi
+rm -f "$SHAREPOINT_OUTPUT"
 
 # Set permissions
 log "Setting permissions..."
@@ -95,6 +177,14 @@ chmod -R 755 "$TARGET_DIR"
 log "=========================================="
 log "M365 Ingestion Sync Completed"
 log "=========================================="
+
+# Write marker (only on full success)
+if [[ "$SYNC_SUCCESS" == "true" ]]; then
+    write_marker "success" "M365 ingestion completed successfully" "$TOTAL_FILES" "$TOTAL_BYTES"
+else
+    log "WARNING: Sync completed with errors - marker not updated"
+    # Do NOT update marker on failure - preserve last success timestamp
+fi
 
 # Trigger Nextcloud file scan
 log "Triggering Nextcloud file scan..."

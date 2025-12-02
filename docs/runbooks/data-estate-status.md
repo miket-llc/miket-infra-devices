@@ -1,7 +1,7 @@
 # Data Estate Status Collector Runbook
 
 **Status:** ACTIVE  
-**Target:** motoko (PHC storage server)  
+**Target:** motoko (PHC storage server), extensible to other hosts  
 **Owner:** Infrastructure Team
 
 ## Overview
@@ -14,17 +14,77 @@ The collector runs every 6 hours and generates:
 - **JSON output:** `/space/_ops/data-estate/status.json` (machine-readable)
 - **Markdown output:** `/space/_services/nextcloud/dashboard/data-estate-status.md` (human-readable, displayed in Nextcloud)
 
+## Architecture: Marker-Based Status Detection
+
+The collector uses a **marker file system** for reliable and fast status detection:
+
+### How It Works
+
+1. **Backup jobs write markers on success** - Each job (restic, space-mirror, Nextcloud DB, M365) writes a JSON marker file to `/space/_ops/data-estate/markers/` upon successful completion.
+
+2. **Collector reads markers first** - The collector prefers marker file timestamps over journal parsing or direct repository queries.
+
+3. **Fallback chain** - If markers are missing or corrupted:
+   - Marker file → systemd journal → direct query (restic/rclone) → directory mtime
+
+### Marker Files
+
+| Job | Marker File | Written By |
+|-----|-------------|------------|
+| Restic Cloud | `restic_cloud.json` | `flux-backup.sh` |
+| Restic Local | `restic_local.json` | `flux-local-snap.sh` |
+| B2 Mirror | `b2_mirror.json` | `space-mirror.sh` |
+| Nextcloud DB | `nextcloud_db.json` | `nextcloud-db-backup.sh` |
+| M365 Ingest | `m365_ingest.json` | `sync-m365.sh` |
+
+### Marker File Schema
+
+```json
+{
+  "job": "restic_cloud",
+  "host": "motoko",
+  "timestamp": "2025-12-02T18:30:00+00:00",
+  "source": "/flux",
+  "repo": "b2:miket-backups-restic:flux",
+  "status": "success",
+  "message": "Backup completed successfully",
+  "snapshot_id": "abc123..."
+}
+```
+
+**Key behavior:**
+- Markers are written **only on success** (atomic write via temp file + mv)
+- Failed jobs **do not** overwrite markers - preserving last success timestamp
+- Corrupted markers fall back to journal/direct query
+
 ## What Gets Monitored
 
-| Check | Description | SLO Threshold |
-|-------|-------------|---------------|
-| Restic Cloud Snapshot | Age of latest `/flux` backup to B2 | < 24 hours |
-| Restic Local Snapshot | Age of latest `/flux` snapshot to `/space/snapshots` | < 24 hours |
-| Space Mirror Age | Time since last successful sync to B2 | < 24 hours |
-| Space Mirror Gap | Size difference between `/space` and B2 mirror | < 5% |
-| Nextcloud DB Dump | Age of latest PostgreSQL dump | < 24 hours |
-| M365 Ingestion | Time since last OneDrive sync | < 24 hours |
-| Unknown Remotes | Detection of unapproved rclone remotes | 0 unknown |
+| Check | Description | OK | Warning | Critical |
+|-------|-------------|----|---------| ---------|
+| Restic Cloud Snapshot | Age of latest `/flux` backup to B2 | ≤ 24h | > 24h | > 48h |
+| Restic Local Snapshot | Age of latest `/flux` snapshot to `/space/snapshots` | ≤ 24h | > 24h | > 48h |
+| Space Mirror Age | Time since last successful sync to B2 | ≤ 24h | > 24h | > 48h |
+| Space Mirror Gap | Size difference between `/space` and B2 mirror | ≤ 5% | 5-15% | > 15% |
+| Nextcloud DB Dump | Age of latest PostgreSQL dump | ≤ 24h | > 24h | > 48h |
+| M365 Ingestion | Time since last OneDrive sync | ≤ 6h | > 6h | > 24h |
+| Unknown Remotes | Detection of unapproved rclone remotes | 0 | - | > 0 |
+
+## Status Vocabulary
+
+| Status | Meaning | Affects Overall? |
+|--------|---------|------------------|
+| `OK` | Within SLO thresholds | Yes (positive) |
+| `WARNING` | Approaching threshold | Yes (degrades) |
+| `CRITICAL` | Threshold exceeded | Yes (degrades) |
+| `ERROR` | Check failed to run | Yes (degrades) |
+| `NOT_CONFIGURED` | Feature disabled for this host | No |
+| `SUSPICIOUS` | Unexpected state (investigate) | Yes (degrades to WARNING) |
+
+### SUSPICIOUS State
+
+The `SUSPICIOUS` status indicates something unexpected:
+- **B2 mirror larger than local:** Remote has more data than `/space` - could indicate stale B2 data, wrong bucket, or deleted local files
+- **Unknown rclone remotes:** Remotes configured that aren't in the approved list
 
 ## Quick Commands
 
@@ -39,6 +99,12 @@ jq . /space/_ops/data-estate/status.json
 
 # Check overall status only
 jq -r '.overall_status' /space/_ops/data-estate/status.json
+
+# List marker files
+ls -la /space/_ops/data-estate/markers/
+
+# View a specific marker
+jq . /space/_ops/data-estate/markers/restic_cloud.json
 ```
 
 ### Run Collector Manually
@@ -67,22 +133,50 @@ systemctl list-timers data-estate-status.timer
 journalctl -u data-estate-status.timer -n 20
 ```
 
-## Interpreting Status
+### Run Backup Jobs Manually
 
-### Overall Status
+```bash
+# Run restic cloud backup
+sudo systemctl start flux-backup.service
 
-- **OK:** All SLO thresholds met. Data estate is healthy.
-- **WARNING:** Some thresholds approaching limits. Investigate soon.
-- **CRITICAL:** One or more thresholds exceeded. Immediate action required.
+# Run restic local snapshot
+sudo systemctl start flux-local.service
 
-### Status Indicators (Markdown)
+# Run space mirror
+sudo systemctl start space-mirror.service
 
-- ✅ **OK:** Check passed, within SLO
-- ⚠️ **WARNING:** Approaching threshold, needs attention
-- ❗ **CRITICAL:** Threshold exceeded, immediate action required
-- ❓ **UNKNOWN:** Unable to determine status (check dependencies)
+# Run Nextcloud DB backup
+sudo systemctl start nextcloud-db-backup.service
+
+# Run M365 sync
+sudo systemctl start nextcloud-m365-sync.service
+
+# Then verify markers were updated
+ls -la /space/_ops/data-estate/markers/
+```
 
 ## Troubleshooting
+
+### Marker Files Not Being Written
+
+**Symptoms:** Collector falls back to journal or shows old timestamps despite recent successful runs.
+
+**Investigation:**
+```bash
+# Check marker directory exists and permissions
+ls -la /space/_ops/data-estate/markers/
+
+# Check backup job logs for marker writing
+journalctl -u flux-backup.service -n 50 | grep -i marker
+
+# Manually run backup job with verbose output
+sudo /usr/local/bin/flux-backup.sh
+```
+
+**Fix:**
+1. Ensure marker directory exists: `mkdir -p /space/_ops/data-estate/markers`
+2. Check disk space on `/space`
+3. Re-run the backup job
 
 ### "Missing B2/restic credentials"
 
@@ -112,21 +206,20 @@ restic -r b2:miket-backups-restic:flux snapshots --latest 1
 rclone lsd :b2:miket-backups-restic
 ```
 
-### "No successful sync found in journal"
+### "No successful sync found" (Despite Recent Runs)
 
-**Cause:** The backup service hasn't run successfully yet.
+**Cause:** Marker file not written (job failed before marker write, or marker path issue).
 
-**Fix:**
+**Investigation:**
 ```bash
-# Check service status
-systemctl status space-mirror.service
-systemctl status flux-backup.service
+# Check if marker exists
+ls -la /space/_ops/data-estate/markers/b2_mirror.json
 
-# View service logs
-journalctl -u space-mirror.service -n 50
+# Check journal for recent runs
+journalctl -u space-mirror.service --since "24 hours ago"
 
-# Trigger manual run
-sudo systemctl start space-mirror.service
+# Look for errors in job logs
+cat /space/_ops/logs/data-lifecycle/space-mirror.log | tail -100
 ```
 
 ### "Unknown remote(s) detected"
@@ -146,23 +239,37 @@ cat /etc/miket-infra/data-estate/approved_remotes.yml
 ```
 
 **Resolution:**
-1. If the remote is legitimate, add it to `approved_remotes` in the Ansible role defaults
+1. If the remote is legitimate, add it to `approved_remotes` in host_vars
 2. If the remote is unauthorized, remove it: `rclone config delete <remote-name>`
 
-### "Unable to determine local /space size"
+### OnFailure Not Triggering
 
-**Cause:** `/space` mount point issue or permissions.
+**Cause:** failure-notify@ service not deployed or misconfigured.
 
 **Fix:**
 ```bash
-# Check mount status
-mount | grep /space
-df -h /space
+# Verify failure-notify service exists
+systemctl cat failure-notify@.service
 
-# If not mounted, check fstab and remount
-cat /etc/fstab | grep space
-sudo mount /space
+# Check OnFailure is set in service files
+grep -r "OnFailure" /etc/systemd/system/*.service
+
+# Simulate a failure (carefully!)
+systemctl start failure-notify@test.service
+journalctl -u failure-notify@test.service
 ```
+
+## Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `/etc/miket-infra/data-estate/data_estate.yml` | SLO thresholds and data asset definitions |
+| `/etc/miket-infra/data-estate/approved_remotes.yml` | Approved cloud remote registry |
+| `/etc/miket/storage-credentials.env` | B2 and restic credentials |
+| `/usr/local/bin/data-estate-status.sh` | Collector script |
+| `/etc/systemd/system/data-estate-status.service` | Systemd service unit |
+| `/etc/systemd/system/data-estate-status.timer` | Systemd timer unit |
+| `/space/_ops/data-estate/markers/*.json` | Success marker files from backup jobs |
 
 ## Nextcloud Dashboard Widget
 
@@ -191,17 +298,6 @@ sudo mount /space
    ls -la /space/_services/nextcloud/dashboard/
    ```
 
-## Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `/etc/miket-infra/data-estate/data_estate.yml` | SLO thresholds and data asset definitions |
-| `/etc/miket-infra/data-estate/approved_remotes.yml` | Approved cloud remote registry |
-| `/etc/miket/storage-credentials.env` | B2 and restic credentials |
-| `/usr/local/bin/data-estate-status.sh` | Collector script |
-| `/etc/systemd/system/data-estate-status.service` | Systemd service unit |
-| `/etc/systemd/system/data-estate-status.timer` | Systemd timer unit |
-
 ## Deployment
 
 ### Initial Deployment
@@ -213,7 +309,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-data-estate-stat
 
 ### Update Configuration
 
-1. Modify variables in `ansible/roles/data_estate_status/defaults/main.yml`
+1. Modify variables in `ansible/host_vars/motoko.yml` (host-specific) or `ansible/roles/data_estate_status/defaults/main.yml` (defaults)
 2. Re-run the playbook:
    ```bash
    ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-data-estate-status.yml
@@ -227,6 +323,7 @@ systemctl status data-estate-status.timer
 ls -la /usr/local/bin/data-estate-status.sh
 ls -la /etc/miket-infra/data-estate/
 ls -la /space/_ops/data-estate/
+ls -la /space/_ops/data-estate/markers/
 ls -la /space/_services/nextcloud/dashboard/
 ```
 
@@ -234,11 +331,11 @@ ls -la /space/_services/nextcloud/dashboard/
 
 The collector depends on:
 
-1. **data-lifecycle role:** Provides restic, rclone, and backup services
+1. **data-lifecycle role:** Provides restic, rclone, backup services, and failure-notify template
 2. **secrets_sync role:** Provides B2/restic credentials
-3. **nextcloud_server role:** Provides M365 sync and DB backup services
+3. **nextcloud_server role:** Provides M365 sync and DB backup services (if enabled)
 
-If any dependency is missing, related checks will fail gracefully with WARNING or CRITICAL status.
+If any dependency is missing, related checks will fail gracefully with ERROR or NOT_CONFIGURED status.
 
 ## Disaster Recovery Context
 
@@ -263,4 +360,4 @@ The collector ensures these cloud copies stay fresh and complete.
 - [Filesystem Architecture](../architecture/FILESYSTEM_ARCHITECTURE.md)
 - [Secrets Management](../reference/secrets-management.md)
 - [Backblaze Manual Trigger](../guides/backblaze-manual-trigger.md)
-
+- [Role README](../../ansible/roles/data_estate_status/README.md)

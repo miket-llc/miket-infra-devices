@@ -61,6 +61,9 @@ SERVICE_DB_BACKUP="{{ data_estate_service_db_backup }}"
 # Approved remotes (space-separated list)
 APPROVED_REMOTES="{{ data_estate_approved_remotes | map(attribute='name') | join(' ') }}"
 
+# Marker files directory (from data-lifecycle and nextcloud roles)
+MARKERS_DIR="{{ data_estate_markers_dir | default('/space/_ops/data-estate/markers') }}"
+
 {% raw %}
 # =============================================================================
 # Status Constants
@@ -143,6 +146,78 @@ get_service_last_success() {
         systemctl show "$service" --property=ExecMainExitTimestamp --value 2>/dev/null | \
             sed 's/ [A-Z]*$//' || echo ""
     fi
+}
+
+# =============================================================================
+# Marker File Functions
+# =============================================================================
+
+# Read a marker file and extract the timestamp
+# Returns: timestamp string or empty string if marker is invalid/missing
+# Sets global: MARKER_STATUS, MARKER_MESSAGE for additional context
+read_marker_timestamp() {
+    local marker_name="$1"
+    local marker_file="${MARKERS_DIR}/${marker_name}.json"
+    
+    MARKER_STATUS=""
+    MARKER_MESSAGE=""
+    
+    if [[ ! -f "$marker_file" ]]; then
+        log "Marker file not found: $marker_file"
+        return 1
+    fi
+    
+    if [[ ! -r "$marker_file" ]]; then
+        log "Cannot read marker file (permission denied): $marker_file"
+        return 1
+    fi
+    
+    # Validate JSON and extract fields
+    local timestamp
+    local status
+    local message
+    
+    if ! timestamp=$(jq -r '.timestamp // empty' "$marker_file" 2>/dev/null); then
+        log "Marker file is not valid JSON: $marker_file"
+        return 1
+    fi
+    
+    if [[ -z "$timestamp" ]]; then
+        log "Marker file missing timestamp field: $marker_file"
+        return 1
+    fi
+    
+    # Extract optional fields
+    status=$(jq -r '.status // "unknown"' "$marker_file" 2>/dev/null || echo "unknown")
+    message=$(jq -r '.message // ""' "$marker_file" 2>/dev/null || echo "")
+    
+    MARKER_STATUS="$status"
+    MARKER_MESSAGE="$message"
+    
+    echo "$timestamp"
+    return 0
+}
+
+# Get last success time preferring marker, falling back to journal
+# $1: marker name (e.g., "restic_cloud")
+# $2: service name for journal fallback
+get_last_success_with_marker() {
+    local marker_name="$1"
+    local service_name="$2"
+    local timestamp
+    
+    # Try marker first
+    if timestamp=$(read_marker_timestamp "$marker_name" 2>/dev/null); then
+        if [[ -n "$timestamp" && "$MARKER_STATUS" == "success" ]]; then
+            log "Using marker timestamp for $marker_name: $timestamp"
+            echo "$timestamp"
+            return 0
+        fi
+    fi
+    
+    # Fallback to journal
+    log "Marker unavailable for $marker_name, falling back to journal for $service_name"
+    get_service_last_success "$service_name"
 }
 
 # Update overall status (escalates: OK -> WARNING -> CRITICAL -> ERROR)
@@ -246,15 +321,41 @@ check_restic_cloud_snapshot() {
         return
     fi
     
-    # Check credentials
-    if [[ -z "${RESTIC_PASSWORD:-}" ]] || [[ -z "${B2_ACCOUNT_ID:-}" ]] || [[ -z "${B2_ACCOUNT_KEY:-}" ]]; then
-        status="$STATUS_ERROR"
-        message="Missing B2/restic credentials in $CREDENTIALS_FILE"
+    # Try marker file first (preferred - faster and more reliable)
+    local last_success_time
+    last_success_time=$(get_last_success_with_marker "restic_cloud" "$SERVICE_FLUX_BACKUP")
+    
+    if [[ -n "$last_success_time" ]]; then
+        age_hours=$(hours_since "$last_success_time")
+        if [[ "$age_hours" -lt 0 ]]; then
+            status="$STATUS_ERROR"
+            message="Unable to parse timestamp from marker/journal"
+        elif [[ "$age_hours" -le "$SLO_RESTIC_WARNING_AGE_HOURS" ]]; then
+            status="$STATUS_OK"
+            message="${age_hours}h ago (within ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
+        elif [[ "$age_hours" -le "$SLO_RESTIC_MAX_AGE_HOURS" ]]; then
+            status="$STATUS_WARNING"
+            message="${age_hours}h ago (approaching ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
+        else
+            status="$STATUS_CRITICAL"
+            message="${age_hours}h ago (exceeds ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
+        fi
         record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
         return
     fi
     
-    # Get latest snapshot
+    # Fallback: query restic directly (slower, requires credentials)
+    log "No marker/journal data, querying restic repository directly..."
+    
+    # Check credentials for direct query
+    if [[ -z "${RESTIC_PASSWORD:-}" ]] || [[ -z "${B2_ACCOUNT_ID:-}" ]] || [[ -z "${B2_ACCOUNT_KEY:-}" ]]; then
+        status="$STATUS_ERROR"
+        message="No marker found and missing B2/restic credentials for direct query"
+        record_check "restic_cloud_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
+        return
+    fi
+    
+    # Get latest snapshot from repository
     local snapshot_json
     if snapshot_json=$(restic -r "$repo" snapshots --json --latest 1 2>&1); then
         local last_snapshot_time
@@ -309,6 +410,32 @@ check_restic_local_snapshot() {
         record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
         return
     fi
+    
+    # Try marker file first (preferred - faster and more reliable)
+    local last_success_time
+    last_success_time=$(get_last_success_with_marker "restic_local" "$SERVICE_FLUX_LOCAL")
+    
+    if [[ -n "$last_success_time" ]]; then
+        age_hours=$(hours_since "$last_success_time")
+        if [[ "$age_hours" -lt 0 ]]; then
+            status="$STATUS_ERROR"
+            message="Unable to parse timestamp from marker/journal"
+        elif [[ "$age_hours" -le "$SLO_RESTIC_WARNING_AGE_HOURS" ]]; then
+            status="$STATUS_OK"
+            message="${age_hours}h ago (within ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
+        elif [[ "$age_hours" -le "$SLO_RESTIC_MAX_AGE_HOURS" ]]; then
+            status="$STATUS_WARNING"
+            message="${age_hours}h ago (approaching ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
+        else
+            status="$STATUS_CRITICAL"
+            message="${age_hours}h ago (exceeds ${SLO_RESTIC_MAX_AGE_HOURS}h RPO)"
+        fi
+        record_check "restic_local_age" "$status" "$age_hours" "$SLO_RESTIC_MAX_AGE_HOURS" "$message" "true"
+        return
+    fi
+    
+    # Fallback: query restic repository directly
+    log "No marker/journal data, querying local restic repository directly..."
     
     # Check if repo exists
     if [[ ! -d "$repo" ]]; then
@@ -373,17 +500,9 @@ check_space_mirror_age() {
         return
     fi
     
-    # Check if service exists
-    if ! systemctl list-unit-files "$SERVICE_SPACE_MIRROR" &>/dev/null; then
-        status="$STATUS_ERROR"
-        message="Space mirror service not found: $SERVICE_SPACE_MIRROR"
-        record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message" "true"
-        return
-    fi
-    
-    # Try to get last successful sync from journal
+    # Try marker file first (preferred - faster and more reliable)
     local last_sync
-    last_sync=$(get_service_last_success "$SERVICE_SPACE_MIRROR")
+    last_sync=$(get_last_success_with_marker "b2_mirror" "$SERVICE_SPACE_MIRROR")
     
     if [[ -n "$last_sync" ]]; then
         age_hours=$(hours_since "$last_sync")
@@ -402,7 +521,7 @@ check_space_mirror_age() {
         fi
     else
         status="$STATUS_WARNING"
-        message="No successful sync found in journal (service may not have run)"
+        message="No successful sync found (no marker or journal entries)"
     fi
     
     record_check "space_mirror_age" "$status" "$age_hours" "$SLO_SPACE_MIRROR_MAX_AGE_HOURS" "$message" "true"
@@ -559,10 +678,44 @@ check_nextcloud_db_dump() {
         return
     fi
     
+    # Try marker file first (preferred)
+    local last_backup
+    last_backup=$(get_last_success_with_marker "nextcloud_db" "$SERVICE_DB_BACKUP")
+    
+    if [[ -n "$last_backup" ]]; then
+        age_hours=$(hours_since "$last_backup")
+        if [[ "$age_hours" -lt 0 ]]; then
+            status="$STATUS_ERROR"
+            message="Unable to parse timestamp from marker/journal"
+        elif [[ "$age_hours" -le "$SLO_DB_DUMP_WARNING_AGE_HOURS" ]]; then
+            status="$STATUS_OK"
+            message="${age_hours}h ago (within ${SLO_DB_DUMP_MAX_AGE_HOURS}h RPO)"
+        elif [[ "$age_hours" -le "$SLO_DB_DUMP_MAX_AGE_HOURS" ]]; then
+            status="$STATUS_WARNING"
+            message="${age_hours}h ago (approaching ${SLO_DB_DUMP_MAX_AGE_HOURS}h RPO)"
+        else
+            status="$STATUS_CRITICAL"
+            message="${age_hours}h ago (exceeds ${SLO_DB_DUMP_MAX_AGE_HOURS}h RPO)"
+        fi
+        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
+        return
+    fi
+    
+    # Fallback: scan the dump directory for latest file
+    log "No marker/journal data, scanning dump directory..."
+    
     # Check if directory exists
     if [[ ! -d "$DB_BACKUP_PATH" ]]; then
         status="$STATUS_ERROR"
         message="DB backup directory not found: $DB_BACKUP_PATH"
+        record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
+        return
+    fi
+    
+    # Check read permission
+    if [[ ! -r "$DB_BACKUP_PATH" ]]; then
+        status="$STATUS_ERROR"
+        message="Cannot read DB backup directory (permission denied): $DB_BACKUP_PATH"
         record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
         return
     fi
@@ -574,7 +727,7 @@ check_nextcloud_db_dump() {
     
     if [[ -z "$latest_dump" ]]; then
         status="$STATUS_WARNING"
-        message="No database dump files found in $DB_BACKUP_PATH"
+        message="No database dump files found in $DB_BACKUP_PATH (directory is empty)"
         record_check "nextcloud_db_age" "$status" "$age_hours" "$SLO_DB_DUMP_MAX_AGE_HOURS" "$message" "true"
         return
     fi
@@ -620,17 +773,9 @@ check_m365_ingestion() {
         return
     fi
     
-    # Check if M365 sync service exists
-    if ! systemctl list-unit-files "$SERVICE_M365_SYNC" &>/dev/null; then
-        status="$STATUS_ERROR"
-        message="M365 sync service not found: $SERVICE_M365_SYNC"
-        record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message" "true"
-        return
-    fi
-    
-    # Try to get last successful sync from journal
+    # Try marker file first (preferred)
     local last_sync
-    last_sync=$(get_service_last_success "$SERVICE_M365_SYNC")
+    last_sync=$(get_last_success_with_marker "m365_ingest" "$SERVICE_M365_SYNC")
     
     if [[ -n "$last_sync" ]]; then
         age_hours=$(hours_since "$last_sync")
@@ -647,25 +792,38 @@ check_m365_ingestion() {
             status="$STATUS_CRITICAL"
             message="${age_hours}h ago (exceeds ${SLO_M365_MAX_AGE_HOURS}h RPO)"
         fi
-    else
-        # Fallback: check directory modification time
-        if [[ -d "$M365_INGESTION_PATH" ]]; then
-            local dir_time
-            dir_time=$(stat -c %Y "$M365_INGESTION_PATH" 2>/dev/null || echo 0)
-            if [[ "$dir_time" -gt 0 ]]; then
-                local now
-                now=$(date +%s)
-                age_hours=$(( (now - dir_time) / 3600 ))
+        record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message" "true"
+        return
+    fi
+    
+    # Fallback: check directory modification time
+    log "No marker/journal data, checking directory modification time..."
+    
+    if [[ -d "$M365_INGESTION_PATH" ]]; then
+        local dir_time
+        dir_time=$(stat -c %Y "$M365_INGESTION_PATH" 2>/dev/null || echo 0)
+        if [[ "$dir_time" -gt 0 ]]; then
+            local now
+            now=$(date +%s)
+            age_hours=$(( (now - dir_time) / 3600 ))
+            
+            if [[ "$age_hours" -le "$SLO_M365_WARNING_AGE_HOURS" ]]; then
+                status="$STATUS_OK"
+                message="${age_hours}h ago (directory mtime, no marker found)"
+            elif [[ "$age_hours" -le "$SLO_M365_MAX_AGE_HOURS" ]]; then
                 status="$STATUS_WARNING"
-                message="No journal entry; directory last modified ${age_hours}h ago"
+                message="${age_hours}h ago (directory mtime, approaching ${SLO_M365_MAX_AGE_HOURS}h RPO)"
             else
-                status="$STATUS_WARNING"
-                message="No sync history found in journal"
+                status="$STATUS_CRITICAL"
+                message="${age_hours}h ago (directory mtime, exceeds ${SLO_M365_MAX_AGE_HOURS}h RPO)"
             fi
         else
-            status="$STATUS_ERROR"
-            message="M365 ingestion directory not found: $M365_INGESTION_PATH"
+            status="$STATUS_WARNING"
+            message="No sync history found (no marker, journal, or directory mtime)"
         fi
+    else
+        status="$STATUS_ERROR"
+        message="M365 ingestion directory not found: $M365_INGESTION_PATH"
     fi
     
     record_check "m365_ingestion_age" "$status" "$age_hours" "$SLO_M365_MAX_AGE_HOURS" "$message" "true"

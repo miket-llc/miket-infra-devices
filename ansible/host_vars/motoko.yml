@@ -204,3 +204,31 @@ netdata_enable_litellm_prometheus: false  # LiteLLM prometheus callback requires
 netdata_litellm_metrics_url: "http://127.0.0.1:8000/metrics"
 netdata_enable_nvidia_gpu: true
 netdata_enable_linux_sensors: true
+
+# ========================================
+# Data Estate Status Configuration
+# ========================================
+# Per DATA_ESTATE_SPEC from miket-infra
+# Motoko is the primary storage server and Nextcloud host
+
+# Host role (nextcloud_server, storage_server, workstation)
+data_estate_role: "nextcloud_server"
+
+# Enable all checks for motoko (primary storage + Nextcloud host)
+data_estate_restic_enabled: true
+data_estate_nextcloud_db_enabled: true
+data_estate_m365_enabled: true
+data_estate_space_mirror_enabled: true
+
+# SLO Thresholds (from DATA_ESTATE_SPEC)
+# These match the canonical spec values
+data_estate_slo_restic_snapshot_max_age_hours: 48
+data_estate_slo_restic_snapshot_warning_age_hours: 24
+data_estate_slo_nextcloud_db_dump_max_age_hours: 48
+data_estate_slo_nextcloud_db_dump_warning_age_hours: 24
+data_estate_slo_m365_ingestion_max_age_hours: 24
+data_estate_slo_m365_ingestion_warning_age_hours: 6
+data_estate_slo_space_mirror_max_age_hours: 48
+data_estate_slo_space_mirror_warning_age_hours: 24
+data_estate_slo_space_mirror_max_gap_percent: 15
+data_estate_slo_space_mirror_warning_gap_percent: 5

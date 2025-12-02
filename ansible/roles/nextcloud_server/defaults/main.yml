@@ -106,6 +106,9 @@ nextcloud_m365_client_id: "d30c794e-e5db-40eb-978f-b2f105c0601a"
 nextcloud_db_backup_schedule: "02:00"  # nightly at 2am (before restic runs)
 nextcloud_db_backup_retain_days: 7
 
+# Data Estate markers directory (for status collector)
+nextcloud_markers_dir: /space/_ops/data-estate/markers
+
 # Service names
 nextcloud_service_name: nextcloud
 nextcloud_m365_sync_service: nextcloud-m365-sync

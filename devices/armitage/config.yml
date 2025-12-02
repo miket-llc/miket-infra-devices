@@ -14,7 +14,7 @@ hardware:
   model: Gaming Laptop
   cpu: Intel Core i9-13900HX (24 cores, 32 threads)
   gpu: NVIDIA GeForce RTX 4070 (8GB VRAM)
-  memory: 32GB DDR5
+  memory: 16GB DDR5
   storage:
     - 2TB NVMe SSD (Primary)
     - 1TB NVMe SSD (Games/Data)

@@ -2,15 +2,19 @@
 # Managed by Ansible - do not edit directly
 
 [Unit]
-Description=Nextcloud M365 Ingestion Sync
+Description=Nextcloud M365 Ingestion Sync (OneDrive/SharePoint → /space)
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=network-online.target podman.socket
 Wants=network-online.target
 Requires=podman.socket
+OnFailure=failure-notify@%n.service
 
 [Service]
 Type=oneshot
 ExecStart={{ nextcloud_bin_path }}/sync-m365.sh
-EnvironmentFile={{ nextcloud_env_path }}
+
+# Credentials passed via script loading env file directly
+# (safer handling of special characters in passwords)
 
 # User context
 User=root
