@@ -1,0 +1,23 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Cleanup Role Defaults
+# Safely removes unused Podman resources to free disk space
+
+# Safety: must be explicitly set to true to perform cleanup
+podman_cleanup_confirm: false
+
+# What to clean
+podman_cleanup_remove_stopped_containers: true
+podman_cleanup_remove_unused_images: true
+podman_cleanup_remove_unused_volumes: false  # Keep volumes by default (may contain data)
+podman_cleanup_remove_unused_networks: true
+podman_cleanup_remove_build_cache: true
+
+# Prune options
+podman_cleanup_prune_all: false  # If true, removes all unused resources (more aggressive)
+podman_cleanup_prune_until: ""  # Optional: prune resources older than this (e.g., "24h", "7d")
+
+# User context (for rootless Podman)
+podman_cleanup_user: ""  # If set, runs cleanup as this user (for rootless Podman)
+

@@ -1,0 +1,62 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Disk Maintenance Playbook for motoko
+# Run this playbook when disk space or inode alerts are triggered
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/motoko/disk-maintenance.yml
+#
+# This playbook performs comprehensive disk cleanup:
+# - Podman unused resources (containers, images, build cache)
+# - Systemd journal logs
+# - Package cache (DNF)
+# - Temporary files
+# - Old log files
+
+- name: Disk Maintenance for motoko
+  hosts: motoko
+  become: true
+  gather_facts: true
+
+  vars:
+    disk_maintenance_confirm: true
+    disk_maintenance_clean_podman: true
+    disk_maintenance_clean_journal: true
+    disk_maintenance_clean_tmp: true
+    disk_maintenance_clean_package_cache: true
+    disk_maintenance_clean_old_logs: true
+    disk_maintenance_journal_max_size: "500M"
+    disk_maintenance_journal_max_days: 7
+    disk_maintenance_dnf_clean_all: true
+    disk_maintenance_log_max_age_days: 30
+
+  roles:
+    - role: disk_maintenance
+
+  post_tasks:
+    - name: Verify disk space recovery
+      ansible.builtin.command: df -h /
+      register: final_disk_usage
+      changed_when: false
+
+    - name: Verify inode recovery
+      ansible.builtin.command: df -i /
+      register: final_inode_usage
+      changed_when: false
+
+    - name: Display final status
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          FINAL STATUS
+          ═══════════════════════════════════════════════════════════
+          
+          Disk Usage:
+          {{ final_disk_usage.stdout }}
+          
+          Inode Usage:
+          {{ final_inode_usage.stdout }}
+          
+          ═══════════════════════════════════════════════════════════
+

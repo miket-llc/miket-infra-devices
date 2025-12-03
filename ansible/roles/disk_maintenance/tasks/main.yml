@@ -1,0 +1,239 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Disk Maintenance Role
+# Comprehensive disk cleanup for motoko and other Linux hosts
+
+- name: Check if disk maintenance is confirmed
+  ansible.builtin.assert:
+    that:
+      - disk_maintenance_confirm | bool
+    fail_msg: "Disk maintenance requires explicit confirmation. Set disk_maintenance_confirm: true"
+    quiet: false
+  tags: [disk_maintenance, safety]
+
+- name: Get disk usage before cleanup
+  ansible.builtin.command: df -h /
+  register: disk_usage_before
+  changed_when: false
+  tags: [disk_maintenance]
+
+- name: Get inode usage before cleanup
+  ansible.builtin.command: df -i /
+  register: inode_usage_before
+  changed_when: false
+  tags: [disk_maintenance]
+
+- name: Display disk and inode usage before cleanup
+  ansible.builtin.debug:
+    msg: |
+      Disk usage before cleanup:
+      {{ disk_usage_before.stdout }}
+      
+      Inode usage before cleanup:
+      {{ inode_usage_before.stdout }}
+  tags: [disk_maintenance]
+
+- name: Disk maintenance tasks
+  tags: [disk_maintenance]
+  block:
+    # ========================================
+    # Podman Cleanup
+    # ========================================
+    - name: Run Podman cleanup
+      ansible.builtin.include_role:
+        name: podman_cleanup
+      vars:
+        podman_cleanup_confirm: true
+        podman_cleanup_remove_stopped_containers: true
+        podman_cleanup_remove_unused_images: true
+        podman_cleanup_remove_unused_volumes: false
+        podman_cleanup_remove_unused_networks: true
+        podman_cleanup_remove_build_cache: true
+      when: disk_maintenance_clean_podman | bool
+      tags: [disk_maintenance, podman]
+
+    # ========================================
+    # Journal Cleanup
+    # ========================================
+    - name: Get journal size before cleanup
+      ansible.builtin.command: journalctl --disk-usage
+      register: journal_size_before
+      changed_when: false
+      failed_when: false
+      when: disk_maintenance_clean_journal | bool
+      tags: [disk_maintenance, journal]
+
+    - name: Display journal size before cleanup
+      ansible.builtin.debug:
+        msg: "{{ journal_size_before.stdout }}"
+      when: 
+        - disk_maintenance_clean_journal | bool
+        - journal_size_before.rc == 0
+      tags: [disk_maintenance, journal]
+
+    - name: Vacuum journal to maximum size
+      ansible.builtin.command: journalctl --vacuum-size={{ disk_maintenance_journal_max_size }}
+      register: journal_vacuum_size
+      changed_when: "'Vacuumed' in journal_vacuum_size.stdout"
+      when: disk_maintenance_clean_journal | bool
+      tags: [disk_maintenance, journal]
+
+    - name: Vacuum journal to maximum days
+      ansible.builtin.command: journalctl --vacuum-time={{ disk_maintenance_journal_max_days }}d
+      register: journal_vacuum_time
+      changed_when: "'Vacuumed' in journal_vacuum_time.stdout"
+      when: disk_maintenance_clean_journal | bool
+      tags: [disk_maintenance, journal]
+
+    - name: Display journal cleanup results
+      ansible.builtin.debug:
+        msg: |
+          Journal size cleanup: {{ journal_vacuum_size.stdout }}
+          Journal time cleanup: {{ journal_vacuum_time.stdout }}
+      when: disk_maintenance_clean_journal | bool
+      tags: [disk_maintenance, journal]
+
+    # ========================================
+    # Package Cache Cleanup (DNF/Fedora)
+    # ========================================
+    - name: Get DNF cache size before cleanup
+      ansible.builtin.command: du -sh /var/cache/dnf 2>/dev/null || echo "0"
+      register: dnf_cache_size_before
+      changed_when: false
+      failed_when: false
+      when: 
+        - disk_maintenance_clean_package_cache | bool
+        - ansible_pkg_mgr == "dnf"
+      tags: [disk_maintenance, packages]
+
+    - name: Display DNF cache size before cleanup
+      ansible.builtin.debug:
+        msg: "DNF cache size: {{ dnf_cache_size_before.stdout }}"
+      when: 
+        - disk_maintenance_clean_package_cache | bool
+        - ansible_pkg_mgr == "dnf"
+        - dnf_cache_size_before.rc == 0
+      tags: [disk_maintenance, packages]
+
+    - name: Clean DNF cache
+      ansible.builtin.command: dnf clean {% if disk_maintenance_dnf_clean_all %}all{% else %}expire-cache{% endif %}
+      register: dnf_clean_result
+      changed_when: "'Cache cleaned' in dnf_clean_result.stdout or 'Cleaned' in dnf_clean_result.stdout"
+      when: 
+        - disk_maintenance_clean_package_cache | bool
+        - ansible_pkg_mgr == "dnf"
+      tags: [disk_maintenance, packages]
+
+    - name: Display DNF cleanup results
+      ansible.builtin.debug:
+        msg: "{{ dnf_clean_result.stdout }}"
+      when: 
+        - disk_maintenance_clean_package_cache | bool
+        - ansible_pkg_mgr == "dnf"
+        - dnf_clean_result.rc == 0
+      tags: [disk_maintenance, packages]
+
+    # ========================================
+    # Temporary Files Cleanup
+    # ========================================
+    - name: Clean temporary files
+      ansible.builtin.command: find {{ item }} -type f -atime +{{ disk_maintenance_log_max_age_days }} -delete
+      loop: "{{ disk_maintenance_tmp_dirs }}"
+      register: tmp_cleanup_result
+      changed_when: tmp_cleanup_result.rc == 0
+      failed_when: false
+      when: disk_maintenance_clean_tmp | bool
+      tags: [disk_maintenance, tmp]
+
+    - name: Display temp cleanup results
+      ansible.builtin.debug:
+        msg: "Cleaned temp files from {{ item.item }}"
+      loop: "{{ tmp_cleanup_result.results | default([]) }}"
+      when: 
+        - disk_maintenance_clean_tmp | bool
+        - tmp_cleanup_result.results is defined
+      tags: [disk_maintenance, tmp]
+
+    # ========================================
+    # Old Log Files Cleanup
+    # ========================================
+    - name: Find old log files
+      ansible.builtin.find:
+        paths: "{{ disk_maintenance_log_dirs }}"
+        file_type: file
+        age: "{{ disk_maintenance_log_max_age_days }}d"
+        patterns:
+          - "*.log"
+          - "*.log.*"
+          - "*.gz"
+        excludes:
+          - "journal"
+      register: old_logs
+      when: disk_maintenance_clean_old_logs | bool
+      tags: [disk_maintenance, logs]
+
+    - name: Display old log files found
+      ansible.builtin.debug:
+        msg: "Found {{ old_logs.files | length }} old log files to remove"
+      when: 
+        - disk_maintenance_clean_old_logs | bool
+        - old_logs.files is defined
+      tags: [disk_maintenance, logs]
+
+    - name: Remove old log files
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_logs.files | default([]) }}"
+      when: 
+        - disk_maintenance_clean_old_logs | bool
+        - old_logs.files is defined
+      tags: [disk_maintenance, logs]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Get disk usage after cleanup
+      ansible.builtin.command: df -h /
+      register: disk_usage_after
+      changed_when: false
+      tags: [disk_maintenance]
+
+    - name: Get inode usage after cleanup
+      ansible.builtin.command: df -i /
+      register: inode_usage_after
+      changed_when: false
+      tags: [disk_maintenance]
+
+    - name: Display disk and inode usage after cleanup
+      ansible.builtin.debug:
+        msg: |
+          Disk usage after cleanup:
+          {{ disk_usage_after.stdout }}
+          
+          Inode usage after cleanup:
+          {{ inode_usage_after.stdout }}
+      tags: [disk_maintenance]
+
+    - name: Display maintenance summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          DISK MAINTENANCE COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          ✅ Disk maintenance completed on {{ inventory_hostname }}
+          
+          Check the output above for details on:
+          - Podman cleanup (containers, images, build cache)
+          - Journal log cleanup
+          - Package cache cleanup
+          - Temporary files cleanup
+          - Old log files cleanup
+          
+          Compare before/after disk and inode usage above.
+          
+          ═══════════════════════════════════════════════════════════
+      tags: [disk_maintenance]
+

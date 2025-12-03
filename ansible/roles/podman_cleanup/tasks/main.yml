@@ -1,0 +1,151 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Podman Cleanup Role
+# Removes unused Podman resources to free disk space
+
+- name: Check if Podman cleanup is confirmed
+  ansible.builtin.assert:
+    that:
+      - podman_cleanup_confirm | bool
+    fail_msg: "Podman cleanup requires explicit confirmation. Set podman_cleanup_confirm: true"
+    quiet: false
+  tags: [podman_cleanup, safety]
+
+- name: Check if Podman is installed
+  ansible.builtin.command: which podman
+  register: podman_installed
+  changed_when: false
+  failed_when: false
+  tags: [podman_cleanup, check]
+
+- name: Skip if Podman not installed
+  ansible.builtin.debug:
+    msg: "Podman not installed, skipping cleanup"
+  when: podman_installed.rc != 0
+  tags: [podman_cleanup]
+
+- name: Get disk usage before cleanup
+  ansible.builtin.command: df -h /
+  register: disk_usage_before
+  changed_when: false
+  when: podman_installed.rc == 0
+  tags: [podman_cleanup]
+
+- name: Display disk usage before cleanup
+  ansible.builtin.debug:
+    msg: "Disk usage before cleanup:\n{{ disk_usage_before.stdout }}"
+  when: podman_installed.rc == 0
+  tags: [podman_cleanup]
+
+- name: Podman cleanup tasks
+  when: podman_installed.rc == 0
+  tags: [podman_cleanup]
+  block:
+    - name: Get Podman system info (before cleanup)
+      ansible.builtin.command: podman system df
+      register: podman_info_before
+      changed_when: false
+      failed_when: false
+
+    - name: Display Podman usage before cleanup
+      ansible.builtin.debug:
+        msg: "Podman usage before cleanup:\n{{ podman_info_before.stdout }}"
+
+    - name: Remove stopped containers
+      ansible.builtin.command: podman container prune -f
+      when: podman_cleanup_remove_stopped_containers | bool
+      register: container_prune_result
+      changed_when: "'Total reclaimed space' in container_prune_result.stdout"
+
+    - name: Display container prune results
+      ansible.builtin.debug:
+        msg: "{{ container_prune_result.stdout }}"
+      when: podman_cleanup_remove_stopped_containers | bool
+
+    - name: Remove unused images
+      ansible.builtin.command: >
+        podman image prune
+        {% if podman_cleanup_prune_all %}--all{% endif %}
+        {% if podman_cleanup_prune_until %}--filter "until={{ podman_cleanup_prune_until }}"{% endif %}
+        -f
+      when: podman_cleanup_remove_unused_images | bool
+      register: image_prune_result
+      changed_when: "'Total reclaimed space' in image_prune_result.stdout"
+
+    - name: Display image prune results
+      ansible.builtin.debug:
+        msg: "{{ image_prune_result.stdout }}"
+      when: podman_cleanup_remove_unused_images | bool
+
+    - name: Remove unused volumes
+      ansible.builtin.command: podman volume prune -f
+      when: podman_cleanup_remove_unused_volumes | bool
+      register: volume_prune_result
+      changed_when: "'Total reclaimed space' in volume_prune_result.stdout"
+      failed_when: false  # May fail if volumes are in use
+
+    - name: Display volume prune results
+      ansible.builtin.debug:
+        msg: "{{ volume_prune_result.stdout }}"
+      when: 
+        - podman_cleanup_remove_unused_volumes | bool
+        - volume_prune_result.rc == 0
+
+    - name: Remove unused networks
+      ansible.builtin.command: podman network prune -f
+      when: podman_cleanup_remove_unused_networks | bool
+      register: network_prune_result
+      changed_when: "'Total reclaimed space' in network_prune_result.stdout"
+
+    - name: Display network prune results
+      ansible.builtin.debug:
+        msg: "{{ network_prune_result.stdout }}"
+      when: podman_cleanup_remove_unused_networks | bool
+
+    - name: Remove build cache
+      ansible.builtin.command: podman builder prune -af
+      when: podman_cleanup_remove_build_cache | bool
+      register: build_cache_prune_result
+      changed_when: "'Total reclaimed space' in build_cache_prune_result.stdout"
+      failed_when: false  # May fail if build cache doesn't exist
+
+    - name: Display build cache prune results
+      ansible.builtin.debug:
+        msg: "{{ build_cache_prune_result.stdout }}"
+      when: 
+        - podman_cleanup_remove_build_cache | bool
+        - build_cache_prune_result.rc == 0
+
+    - name: Get Podman system info (after cleanup)
+      ansible.builtin.command: podman system df
+      register: podman_info_after
+      changed_when: false
+      failed_when: false
+
+    - name: Display Podman usage after cleanup
+      ansible.builtin.debug:
+        msg: "Podman usage after cleanup:\n{{ podman_info_after.stdout }}"
+
+    - name: Get disk usage after cleanup
+      ansible.builtin.command: df -h /
+      register: disk_usage_after
+      changed_when: false
+
+    - name: Display disk usage after cleanup
+      ansible.builtin.debug:
+        msg: "Disk usage after cleanup:\n{{ disk_usage_after.stdout }}"
+
+    - name: Display cleanup summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          PODMAN CLEANUP COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          ✅ Podman cleanup completed on {{ inventory_hostname }}
+          
+          Check the output above for reclaimed space details.
+          
+          ═══════════════════════════════════════════════════════════
+

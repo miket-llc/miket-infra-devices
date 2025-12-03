@@ -2,14 +2,20 @@
 
 ---
 # Podman Standard Linux Role
-# Installs and configures Podman as the standard container runtime on Linux
+# Installs and configures Podman as the ONLY container runtime on Linux
+#
+# POLICY: Docker is BANNED from all PHC systems
+#   - No podman-docker package
+#   - No docker CLI wrappers  
+#   - Docker packages are explicitly removed
+#   - docker0 network artifacts are cleaned up
 #
 # Features:
-# - Podman as primary runtime (Docker-compatible)
-# - Docker CLI compatibility layer (podman-docker or wrapper)
+# - Podman as the ONLY runtime (no Docker)
+# - Native podman/podman-compose commands
 # - Rootless container support
 # - Systemd integration for container services
-# - Optional NVIDIA Container Toolkit integration
+# - NVIDIA Container Toolkit integration
 #
 # Supports: Fedora, Ubuntu, Debian, and other major Linux distributions
 
@@ -28,8 +34,8 @@
       - "PODMAN STANDARD LINUX - Container Runtime Installation"
       - "═══════════════════════════════════════════════════════════"
       - "Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}"
-      - "Primary Runtime: Podman"
-      - "Docker CLI Compat: Enabled"
+      - "Runtime: Podman ONLY (Docker is BANNED)"
+      - "Commands: podman, podman-compose (NO docker aliases)"
       - "═══════════════════════════════════════════════════════════"
   tags: [podman_standard, containers, always]
 
@@ -51,85 +57,96 @@
   when: ansible_os_family == "Debian"
   tags: [podman_standard, containers, install]
 
+# ========================================
+# DOCKER PREVENTION - Purge All Docker Artifacts
+# ========================================
 - name: Check if Docker/moby-engine is installed (RedHat family)
-  ansible.builtin.command: rpm -q moby-engine docker-ce
-  register: moby_check_rpm
+  ansible.builtin.command: rpm -q moby-engine docker-ce podman-docker
+  register: docker_check_rpm
   changed_when: false
   failed_when: false
   check_mode: false
   when: ansible_os_family == "RedHat"
-  tags: [podman_standard, containers, install]
+  tags: [podman_standard, containers, docker_prevention]
 
 - name: Check if Docker is installed (Debian family)
   ansible.builtin.command: dpkg -l docker.io docker-ce
-  register: moby_check_deb
+  register: docker_check_deb
   changed_when: false
   failed_when: false
   check_mode: false
   when: ansible_os_family == "Debian"
-  tags: [podman_standard, containers, install]
+  tags: [podman_standard, containers, docker_prevention]
 
-- name: Set Docker conflict fact
-  ansible.builtin.set_fact:
-    docker_installed: >-
-      {{
-        (ansible_os_family == "RedHat" and moby_check_rpm.rc == 0) or
-        (ansible_os_family == "Debian" and moby_check_deb.rc == 0)
-      }}
-  tags: [podman_standard, containers, install]
-
-- name: Install podman-docker for CLI compatibility (Fedora/RHEL)
+- name: Remove Docker packages (RedHat family)
   ansible.builtin.dnf:
-    name: podman-docker
-    state: present
-  when:
-    - podman_install_docker_compat | bool
-    - ansible_os_family == "RedHat"
-    - not docker_installed
-  tags: [podman_standard, containers, install]
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - moby-engine
+      - docker-compose
+      - podman-docker  # NO Docker CLI emulation
+    state: absent
+  when: ansible_os_family == "RedHat"
+  tags: [podman_standard, containers, docker_prevention]
 
-- name: Create Docker CLI wrapper script (Ubuntu/Debian)
-  ansible.builtin.copy:
-    dest: /usr/local/bin/docker
-    content: |
-      #!/bin/bash
-      # Docker CLI compatibility wrapper for Podman
-      # Managed by Ansible podman_standard_linux role
-      exec podman "$@"
-    mode: '0755'
-  when:
-    - podman_install_docker_compat | bool
-    - ansible_os_family == "Debian"
-    - not docker_installed
-  tags: [podman_standard, containers, install]
+- name: Remove Docker packages (Debian family)
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+      - docker-compose
+    state: absent
+    purge: true
+  when: ansible_os_family == "Debian"
+  tags: [podman_standard, containers, docker_prevention]
 
-- name: Create docker-compose CLI wrapper (Ubuntu/Debian)
-  ansible.builtin.copy:
-    dest: /usr/local/bin/docker-compose
-    content: |
-      #!/bin/bash
-      # Docker Compose compatibility wrapper for Podman Compose
-      # Managed by Ansible podman_standard_linux role
-      exec podman-compose "$@"
-    mode: '0755'
-  when:
-    - podman_install_docker_compat | bool
-    - ansible_os_family == "Debian"
-    - not docker_installed
-  tags: [podman_standard, containers, install]
+- name: Remove Docker CLI wrapper if present
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/docker
+    - /usr/local/bin/docker-compose
+  tags: [podman_standard, containers, docker_prevention]
 
-- name: Warn about Docker conflict
-  ansible.builtin.debug:
-    msg: 
-      - "⚠️  WARNING: Docker (moby-engine or docker-ce) is installed"
-      - "Docker and Podman should not run as competing runtimes on the same host"
-      - "To complete migration to Podman:"
-      - "  1. Export existing Docker containers"
-      - "  2. Stop and disable Docker daemon: systemctl stop docker && systemctl disable docker"
-      - "  3. Remove Docker packages: dnf remove moby-engine docker-ce (or apt remove docker.io)"
-      - "  4. Re-run this playbook to install podman-docker compatibility"
-  when: docker_installed
-  tags: [podman_standard, containers, install]
+- name: Check for docker0 network interface
+  ansible.builtin.command: ip link show docker0
+  register: docker0_check
+  changed_when: false
+  failed_when: false
+  tags: [podman_standard, containers, docker_prevention]
+
+- name: Remove docker0 from NetworkManager
+  ansible.builtin.command: nmcli connection delete docker0
+  when: docker0_check.rc == 0
+  failed_when: false
+  tags: [podman_standard, containers, docker_prevention]
+
+- name: Delete docker0 network interface
+  ansible.builtin.command: ip link delete docker0
+  when: docker0_check.rc == 0
+  failed_when: false
+  tags: [podman_standard, containers, docker_prevention]
+
+- name: Remove Docker data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/docker
+    - /var/lib/containerd
+    - /etc/docker
+  tags: [podman_standard, containers, docker_prevention]
+
+- name: Set docker_purged fact
+  ansible.builtin.set_fact:
+    docker_purged: true
+  tags: [podman_standard, containers, docker_prevention]
 
 - name: Install cockpit-podman for web UI (Fedora/RHEL)
   ansible.builtin.dnf:
@@ -360,8 +377,7 @@
       - ""
       - "Distribution:       {{ ansible_distribution }} {{ ansible_distribution_version }}"
       - "Podman Version:     {{ podman_version.stdout }}"
-      - "Docker Compat:      {{ 'Yes' if podman_install_docker_compat else 'No' }}"
-      - "Docker Installed:   {{ 'CONFLICT!' if docker_installed else 'No (Good)' }}"
+      - "Docker Status:      BANNED & PURGED ☠️"
       - "Rootless User:      {{ podman_user }}"
       - "Linger Enabled:     {{ linger_check.stdout | default('unknown') }}"
       - "NVIDIA Support:     {{ 'Yes' if (nvidia_check.rc | default(1)) == 0 else 'No' }}"
@@ -370,13 +386,15 @@
       - "Registries:"
       - "{% for reg in podman_registries_search %}  - {{ reg }}\n{% endfor %}"
       - ""
-      - "Usage (all commands work):"
-      - "  docker ps          # Maps to: podman ps"
-      - "  docker run nginx   # Maps to: podman run nginx"
-      - "  docker-compose up  # Maps to: podman-compose up"
-      - "  podman ps          # Native Podman"
+      - "Usage (native Podman commands ONLY):"
+      - "  podman ps              # List containers"
+      - "  podman run nginx       # Run container"
+      - "  podman-compose up -d   # Start compose stack"
+      - "  podman logs <name>     # View logs"
       - ""
-      - "Documentation: docs/CONTAINERS_RUNTIME_STANDARD.md"
+      - "⛔ BANNED: docker, docker-compose, Docker Desktop"
+      - ""
+      - "Documentation: docs/reference/CONTAINERS_RUNTIME_STANDARD.md"
       - "═══════════════════════════════════════════════════════════"
   tags: [podman_standard, containers]
 

@@ -2,9 +2,15 @@
 
 ---
 # Podman Standard Linux Role Defaults
-# Configures Podman as the standard container runtime on all Linux hosts
-# Provides Docker CLI compatibility for muscle memory
+# Configures Podman as the ONLY container runtime on all Linux hosts
+# NO Docker CLI compatibility - use native Podman commands
 # Supports: Fedora, Ubuntu, Debian, and other major distributions
+#
+# POLICY: Docker is BANNED from all PHC systems
+#   - No podman-docker package
+#   - No docker CLI wrappers
+#   - No Docker Desktop
+#   - Scripts must use podman/podman-compose commands directly
 
 # Podman packages to install (Fedora/RHEL/CentOS)
 podman_packages:
@@ -20,8 +26,9 @@ podman_packages_debian:
   - skopeo
   - python3-pip  # For podman-compose via pip
 
-# Install podman-docker (provides docker CLI compatibility)
-podman_install_docker_compat: true
+# Docker CLI compatibility DISABLED - use native Podman commands
+# This was previously enabled but introduces confusion and technical debt
+podman_install_docker_compat: false
 
 # Install cockpit-podman for web UI (optional)
 podman_install_cockpit: false

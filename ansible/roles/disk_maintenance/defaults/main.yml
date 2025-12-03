@@ -1,0 +1,36 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Disk Maintenance Role Defaults
+# Comprehensive disk cleanup for motoko and other Linux hosts
+
+# Safety: must be explicitly set to true to perform cleanup
+disk_maintenance_confirm: false
+
+# What to clean
+disk_maintenance_clean_podman: true
+disk_maintenance_clean_journal: true
+disk_maintenance_clean_tmp: true
+disk_maintenance_clean_package_cache: true
+disk_maintenance_clean_old_logs: true
+
+# Journal cleanup settings
+disk_maintenance_journal_max_size: "500M"  # Maximum size for journal
+disk_maintenance_journal_max_days: 7  # Keep logs for last N days
+
+# Package cache cleanup (Fedora/DNF)
+disk_maintenance_dnf_clean_all: true  # Clean all package cache (not just expired)
+
+# Temporary files cleanup
+disk_maintenance_tmp_dirs:
+  - /tmp
+  - /var/tmp
+
+# Old logs cleanup (systemd-journald handles its own, this is for other logs)
+disk_maintenance_log_dirs:
+  - /var/log
+disk_maintenance_log_max_age_days: 30  # Remove logs older than N days
+
+# Rootless Podman user (if using rootless Podman)
+disk_maintenance_podman_user: ""  # If set, runs Podman cleanup as this user
+
