@@ -222,3 +222,4 @@ if ($percentUsed -gt 80) {
 Write-Host "For detailed process info, check Task Manager:" -ForegroundColor Cyan
 Write-Host "  Press Ctrl+Shift+Esc" -ForegroundColor White
 
+
