@@ -80,6 +80,20 @@ ai_node_roles:
   - chat-fast
 
 # ========================================
+# Ollama Configuration (PHC AI Fabric)
+# ========================================
+# NOTE: Ollama must be manually installed by user
+# Install from: https://ollama.com/download/windows
+# Requires: NVIDIA Studio drivers (not Game Ready)
+ollama_enabled: true
+ollama_models:
+  - name: qwen2.5:7b     # Base model to pull
+    context: 8192
+  - name: qwen2.5-8k     # Custom model with explicit context
+    context: 8192
+    custom: true         # Created from qwen2.5:7b with PARAMETER num_ctx 8192
+
+# ========================================
 # Netdata Monitoring Configuration
 # ========================================
 # armitage is a Netdata CHILD node

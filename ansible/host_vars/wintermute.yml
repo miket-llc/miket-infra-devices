@@ -73,6 +73,20 @@ vllm:
 ai_node_roles:
   - chat-deep
 
+# ========================================
+# Ollama Configuration (PHC AI Fabric)
+# ========================================
+# NOTE: Ollama must be manually installed by user
+# Install from: https://ollama.com/download/windows
+# Requires: NVIDIA Studio drivers (not Game Ready)
+ollama_enabled: true
+ollama_models:
+  - name: llama3:8b      # Base model to pull
+    context: 8192
+  - name: llama3-8k      # Custom model with explicit context
+    context: 8192
+    custom: true         # Created from llama3:8b with PARAMETER num_ctx 8192
+
 # Note: Windows hosts don't use become/sudo
 # If Wintermute were Linux, these settings would enable passwordless sudo via 1Password
 # ansible_become: true

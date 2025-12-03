@@ -232,3 +232,26 @@ data_estate_slo_space_mirror_max_age_hours: 48
 data_estate_slo_space_mirror_warning_age_hours: 24
 data_estate_slo_space_mirror_max_gap_percent: 15
 data_estate_slo_space_mirror_warning_gap_percent: 5
+
+# ========================================
+# Disk Maintenance Configuration
+# ========================================
+# Settings for automated disk cleanup when space/inode alerts trigger
+
+# Podman cleanup settings
+podman_cleanup_remove_stopped_containers: true
+podman_cleanup_remove_unused_images: true
+podman_cleanup_remove_unused_volumes: false  # Keep volumes (may contain data)
+podman_cleanup_remove_unused_networks: true
+podman_cleanup_remove_build_cache: true
+
+# Disk maintenance settings
+disk_maintenance_clean_podman: true
+disk_maintenance_clean_journal: true
+disk_maintenance_clean_tmp: true
+disk_maintenance_clean_package_cache: true
+disk_maintenance_clean_old_logs: true
+disk_maintenance_journal_max_size: "500M"  # Maximum journal size
+disk_maintenance_journal_max_days: 7  # Keep last 7 days of logs
+disk_maintenance_dnf_clean_all: true  # Clean all DNF cache
+disk_maintenance_log_max_age_days: 30  # Remove logs older than 30 days
