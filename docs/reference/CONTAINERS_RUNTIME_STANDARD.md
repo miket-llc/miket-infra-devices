@@ -1,7 +1,7 @@
 # Container Runtime Standard for miket-infra-devices
 
-**Version:** 1.0  
-**Date:** 2025-11-30  
+**Version:** 2.0  
+**Date:** 2025-12-03  
 **Status:** Active  
 
 ---
@@ -11,10 +11,32 @@
 This document defines the **official container runtime standard** for all infrastructure devices in the miket-infra-devices ecosystem.
 
 **TL;DR:**
-- **Linux hosts (servers + workstations):** Podman is the standard runtime
-- **Windows/macOS:** Docker Desktop remains the standard for now
-- **Docker CLI compatibility:** Maintained via `podman-docker` on Linux
-- **Compose:** `podman-compose` preferred on Linux; Docker Compose on Windows/macOS
+- **ALL PLATFORMS:** Podman is the ONLY approved container runtime
+- **Docker is BANNED:** No Docker, no Docker Desktop, no docker CLI, no exceptions
+- **Commands:** Use native `podman` and `podman-compose` commands
+- **Enforcement:** `docker_prevention` role actively blocks Docker installation
+
+---
+
+## ⛔ DOCKER BAN POLICY
+
+**Effective: 2025-12-03**
+
+Docker and all Docker-related software are **permanently banned** from all PHC systems:
+
+| Banned Software | Reason |
+|-----------------|--------|
+| Docker Engine | Daemon-based, runs as root, security risk |
+| Docker Desktop | Commercial licensing, resource hog |
+| docker CLI | Introduces confusion with Podman |
+| podman-docker | No CLI emulation - learn Podman commands |
+| docker-compose | Use podman-compose instead |
+
+**Enforcement:**
+- The `docker_prevention` role is applied to all hosts
+- Docker packages are blocked via dnf excludes / apt holds
+- Any attempt to install Docker will fail
+- Existing Docker installations are purged on playbook run
 
 ---
 
@@ -22,17 +44,17 @@ This document defines the **official container runtime standard** for all infras
 
 ### 1.1 Core Tenets
 
-1. **Boring is Better:** One runtime per OS class, no per-host snowflakes
-2. **Muscle Memory Matters:** `docker ps`, `docker run`, `docker build` continue to work
-3. **Platform-Appropriate:** Use what works best for each OS (Podman on Linux, Docker Desktop on Windows/macOS)
-4. **Rootless Where Possible:** Podman enables rootless containers by default
-5. **Systemd Integration:** Containers are managed as systemd units on Linux servers
+1. **One Runtime:** Podman everywhere - Linux, Windows, macOS
+2. **No Emulation:** Learn native Podman commands, no docker aliases
+3. **Rootless Default:** Podman enables rootless containers by default
+4. **Systemd Integration:** Containers are managed as systemd units on Linux servers
+5. **No Exceptions:** Docker ban applies to all PHC systems including WSL2
 
 ### 1.2 Non-Goals
 
-- **Not** replacing Docker Desktop on Windows/macOS in this wave
-- **Not** enforcing Podman purity (Docker CLI compatibility is a feature, not a bug)
-- **Not** supporting both Docker and Podman as competing runtimes on the same host
+- ~~Docker CLI compatibility~~ **REMOVED** - use native Podman commands
+- ~~Docker Desktop on Windows/macOS~~ **BANNED** - use Podman Desktop
+- ~~Muscle memory support~~ **DEPRECATED** - retrain your muscle memory
 
 ---
 
@@ -41,60 +63,47 @@ This document defines the **official container runtime standard** for all infras
 ### 2.1 Primary Runtime: Podman
 
 **What:**
-- Podman is the standard container runtime for all Linux hosts (Fedora, Ubuntu, Debian, etc.)
-- All container operations use Podman under the hood
+- Podman is the ONLY container runtime for all Linux hosts
+- All container operations use native Podman commands
 - Containers are built, run, and managed via Podman
 
 **Why:**
 - Rootless by default (better security)
 - Native systemd integration
-- Drop-in Docker CLI replacement
-- No daemon required
+- Daemonless architecture
+- No commercial licensing concerns
 - Better suited for servers and headless environments
 
-### 2.2 Docker CLI Compatibility Layer
+### 2.2 Docker CLI Compatibility - REMOVED
 
-To avoid breaking existing muscle memory and scripts, we provide Docker CLI compatibility:
+**⛔ DEPRECATED AND REMOVED**
 
-#### **Fedora/RHEL/CentOS:**
-```bash
-# podman-docker package provides /usr/bin/docker → podman symlink
-dnf install podman-docker
-```
+The `podman-docker` package and docker CLI wrappers are **no longer installed**.
 
-#### **Ubuntu/Debian:**
-```bash
-# Create wrapper script at /usr/local/bin/docker
-cat > /usr/local/bin/docker <<'EOF'
-#!/bin/bash
-exec podman "$@"
-EOF
-chmod +x /usr/local/bin/docker
-```
+Learn the native Podman commands:
 
-#### **Result:**
-```bash
-# All these commands work and map to Podman:
-docker ps
-docker run nginx:latest
-docker build -t myapp .
-docker-compose up -d  # Via podman-compose
-```
+| ❌ Docker (BANNED) | ✅ Podman (Use This) |
+|-------------------|---------------------|
+| `docker ps` | `podman ps` |
+| `docker run nginx` | `podman run nginx` |
+| `docker build -t app .` | `podman build -t app .` |
+| `docker-compose up` | `podman-compose up` |
+| `docker logs myapp` | `podman logs myapp` |
+| `docker exec -it myapp bash` | `podman exec -it myapp bash` |
 
 ### 2.3 Compose Strategy
 
 **Primary:** `podman-compose`
 - Installed by default on all Linux hosts
-- Compatible with most `docker-compose.yml` files
+- Compatible with most compose YAML files
 - Natively integrates with Podman
 
-**Legacy Compatibility:**
-- Existing `docker-compose.yml` files work as-is
-- No need to rewrite compose files
-- `docker compose` command maps to `podman-compose`
+**File Naming:**
+- Compose files remain named `docker-compose.yml` (industry standard)
+- Run with: `podman-compose up -d`
 
 **Podman-Native Alternative:**
-- For new services, consider Podman systemd units (via `podman generate systemd`)
+- For production services, use Podman systemd units (via `podman generate systemd`)
 - Example: motoko services (Nextcloud, LiteLLM, vLLM) use systemd units
 
 ### 2.4 Storage Configuration
@@ -172,31 +181,59 @@ podman logs nextcloud-app
 
 **What:**
 - Windows and macOS use **Podman Desktop** (GUI) + Podman CLI
-- Podman Desktop provides equivalent functionality to Docker Desktop
+- Docker Desktop is **BANNED** and actively removed
 - Uses WSL2 on Windows, native Hypervisor on macOS
 
 **Why:**
 - **Consistency:** Same runtime across all platforms (Linux/Windows/macOS)
-- **Mature:** Podman Desktop is production-ready for Windows/macOS
+- **No licensing:** Podman Desktop is free for all use cases
 - **No daemon:** Same architecture as Linux (daemonless)
-- **Migration path:** Easier to support one runtime everywhere
+- **No confusion:** One set of commands to learn
 
 **How it works:**
 - **Windows:** Podman uses WSL2 backend, GUI manages Linux VM
 - **macOS:** Podman uses Apple Hypervisor framework, GUI manages Linux VM  
-- **CLI compatibility:** `podman` command works identically to Linux
+- **CLI:** Native `podman` commands only (no docker aliases)
 
-### 4.2 Unified Approach
+### 4.2 Docker Prevention
+
+The `docker_prevention` role is automatically applied to all Windows/macOS hosts:
+
+- Uninstalls Docker Desktop if present
+- Removes all Docker files and configuration
+- Blocks Docker from being reinstalled
+- Creates marker file indicating Docker is banned
+
+**Commands on Windows/macOS:**
+```powershell
+# Windows (PowerShell)
+podman ps
+podman run -it alpine sh
+podman-compose up -d
+```
+
+```bash
+# macOS (Terminal)
+podman ps
+podman run -it alpine sh
+podman-compose up -d
+```
+
+### 4.3 Unified Approach
 
 **Consistency:**
-- All platforms use Podman as the container runtime
-- Linux: `podman_standard_linux` role
-- macOS: `podman_desktop_macos` role  
-- Windows: `podman_desktop_windows` role
+- All platforms use Podman as the ONLY container runtime
+- Linux: `podman_standard_linux` role (includes docker_prevention)
+- macOS: `podman_desktop_macos` role + `docker_prevention` role
+- Windows: `podman_desktop_windows` role + `docker_prevention` role
 
-**Roles check OS and deploy appropriate variant:**
+**Role deployment:**
 ```yaml
-# Unified container runtime deployment
+# Unified container runtime deployment with Docker prevention
+- name: Prevent Docker (all platforms)
+  ansible.builtin.include_role:
+    name: docker_prevention
+
 - name: Install Podman (Linux)
   ansible.builtin.include_role:
     name: podman_standard_linux
@@ -445,10 +482,11 @@ podman logs -f nextcloud-app
 
 ### 8.3 Non-Linux Hosts (Windows/macOS)
 
-- [ ] Docker Desktop functioning normally
-- [ ] No Podman-related changes applied
-- [ ] Existing container workflows unchanged
-- [ ] `docker ps` works as before
+- [ ] Docker Desktop **REMOVED**
+- [ ] Podman Desktop installed and functional
+- [ ] `podman ps` works
+- [ ] `docker` command fails (not found)
+- [ ] NO_DOCKER_ALLOWED marker file present
 
 ---
 
@@ -599,17 +637,14 @@ podman system prune -a
 
 ### 11.1 Podman Desktop on Windows/macOS
 
-**Considerations:**
-- Podman Desktop is maturing rapidly
-- Native support for WSL2 on Windows
-- Comparable UI to Docker Desktop
+**Status: DEPLOYED**
 
-**Evaluation Criteria:**
-- Feature parity with Docker Desktop
-- Stability and performance
-- Migration cost vs benefit
+Podman Desktop is now the standard on all Windows/macOS hosts:
+- ✅ Deployed to wintermute (Windows)
+- ✅ Deployed to armitage (Windows)
+- ✅ Deployed to count-zero (macOS)
 
-**Timeline:** Re-evaluate in Q2 2025
+Docker Desktop has been permanently banned and removed.
 
 ### 11.2 Kubernetes Integration
 
@@ -640,6 +675,7 @@ podman buildx build --platform linux/amd64,linux/arm64 -t myimage:latest .
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 2.0 | 2025-12-03 | miket-infra-devices team | DOCKER BAN: Removed all Docker CLI compatibility, banned Docker Desktop, created docker_prevention role |
 | 1.0 | 2025-11-30 | miket-infra-devices team | Initial standard definition |
 
 ---
@@ -654,5 +690,5 @@ podman buildx build --platform linux/amd64,linux/arm64 -t myimage:latest .
 
 ---
 
-**Status:** This is the official container runtime standard for miket-infra-devices as of 2025-11-30. All Linux hosts must comply with this standard. Exceptions require explicit approval and documentation.
+**Status:** This is the official container runtime standard for miket-infra-devices as of 2025-12-03. **ALL hosts** (Linux, Windows, macOS) must comply with this standard. Docker is permanently banned with no exceptions.
 
