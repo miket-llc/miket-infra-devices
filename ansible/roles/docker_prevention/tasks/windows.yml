@@ -1,0 +1,155 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Windows-specific Docker prevention tasks
+# Removes Docker Desktop and prevents reinstallation
+
+# ========================================
+# Stop Docker Desktop Services
+# ========================================
+- name: Stop Docker Desktop service
+  ansible.windows.win_service:
+    name: com.docker.service
+    state: stopped
+    start_mode: disabled
+  failed_when: false
+  tags: [docker_prevention, windows]
+
+- name: Stop Docker Desktop backend service
+  ansible.windows.win_service:
+    name: docker
+    state: stopped
+    start_mode: disabled
+  failed_when: false
+  tags: [docker_prevention, windows]
+
+# ========================================
+# Kill Docker Processes
+# ========================================
+- name: Kill Docker Desktop processes
+  ansible.windows.win_shell: |
+    Get-Process -Name "Docker*" -ErrorAction SilentlyContinue | Stop-Process -Force
+    Get-Process -Name "com.docker*" -ErrorAction SilentlyContinue | Stop-Process -Force
+  failed_when: false
+  tags: [docker_prevention, windows]
+
+# ========================================
+# Uninstall Docker Desktop
+# ========================================
+- name: Check if Docker Desktop is installed
+  ansible.windows.win_reg_stat:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Docker Desktop
+  register: docker_desktop_reg
+  tags: [docker_prevention, windows]
+
+- name: Get Docker Desktop uninstall string
+  ansible.windows.win_reg_stat:
+    path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Docker Desktop
+    name: UninstallString
+  register: docker_uninstall
+  when: docker_desktop_reg.exists
+  tags: [docker_prevention, windows]
+
+- name: Uninstall Docker Desktop silently
+  ansible.windows.win_shell: |
+    $uninstallPath = "C:\Program Files\Docker\Docker\Docker Desktop Installer.exe"
+    if (Test-Path $uninstallPath) {
+      Start-Process -FilePath $uninstallPath -ArgumentList "uninstall", "--quiet" -Wait -NoNewWindow
+    }
+  when: docker_desktop_reg.exists
+  failed_when: false
+  tags: [docker_prevention, windows]
+
+# ========================================
+# Remove Docker Desktop Files
+# ========================================
+- name: Remove Docker Desktop directories
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - C:\Program Files\Docker
+    - C:\ProgramData\Docker
+    - C:\ProgramData\DockerDesktop
+    - "{{ ansible_env.USERPROFILE }}\\.docker"
+    - "{{ ansible_env.APPDATA }}\\Docker"
+    - "{{ ansible_env.APPDATA }}\\Docker Desktop"
+    - "{{ ansible_env.LOCALAPPDATA }}\\Docker"
+  failed_when: false
+  when: docker_prevention_remove_desktop_windows | bool
+  tags: [docker_prevention, windows, cleanup]
+
+# ========================================
+# Remove Docker from WSL2
+# ========================================
+- name: Check for WSL2 Docker integration
+  ansible.windows.win_shell: |
+    wsl -l -q 2>$null | ForEach-Object {
+      $distro = $_.Trim()
+      if ($distro -and $distro -ne "") {
+        $dockerCheck = wsl -d $distro -- which docker 2>$null
+        if ($dockerCheck) {
+          Write-Output "Docker found in: $distro"
+        }
+      }
+    }
+  register: wsl_docker_check
+  failed_when: false
+  when: docker_prevention_block_wsl2 | bool
+  tags: [docker_prevention, windows, wsl2]
+
+- name: Display WSL2 Docker status
+  ansible.builtin.debug:
+    msg: "{{ wsl_docker_check.stdout_lines | default(['No Docker found in WSL2 distros']) }}"
+  when: docker_prevention_block_wsl2 | bool
+  tags: [docker_prevention, windows, wsl2]
+
+# ========================================
+# Remove Docker from PATH
+# ========================================
+- name: Remove Docker from system PATH
+  ansible.windows.win_path:
+    elements:
+      - C:\Program Files\Docker\Docker\resources\bin
+      - C:\ProgramData\DockerDesktop\version-bin
+    state: absent
+    scope: machine
+  failed_when: false
+  tags: [docker_prevention, windows]
+
+# ========================================
+# Block Docker Desktop Installation
+# ========================================
+- name: Create marker file to indicate Docker is banned
+  ansible.windows.win_copy:
+    content: |
+      DOCKER IS BANNED FROM THIS SYSTEM
+      ==================================
+      
+      This system is part of the MikeT PHC infrastructure.
+      Docker and Docker Desktop are NOT permitted.
+      
+      Approved container runtime: Podman Desktop
+      
+      If you need containers, use:
+        - Podman Desktop (Windows)
+        - podman CLI via WSL2
+      
+      Policy enforced: {{ ansible_date_time.iso8601 }}
+    dest: C:\ProgramData\NO_DOCKER_ALLOWED.txt
+  tags: [docker_prevention, windows]
+
+# ========================================
+# Verification
+# ========================================
+- name: Check if Docker Desktop executable exists
+  ansible.windows.win_stat:
+    path: C:\Program Files\Docker\Docker\Docker Desktop.exe
+  register: docker_desktop_exe
+  tags: [docker_prevention, windows, verify]
+
+- name: Display Windows Docker prevention result
+  ansible.builtin.debug:
+    msg: "{{ 'Docker Desktop not found - GOOD ✓' if not docker_desktop_exe.stat.exists else 'WARNING: Docker Desktop still exists!' }}"
+  tags: [docker_prevention, windows, verify]
+

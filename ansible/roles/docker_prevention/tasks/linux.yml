@@ -1,0 +1,156 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Linux-specific Docker prevention tasks
+
+- name: Stop Docker service if running
+  ansible.builtin.systemd:
+    name: docker
+    state: stopped
+    enabled: false
+  failed_when: false
+  tags: [docker_prevention, linux]
+
+- name: Stop containerd service if running
+  ansible.builtin.systemd:
+    name: containerd
+    state: stopped
+    enabled: false
+  failed_when: false
+  tags: [docker_prevention, linux]
+
+# ========================================
+# Remove Docker Packages (RedHat)
+# ========================================
+- name: Remove Docker packages (RedHat family)
+  ansible.builtin.dnf:
+    name: "{{ docker_prevention_packages_redhat }}"
+    state: absent
+  when:
+    - docker_prevention_remove_packages | bool
+    - ansible_os_family == "RedHat"
+  tags: [docker_prevention, linux, packages]
+
+- name: Block Docker packages via dnf versionlock (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: python3-dnf-plugin-versionlock
+    state: present
+  when:
+    - docker_prevention_block_install | bool
+    - ansible_os_family == "RedHat"
+  tags: [docker_prevention, linux, block]
+
+- name: Add Docker packages to versionlock exclude (Fedora/RHEL)
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/dnf.conf
+    line: "excludepkgs=docker-ce,docker-ce-cli,containerd.io,moby-engine,docker-compose,podman-docker"
+    regexp: "^excludepkgs=.*docker.*"
+    create: false
+  when:
+    - docker_prevention_block_install | bool
+    - ansible_os_family == "RedHat"
+  tags: [docker_prevention, linux, block]
+
+# ========================================
+# Remove Docker Packages (Debian)
+# ========================================
+- name: Remove Docker packages (Debian family)
+  ansible.builtin.apt:
+    name: "{{ docker_prevention_packages_debian }}"
+    state: absent
+    purge: true
+  when:
+    - docker_prevention_remove_packages | bool
+    - ansible_os_family == "Debian"
+  tags: [docker_prevention, linux, packages]
+
+- name: Block Docker packages via apt hold (Debian/Ubuntu)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - docker.io
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+  failed_when: false
+  when:
+    - docker_prevention_block_install | bool
+    - ansible_os_family == "Debian"
+  tags: [docker_prevention, linux, block]
+
+# ========================================
+# Remove Docker CLI Wrappers
+# ========================================
+- name: Remove Docker CLI wrapper scripts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/docker
+    - /usr/local/bin/docker-compose
+    - /usr/bin/docker  # If podman-docker left a symlink
+  tags: [docker_prevention, linux]
+
+# ========================================
+# Remove Docker Data
+# ========================================
+- name: Remove Docker data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ docker_prevention_data_dirs }}"
+  when: docker_prevention_remove_data | bool
+  tags: [docker_prevention, linux, data]
+
+# ========================================
+# Remove Docker Network Interface
+# ========================================
+- name: Check for docker0 network interface
+  ansible.builtin.command: ip link show docker0
+  register: docker0_exists
+  changed_when: false
+  failed_when: false
+  tags: [docker_prevention, linux, network]
+
+- name: Remove docker0 from NetworkManager
+  ansible.builtin.command: nmcli connection delete docker0
+  when:
+    - docker_prevention_remove_networks | bool
+    - docker0_exists.rc == 0
+  failed_when: false
+  tags: [docker_prevention, linux, network]
+
+- name: Delete docker0 network interface
+  ansible.builtin.command: ip link delete docker0
+  when:
+    - docker_prevention_remove_networks | bool
+    - docker0_exists.rc == 0
+  failed_when: false
+  tags: [docker_prevention, linux, network]
+
+# ========================================
+# Remove Docker Group
+# ========================================
+- name: Remove docker group
+  ansible.builtin.group:
+    name: docker
+    state: absent
+  failed_when: false
+  tags: [docker_prevention, linux]
+
+# ========================================
+# Verification
+# ========================================
+- name: Verify Docker is not installed
+  ansible.builtin.command: which docker
+  register: docker_check
+  changed_when: false
+  failed_when: false
+  tags: [docker_prevention, linux, verify]
+
+- name: Display Linux Docker prevention result
+  ansible.builtin.debug:
+    msg: "{{ 'Docker CLI not found - GOOD ✓' if docker_check.rc != 0 else 'WARNING: docker command still exists at ' + docker_check.stdout }}"
+  tags: [docker_prevention, linux, verify]
+

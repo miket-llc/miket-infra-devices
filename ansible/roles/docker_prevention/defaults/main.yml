@@ -1,0 +1,76 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# DOCKER PREVENTION ROLE DEFAULTS
+# =============================================================================
+#
+# This role actively prevents Docker installation and removes existing Docker
+# artifacts from all PHC systems. Docker is BANNED from the entire system of
+# systems - no exceptions.
+#
+# Policy:
+#   - No Docker daemon
+#   - No Docker CLI (including podman-docker emulation)
+#   - No Docker Desktop (Windows/macOS)
+#   - No Docker in WSL2 instances
+#
+# =============================================================================
+
+# Enable/disable Docker prevention (should always be true)
+docker_prevention_enabled: true
+
+# Remove existing Docker packages
+docker_prevention_remove_packages: true
+
+# Remove Docker data directories
+docker_prevention_remove_data: true
+
+# Remove Docker network interfaces (docker0 bridge)
+docker_prevention_remove_networks: true
+
+# Block Docker installation via package manager holds/locks
+docker_prevention_block_install: true
+
+# Windows-specific: Remove Docker Desktop
+docker_prevention_remove_desktop_windows: true
+
+# macOS-specific: Remove Docker Desktop
+docker_prevention_remove_desktop_macos: true
+
+# WSL2-specific: Prevent Docker installation in WSL distros
+docker_prevention_block_wsl2: true
+
+# Packages to remove (Linux - RedHat family)
+docker_prevention_packages_redhat:
+  - docker-ce
+  - docker-ce-cli
+  - docker-ce-rootless-extras
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+  - docker-scan-plugin
+  - moby-engine
+  - docker-compose
+  - podman-docker  # NO Docker CLI emulation
+
+# Packages to remove (Linux - Debian family)
+docker_prevention_packages_debian:
+  - docker.io
+  - docker-ce
+  - docker-ce-cli
+  - docker-ce-rootless-extras
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+  - docker-scan-plugin
+  - docker-compose
+
+# Data directories to remove
+docker_prevention_data_dirs:
+  - /var/lib/docker
+  - /var/lib/containerd
+  - /etc/docker
+  - /var/run/docker
+  - /var/run/docker.sock
+

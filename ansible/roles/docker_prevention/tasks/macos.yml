@@ -1,0 +1,148 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS-specific Docker prevention tasks
+# Removes Docker Desktop and prevents reinstallation
+
+# ========================================
+# Stop Docker Desktop
+# ========================================
+- name: Stop Docker Desktop application
+  ansible.builtin.command: osascript -e 'quit app "Docker"'
+  failed_when: false
+  changed_when: false
+  tags: [docker_prevention, macos]
+
+- name: Kill Docker processes
+  ansible.builtin.shell: |
+    pkill -9 -f "Docker" 2>/dev/null || true
+    pkill -9 -f "com.docker" 2>/dev/null || true
+  failed_when: false
+  changed_when: false
+  tags: [docker_prevention, macos]
+
+# ========================================
+# Uninstall Docker Desktop
+# ========================================
+- name: Check if Docker Desktop is installed
+  ansible.builtin.stat:
+    path: /Applications/Docker.app
+  register: docker_desktop_app
+  tags: [docker_prevention, macos]
+
+- name: Remove Docker Desktop application
+  ansible.builtin.file:
+    path: /Applications/Docker.app
+    state: absent
+  become: true
+  when:
+    - docker_prevention_remove_desktop_macos | bool
+    - docker_desktop_app.stat.exists
+  tags: [docker_prevention, macos]
+
+# ========================================
+# Remove Docker Desktop Files
+# ========================================
+- name: Get current user home directory
+  ansible.builtin.set_fact:
+    user_home: "{{ ansible_env.HOME }}"
+  tags: [docker_prevention, macos]
+
+- name: Remove Docker Desktop user files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ user_home }}/.docker"
+    - "{{ user_home }}/Library/Group Containers/group.com.docker"
+    - "{{ user_home }}/Library/Containers/com.docker.docker"
+    - "{{ user_home }}/Library/Application Support/Docker Desktop"
+    - "{{ user_home }}/Library/Preferences/com.docker.docker.plist"
+    - "{{ user_home }}/Library/Preferences/com.electron.docker-frontend.plist"
+    - "{{ user_home }}/Library/Saved Application State/com.electron.docker-frontend.savedState"
+    - "{{ user_home }}/Library/Logs/Docker Desktop"
+  failed_when: false
+  when: docker_prevention_remove_desktop_macos | bool
+  tags: [docker_prevention, macos, cleanup]
+
+- name: Remove Docker system files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/local/bin/docker
+    - /usr/local/bin/docker-compose
+    - /usr/local/bin/docker-credential-desktop
+    - /usr/local/bin/docker-credential-ecr-login
+    - /usr/local/bin/docker-credential-osxkeychain
+    - /Library/PrivilegedHelperTools/com.docker.vmnetd
+    - /Library/LaunchDaemons/com.docker.vmnetd.plist
+  become: true
+  failed_when: false
+  when: docker_prevention_remove_desktop_macos | bool
+  tags: [docker_prevention, macos, cleanup]
+
+# ========================================
+# Remove Docker from PATH via Homebrew
+# ========================================
+- name: Check if Docker was installed via Homebrew
+  ansible.builtin.command: brew list --cask docker
+  register: brew_docker
+  failed_when: false
+  changed_when: false
+  tags: [docker_prevention, macos]
+
+- name: Uninstall Docker via Homebrew
+  community.general.homebrew_cask:
+    name: docker
+    state: absent
+  when: brew_docker.rc == 0
+  failed_when: false
+  tags: [docker_prevention, macos]
+
+# ========================================
+# Block Docker Installation
+# ========================================
+- name: Create marker file to indicate Docker is banned
+  ansible.builtin.copy:
+    content: |
+      DOCKER IS BANNED FROM THIS SYSTEM
+      ==================================
+      
+      This system is part of the MikeT PHC infrastructure.
+      Docker and Docker Desktop are NOT permitted.
+      
+      Approved container runtime: Podman Desktop
+      
+      If you need containers, use:
+        - Podman Desktop (macOS)
+        - podman CLI
+      
+      Policy enforced: {{ ansible_date_time.iso8601 }}
+    dest: "{{ user_home }}/.NO_DOCKER_ALLOWED"
+    mode: '0644'
+  tags: [docker_prevention, macos]
+
+# ========================================
+# Verification
+# ========================================
+- name: Check if Docker command exists
+  ansible.builtin.command: which docker
+  register: docker_check
+  failed_when: false
+  changed_when: false
+  tags: [docker_prevention, macos, verify]
+
+- name: Check if Docker Desktop app exists
+  ansible.builtin.stat:
+    path: /Applications/Docker.app
+  register: docker_app_check
+  tags: [docker_prevention, macos, verify]
+
+- name: Display macOS Docker prevention result
+  ansible.builtin.debug:
+    msg:
+      - "Docker CLI: {{ 'Not found - GOOD ✓' if docker_check.rc != 0 else 'WARNING: Found at ' + docker_check.stdout }}"
+      - "Docker Desktop: {{ 'Not found - GOOD ✓' if not docker_app_check.stat.exists else 'WARNING: Still installed!' }}"
+  tags: [docker_prevention, macos, verify]
+

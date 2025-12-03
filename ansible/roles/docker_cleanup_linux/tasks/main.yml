@@ -113,6 +113,22 @@
         - /etc/docker
       when: docker_cleanup_remove_images | bool
 
+    - name: Check for docker0 network interface
+      ansible.builtin.command: ip link show docker0
+      register: docker0_interface
+      changed_when: false
+      failed_when: false
+
+    - name: Delete docker0 connection from NetworkManager
+      ansible.builtin.command: nmcli connection delete docker0
+      when: docker0_interface.rc == 0
+      failed_when: false
+
+    - name: Delete docker0 network interface
+      ansible.builtin.command: ip link delete docker0
+      when: docker0_interface.rc == 0
+      failed_when: false
+
     - name: Display cleanup summary
       ansible.builtin.debug:
         msg: |
@@ -124,6 +140,10 @@
           
           {% if docker_cleanup_export_containers %}
           Backups saved to: {{ docker_cleanup_backup_path }}
+          {% endif %}
+          
+          {% if docker0_interface.rc == 0 %}
+          ✅ docker0 bridge interface removed
           {% endif %}
           
           Next step: Install Podman via podman_standard_linux role

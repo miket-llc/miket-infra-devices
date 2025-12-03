@@ -1,0 +1,71 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# DOCKER PREVENTION ROLE
+# =============================================================================
+#
+# Actively prevents Docker installation and removes existing Docker artifacts.
+# Docker is BANNED from the entire PHC system of systems - no exceptions.
+#
+# This role:
+#   1. Removes all Docker packages
+#   2. Removes Docker data directories
+#   3. Removes Docker network interfaces
+#   4. Blocks future Docker installation via package holds
+#   5. Removes Docker Desktop (Windows/macOS)
+#   6. Blocks Docker in WSL2 instances
+#
+# =============================================================================
+
+- name: Display Docker prevention banner
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "DOCKER PREVENTION - Purging Docker from PHC Systems"
+      - "═══════════════════════════════════════════════════════════"
+      - "Host: {{ inventory_hostname }}"
+      - "OS: {{ ansible_os_family | default('Unknown') }}"
+      - "Policy: Docker is BANNED ☠️"
+      - "═══════════════════════════════════════════════════════════"
+  tags: [docker_prevention, always]
+
+# ========================================
+# Linux Docker Removal
+# ========================================
+- name: Include Linux Docker prevention tasks
+  ansible.builtin.include_tasks: linux.yml
+  when: ansible_system == 'Linux'
+  tags: [docker_prevention, linux]
+
+# ========================================
+# Windows Docker Removal
+# ========================================
+- name: Include Windows Docker prevention tasks
+  ansible.builtin.include_tasks: windows.yml
+  when: ansible_os_family == 'Windows'
+  tags: [docker_prevention, windows]
+
+# ========================================
+# macOS Docker Removal
+# ========================================
+- name: Include macOS Docker prevention tasks
+  ansible.builtin.include_tasks: macos.yml
+  when: ansible_os_family == 'Darwin'
+  tags: [docker_prevention, macos]
+
+- name: Display completion banner
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "DOCKER PREVENTION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - "Docker has been purged from {{ inventory_hostname }}"
+      - ""
+      - "Approved container runtime: Podman"
+      - "Commands: podman, podman-compose"
+      - ""
+      - "⛔ BANNED: docker, docker-compose, Docker Desktop"
+      - "═══════════════════════════════════════════════════════════"
+  tags: [docker_prevention, always]
+

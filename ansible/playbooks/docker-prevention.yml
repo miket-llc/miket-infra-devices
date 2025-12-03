@@ -1,0 +1,61 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# DOCKER PREVENTION PLAYBOOK
+# =============================================================================
+#
+# Purges Docker from ALL PHC systems. Docker is BANNED.
+#
+# Usage:
+#   ansible-playbook playbooks/docker-prevention.yml
+#   ansible-playbook playbooks/docker-prevention.yml --limit linux
+#   ansible-playbook playbooks/docker-prevention.yml --limit windows_workstations
+#
+# =============================================================================
+
+- name: Purge Docker from Linux Hosts
+  hosts: linux
+  become: true
+  gather_facts: true
+  roles:
+    - role: docker_prevention
+      tags: [docker_prevention, linux]
+
+- name: Purge Docker from Windows Hosts
+  hosts: windows
+  gather_facts: true
+  roles:
+    - role: docker_prevention
+      tags: [docker_prevention, windows]
+
+- name: Purge Docker from macOS Hosts
+  hosts: macos
+  gather_facts: true
+  roles:
+    - role: docker_prevention
+      tags: [docker_prevention, macos]
+
+- name: Display Fleet-Wide Docker Prevention Summary
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Summary banner
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "DOCKER PREVENTION COMPLETE - FLEET-WIDE"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "Docker has been purged from all PHC systems:"
+          - "  - Linux: Packages removed, dnf/apt holds in place"
+          - "  - Windows: Docker Desktop uninstalled"
+          - "  - macOS: Docker Desktop uninstalled"
+          - ""
+          - "Approved container runtime: Podman"
+          - ""
+          - "⛔ BANNED FOREVER: docker, docker-compose, Docker Desktop"
+          - "═══════════════════════════════════════════════════════════"
+      run_once: true
+      delegate_to: localhost
+
