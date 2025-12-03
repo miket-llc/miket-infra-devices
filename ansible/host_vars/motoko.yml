@@ -199,11 +199,27 @@ firewall_extra_ports:
 # - LiteLLM: Prometheus metrics DISABLED (requires LiteLLM Enterprise)
 # - Nvidia GPU: RTX 2080 monitoring
 # - Linux Sensors: CPU temps, fans, voltages
+# - Data Estate: Custom dashboard for /flux, /space, /time health
 netdata_enable_containers: true
 netdata_enable_litellm_prometheus: false  # LiteLLM prometheus callback requires Enterprise license
 netdata_litellm_metrics_url: "http://127.0.0.1:8000/metrics"
 netdata_enable_nvidia_gpu: true
 netdata_enable_linux_sensors: true
+
+# Data Estate Collector (motoko-only feature)
+# Provides custom dashboard for data estate health monitoring
+netdata_enable_data_estate: true
+netdata_data_estate_device_status: "/space/devices/motoko/mdt/_status.json"
+
+# SLO thresholds (match DATA_ESTATE_SPEC from data_estate_status role)
+netdata_data_estate_slo_space_mirror_hours: 48
+netdata_data_estate_slo_space_mirror_warn_hours: 24
+netdata_data_estate_slo_flux_backup_hours: 48
+netdata_data_estate_slo_flux_backup_warn_hours: 24
+netdata_data_estate_slo_flux_local_hours: 12
+netdata_data_estate_slo_flux_local_warn_hours: 8
+netdata_data_estate_slo_flux_graduate_hours: 168
+netdata_data_estate_slo_flux_graduate_warn_hours: 144
 
 # ========================================
 # Data Estate Status Configuration

@@ -1,0 +1,159 @@
+# Data Estate Health Alarms
+# Managed by Ansible - Do not edit manually
+# {{ ansible_managed }}
+#
+# Alarms for data estate monitoring on motoko:
+# - Mount health for flux/space/time
+# - Job freshness (SLO breaches)
+# - Disk usage thresholds
+# - Failure counts
+
+# =============================================================================
+# MOUNT HEALTH ALARMS
+# =============================================================================
+
+alarm: data_estate_flux_unmounted
+    on: data_estate.mount_health
+lookup: average -1m of mount_flux
+ every: 1m
+  warn: $this < 1
+  crit: $this < 1
+ delay: down 2m
+  info: /flux mount is not available or not accessible
+    to: sysadmin
+
+alarm: data_estate_space_unmounted
+    on: data_estate.mount_health
+lookup: average -1m of mount_space
+ every: 1m
+  warn: $this < 1
+  crit: $this < 1
+ delay: down 2m
+  info: /space mount is not available or not accessible
+    to: sysadmin
+
+alarm: data_estate_time_unmounted
+    on: data_estate.mount_health
+lookup: average -1m of mount_time
+ every: 5m
+  warn: $this < 1
+ delay: down 10m
+  info: /time mount is not available (optional but expected)
+    to: silent
+
+# =============================================================================
+# JOB FRESHNESS ALARMS (SLO-based)
+# =============================================================================
+
+# Space Mirror - SLO: {{ netdata_data_estate_slo_space_mirror_hours | default(24) }}h
+alarm: data_estate_space_mirror_stale
+    on: data_estate.job_age
+lookup: average -5m of job_age_space_mirror
+ every: 5m
+  warn: $this > {{ netdata_data_estate_slo_space_mirror_warn_hours | default(18) }}
+  crit: $this > {{ netdata_data_estate_slo_space_mirror_hours | default(24) }}
+ delay: down 15m
+  info: space-mirror sync is stale (last success $this hours ago)
+    to: sysadmin
+
+# Flux Cloud Backup - SLO: {{ netdata_data_estate_slo_flux_backup_hours | default(48) }}h
+alarm: data_estate_flux_backup_stale
+    on: data_estate.job_age
+lookup: average -5m of job_age_flux_backup
+ every: 5m
+  warn: $this > {{ netdata_data_estate_slo_flux_backup_warn_hours | default(36) }}
+  crit: $this > {{ netdata_data_estate_slo_flux_backup_hours | default(48) }}
+ delay: down 15m
+  info: flux-backup (cloud) is stale (last success $this hours ago)
+    to: sysadmin
+
+# Flux Local Snapshot - SLO: {{ netdata_data_estate_slo_flux_local_hours | default(12) }}h
+alarm: data_estate_flux_local_stale
+    on: data_estate.job_age
+lookup: average -5m of job_age_flux_local
+ every: 5m
+  warn: $this > {{ netdata_data_estate_slo_flux_local_warn_hours | default(8) }}
+  crit: $this > {{ netdata_data_estate_slo_flux_local_hours | default(12) }}
+ delay: down 15m
+  info: flux-local-snap is stale (last success $this hours ago)
+    to: sysadmin
+
+# Flux Graduate - SLO: {{ netdata_data_estate_slo_flux_graduate_hours | default(168) }}h (weekly)
+alarm: data_estate_flux_graduate_stale
+    on: data_estate.job_age
+lookup: average -5m of job_age_flux_graduate
+ every: 1h
+  warn: $this > {{ netdata_data_estate_slo_flux_graduate_warn_hours | default(144) }}
+  crit: $this > {{ netdata_data_estate_slo_flux_graduate_hours | default(168) }}
+ delay: down 30m
+  info: flux-graduate is stale (last success $this hours ago)
+    to: sysadmin
+
+# =============================================================================
+# SLO COMPLIANCE ALARM
+# =============================================================================
+
+alarm: data_estate_slo_compliance_low
+    on: data_estate.slo_compliance
+lookup: average -10m of slo_compliance_pct
+ every: 5m
+  warn: $this < 80
+  crit: $this < 60
+ delay: down 15m
+  info: Data estate SLO compliance is at $this%
+    to: sysadmin
+
+# =============================================================================
+# FAILURE COUNT ALARMS
+# =============================================================================
+
+alarm: data_estate_failures_elevated
+    on: data_estate.failures
+lookup: max -1h of failures_total
+ every: 5m
+  warn: $this >= {{ netdata_data_estate_failure_warn_count | default(2) }}
+  crit: $this >= {{ netdata_data_estate_failure_crit_count | default(5) }}
+ delay: down 5m
+  info: Data estate has $this failures in the last hour
+    to: sysadmin
+
+# =============================================================================
+# DISK SPACE ALARMS (filesystems backing data estate)
+# =============================================================================
+# These use the built-in disk.space chart from Netdata
+
+{% if netdata_data_estate_disk_alarms | default(true) %}
+# /flux disk usage
+alarm: data_estate_disk_flux_usage
+    on: disk.space
+lookup: average -1m percentage of used at /flux
+ every: 1m
+  warn: $this > {{ netdata_data_estate_disk_warn_percent | default(80) }}
+  crit: $this > {{ netdata_data_estate_disk_crit_percent | default(90) }}
+ delay: down 5m
+  info: /flux disk usage is at $this%
+    to: sysadmin
+
+# /space disk usage  
+alarm: data_estate_disk_space_usage
+    on: disk.space
+lookup: average -1m percentage of used at /space
+ every: 1m
+  warn: $this > {{ netdata_data_estate_disk_warn_percent | default(80) }}
+  crit: $this > {{ netdata_data_estate_disk_crit_percent | default(90) }}
+ delay: down 5m
+  info: /space disk usage is at $this%
+    to: sysadmin
+
+# /time disk usage (if mounted)
+alarm: data_estate_disk_time_usage
+    on: disk.space
+lookup: average -1m percentage of used at /time
+ every: 5m
+  warn: $this > {{ netdata_data_estate_disk_warn_percent | default(80) }}
+  crit: $this > {{ netdata_data_estate_disk_crit_percent | default(90) }}
+ delay: down 15m
+  info: /time disk usage is at $this%
+    to: silent
+{% endif %}
+
