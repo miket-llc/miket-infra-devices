@@ -7,7 +7,7 @@ Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/compone
 After=network-online.target podman.socket
 Wants=network-online.target
 Requires=podman.socket
-OnFailure=failure-notify@%n.service
+OnFailure=failure-notify@%p.service
 
 [Service]
 Type=oneshot

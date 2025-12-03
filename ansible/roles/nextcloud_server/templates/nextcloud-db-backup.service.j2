@@ -6,7 +6,7 @@ Description=Nextcloud PostgreSQL Database Backup
 Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=podman.socket nextcloud.service
 Requires=podman.socket
-OnFailure=failure-notify@%n.service
+OnFailure=failure-notify@%p.service
 
 [Service]
 Type=oneshot
