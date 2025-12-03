@@ -19,3 +19,4 @@ try {
     Write-Host "Fast Startup disabled"
 }
 
+

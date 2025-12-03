@@ -1,28 +1,42 @@
-# Legacy Scripts
+# Legacy Scripts - DO NOT USE
 
-These scripts have been archived as part of the Docker → Podman migration.
+**Status:** DEPRECATED  
+**Date:** 2025-12-03
 
-**Migration Date:** 2025-12-01
+## Docker Scripts - BANNED
 
-## Archived Scripts
+The following Docker-related scripts are deprecated and should NOT be used:
 
-- `Diagnose-DockerWSL.ps1` - Docker Desktop + WSL2 diagnostic tool (replaced by Podman Desktop)
-- `Reset-DockerWSL.ps1` - Docker Desktop + WSL2 reset tool (replaced by Podman Desktop)
+- `Check-DockerStatus.ps1` - Docker is banned
+- `Diagnose-DockerWSL.ps1` - Docker is banned
+- `Remove-Docker-Complete.ps1` - Use `docker_prevention` Ansible role instead
+- `Reset-DockerWSL.ps1` - Docker is banned
+- `Stop-Docker.ps1` - Docker is banned
+- `Debug-DockerNvidia.ps1` - Docker is banned
 
-## Why Archived
+## Why These Are Here
 
-The miket-infra-devices repository has standardized on **Podman** as the container runtime across all platforms:
+These scripts are retained for historical reference only. Docker was removed from all
+PHC systems on 2025-12-03. The approved container runtime is **Podman**.
 
-- **Linux:** Podman with podman-docker CLI compatibility layer
-- **Windows:** Podman Desktop with WSL2 backend
-- **macOS:** Podman Desktop with Apple Hypervisor
+## What To Use Instead
 
-Docker Desktop is no longer used. These scripts remain for historical reference only.
+| Old (Docker) | New (Podman) |
+|--------------|--------------|
+| Docker Desktop | Podman Desktop |
+| `docker ps` | `podman ps` |
+| `docker run` | `podman run` |
+| WSL2 Docker integration | WSL2 Podman |
 
-## Migration Notes
+## Automation
 
-For the new Podman-based workflows, see:
-- `../Start-VLLM.ps1` - Updated to use Podman
-- `/docs/reference/CONTAINERS_RUNTIME_STANDARD.md` - Container runtime standard
+To enforce Docker prevention, use the Ansible role:
 
+```bash
+ansible-playbook playbooks/docker-prevention.yml --limit wintermute
+```
 
+## See Also
+
+- [Container Runtime Standard](../../../../docs/reference/CONTAINERS_RUNTIME_STANDARD.md)
+- [Docker Prevention Role](../../../../ansible/roles/docker_prevention/README.md)

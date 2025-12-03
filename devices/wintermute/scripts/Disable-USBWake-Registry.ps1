@@ -53,3 +53,4 @@ Start-Process "devmgmt.msc"
 Write-Host "Device Manager opened. Please manually disable wake on USB devices." -ForegroundColor Yellow
 Write-Host ""
 
+

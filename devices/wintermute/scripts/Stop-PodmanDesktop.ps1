@@ -20,3 +20,4 @@ Write-Host ""
 Write-Host "Current top CPU processes:" -ForegroundColor Cyan
 Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 ProcessName, CPU, WorkingSet | Format-Table -AutoSize
 
+

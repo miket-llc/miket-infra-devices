@@ -35,3 +35,4 @@ Write-Host "Done. Monitor fan activity." -ForegroundColor Cyan
 Write-Host "If fan cycling stops, netdata was likely the cause." -ForegroundColor Yellow
 Write-Host ""
 
+

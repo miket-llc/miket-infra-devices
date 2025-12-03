@@ -69,3 +69,4 @@ Write-Host "  - Scheduled tasks using WMI" -ForegroundColor White
 Write-Host "  - Management software (Ansible, monitoring agents)" -ForegroundColor White
 Write-Host ""
 
+

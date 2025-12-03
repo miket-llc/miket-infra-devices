@@ -45,3 +45,4 @@ if ($powerErrors) {
     Write-Host "No sleep/wake/power related errors found" -ForegroundColor Green
 }
 
+

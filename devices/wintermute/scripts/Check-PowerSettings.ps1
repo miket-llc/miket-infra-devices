@@ -40,3 +40,4 @@ if ($wakeDevices.Count -gt 0) {
     Write-Host "  (Unable to determine - check Device Manager manually)" -ForegroundColor Gray
 }
 
+

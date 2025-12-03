@@ -76,3 +76,4 @@ Write-Host ""
 Write-Host "⚠ Registry method has limited success. Manual Device Manager configuration is recommended." -ForegroundColor Yellow
 Write-Host ""
 
+
