@@ -1,0 +1,61 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Deploy Ollama Models to PHC Workstations
+# Prerequisites: Ollama must be manually installed on each workstation
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-ollama-models.yml
+#   ansible-playbook playbooks/deploy-ollama-models.yml --limit armitage
+#
+# After running, verify via LiteLLM:
+#   curl http://motoko:8000/v1/models
+
+- name: Deploy Ollama models to workstations
+  hosts: workstations
+  gather_facts: true
+  
+  roles:
+    - role: ollama_workstation
+      when: ollama_enabled | default(false)
+
+- name: Verify LiteLLM connectivity to Ollama endpoints
+  hosts: motoko
+  gather_facts: false
+  
+  tasks:
+    - name: Test chat-fast (armitage)
+      ansible.builtin.uri:
+        url: "http://armitage.pangolin-vega.ts.net:11434/api/tags"
+        method: GET
+        timeout: 10
+      register: armitage_test
+      ignore_errors: true
+
+    - name: Test chat-deep (wintermute)
+      ansible.builtin.uri:
+        url: "http://wintermute.pangolin-vega.ts.net:11434/api/tags"
+        method: GET
+        timeout: 10
+      register: wintermute_test
+      ignore_errors: true
+
+    - name: Test longcontext (count-zero)
+      ansible.builtin.uri:
+        url: "http://count-zero.pangolin-vega.ts.net:11434/api/tags"
+        method: GET
+        timeout: 10
+      register: countzero_test
+      ignore_errors: true
+
+    - name: Display endpoint status
+      ansible.builtin.debug:
+        msg: |
+          PHC AI Fabric Endpoint Status:
+          ═══════════════════════════════════════════════════════════
+          chat-fast (armitage):     {{ 'OK' if armitage_test.status == 200 else 'FAILED' }}
+          chat-deep (wintermute):   {{ 'OK' if wintermute_test.status == 200 else 'FAILED' }}
+          longcontext (count-zero): {{ 'OK' if countzero_test.status == 200 else 'FAILED' }}
+          ═══════════════════════════════════════════════════════════
+          
+          LiteLLM Models API: http://motoko:8000/v1/models
+

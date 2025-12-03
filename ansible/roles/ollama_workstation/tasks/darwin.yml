@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# macOS Ollama Configuration
+# Prerequisites: User must have Ollama installed and running
+
+- name: Check if Ollama is installed
+  ansible.builtin.shell: |
+    if command -v ollama &>/dev/null || [ -d "/Applications/Ollama.app" ]; then
+      echo "installed"
+    else
+      echo "not_installed"
+    fi
+  register: ollama_check
+  changed_when: false
+
+- name: Fail if Ollama not installed
+  ansible.builtin.fail:
+    msg: |
+      Ollama is not installed on {{ inventory_hostname }}.
+      Please install manually: brew install ollama
+      Or download from https://ollama.com/download/mac
+      After installing, run 'ollama serve' or launch Ollama.app
+  when: ollama_check.stdout | trim == "not_installed"
+
+- name: Check if Ollama is running
+  ansible.builtin.shell: |
+    curl -s --max-time 5 http://localhost:{{ ollama_port }}/api/tags >/dev/null 2>&1 && echo "running" || echo "not_running"
+  register: ollama_running
+  changed_when: false
+
+- name: Start Ollama if not running (via launchctl)
+  ansible.builtin.shell: |
+    # Try to start ollama serve with network binding
+    pkill -f "ollama serve" || true
+    sleep 2
+    OLLAMA_HOST={{ ollama_host }}:{{ ollama_port }} nohup ollama serve > /tmp/ollama.log 2>&1 &
+    sleep 5
+    curl -s --max-time 5 http://localhost:{{ ollama_port }}/api/tags >/dev/null 2>&1 && echo "started" || echo "failed"
+  register: ollama_start
+  when: ollama_running.stdout | trim == "not_running"
+  changed_when: ollama_start.stdout | trim == "started"
+
+- name: Verify Ollama is now running
+  ansible.builtin.shell: |
+    curl -s --max-time 5 http://localhost:{{ ollama_port }}/api/tags >/dev/null 2>&1 && echo "running" || echo "not_running"
+  register: ollama_running_final
+  changed_when: false
+
+- name: Display warning if Ollama still not running
+  ansible.builtin.debug:
+    msg: |
+      WARNING: Ollama is not responding on {{ inventory_hostname }}.
+      Please start Ollama manually and try again.
+  when: ollama_running_final.stdout | trim == "not_running"
+
+- name: Pull required models
+  ansible.builtin.shell: |
+    ollama pull {{ item.name }}
+  loop: "{{ ollama_models }}"
+  when:
+    - ollama_running_final.stdout | trim == "running"
+    - ollama_models | length > 0
+  async: "{{ ollama_pull_timeout }}"
+  poll: 30
+  register: model_pull_results
+
+- name: Create custom Modelfile for context settings
+  ansible.builtin.copy:
+    dest: "/tmp/Modelfile.{{ item.name | replace(':', '-') }}"
+    content: |
+      FROM {{ item.name }}
+      PARAMETER num_ctx {{ item.context | default(8192) }}
+    mode: '0644'
+  loop: "{{ ollama_models }}"
+  when:
+    - ollama_running_final.stdout | trim == "running"
+    - item.context is defined
+
+- name: Verify models are available
+  ansible.builtin.shell: |
+    ollama list 2>&1 | grep -q "{{ item.name }}" && echo "available" || echo "missing"
+  loop: "{{ ollama_models }}"
+  register: model_verify
+  changed_when: false
+  when: ollama_running_final.stdout | trim == "running"
+
+- name: Display model status
+  ansible.builtin.debug:
+    msg: "Model {{ item.item.name }}: {{ item.stdout | trim }}"
+  loop: "{{ model_verify.results | default([]) }}"
+  when: model_verify.results is defined
+

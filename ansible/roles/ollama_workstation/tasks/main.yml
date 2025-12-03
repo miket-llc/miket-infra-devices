@@ -1,0 +1,10 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Ollama Workstation Setup
+# Handles model downloads, context configuration, and validation
+# NOTE: Ollama must be manually installed by user first
+
+- name: Include OS-specific tasks
+  ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yml"
+  when: ollama_enabled | default(false)
+

@@ -1,0 +1,33 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Ollama Workstation Configuration
+# NOTE: Ollama must be manually installed by user on Windows/macOS
+# This role handles model downloads, context settings, and validation
+
+# Whether to configure Ollama on this host
+ollama_enabled: false
+
+# Models to pull (list of model specs)
+ollama_models: []
+# Example:
+# ollama_models:
+#   - name: qwen2.5:7b
+#     context: 8192
+#   - name: llama3:8b
+#     context: 8192
+
+# Ollama API port (default)
+ollama_port: 11434
+
+# Network binding - must be 0.0.0.0 for PHC cross-node access
+ollama_host: "0.0.0.0"
+
+# Firewall rule name (Windows)
+ollama_firewall_rule_name: "Ollama PHC"
+
+# Timeout for model pull operations (seconds)
+ollama_pull_timeout: 1800
+
+# Timeout for health checks (seconds)
+ollama_health_timeout: 30
+

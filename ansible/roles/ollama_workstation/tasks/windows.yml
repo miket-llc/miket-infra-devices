@@ -1,0 +1,99 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Windows Ollama Configuration
+# Prerequisites: User must have Ollama installed and running
+
+- name: Check if Ollama is installed
+  ansible.windows.win_shell: |
+    if (Test-Path "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe") { 
+      Write-Output "installed" 
+    } else { 
+      Write-Output "not_installed" 
+    }
+  register: ollama_check
+  changed_when: false
+
+- name: Fail if Ollama not installed
+  ansible.builtin.fail:
+    msg: |
+      Ollama is not installed on {{ inventory_hostname }}.
+      Please install manually from https://ollama.com/download/windows
+      After installing:
+      1. Launch Ollama Desktop
+      2. Enable "Allow network access" when prompted
+      3. Re-run this playbook
+  when: ollama_check.stdout | trim == "not_installed"
+
+- name: Set OLLAMA_HOST environment variable (Machine level)
+  ansible.windows.win_environment:
+    name: OLLAMA_HOST
+    value: "{{ ollama_host }}"
+    level: machine
+    state: present
+
+- name: Create Windows Firewall rule for Ollama
+  ansible.windows.win_shell: |
+    $ruleName = "{{ ollama_firewall_rule_name }}"
+    $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+    if (-not $existing) {
+      New-NetFirewallRule -DisplayName $ruleName `
+        -Direction Inbound `
+        -LocalPort {{ ollama_port }} `
+        -Protocol TCP `
+        -Action Allow `
+        -Profile Any
+      Write-Output "created"
+    } else {
+      Write-Output "exists"
+    }
+  register: firewall_result
+  changed_when: firewall_result.stdout | trim == "created"
+
+- name: Check if Ollama is running
+  ansible.windows.win_shell: |
+    try {
+      $response = Invoke-WebRequest -Uri "http://localhost:{{ ollama_port }}/api/tags" -UseBasicParsing -TimeoutSec 5
+      Write-Output "running"
+    } catch {
+      Write-Output "not_running"
+    }
+  register: ollama_running
+  changed_when: false
+
+- name: Display warning if Ollama not running
+  ansible.builtin.debug:
+    msg: |
+      WARNING: Ollama is not responding on {{ inventory_hostname }}.
+      Please ensure Ollama Desktop is running and try again.
+  when: ollama_running.stdout | trim == "not_running"
+
+- name: Pull required models
+  ansible.windows.win_shell: |
+    ollama pull {{ item.name }}
+  loop: "{{ ollama_models }}"
+  when: 
+    - ollama_running.stdout | trim == "running"
+    - ollama_models | length > 0
+  async: "{{ ollama_pull_timeout }}"
+  poll: 30
+  register: model_pull_results
+
+- name: Verify models are available
+  ansible.windows.win_shell: |
+    $models = ollama list 2>&1
+    if ($models -match "{{ item.name }}") {
+      Write-Output "available"
+    } else {
+      Write-Output "missing"
+    }
+  loop: "{{ ollama_models }}"
+  register: model_verify
+  changed_when: false
+  when: ollama_running.stdout | trim == "running"
+
+- name: Display model status
+  ansible.builtin.debug:
+    msg: "Model {{ item.item.name }}: {{ item.stdout | trim }}"
+  loop: "{{ model_verify.results | default([]) }}"
+  when: model_verify.results is defined
+
