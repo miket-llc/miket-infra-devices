@@ -12,6 +12,24 @@ nomachine_version: "9.2.18"
 nomachine_port: 4000
 
 # ========================================
+# AI Fabric Role Assignment (aligns with miket-infra platform contract)
+# ========================================
+# This node serves: longcontext (large context window fallback)
+ai_node_roles:
+  - longcontext
+
+# ========================================
+# Ollama Configuration (PHC AI Fabric)
+# ========================================
+# NOTE: Ollama must be manually installed by user
+# Install via: brew install ollama
+# Or download from: https://ollama.com/download/mac
+ollama_enabled: true
+ollama_models:
+  - name: yarn-llama2:7b-128k    # Fast 128k context model for longcontext role
+    context: 131072
+
+# ========================================
 # Netdata Monitoring Configuration
 # ========================================
 # count-zero is a Netdata CHILD node

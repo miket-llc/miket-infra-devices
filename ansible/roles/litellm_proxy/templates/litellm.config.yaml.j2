@@ -1,20 +1,21 @@
 # {{ ansible_managed }}
 # LiteLLM Proxy Configuration
 # Routes requests to logical AI Fabric roles (from miket-infra platform contract)
-# Physical backends: Armitage (chat-fast), Wintermute (chat-deep), Motoko (embeddings-general)
+# Physical backends: Armitage (chat-fast), Wintermute (chat-deep), Count-Zero (longcontext), Motoko (embeddings)
+# All workstations use Ollama (port 11434) for simpler management
 
 model_list:
   # ============================================================================
   # LOGICAL ROLE: chat-fast
   # ============================================================================
   # Fast, low-latency chat for default use cases
-  # Backend: Armitage (Qwen2.5-7B-AWQ, 8k context, RTX 4070 8GB)
+  # Backend: Armitage (Ollama qwen2.5:7b, 8k context, RTX 3060)
   - model_name: chat-fast
     litellm_params:
-      model: openai/{{ armitage_model_name }}
+      model: {{ armitage_model_display }}
       api_base: "{{ armitage_base_url }}"
-      api_key: "dummy"
     model_info:
+      mode: chat
       max_input_tokens: {{ armitage_max_input_tokens }}
       max_output_tokens: {{ armitage_max_output_tokens }}
       max_tokens: {{ armitage_max_model_len }}
@@ -25,10 +26,10 @@ model_list:
   # Legacy alias for backwards compatibility
   - model_name: local/chat
     litellm_params:
-      model: openai/{{ armitage_model_name }}
+      model: {{ armitage_model_display }}
       api_base: "{{ armitage_base_url }}"
-      api_key: "dummy"
     model_info:
+      mode: chat
       max_input_tokens: {{ armitage_max_input_tokens }}
       max_output_tokens: {{ armitage_max_output_tokens }}
       max_tokens: {{ armitage_max_model_len }}
@@ -40,13 +41,13 @@ model_list:
   # LOGICAL ROLE: chat-deep
   # ============================================================================
   # Deeper reasoning with longer context
-  # Backend: Wintermute (Llama-3-8B-AWQ, 9k context, RTX 4070 Super 12GB)
+  # Backend: Wintermute (Ollama llama3:8b, 8k context, RTX 3080)
   - model_name: chat-deep
     litellm_params:
       model: {{ wintermute_model_display }}
       api_base: "{{ wintermute_base_url }}"
-      api_key: "dummy"
     model_info:
+      mode: chat
       max_input_tokens: {{ wintermute_max_input_tokens }}
       max_output_tokens: {{ wintermute_max_output_tokens }}
       max_tokens: {{ wintermute_max_model_len }}
@@ -59,14 +60,48 @@ model_list:
     litellm_params:
       model: {{ wintermute_model_display }}
       api_base: "{{ wintermute_base_url }}"
-      api_key: "dummy"
     model_info:
+      mode: chat
       max_input_tokens: {{ wintermute_max_input_tokens }}
       max_output_tokens: {{ wintermute_max_output_tokens }}
       max_tokens: {{ wintermute_max_model_len }}
     tpm_limit: 80000
     rpm_limit: 40
     max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
+
+  # ============================================================================
+  # LOGICAL ROLE: longcontext
+  # ============================================================================
+  # LOCAL FALLBACK for large context requests (up to 65k tokens)
+  # Use this when chat-fast/chat-deep can't handle the context size
+  # Avoids defaulting to expensive cloud models for large documents
+  # Backend: Count-Zero (Ollama mpt-storywriter, 65k context, M1 Max 64GB)
+  - model_name: longcontext
+    litellm_params:
+      model: {{ countzero_model_display }}
+      api_base: "{{ countzero_base_url }}"
+    model_info:
+      mode: chat
+      max_input_tokens: {{ countzero_max_input_tokens }}
+      max_output_tokens: {{ countzero_max_output_tokens }}
+      max_tokens: {{ countzero_max_model_len }}
+    tpm_limit: 100000
+    rpm_limit: 10
+    max_concurrent_requests: {{ countzero_max_concurrent_requests }}
+
+  # Alias: local/longcontext (consistent with local/* naming)
+  - model_name: local/longcontext
+    litellm_params:
+      model: {{ countzero_model_display }}
+      api_base: "{{ countzero_base_url }}"
+    model_info:
+      mode: chat
+      max_input_tokens: {{ countzero_max_input_tokens }}
+      max_output_tokens: {{ countzero_max_output_tokens }}
+      max_tokens: {{ countzero_max_model_len }}
+    tpm_limit: 100000
+    rpm_limit: 10
+    max_concurrent_requests: {{ countzero_max_concurrent_requests }}
 
   # ============================================================================
   # LOGICAL ROLE: embeddings-general
@@ -95,23 +130,33 @@ model_list:
   # ============================================================================
   - model_name: {{ armitage_model_name }}
     litellm_params:
-      model: openai/{{ armitage_model_name }}
+      model: {{ armitage_model_display }}
       api_base: "{{ armitage_base_url }}"
-      api_key: "dummy"
     model_info:
+      mode: chat
       max_input_tokens: {{ armitage_max_input_tokens }}
       max_output_tokens: {{ armitage_max_output_tokens }}
       max_tokens: {{ armitage_max_model_len }}
 
-  - model_name: llama31-8b-wintermute
+  - model_name: {{ wintermute_model_name }}
     litellm_params:
       model: {{ wintermute_model_display }}
       api_base: "{{ wintermute_base_url }}"
-      api_key: "dummy"
     model_info:
+      mode: chat
       max_input_tokens: {{ wintermute_max_input_tokens }}
       max_output_tokens: {{ wintermute_max_output_tokens }}
       max_tokens: {{ wintermute_max_model_len }}
+
+  - model_name: {{ countzero_model_name }}
+    litellm_params:
+      model: {{ countzero_model_display }}
+      api_base: "{{ countzero_base_url }}"
+    model_info:
+      mode: chat
+      max_input_tokens: {{ countzero_max_input_tokens }}
+      max_output_tokens: {{ countzero_max_output_tokens }}
+      max_tokens: {{ countzero_max_model_len }}
 
   # ============================================================================
   # UPSTREAM FALLBACK PROVIDERS
@@ -120,13 +165,17 @@ model_list:
   - model_name: openai/strong
     litellm_params:
       model: "{{ openai_strong_model }}"
-      api_key: "${OPENAI_API_KEY}"
+      api_key: "os.environ/OPENAI_API_KEY"
+    model_info:
+      mode: chat
 
   # OpenAI cheap model (backup fallback)
   - model_name: openai/cheap
     litellm_params:
       model: "{{ openai_cheap_model }}"
-      api_key: "${OPENAI_API_KEY}"
+      api_key: "os.environ/OPENAI_API_KEY"
+    model_info:
+      mode: chat
 
 # ============================================================================
 # LITELLM SETTINGS

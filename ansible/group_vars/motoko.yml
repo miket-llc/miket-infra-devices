@@ -12,33 +12,36 @@ litellm_bind_host: "0.0.0.0"
 litellm_port: 8000
 
 # Backend service URLs (using Tailscale FQDNs for security and resilience)
-armitage_base_url: "http://armitage.pangolin-vega.ts.net:8000/v1"
-wintermute_base_url: "http://wintermute.pangolin-vega.ts.net:8000/v1"
-motoko_reasoning_base_url: "http://motoko.pangolin-vega.ts.net:8001/v1"
+# Workstations: Ollama on port 11434 (no /v1 suffix for ollama/ provider)
+# Servers: vLLM on dedicated ports (embeddings only on motoko for now)
+armitage_base_url: "http://armitage.pangolin-vega.ts.net:11434"
+wintermute_base_url: "http://wintermute.pangolin-vega.ts.net:11434"
+countzero_base_url: "http://count-zero.pangolin-vega.ts.net:11434"
 motoko_embed_base_url: "http://motoko.pangolin-vega.ts.net:8200/v1"
 
-# Wintermute reasoner model (defaults to Llama 3.1 8B AWQ). To switch to Gemma,
-# change these three vars only.
-wintermute_model_name: "local/reasoner"
-wintermute_model_display: openai/llama31-8b-wintermute
-wintermute_model_hf_id: "casperhansen/llama-3-8b-instruct-awq"
-
-# Wintermute model capabilities (must match ansible/host_vars/wintermute.yml)
-wintermute_max_model_len: 9000
-wintermute_max_input_tokens: 8000  # 85% of max_model_len for safety
+# Wintermute model config (Ollama with llama3-8k - custom with explicit 8k context)
+wintermute_model_name: "llama3-8k"
+wintermute_model_display: "ollama/llama3-8k"
+wintermute_max_model_len: 8192
+wintermute_max_input_tokens: 7000
 wintermute_max_output_tokens: 1000
 wintermute_max_concurrent_requests: 2
 
-# Armitage model capabilities (must match ansible/host_vars/armitage.yml)
-armitage_model_name: "qwen2.5-7b-armitage"
+# Armitage model config (Ollama with qwen2.5-8k - custom with explicit 8k context)
+armitage_model_name: "qwen2.5-8k"
+armitage_model_display: "ollama/qwen2.5-8k"
 armitage_max_model_len: 8192
-armitage_max_input_tokens: 7000  # 85% of max_model_len for safety
+armitage_max_input_tokens: 7000
 armitage_max_output_tokens: 768
 armitage_max_concurrent_requests: 1
 
-# --- Gemma option (uncomment to use) ---
-# wintermute_model_display: "openai/gemma-2-9b-it-awq"
-# wintermute_model_hf_id: "google/gemma-2-9b-it-AWQ"
+# Count-zero model config (Ollama with qwen2.5-32k - 32k context, fast on M1 Max)
+countzero_model_name: "qwen2.5-32k"
+countzero_model_display: "ollama/qwen2.5-32k"
+countzero_max_model_len: 32768
+countzero_max_input_tokens: 30000
+countzero_max_output_tokens: 2048
+countzero_max_concurrent_requests: 2
 
 # OpenAI configuration
 openai_strong_model: "gpt-4.1-mini"
