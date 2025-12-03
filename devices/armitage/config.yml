@@ -23,7 +23,7 @@ operating_system:
   os: Windows 11 Pro
   version: 22H2
   wsl: true
-  docker_desktop: true
+  docker_desktop: false  # BANNED - Docker purged 2025-12-03
 
 network:
   tailscale_enabled: true
@@ -31,7 +31,7 @@ network:
   wake_on_lan: true
 
 services:
-  - Docker Desktop with WSL2 backend
+  - Podman Desktop (container runtime)
   - NVIDIA CUDA Toolkit
   - WSL2 (Ubuntu 22.04)
   - Steam/Gaming platforms
@@ -42,7 +42,7 @@ use_cases:
   - Mobile development workstation
   - High-performance gaming
   - CUDA/ML development
-  - Docker containerization
+  - Podman containerization
   - Remote access via Tailscale
 
 vllm:
@@ -55,12 +55,19 @@ vllm:
   quantization: "awq"
   max_model_len: 8192
   max_num_seqs: 1
-  gpu_memory_utilization: 0.90
-  kv_cache_dtype: "fp8"
+  gpu_memory_utilization: 0.90  # 90% of GPU VRAM (not system RAM)
+  kv_cache_dtype: "fp8"  # Reduces GPU memory usage
   tensor_parallel_size: 1
   auto_switch: true
   check_interval_minutes: 5
   idle_threshold_minutes: 5
+  # Memory Usage:
+  # - Model weights: GPU VRAM only (~5GB for AWQ quantized model)
+  # - KV cache: GPU VRAM (fp8 dtype reduces memory footprint)
+  # - Container overhead: System RAM (~100-500MB for Docker/WSL2)
+  # - CPU offloading: Should NOT occur with AWQ + fp8 on 8GB VRAM
+  # Configuration ensures vLLM uses GPU VRAM, not system RAM
+  # If system RAM usage is high, check GPU VRAM usage first
   # For 8GB VRAM, fp16/bf16 build (current configuration):
   # - Qwen/Qwen2.5-7B-Instruct (bf16) - fp16/bf16 build as specified
   #   Settings: 0.9 util, 8192 max_len, 2 max_seqs (optimized for fp16/bf16)

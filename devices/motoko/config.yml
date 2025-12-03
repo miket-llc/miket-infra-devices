@@ -47,11 +47,11 @@ network:
   ssh_port: 22
 
 services:
-  - Docker (with NVIDIA runtime)
-  - Docker Compose
+  - Podman (with NVIDIA CDI runtime)
+  - Podman Compose
   - LiteLLM Proxy (port 8000)
-  - vLLM Reasoning (port 8001)
   - vLLM Embeddings (port 8200)
+  - Nextcloud (port 8080)
   - Samba (file sharing)
   - Netatalk (AFP for macOS)
   - fail2ban (security)
@@ -95,18 +95,20 @@ remote_desktop:
 
 use_cases:
   - Primary Ansible control node
-  - Docker container hosting
-  - LLM inference (reasoning and embeddings)
+  - Podman container hosting
+  - LLM inference (embeddings via vLLM)
   - LLM request routing (LiteLLM proxy)
+  - Nextcloud file sync server
   - Backup storage server (Time Machine for count-zero)
   - PHC storage backplane (/space, /flux, /time)
   - File sharing (Samba/AFP)
 
 notes:
   - Primary infrastructure server and Ansible control node
-  - Hosts Docker containers with NVIDIA GPU runtime
+  - Hosts Podman containers with NVIDIA CDI runtime
   - Provides backup services via Samba/AFP
   - Routes LLM requests via LiteLLM proxy
-  - GPU memory allocation - 45% reasoning, 30% embeddings, 25% headroom
+  - GPU: embeddings workload (50% utilization, headroom for future services)
   - Connected to Tailnet for secure remote access
   - Self-managed via Ansible playbooks
+  - Docker completely purged 2025-12-03 (Stalin mode)

@@ -21,7 +21,7 @@ operating_system:
   os: Windows 11 Pro
   version: Latest
   wsl: true
-  docker_desktop: true
+  docker_desktop: false  # BANNED - Docker purged 2025-12-03
 
 network:
   tailscale_enabled: true
@@ -29,7 +29,7 @@ network:
   wake_on_lan: true
 
 services:
-  - Docker Desktop with WSL2 backend
+  - Podman Desktop (container runtime)
   - NVIDIA CUDA Toolkit
   - WSL2 (Ubuntu 24.04 LTS)
   - NVIDIA Container Toolkit (via WSL2)
@@ -44,7 +44,7 @@ use_cases:
   - Streaming (gaming/content creation)
   - Flight simulation
   - CUDA/ML development
-  - Docker containerization
+  - Podman containerization
   - vLLM inference serving
   - Remote access via Tailscale
 
@@ -55,7 +55,7 @@ vllm:
   port: 8000
   container_name: "vllm-wintermute"
   image: "vllm/vllm-openai:latest"
-  max_model_len: 9000
+  max_model_len: 8192
   max_num_seqs: 2
   gpu_memory_utilization: 0.88
   quantization: "awq"
