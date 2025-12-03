@@ -27,6 +27,8 @@
     cloudflared_ingress_rules:
       - hostname: nextcloud.miket.io
         service: http://localhost:8080
+      - hostname: netdata.miket.io
+        service: http://localhost:19999
 
   roles:
     - role: ../../roles/cloudflared
@@ -57,7 +59,9 @@
             - https://{{ rule.hostname }} → {{ rule.service }}
           {% endfor %}
           
-          Test: curl -I https://nextcloud.miket.io
+          Test URLs:
+            curl -I https://nextcloud.miket.io
+            curl -I https://netdata.miket.io
           
           ═══════════════════════════════════════════════════════════════
 
