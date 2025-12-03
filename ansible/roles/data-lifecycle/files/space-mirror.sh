@@ -63,6 +63,24 @@ EOF
 }
 
 # =============================================================================
+# Preflight Checks
+# =============================================================================
+
+# Verify /space is mounted and accessible
+if [[ ! -d "$SOURCE" ]]; then
+    log_and_output "[$(date)] ERROR: Source directory not found: $SOURCE"
+    log_and_output "[$(date)] ERROR: Is /space mounted?"
+    exit 1
+fi
+
+# Check for minimum expected content (sanity check - avoid syncing empty mount)
+if [[ ! -d "$SOURCE/mike" ]] && [[ ! -d "$SOURCE/projects" ]]; then
+    log_and_output "[$(date)] ERROR: /space appears empty or improperly mounted"
+    log_and_output "[$(date)] ERROR: Expected subdirectories not found"
+    exit 1
+fi
+
+# =============================================================================
 # Credential Validation
 # =============================================================================
 
@@ -91,7 +109,6 @@ if rclone sync "$SOURCE" "$DEST" \
     --fast-list \
     --transfers 16 \
     --track-renames \
-    --progress \
     --stats-one-line \
     --stats-log-level NOTICE \
     --use-json-log \

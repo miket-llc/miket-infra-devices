@@ -4,8 +4,8 @@
 # Generic failure notification service template
 # Triggered via OnFailure= in other systemd units
 #
-# Usage: OnFailure=failure-notify@%n.service
-# The %n placeholder captures the failed unit name
+# Usage: OnFailure=failure-notify@%p.service
+# The %p placeholder captures the unit prefix (name without .service suffix)
 #
 # Deployed by Ansible data-lifecycle role
 
@@ -16,39 +16,14 @@ Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/compone
 [Service]
 Type=oneshot
 
-# Log the failure to a central location
-ExecStart=/bin/bash -c '\
-    FAILED_UNIT="%i"; \
-    TIMESTAMP="$(date -Iseconds)"; \
-    HOSTNAME="$(hostname)"; \
-    LOG_DIR="{{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}"; \
-    mkdir -p "${LOG_DIR}"; \
-    echo "[${TIMESTAMP}] FAILURE: ${FAILED_UNIT} failed on ${HOSTNAME}" >> "${LOG_DIR}/failures.log"; \
-    journalctl -u "${FAILED_UNIT}" --no-pager -n 50 >> "${LOG_DIR}/failures.log" 2>/dev/null || true; \
-    echo "---" >> "${LOG_DIR}/failures.log"; \
-    '
+# Set environment for the script
+Environment=DATA_LIFECYCLE_LOG_DIR={{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}
+Environment=DATA_LIFECYCLE_MARKERS_DIR={{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}
 
-# Also write a failure marker for the Data Estate collector
-ExecStartPost=/bin/bash -c '\
-    FAILED_UNIT="%i"; \
-    MARKERS_DIR="{{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}"; \
-    mkdir -p "${MARKERS_DIR}"; \
-    MARKER_FILE="${MARKERS_DIR}/last_failure.json"; \
-    TEMP_FILE=$(mktemp "${MARKERS_DIR}/.last_failure.XXXXXX"); \
-    cat > "${TEMP_FILE}" << EOF
-{
-  "failed_unit": "${FAILED_UNIT}",
-  "host": "$(hostname)",
-  "timestamp": "$(date -Iseconds)",
-  "message": "Service ${FAILED_UNIT} failed"
-}
-EOF
-    mv "${TEMP_FILE}" "${MARKER_FILE}"; \
-    chmod 644 "${MARKER_FILE}"; \
-    '
+# Run the failure notification script with the failed unit name
+ExecStart=/usr/local/bin/failure-notify.sh %i
 
 User=root
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=failure-notify
-

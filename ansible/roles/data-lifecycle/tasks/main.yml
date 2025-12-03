@@ -90,13 +90,19 @@
     group: root
   when: restic_pass_file.stat.exists == false and restic_local_password is defined and restic_local_password.stdout is defined
 
-- name: Ensure backup exclude file exists
-  file:
+- name: Check if backup exclude file exists
+  ansible.builtin.stat:
+    path: /flux/.backup-exclude
+  register: backup_exclude_file
+
+- name: Create backup exclude file if missing
+  ansible.builtin.file:
     path: /flux/.backup-exclude
     state: touch
     owner: mdt
     group: mdt
     mode: '0644'
+  when: not backup_exclude_file.stat.exists
 
 - name: Deploy Lifecycle Scripts
   copy:
@@ -111,6 +117,7 @@
     - flux-backup.sh
     - flux-local-snap.sh
     - backblaze-trigger.sh
+    - failure-notify.sh
 
 - name: Deploy Flux Graduation Service
   template:

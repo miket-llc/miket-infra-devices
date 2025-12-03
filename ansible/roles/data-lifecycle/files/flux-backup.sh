@@ -62,6 +62,26 @@ EOF
 }
 
 # =============================================================================
+# Preflight Checks
+# =============================================================================
+
+# Verify /flux is mounted and accessible
+if [[ ! -d "$SOURCE" ]]; then
+    log_and_output "[$(date)] ERROR: Source directory not found: $SOURCE"
+    log_and_output "[$(date)] ERROR: Is /flux mounted?"
+    exit 1
+fi
+
+# Verify markers directory is writable (implies /space is mounted)
+if [[ ! -d "$MARKERS_DIR" ]]; then
+    mkdir -p "$MARKERS_DIR" 2>/dev/null || {
+        log_and_output "[$(date)] ERROR: Cannot create markers directory: $MARKERS_DIR"
+        log_and_output "[$(date)] ERROR: Is /space mounted?"
+        exit 1
+    }
+fi
+
+# =============================================================================
 # Credential Validation
 # =============================================================================
 

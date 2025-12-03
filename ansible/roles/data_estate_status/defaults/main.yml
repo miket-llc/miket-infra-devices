@@ -139,6 +139,15 @@ data_estate_timer_accuracy: 5min
 data_estate_timer_persistent: true
 
 # =============================================================================
+# Device Health Manifest (per-device _status.json)
+# =============================================================================
+
+# Enable per-device health manifest (writes to /space/devices/<hostname>/<user>/_status.json)
+data_estate_device_health_enabled: true
+data_estate_device_health_user: mdt
+data_estate_device_health_dir: /space/devices
+
+# =============================================================================
 # Required Tools
 # =============================================================================
 

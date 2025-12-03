@@ -59,9 +59,32 @@ EOF
 }
 
 # =============================================================================
-# Validation
+# Preflight Checks
 # =============================================================================
 
+# Verify /flux is mounted and accessible
+if [[ ! -d "$SOURCE" ]]; then
+    log_msg "ERROR: Source directory not found: $SOURCE"
+    log_msg "ERROR: Is /flux mounted?"
+    exit 1
+fi
+
+# Verify /space is mounted (repo location)
+if [[ ! -d "$(dirname "$REPO")" ]]; then
+    log_msg "ERROR: Repository parent directory not found: $(dirname "$REPO")"
+    log_msg "ERROR: Is /space mounted?"
+    exit 1
+fi
+
+# Verify markers directory is writable
+if [[ ! -d "$MARKERS_DIR" ]]; then
+    mkdir -p "$MARKERS_DIR" 2>/dev/null || {
+        log_msg "ERROR: Cannot create markers directory: $MARKERS_DIR"
+        exit 1
+    }
+fi
+
+# Verify password file exists
 if [[ ! -f "$PASS_FILE" ]]; then
     log_msg "ERROR: Local restic password file missing at $PASS_FILE"
     log_msg "Run: ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-data-lifecycle.yml"
@@ -103,7 +126,7 @@ if restic -r "$REPO" backup "$SOURCE" \
     # Write success marker ONLY after successful backup
     write_marker "success" "Local snapshot completed successfully" "$SNAPSHOT_ID"
 else
-    EXIT_CODE=$?
+    EXIT_CODE=${PIPESTATUS[0]}
     rm -f "$BACKUP_OUTPUT"
     log_msg "ERROR: Backup failed with exit code $EXIT_CODE"
     # Do NOT update marker on failure - preserve last success timestamp

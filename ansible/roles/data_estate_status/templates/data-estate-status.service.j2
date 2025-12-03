@@ -12,7 +12,7 @@ Description=Data Estate Status Collector (PHC monitoring)
 Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=network-online.target
 Wants=network-online.target
-OnFailure=failure-notify@%n.service
+OnFailure=failure-notify@%p.service
 
 [Service]
 Type=oneshot

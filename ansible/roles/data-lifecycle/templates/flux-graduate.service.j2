@@ -1,9 +1,28 @@
 [Unit]
 Description=Graduate cold data from /flux to /space
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
+After=local-fs.target
 Wants=flux-graduate.timer
+OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%p.service') }}
 
 [Service]
 Type=oneshot
+
+# Marker file directory for Data Estate collector
+Environment=DATA_LIFECYCLE_MARKERS_DIR={{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}
+Environment=DATA_LIFECYCLE_LOG_DIR={{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}
+
 ExecStart=/usr/local/bin/flux-graduate.sh
 User=root
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=flux-graduate
+
+# Timeout
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target
 

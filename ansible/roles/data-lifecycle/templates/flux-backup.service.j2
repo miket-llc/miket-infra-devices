@@ -3,7 +3,7 @@ Description=Backup /flux to Backblaze B2 (restic cloud)
 Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=network-online.target
 Wants=network-online.target
-OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%n.service') }}
+OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%p.service') }}
 
 [Service]
 Type=oneshot

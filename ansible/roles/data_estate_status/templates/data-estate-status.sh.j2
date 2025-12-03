@@ -64,6 +64,11 @@ APPROVED_REMOTES="{{ data_estate_approved_remotes | map(attribute='name') | join
 # Marker files directory (from data-lifecycle and nextcloud roles)
 MARKERS_DIR="{{ data_estate_markers_dir | default('/space/_ops/data-estate/markers') }}"
 
+# Device Health Manifest configuration
+DEVICE_HEALTH_ENABLED="{{ data_estate_device_health_enabled | default(true) | lower }}"
+DEVICE_HEALTH_USER="{{ data_estate_device_health_user | default('mdt') }}"
+DEVICE_HEALTH_DIR="{{ data_estate_device_health_dir | default('/space/devices') }}"
+
 {% raw %}
 # =============================================================================
 # Status Constants
@@ -92,7 +97,8 @@ declare -A CHECK_RESULTS
 # =============================================================================
 
 log() {
-    echo "[$(date -Iseconds)] $*"
+    # Output to stderr so log messages don't pollute return values in $()
+    echo "[$(date -Iseconds)] $*" >&2
 }
 
 error() {
@@ -152,15 +158,12 @@ get_service_last_success() {
 # Marker File Functions
 # =============================================================================
 
-# Read a marker file and extract the timestamp
-# Returns: timestamp string or empty string if marker is invalid/missing
-# Sets global: MARKER_STATUS, MARKER_MESSAGE for additional context
-read_marker_timestamp() {
+# Read a marker file and extract timestamp and status
+# Outputs: "timestamp|status" or empty if invalid
+# $1: marker name (e.g., "restic_cloud")
+read_marker_data() {
     local marker_name="$1"
     local marker_file="${MARKERS_DIR}/${marker_name}.json"
-    
-    MARKER_STATUS=""
-    MARKER_MESSAGE=""
     
     if [[ ! -f "$marker_file" ]]; then
         log "Marker file not found: $marker_file"
@@ -172,29 +175,18 @@ read_marker_timestamp() {
         return 1
     fi
     
-    # Validate JSON and extract fields
-    local timestamp
+    # Extract timestamp and status in a single jq call
+    local result
+    result=$(jq -r '"\(.timestamp // "")|"' "$marker_file" 2>/dev/null)
+    if [[ -z "$result" || "$result" == "|" ]]; then
+        log "Marker file missing timestamp: $marker_file"
+        return 1
+    fi
+    
     local status
-    local message
-    
-    if ! timestamp=$(jq -r '.timestamp // empty' "$marker_file" 2>/dev/null); then
-        log "Marker file is not valid JSON: $marker_file"
-        return 1
-    fi
-    
-    if [[ -z "$timestamp" ]]; then
-        log "Marker file missing timestamp field: $marker_file"
-        return 1
-    fi
-    
-    # Extract optional fields
     status=$(jq -r '.status // "unknown"' "$marker_file" 2>/dev/null || echo "unknown")
-    message=$(jq -r '.message // ""' "$marker_file" 2>/dev/null || echo "")
     
-    MARKER_STATUS="$status"
-    MARKER_MESSAGE="$message"
-    
-    echo "$timestamp"
+    echo "${result}${status}"
     return 0
 }
 
@@ -204,14 +196,22 @@ read_marker_timestamp() {
 get_last_success_with_marker() {
     local marker_name="$1"
     local service_name="$2"
+    local marker_data
     local timestamp
+    local status
     
     # Try marker first
-    if timestamp=$(read_marker_timestamp "$marker_name" 2>/dev/null); then
-        if [[ -n "$timestamp" && "$MARKER_STATUS" == "success" ]]; then
-            log "Using marker timestamp for $marker_name: $timestamp"
+    if marker_data=$(read_marker_data "$marker_name" 2>/dev/null); then
+        # Parse "timestamp|status" format
+        timestamp="${marker_data%|*}"
+        status="${marker_data##*|}"
+        
+        if [[ -n "$timestamp" && "$status" == "success" ]]; then
+            log "Using marker timestamp for $marker_name: $timestamp (status=$status)"
             echo "$timestamp"
             return 0
+        else
+            log "Marker for $marker_name has status=$status (not success), falling back"
         fi
     fi
     
@@ -926,15 +926,8 @@ check_unknown_remotes() {
 generate_json_output() {
     log "Generating JSON output..."
     
-    local compliance_pct=0
-    if [[ "$CHECKS_CONFIGURED" -gt 0 ]]; then
-        compliance_pct=$(echo "scale=1; ($CHECKS_PASSED * 100) / $CHECKS_CONFIGURED" | bc 2>/dev/null || echo "0")
-    fi
-    
-    # Ensure compliance_pct is valid
-    if [[ -z "$compliance_pct" ]] || [[ "$compliance_pct" == "." ]]; then
-        compliance_pct="0"
-    fi
+    # Use pre-computed compliance percentage from CHECK_RESULTS
+    local compliance_pct="${CHECK_RESULTS[slo_compliance_pct]:-0}"
     
     cat > "$JSON_OUTPUT" << JSONEOF
 {
@@ -1094,6 +1087,166 @@ MDEOF
 }
 
 # =============================================================================
+# Device Health Manifest (per-device _status.json)
+# =============================================================================
+
+generate_device_health_manifest() {
+    if [[ "$DEVICE_HEALTH_ENABLED" != "true" ]]; then
+        log "Device health manifest disabled, skipping..."
+        return 0
+    fi
+    
+    log "Generating device health manifest..."
+    
+    local hostname
+    hostname=$(hostname)
+    local manifest_dir="${DEVICE_HEALTH_DIR}/${hostname}/${DEVICE_HEALTH_USER}"
+    local manifest_file="${manifest_dir}/_status.json"
+    
+    # Check if /space is mounted (manifest_dir parent should exist)
+    if [[ ! -d "$DEVICE_HEALTH_DIR" ]]; then
+        log "WARNING: Device health directory not available: $DEVICE_HEALTH_DIR"
+        log "WARNING: Is /space mounted? Skipping device health manifest."
+        return 0
+    fi
+    
+    # Create directory if needed
+    if ! mkdir -p "$manifest_dir" 2>/dev/null; then
+        log "WARNING: Cannot create device health directory: $manifest_dir"
+        return 0
+    fi
+    
+    # Determine mount status
+    local flux_mounted="false"
+    local space_mounted="false"
+    local time_mounted="false"
+    
+    if [[ -d "/flux" ]] && [[ -d "/flux/active" ]]; then
+        flux_mounted="true"
+    fi
+    
+    if [[ -d "/space" ]] && [[ -d "/space/mike" || -d "/space/projects" ]]; then
+        space_mounted="true"
+    fi
+    
+    if [[ -d "/time" ]]; then
+        time_mounted="true"
+    fi
+    
+    # Determine data job health from markers
+    local restic_cloud_healthy="false"
+    local restic_local_healthy="false"
+    local space_mirror_healthy="false"
+    local nextcloud_db_healthy="false"
+    local m365_ingest_healthy="false"
+    
+    # Read marker timestamps (if available)
+    local restic_cloud_last="null"
+    local restic_local_last="null"
+    local space_mirror_last="null"
+    local nextcloud_db_last="null"
+    local m365_ingest_last="null"
+    
+    if [[ -f "${MARKERS_DIR}/restic_cloud.json" ]]; then
+        local status
+        status=$(jq -r '.status // "unknown"' "${MARKERS_DIR}/restic_cloud.json" 2>/dev/null || echo "unknown")
+        restic_cloud_last=$(jq -r '.timestamp // null' "${MARKERS_DIR}/restic_cloud.json" 2>/dev/null || echo "null")
+        [[ "$status" == "success" ]] && restic_cloud_healthy="true"
+    fi
+    
+    if [[ -f "${MARKERS_DIR}/restic_local.json" ]]; then
+        local status
+        status=$(jq -r '.status // "unknown"' "${MARKERS_DIR}/restic_local.json" 2>/dev/null || echo "unknown")
+        restic_local_last=$(jq -r '.timestamp // null' "${MARKERS_DIR}/restic_local.json" 2>/dev/null || echo "null")
+        [[ "$status" == "success" ]] && restic_local_healthy="true"
+    fi
+    
+    if [[ -f "${MARKERS_DIR}/b2_mirror.json" ]]; then
+        local status
+        status=$(jq -r '.status // "unknown"' "${MARKERS_DIR}/b2_mirror.json" 2>/dev/null || echo "unknown")
+        space_mirror_last=$(jq -r '.timestamp // null' "${MARKERS_DIR}/b2_mirror.json" 2>/dev/null || echo "null")
+        [[ "$status" == "success" ]] && space_mirror_healthy="true"
+    fi
+    
+    if [[ -f "${MARKERS_DIR}/nextcloud_db.json" ]]; then
+        local status
+        status=$(jq -r '.status // "unknown"' "${MARKERS_DIR}/nextcloud_db.json" 2>/dev/null || echo "unknown")
+        nextcloud_db_last=$(jq -r '.timestamp // null' "${MARKERS_DIR}/nextcloud_db.json" 2>/dev/null || echo "null")
+        [[ "$status" == "success" ]] && nextcloud_db_healthy="true"
+    fi
+    
+    if [[ -f "${MARKERS_DIR}/m365_ingest.json" ]]; then
+        local status
+        status=$(jq -r '.status // "unknown"' "${MARKERS_DIR}/m365_ingest.json" 2>/dev/null || echo "unknown")
+        m365_ingest_last=$(jq -r '.timestamp // null' "${MARKERS_DIR}/m365_ingest.json" 2>/dev/null || echo "null")
+        [[ "$status" == "success" ]] && m365_ingest_healthy="true"
+    fi
+    
+    # Determine overall device status
+    local device_status="healthy"
+    if [[ "$flux_mounted" != "true" ]] || [[ "$space_mounted" != "true" ]]; then
+        device_status="error"
+    elif [[ "$OVERALL_STATUS" == "$STATUS_CRITICAL" ]] || [[ "$OVERALL_STATUS" == "$STATUS_ERROR" ]]; then
+        device_status="error"
+    elif [[ "$OVERALL_STATUS" == "$STATUS_WARNING" ]]; then
+        device_status="degraded"
+    fi
+    
+    # Write manifest atomically
+    local temp_file
+    temp_file=$(mktemp "${manifest_dir}/.status.XXXXXX") || {
+        log "WARNING: Cannot create temp file for device health manifest"
+        return 0
+    }
+    
+    cat > "$temp_file" << DEVICEEOF
+{
+  "timestamp": "$(date -Iseconds)",
+  "device": "${hostname}",
+  "user": "${DEVICE_HEALTH_USER}",
+  "platform": "Linux",
+  "status": "${device_status}",
+  "mounts": {
+    "flux": ${flux_mounted},
+    "space": ${space_mounted},
+    "time": ${time_mounted}
+  },
+  "data_jobs": {
+    "restic_cloud": {
+      "healthy": ${restic_cloud_healthy},
+      "last_success": ${restic_cloud_last}
+    },
+    "restic_local": {
+      "healthy": ${restic_local_healthy},
+      "last_success": ${restic_local_last}
+    },
+    "space_mirror": {
+      "healthy": ${space_mirror_healthy},
+      "last_success": ${space_mirror_last}
+    },
+    "nextcloud_db": {
+      "healthy": ${nextcloud_db_healthy},
+      "last_success": ${nextcloud_db_last}
+    },
+    "m365_ingest": {
+      "healthy": ${m365_ingest_healthy},
+      "last_success": ${m365_ingest_last}
+    }
+  },
+  "overall_data_estate": {
+    "status": "${OVERALL_STATUS}",
+    "slo_compliance_percent": ${CHECK_RESULTS[slo_compliance_pct]:-0}
+  }
+}
+DEVICEEOF
+    
+    mv "$temp_file" "$manifest_file"
+    chmod 644 "$manifest_file"
+    
+    log "Device health manifest written to $manifest_file"
+}
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -1115,9 +1268,20 @@ main() {
     check_m365_ingestion
     check_unknown_remotes
     
+    # Calculate SLO compliance percentage for use in outputs
+    local compliance_pct=0
+    if [[ "$CHECKS_CONFIGURED" -gt 0 ]]; then
+        compliance_pct=$(echo "scale=1; ($CHECKS_PASSED * 100) / $CHECKS_CONFIGURED" | bc 2>/dev/null || echo "0")
+    fi
+    if [[ -z "$compliance_pct" ]] || [[ "$compliance_pct" == "." ]]; then
+        compliance_pct="0"
+    fi
+    CHECK_RESULTS[slo_compliance_pct]="$compliance_pct"
+    
     # Generate outputs (always, even if checks fail)
     generate_json_output
     generate_markdown_output
+    generate_device_health_manifest
     
     # Summary
     log "Data Estate Status Collection Complete"

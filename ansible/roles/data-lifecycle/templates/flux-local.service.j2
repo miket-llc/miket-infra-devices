@@ -2,7 +2,7 @@
 Description=Local snapshot of /flux (restic local)
 Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
 After=local-fs.target
-OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%n.service') }}
+OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%p.service') }}
 
 [Service]
 Type=oneshot

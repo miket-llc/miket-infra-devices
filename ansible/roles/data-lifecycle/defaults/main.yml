@@ -51,5 +51,5 @@ data_lifecycle_flux_graduate_schedule: "Sun 04:00"
 # =============================================================================
 # Failure Notification
 # =============================================================================
-# OnFailure target for systemd (create failure-notify@.service template)
-data_lifecycle_on_failure_target: "failure-notify@%n.service"
+# OnFailure target for systemd (uses %p = unit prefix without .service suffix)
+data_lifecycle_on_failure_target: "failure-notify@%p.service"
