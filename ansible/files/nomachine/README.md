@@ -73,3 +73,4 @@ Current decision: Keep in repo for simplicity and IaC compliance.
 - Playbook: `ansible/playbooks/deploy-nomachine.yml`
 - Architecture: `docs/architecture/components/REMOTE_DESKTOP_ARCHITECTURE.md`
 
+
