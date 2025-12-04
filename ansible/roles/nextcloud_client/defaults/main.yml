@@ -33,6 +33,7 @@ nextcloud_default_sync_folders:
 # Folders to set as "online-only" (large or infrequently accessed)
 nextcloud_online_only_folders:
   - ms365
+  - Dashboard  # Data Estate Status dashboard (read-only, system use)
 
 # Client version (platform-specific)
 # macOS: installed via Homebrew

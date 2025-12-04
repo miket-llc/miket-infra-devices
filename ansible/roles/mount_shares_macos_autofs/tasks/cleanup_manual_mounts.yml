@@ -1,0 +1,28 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Clean up old manual mounts before switching to autofs
+
+- name: Unmount old manual mounts
+  command: umount "{{ item }}"
+  become: false
+  ignore_errors: true
+  loop:
+    - "{{ ansible_env.HOME }}/.mkt/flux"
+    - "{{ ansible_env.HOME }}/.mkt/space"
+    - "{{ ansible_env.HOME }}/.mkt/time"
+  changed_when: false
+
+- name: Remove old mount script LaunchAgent
+  command: launchctl unload -w "{{ ansible_env.HOME }}/Library/LaunchAgents/com.miket.storage-connect.plist"
+  become: false
+  ignore_errors: true
+  changed_when: false
+
+- name: Remove old mount script
+  file:
+    path: "{{ ansible_env.HOME }}/.scripts/mount_shares.sh"
+    state: absent
+  become: false
+  ignore_errors: true
+

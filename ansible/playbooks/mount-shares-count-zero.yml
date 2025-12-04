@@ -1,11 +1,12 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-- name: Mount Network Shares on count-zero
+- name: Mount Network Shares on count-zero (Autofs)
   hosts: count-zero
-  gather_facts: false  # Disable fact gathering to avoid sudo requirement
-  become: false  # User-level tasks only (writing to ~/.scripts and ~/Library/LaunchAgents)
+  gather_facts: true  # Need facts for ansible_user, ansible_env, etc.
+  become: true  # Required for autofs configuration (modifying /etc/auto_master, /etc/auto.motoko)
+  become_method: sudo
   
   roles:
-    - mount_shares_macos
+    - mount_shares_macos_autofs
 

@@ -1,0 +1,42 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# AUTOFS macOS MOUNTS - DEFAULTS
+# =============================================================================
+#
+# On-demand SMB mounting via autofs on macOS
+# Avoids stale mounts and improves reliability vs manual mount_smbfs
+#
+# =============================================================================
+
+# SMB server (Tailscale hostname)
+smb_server: "motoko"  # Using Tailscale/Local hostname
+smb_username: "mdt"  # SMB username on motoko (may differ from ansible_user)
+
+# Secrets landing zone (populated via ansible/playbooks/secrets-sync.yml)
+smb_env_file: "{{ ansible_env.HOME }}/.mkt/mounts.env"
+
+# Autofs configuration
+# Use /Volumes for mount base (macOS SIP makes /mnt read-only)
+autofs_mount_base: "/Volumes/motoko"
+autofs_timeout: 300  # Unmount after 5 minutes idle
+
+# Shares to mount via autofs
+smb_shares:
+  - name: "flux"
+    path: "/flux"
+  - name: "space"
+    path: "/space"
+  - name: "time"
+    path: "/time"
+
+# User symlinks (created in user's home directory)
+user_symlinks:
+  - name: "flux"
+    link: "~/flux"
+  - name: "space"
+    link: "~/space"
+  - name: "time"
+    link: "~/time"
+

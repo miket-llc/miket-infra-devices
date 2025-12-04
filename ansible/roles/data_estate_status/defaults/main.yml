@@ -54,7 +54,7 @@ data_estate_approved_remotes_file: "{{ data_estate_config_dir }}/approved_remote
 # Output paths
 data_estate_json_output_dir: /space/_ops/data-estate
 data_estate_json_output_file: "{{ data_estate_json_output_dir }}/status.json"
-data_estate_markdown_output_dir: /space/_services/nextcloud/dashboard
+data_estate_markdown_output_dir: /space/_ops/nextcloud/dashboard
 data_estate_markdown_output_file: "{{ data_estate_markdown_output_dir }}/data-estate-status.md"
 
 # Marker files directory (written by backup jobs, read by collector)

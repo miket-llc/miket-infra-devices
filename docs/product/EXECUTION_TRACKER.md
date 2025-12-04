@@ -1,7 +1,7 @@
 ---
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-28
+last_updated: 2025-12-04
 version: v1.11.0
 status: Active
 related_initiatives:
@@ -42,7 +42,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | **Codex-FIN-008** (FinOps) | ⏸️ Standby | Budget review pending | Estimate NoMachine licensing + Azure Monitor costs | 2025-11-29 |
 | **Codex-DOC-009** (DocOps) | ✅ Complete | Updated all remote access docs to NoMachine-only, created installation runbook | Monitor compliance with new standards | 2025-11-26 |
 | **Codex-UX-010** (UX/DX) | ✅ Complete | Standardized NoMachine client configs, created installation runbook | Ready for remote access UX instrumentation (Wave 4) | 2025-11-30 |
-| **Codex-MAC-012** (macOS Engineer) | 🚧 Active | Mounts/loop-prevention validated on count-zero | Execute DEV-011: NoMachine E2E testing from count-zero | 2025-11-24 |
+| **Codex-MAC-012** (macOS Engineer) | ✅ Complete | Autofs role created for count-zero SMB mounts, fixes stale mount issues | Monitor autofs deployment, validate Time Machine reliability | 2025-12-04 |
 | **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts fixed (UNC), health file written; smoke/validation executed | Monitor interactive session drive availability; add UNC reachability check to smoke if needed | 2025-11-24 |
 | **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 
@@ -145,6 +145,10 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || Nextcloud home sweeper timer | Codex-PD-002 | 2025-11-28 | nextcloud-home-sweeper.{sh,service,timer} |
 || Nextcloud smoke tests | Codex-PD-002 | 2025-11-28 | [tests/nextcloud_smoke.py](../../tests/nextcloud_smoke.py) |
 || Pure façade documentation | Codex-DOC-009 | 2025-11-28 | [nextcloud_on_motoko.md](../guides/nextcloud_on_motoko.md) |
+|| Nextcloud dashboard directory moved to _ops | Codex-CA-001 | 2025-12-04 | Moved from `/space/_services/nextcloud/dashboard` to `/space/_ops/nextcloud/dashboard`, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
+|| Nextcloud dashboard case clash fixed | Codex-MAC-012 | 2025-12-04 | Changed mount from `/Dashboard` to `/dashboard` (lowercase), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
+|| Autofs deployed on count-zero | Codex-MAC-012 | 2025-12-04 | Autofs configured, symlinks created, Finder integration complete, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
+|| Nextcloud client diagnostic scripts | Codex-UX-010 | 2025-12-04 | Created diagnostic and fix scripts for connection issues, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

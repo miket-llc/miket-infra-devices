@@ -12,7 +12,7 @@ The Data Estate Status Collector monitors the health of backup systems and cloud
 
 The collector runs every 6 hours and generates:
 - **JSON output:** `/space/_ops/data-estate/status.json` (machine-readable)
-- **Markdown output:** `/space/_services/nextcloud/dashboard/data-estate-status.md` (human-readable, displayed in Nextcloud)
+- **Markdown output:** `/space/_ops/nextcloud/dashboard/data-estate-status.md` (human-readable, displayed in Nextcloud)
 
 ## Architecture: Marker-Based Status Detection
 
@@ -92,7 +92,7 @@ The `SUSPICIOUS` status indicates something unexpected:
 
 ```bash
 # View human-readable status
-cat /space/_services/nextcloud/dashboard/data-estate-status.md
+cat /space/_ops/nextcloud/dashboard/data-estate-status.md
 
 # View detailed JSON status
 jq . /space/_ops/data-estate/status.json
@@ -295,7 +295,7 @@ journalctl -u failure-notify@test.service
 
 3. Check file permissions:
    ```bash
-   ls -la /space/_services/nextcloud/dashboard/
+   ls -la /space/_ops/nextcloud/dashboard/
    ```
 
 ## Deployment
@@ -324,7 +324,7 @@ ls -la /usr/local/bin/data-estate-status.sh
 ls -la /etc/miket-infra/data-estate/
 ls -la /space/_ops/data-estate/
 ls -la /space/_ops/data-estate/markers/
-ls -la /space/_services/nextcloud/dashboard/
+ls -la /space/_ops/nextcloud/dashboard/
 ```
 
 ## Dependencies

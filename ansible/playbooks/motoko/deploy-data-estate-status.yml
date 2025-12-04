@@ -19,7 +19,7 @@
 #
 # After deployment:
 # 1. Run the collector manually: sudo systemctl start data-estate-status.service
-# 2. Check outputs: cat /space/_services/nextcloud/dashboard/data-estate-status.md
+# 2. Check outputs: cat /space/_ops/nextcloud/dashboard/data-estate-status.md
 # 3. Configure Nextcloud Welcome widget (manual admin step)
 
 - name: Deploy Data Estate Status Collector
@@ -45,7 +45,7 @@
           - Config files: /etc/miket-infra/data-estate/
           - Output files:
             - /space/_ops/data-estate/status.json
-            - /space/_services/nextcloud/dashboard/data-estate-status.md
+            - /space/_ops/nextcloud/dashboard/data-estate-status.md
           
           Prerequisites:
           - data-lifecycle role (restic, rclone, backup services)
@@ -100,14 +100,14 @@
           
           Output Files:
           - JSON: /space/_ops/data-estate/status.json
-          - Markdown: /space/_services/nextcloud/dashboard/data-estate-status.md
+          - Markdown: /space/_ops/nextcloud/dashboard/data-estate-status.md
           
           ============================================================
           Next Steps:
           ============================================================
           
           1. View the status:
-             cat /space/_services/nextcloud/dashboard/data-estate-status.md
+             cat /space/_ops/nextcloud/dashboard/data-estate-status.md
           
           2. View detailed JSON:
              jq . /space/_ops/data-estate/status.json
@@ -125,7 +125,7 @@
           ============================================================
 
     - name: Show collector output preview
-      ansible.builtin.command: cat /space/_services/nextcloud/dashboard/data-estate-status.md
+      ansible.builtin.command: cat /space/_ops/nextcloud/dashboard/data-estate-status.md
       register: markdown_preview
       changed_when: false
       failed_when: false
