@@ -195,11 +195,22 @@ main() {
         log "WARNING: High load average: $load_avg"
     fi
     
-    # Check critical services
-    for service in gdm.service tigervnc.service tailscaled.service docker.service; do
-        if ! check_service "$service"; then
-            log "CRITICAL: $service is down - attempting restart"
-            systemctl restart "$service" || log "ERROR: Failed to restart $service"
+    # Check critical services (only if they exist on this system)
+    for service in tailscaled.service podman.socket; do
+        if systemctl list-unit-files "$service" &>/dev/null; then
+            if ! check_service "$service"; then
+                log "CRITICAL: $service is down - attempting restart"
+                systemctl restart "$service" || log "ERROR: Failed to restart $service"
+            fi
+        fi
+    done
+    
+    # Check optional GUI services only if installed
+    for service in gdm.service tigervnc.service; do
+        if systemctl list-unit-files "$service" &>/dev/null && systemctl is-enabled "$service" &>/dev/null; then
+            if ! check_service "$service"; then
+                log "WARNING: $service is not active (optional service)"
+            fi
         fi
     done
     
