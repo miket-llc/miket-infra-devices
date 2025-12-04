@@ -1,0 +1,79 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Phase 3: Deploy Native macOS Mounts (No Autofs)
+# This playbook deploys user-level SMB mounts with UX polish
+# Replaces autofs-based mounting with native macOS approach
+
+- name: Deploy Native macOS Mounts on count-zero
+  hosts: count-zero
+  gather_facts: yes
+  
+  pre_tasks:
+    - name: Display deployment info
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          Deploying Native macOS Mounts (No Autofs)
+          ═══════════════════════════════════════════════════════════
+          
+          This will:
+          - Mount space/flux/time to ~/.mkt/* (user-level, no sudo)
+          - Create user-owned symlinks: ~/flux, ~/space, ~/time
+          - Set up auto-mount via LaunchAgent
+          - Clean up autofs-managed mounts and stale symlinks
+          
+          Server: motoko (updated with macOS fruit modules)
+          User: {{ ansible_user }}
+  
+  roles:
+    - mount_shares_macos
+  
+  post_tasks:
+    - name: Create PHC shortcuts directory (drive-letter-like)
+      file:
+        path: "{{ ansible_env.HOME }}/PHC"
+        state: directory
+        mode: '0755'
+    
+    - name: Create drive-letter shortcuts
+      file:
+        src: "{{ item.target }}"
+        dest: "{{ item.link }}"
+        state: link
+        force: yes
+      loop:
+        - { name: "S", target: "{{ ansible_env.HOME }}/.mkt/space", link: "{{ ansible_env.HOME }}/PHC/S" }
+        - { name: "T", target: "{{ ansible_env.HOME }}/.mkt/time", link: "{{ ansible_env.HOME }}/PHC/T" }
+        - { name: "X", target: "{{ ansible_env.HOME }}/.mkt/flux", link: "{{ ansible_env.HOME }}/PHC/X" }
+    
+    - name: Add .mkt mounts to Finder sidebar (instructions)
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════
+          DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════
+          
+          Your PHC volumes are now mounted at:
+          - ~/.mkt/flux  (active workspace)
+          - ~/.mkt/space (archive and SoR)
+          - ~/.mkt/time  (backups and history)
+          
+          Convenient access:
+          - ~/flux, ~/space, ~/time (symlinks)
+          - ~/PHC/S, ~/PHC/T, ~/PHC/X ("drive letters")
+          
+          To add to Finder sidebar:
+          1. Open Finder
+          2. Press Cmd+Shift+H (go to Home)
+          3. Drag ~/PHC/S, ~/PHC/T, ~/PHC/X to sidebar
+          
+          Auto-mount:
+          - LaunchAgent installed: ~/Library/LaunchAgents/com.miket.storage-connect.plist
+          - Mounts will reconnect automatically after login/wake
+          
+          Optional cleanup (requires sudo):
+          - Remove /etc/auto_master entry for /Volumes/motoko
+          - Remove /etc/auto.motoko file
+          - This is cosmetic; autofs is no longer actively used
+

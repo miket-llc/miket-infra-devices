@@ -20,6 +20,17 @@
 	dead time = 15
 	getwd cache = yes
 
+	# macOS compatibility (fruit + streams_xattr)
+	# Enables proper handling of macOS metadata, resource forks, and Finder info
+	vfs objects = fruit streams_xattr
+	fruit:metadata = stream
+	fruit:model = MacSamba
+	fruit:posix_rename = yes
+	fruit:veto_appledouble = no
+	fruit:nfs_aces = no
+	fruit:wipe_intentionally_left_blank_rfork = yes
+	fruit:delete_empty_adfiles = yes
+
 # PHC Storage Shares (Flux/Space/Time)
 {% for share in smb_shares %}
 
@@ -31,5 +42,17 @@
 	writable = yes
 	create mask = 0664
 	directory mask = 0775
+{% if share.name == 'time' %}
+	# Time Machine-specific settings
+	vfs objects = catia fruit streams_xattr
+	fruit:time machine = yes
+	fruit:time machine max size = 8T
+	ea support = yes
+	inherit acls = yes
+	durable handles = yes
+	kernel oplocks = no
+	kernel share modes = no
+	posix locking = no
+{% endif %}
 {% endfor %}
 

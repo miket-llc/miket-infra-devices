@@ -1,0 +1,138 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Unfuck macOS autofs - Remove autofs and restore proper SMB mounts
+# This playbook removes autofs configuration and prepares for native macOS mounting
+
+- name: Phase 2 - Remove autofs from count-zero
+  hosts: count-zero
+  gather_facts: yes
+  # Note: become is managed per-task due to count-zero's become: false in inventory
+  
+  vars:
+    backup_date: "{{ ansible_date_time.date }}"
+  
+  tasks:
+    - name: Display current autofs state
+      debug:
+        msg: |
+          Removing autofs configuration for space/flux/time
+          This will disable on-demand mounting and prepare for native macOS mounts
+    
+    - name: Check if /etc/auto.motoko exists
+      stat:
+        path: /etc/auto.motoko
+      register: auto_motoko_stat
+    
+    - name: Backup /etc/auto.motoko if it exists (using shell for permission issues)
+      shell: |
+        if [ -f /etc/auto.motoko ]; then
+          cp /etc/auto.motoko "/etc/auto.motoko.backup-{{ backup_date }}"
+          echo "Backed up"
+        else
+          echo "No file to backup"
+        fi
+      when: auto_motoko_stat.stat.exists
+      changed_when: false
+      become: yes
+      become_method: sudo
+    
+    - name: Remove /etc/auto.motoko (using shell for permission handling)
+      shell: rm -f /etc/auto.motoko
+      when: auto_motoko_stat.stat.exists
+      become: yes
+      become_method: sudo
+    
+    - name: Backup /etc/auto_master
+      copy:
+        src: /etc/auto_master
+        dest: "/etc/auto_master.backup-{{ backup_date }}"
+        remote_src: yes
+      become: yes
+      become_method: sudo
+    
+    - name: Read current auto_master
+      slurp:
+        src: /etc/auto_master
+      register: auto_master_content
+      become: yes
+      become_method: sudo
+    
+    - name: Remove motoko autofs entry from auto_master
+      lineinfile:
+        path: /etc/auto_master
+        regexp: '^/Volumes/motoko\s+/etc/auto\.motoko'
+        state: absent
+        backup: yes
+      become: yes
+      become_method: sudo
+    
+    - name: Reload automounter to apply changes
+      command: automount -vc
+      changed_when: true
+      become: yes
+      become_method: sudo
+    
+    - name: Get current mounts
+      command: mount
+      register: mount_output
+      changed_when: false
+    
+    - name: Display mount state
+      debug:
+        msg: "{{ mount_output.stdout_lines | select('match', '.*autofs.*|.*smbfs.*|.*motoko.*') | list }}"
+    
+    - name: Unmount autofs-managed space if mounted
+      command: umount /Volumes/motoko/space
+      failed_when: false
+      changed_when: true
+      register: unmount_space
+      become: yes
+      become_method: sudo
+    
+    - name: Unmount autofs-managed flux if mounted
+      command: umount /Volumes/motoko/flux
+      failed_when: false
+      changed_when: true
+      register: unmount_flux
+      become: yes
+      become_method: sudo
+    
+    - name: Unmount autofs base /Volumes/motoko if it exists
+      command: umount /Volumes/motoko
+      failed_when: false
+      changed_when: true
+      register: unmount_base
+      become: yes
+      become_method: sudo
+    
+    - name: Remove old root-owned symlinks if they exist
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /Users/miket/flux
+        - /Users/miket/space
+        - /Users/miket/time
+      become: yes
+      become_method: sudo
+    
+    - name: Display autofs removal summary
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════
+          AUTOFS REMOVAL COMPLETE
+          ═══════════════════════════════════════════════════════
+          
+          Removed:
+          - /etc/auto.motoko (map file)
+          - /Volumes/motoko entry from /etc/auto_master
+          - Unmounted autofs shares
+          - Old root-owned symlinks
+          
+          Backups created:
+          - /etc/auto_master.backup-{{ backup_date }}
+          {% if auto_motoko_stat.stat.exists %}- /etc/auto.motoko.backup-{{ backup_date }}{% endif %}
+          
+          Next: Run Phase 3 to set up native macOS mounts
+
