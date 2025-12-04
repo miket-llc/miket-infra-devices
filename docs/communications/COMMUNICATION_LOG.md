@@ -1,3 +1,60 @@
+## 2025-12-04 – Nextcloud Dashboard Directory Fix & Autofs Deployment {#2025-12-04-nextcloud-dashboard-autofs}
+
+### Context
+1. Nextcloud dashboard directory was incorrectly placed at `/space/_services/nextcloud/dashboard` instead of `/space/_ops/nextcloud/dashboard` (operational data belongs in `_ops`)
+2. Case clash conflict: Dashboard mount created as `/Dashboard` (capital D) causing macOS case-insensitivity conflicts
+3. Autofs not deployed on count-zero - symlinks missing, shares not accessible in Finder
+
+### Actions Taken
+- **Fixed dashboard directory location**: Moved from `/space/_services/nextcloud/dashboard` to `/space/_ops/nextcloud/dashboard`
+  - Updated `ansible/roles/data_estate_status/defaults/main.yml`
+  - Updated `ansible/roles/nextcloud_server/defaults/main.yml` (external mount path)
+  - Updated all documentation references
+  - Updated playbook references
+- **Fixed case clash**: Changed mount from `/Dashboard` to `/dashboard` (lowercase)
+  - Updated `ansible/roles/data_estate_status/tasks/nextcloud_dashboard.yml`
+  - Created fix script: `scripts/fix-nextcloud-dashboard-case-clash.sh`
+  - Updated client sync exclusion list to exclude capital-D Dashboard
+- **Deployed autofs on count-zero**: Configured autofs and created symlinks
+  - Created autofs configuration (`/etc/auto_master`, `/etc/auto.motoko`)
+  - Created symlinks: `~/flux`, `~/space`, `~/time` → `/Volumes/motoko/*`
+  - Added shares to Finder sidebar
+  - Created desktop aliases
+  - Created deployment script: `scripts/deploy-autofs-now-interactive.sh`
+  - Created Finder integration script: `scripts/add-autofs-shares-to-finder.sh`
+- **Created diagnostic scripts**:
+  - `scripts/diagnose-nextcloud-connection.sh` - Comprehensive Nextcloud client diagnostics
+  - `scripts/fix-nextcloud-connection.sh` - Quick fix for connection issues
+  - `scripts/remove-dashboard-from-nextcloud-sync.sh` - Remove dashboard from sync
+
+### Deliverables
+- `ansible/roles/data_estate_status/defaults/main.yml` - Updated dashboard path
+- `ansible/roles/nextcloud_server/defaults/main.yml` - Updated external mount path
+- `ansible/roles/data_estate_status/tasks/nextcloud_dashboard.yml` - Fixed mount name to lowercase
+- `ansible/roles/nextcloud_client/templates/sync-exclude.lst.j2` - Added Dashboard exclusion
+- `ansible/roles/nextcloud_client/defaults/main.yml` - Added Dashboard to online-only folders
+- `scripts/diagnose-nextcloud-connection.sh` - Nextcloud client diagnostics
+- `scripts/fix-nextcloud-connection.sh` - Nextcloud connection quick fix
+- `scripts/fix-nextcloud-dashboard-case-clash.sh` - Dashboard case clash fix
+- `scripts/remove-dashboard-from-nextcloud-sync.sh` - Remove dashboard from sync
+- `scripts/deploy-autofs-now-interactive.sh` - Interactive autofs deployment
+- `scripts/add-autofs-shares-to-finder.sh` - Add shares to Finder sidebar
+- `docs/guides/access-autofs-shares-in-finder.md` - Finder access guide
+
+### Compliance
+- ✅ Storage Architecture: Dashboard moved to `_ops` (operational data), respects `/space` structure
+- ✅ Secrets Architecture: Autofs uses AKV → `.env` cache pattern
+- ✅ Documentation: Proper taxonomy with front matter
+- ✅ PHC Patterns: Respects Flux/Space/Time invariants, no changes to `/space` structure
+
+### Result
+- ✅ Dashboard directory moved to correct location (`/space/_ops/nextcloud/dashboard`)
+- ✅ Case clash fixed (lowercase `/dashboard` mount)
+- ✅ Autofs deployed and working on count-zero
+- ✅ Symlinks created and accessible
+- ✅ Shares visible in Finder sidebar
+- ✅ All changes tested and verified
+
 ## 2025-12-04 – macOS Autofs Migration for count-zero {#2025-12-04-autofs-macos-migration}
 
 ### Context

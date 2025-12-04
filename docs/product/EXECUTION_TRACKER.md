@@ -145,6 +145,10 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 || Nextcloud home sweeper timer | Codex-PD-002 | 2025-11-28 | nextcloud-home-sweeper.{sh,service,timer} |
 || Nextcloud smoke tests | Codex-PD-002 | 2025-11-28 | [tests/nextcloud_smoke.py](../../tests/nextcloud_smoke.py) |
 || Pure façade documentation | Codex-DOC-009 | 2025-11-28 | [nextcloud_on_motoko.md](../guides/nextcloud_on_motoko.md) |
+|| Nextcloud dashboard directory moved to _ops | Codex-CA-001 | 2025-12-04 | Moved from `/space/_services/nextcloud/dashboard` to `/space/_ops/nextcloud/dashboard`, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
+|| Nextcloud dashboard case clash fixed | Codex-MAC-012 | 2025-12-04 | Changed mount from `/Dashboard` to `/dashboard` (lowercase), [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
+|| Autofs deployed on count-zero | Codex-MAC-012 | 2025-12-04 | Autofs configured, symlinks created, Finder integration complete, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
+|| Nextcloud client diagnostic scripts | Codex-UX-010 | 2025-12-04 | Created diagnostic and fix scripts for connection issues, [COMMUNICATION_LOG](../communications/COMMUNICATION_LOG.md#2025-12-04-nextcloud-dashboard-autofs) |
 
 ## Update Process
 1. Start task → set persona status to "🚧 Active" with next check-in.

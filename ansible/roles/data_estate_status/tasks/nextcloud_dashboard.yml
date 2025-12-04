@@ -4,6 +4,15 @@
 # Nextcloud Dashboard integration for data_estate_status role
 # Sets up the Welcome widget to display data estate status
 
+- name: Ensure parent directory exists (/space/_ops/nextcloud)
+  ansible.builtin.file:
+    path: "{{ data_estate_markdown_output_dir | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
 - name: Ensure dashboard directory exists with correct permissions
   ansible.builtin.file:
     path: "{{ data_estate_markdown_output_dir }}"
@@ -92,7 +101,7 @@
 - name: Configure dashboard external storage mount
   ansible.builtin.command: >
     podman exec -u 33 nextcloud-app php occ files_external:create
-    "/Dashboard"
+    "/dashboard"
     local
     null::null
     --config datadir="/external/dashboard"
@@ -101,7 +110,7 @@
   failed_when: create_dashboard_mount.rc != 0 and 'already exists' not in create_dashboard_mount.stderr
   when:
     - nextcloud_is_ready
-    - "'/Dashboard' not in existing_external_mounts | default([])"
+    - "'/dashboard' not in existing_external_mounts | default([])"
 
 - name: Report Nextcloud dashboard configuration
   ansible.builtin.debug:
@@ -121,6 +130,8 @@
       4. Enable the "Welcome" widget
       5. The widget should display the data-estate-status.md file
       
+      NOTE: The mount point is '/dashboard' (lowercase) to avoid macOS case clash conflicts.
+      
       Alternative: Configure in Settings → Administration → Theming → Welcome widget
       {% else %}
       Nextcloud Container: Not running
@@ -131,7 +142,7 @@
       External Storage Mount:
       - Container path: /external/dashboard
       - Host path: {{ data_estate_markdown_output_dir }}
-      - Nextcloud path: /Dashboard
+      - Nextcloud path: /dashboard
       
       NOTE: The dashboard directory must be mounted in the Nextcloud container.
       Verify the compose/podman configuration includes:

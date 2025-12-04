@@ -81,7 +81,7 @@ nextcloud_external_mounts:
   - name: ms365
     path: /space/mike/inbox/ms365
   - name: dashboard
-    path: /space/_services/nextcloud/dashboard
+    path: /space/_ops/nextcloud/dashboard
 
 # FORBIDDEN mounts - never wire these into Nextcloud
 # This is enforced via docs/guides/nextcloud_on_motoko.md

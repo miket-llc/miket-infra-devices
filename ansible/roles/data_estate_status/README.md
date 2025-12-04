@@ -8,7 +8,7 @@ This role answers the critical question: "If the house burns down, what exactly 
 
 It deploys a collector script that runs every 6 hours and generates:
 - **JSON output:** `/space/_ops/data-estate/status.json`
-- **Markdown output:** `/space/_services/nextcloud/dashboard/data-estate-status.md`
+- **Markdown output:** `/space/_ops/nextcloud/dashboard/data-estate-status.md`
 
 The Markdown output is designed to be displayed in Nextcloud's Welcome widget.
 
@@ -130,7 +130,7 @@ data_estate_approved_remotes:
 ```yaml
 data_estate_config_dir: /etc/miket-infra/data-estate
 data_estate_json_output_dir: /space/_ops/data-estate
-data_estate_markdown_output_dir: /space/_services/nextcloud/dashboard
+data_estate_markdown_output_dir: /space/_ops/nextcloud/dashboard
 data_estate_markers_dir: /space/_ops/data-estate/markers
 data_estate_script_path: /usr/local/bin/data-estate-status.sh
 data_estate_credentials_file: /etc/miket/storage-credentials.env
@@ -197,7 +197,7 @@ cat /space/_ops/data-estate/status.json
 | Config (data estate) | `/etc/miket-infra/data-estate/data_estate.yml` |
 | Config (approved remotes) | `/etc/miket-infra/data-estate/approved_remotes.yml` |
 | JSON output | `/space/_ops/data-estate/status.json` |
-| Markdown output | `/space/_services/nextcloud/dashboard/data-estate-status.md` |
+| Markdown output | `/space/_ops/nextcloud/dashboard/data-estate-status.md` |
 
 ## Status Vocabulary
 
