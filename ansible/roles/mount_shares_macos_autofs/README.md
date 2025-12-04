@@ -52,7 +52,7 @@ autofs_mount_base: /Volumes/motoko
 | Autofs map | `/etc/auto.motoko` | Defines share mount points (mode 0600, contains URL-encoded password) |
 | Secrets cache | `~/.mkt/mounts.env` | Ephemeral cache from AKV (synced via secrets-sync.yml) |
 | Mount base | `/Volumes/motoko/` | Parent directory for mounts (macOS SIP-compliant) |
-| Symlinks | `~/flux`, `~/space`, `~/time` | User-friendly access |
+| Symlinks | `~/flux`, `~/space` | User-friendly access (time excluded - Time Machine manages it) |
 
 **Secrets Architecture Compliance:**
 - Source: Azure Key Vault secret `motoko-smb-password`
@@ -120,14 +120,23 @@ mount_smbfs //mdt@motoko/space /tmp/test_mount
 umount /tmp/test_mount
 ```
 
+### Time Machine Configuration
+
+**IMPORTANT:** The `time` share is **excluded from autofs** because Time Machine manages it directly. Time Machine mounts to `/Volumes/.timemachine/...` and should not go through autofs.
+
+- Autofs only manages: `flux` and `space` shares
+- Time Machine manages: `time` share directly via its own mount mechanism
+- No `~/time` symlink is created (Time Machine uses its own mount path)
+
 ### Time Machine Still Failing
 
-If Time Machine still fails after switching to autofs:
+If Time Machine fails:
 
-1. Ensure autofs mounts are working: `ls ~/space ~/flux ~/time`
-2. Restart Time Machine: `tmutil stopbackup && tmutil startbackup --auto`
-3. Check Time Machine status: `tmutil status`
-4. If needed, remove and re-add Time Machine destination
+1. Ensure autofs mounts are working: `ls ~/space ~/flux`
+2. Check Time Machine mount: `mount | grep timemachine`
+3. Restart Time Machine: `tmutil stopbackup && tmutil startbackup --auto`
+4. Check Time Machine status: `tmutil status`
+5. If needed, remove and re-add Time Machine destination: `tmutil removedestination <ID>`
 
 ## Comparison with Linux Autofs
 
