@@ -1,0 +1,80 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fix Nextcloud Dashboard Mount Case
+# Removes old capital-D /Dashboard mount and ensures lowercase /dashboard exists
+# Run from motoko or any Ansible control node
+
+- name: Fix Nextcloud Dashboard Mount Case
+  hosts: motoko
+  become: false
+  gather_facts: false
+
+  tasks:
+    - name: Check if Nextcloud container is running
+      ansible.builtin.command: podman ps --filter name=nextcloud-app --format "{{ '{{' }}.Names{{ '}}' }}"
+      register: nextcloud_container_check
+      changed_when: false
+      failed_when: false
+
+    - name: Set Nextcloud ready fact
+      ansible.builtin.set_fact:
+        nextcloud_is_ready: "{{ 'nextcloud-app' in (nextcloud_container_check.stdout | default('')) }}"
+
+    - name: List existing external storage mounts
+      ansible.builtin.command: >
+        podman exec -u 33 nextcloud-app php occ files_external:list --output=json
+      register: external_storage_list
+      changed_when: false
+      failed_when: false
+      when: nextcloud_is_ready
+
+    - name: Parse existing mount points
+      ansible.builtin.set_fact:
+        existing_mounts: "{{ (external_storage_list.stdout | default('[]') | from_json | default([])) | map(attribute='mount_point') | list }}"
+      when: nextcloud_is_ready
+
+    - name: Remove old capital-D Dashboard mount if it exists
+      ansible.builtin.command: >
+        podman exec -u 33 nextcloud-app php occ files_external:delete Dashboard
+      register: delete_dashboard
+      changed_when: "'deleted' in delete_dashboard.stdout or 'not found' in delete_dashboard.stderr"
+      failed_when: delete_dashboard.rc != 0 and 'not found' not in delete_dashboard.stderr
+      when:
+        - nextcloud_is_ready
+        - "'/Dashboard' in existing_mounts | default([])"
+
+    - name: Ensure lowercase dashboard mount exists
+      ansible.builtin.command: >
+        podman exec -u 33 nextcloud-app php occ files_external:create
+        "/dashboard"
+        local
+        null::null
+        --config datadir="/external/dashboard"
+      register: create_dashboard
+      changed_when: "'Storage created' in create_dashboard.stdout"
+      failed_when: create_dashboard.rc != 0 and 'already exists' not in create_dashboard.stderr
+      when:
+        - nextcloud_is_ready
+        - "'/dashboard' not in existing_mounts | default([])"
+
+    - name: Display mount status
+      ansible.builtin.debug:
+        msg: |
+          Nextcloud Dashboard Mount Status:
+          {% if '/Dashboard' in existing_mounts | default([]) %}
+          ⚠️  Old capital-D /Dashboard mount still exists (will be removed)
+          {% else %}
+          ✅ No capital-D /Dashboard mount found
+          {% endif %}
+          
+          {% if '/dashboard' in existing_mounts | default([]) %}
+          ✅ Lowercase /dashboard mount exists
+          {% else %}
+          ⚠️  Lowercase /dashboard mount missing (will be created)
+          {% endif %}
+          
+          {% if not nextcloud_is_ready %}
+          ❌ Nextcloud container not running - cannot check/fix mounts
+          {% endif %}
+
