@@ -25,6 +25,18 @@
     group: root
     mode: "0700"
 
+# SELinux context fix: /flux is often mounted with samba_share_t context
+# which prevents systemd from reading env files. Set etc_t for system compatibility.
+- name: Set SELinux context on secrets directory for systemd access
+  ansible.builtin.command: chcon -R -t etc_t /flux/runtime/secrets
+  changed_when: false
+  when: ansible_selinux.status == "enabled"
+
+- name: Set SELinux context on /flux/runtime for systemd access
+  ansible.builtin.command: chcon -t etc_t /flux/runtime
+  changed_when: false
+  when: ansible_selinux.status == "enabled"
+
 - name: Create Nextcloud app data directories on internal drive
   ansible.builtin.file:
     path: "{{ item }}"

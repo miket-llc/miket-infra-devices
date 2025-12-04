@@ -75,6 +75,83 @@ check_tailscale_runaway() {
     fi
 }
 
+check_btrfs_health() {
+    # Check btrfs device stats for errors on /podman
+    # Incident 2025-12-04: NVMe medium errors caused btrfs RO remount
+    local btrfs_mounts
+    btrfs_mounts=$(findmnt -t btrfs -n -o TARGET 2>/dev/null || echo "")
+    
+    for mount in $btrfs_mounts; do
+        # Check if mounted read-only unexpectedly
+        local mount_opts
+        mount_opts=$(findmnt -n -o OPTIONS "$mount" 2>/dev/null || echo "")
+        if echo "$mount_opts" | grep -q "^ro,"; then
+            log "CRITICAL: btrfs $mount is mounted read-only unexpectedly!"
+        fi
+        
+        # Check device stats for errors
+        local stats
+        stats=$(btrfs device stats "$mount" 2>/dev/null || echo "")
+        
+        local write_errors read_errors corruption_errors
+        write_errors=$(echo "$stats" | grep write_io_errs | awk '{print $2}' | head -1 || echo "0")
+        read_errors=$(echo "$stats" | grep read_io_errs | awk '{print $2}' | head -1 || echo "0")
+        corruption_errors=$(echo "$stats" | grep corruption_errs | awk '{print $2}' | head -1 || echo "0")
+        
+        if [[ "${write_errors:-0}" -gt 0 ]] || [[ "${read_errors:-0}" -gt 0 ]] || [[ "${corruption_errors:-0}" -gt 0 ]]; then
+            log "CRITICAL: btrfs $mount has device errors! write=$write_errors read=$read_errors corruption=$corruption_errors"
+        fi
+    done
+}
+
+check_nvme_health() {
+    # Check NVMe SMART data for concerning metrics
+    # Incident 2025-12-04: 426 media errors on NVMe caused btrfs issues
+    local nvme_devices
+    nvme_devices=$(ls /dev/nvme[0-9]n[0-9] 2>/dev/null || echo "")
+    
+    for device in $nvme_devices; do
+        if command -v nvme &>/dev/null; then
+            local smart_log
+            smart_log=$(nvme smart-log "$device" 2>/dev/null || echo "")
+            
+            # Check media errors
+            local media_errors
+            media_errors=$(echo "$smart_log" | grep "media_errors" | awk -F: '{print $2}' | tr -d ' ' || echo "0")
+            if [[ "${media_errors:-0}" -gt 100 ]]; then
+                log "WARNING: NVMe $device has $media_errors media errors - consider replacement"
+            fi
+            
+            # Check critical warning
+            local critical_warning
+            critical_warning=$(echo "$smart_log" | grep "critical_warning" | awk -F: '{print $2}' | tr -d ' ' || echo "0")
+            if [[ "${critical_warning:-0}" -gt 0 ]]; then
+                log "CRITICAL: NVMe $device has critical_warning flag set!"
+            fi
+            
+            # Check temperature
+            local temperature
+            temperature=$(echo "$smart_log" | grep "^temperature" | awk -F: '{print $2}' | awk '{print $1}' || echo "0")
+            if [[ "${temperature:-0}" -gt 75 ]]; then
+                log "WARNING: NVMe $device temperature is ${temperature}°C - running hot"
+            fi
+        fi
+    done
+}
+
+check_dmesg_errors() {
+    # Check dmesg for recent btrfs or nvme errors
+    local recent_errors
+    recent_errors=$(dmesg --time-format iso 2>/dev/null | tail -100 | grep -iE "(btrfs.*(error|readonly)|nvme.*error|medium error)" | tail -5 || echo "")
+    
+    if [[ -n "$recent_errors" ]]; then
+        log "WARNING: Recent kernel errors detected:"
+        echo "$recent_errors" | while read -r line; do
+            log "  $line"
+        done
+    fi
+}
+
 restart_gnome_if_needed() {
     local error_count=$1
     local restart_count_file="$STATE_DIR/gnome_restart_count"
@@ -129,6 +206,12 @@ main() {
     # Check for specific issues
     check_container_crashloops
     check_tailscale_runaway
+    
+    # Check storage health (btrfs, NVMe)
+    # Added after incident 2025-12-04: NVMe errors caused /podman RO remount
+    check_btrfs_health
+    check_nvme_health
+    check_dmesg_errors
     
     # Check GNOME Shell health
     local gnome_errors
