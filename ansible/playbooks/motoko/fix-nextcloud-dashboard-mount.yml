@@ -29,20 +29,22 @@
       failed_when: false
       when: nextcloud_is_ready
 
-    - name: Parse existing mount points
+    - name: Parse existing mount points and IDs
       ansible.builtin.set_fact:
         existing_mounts: "{{ (external_storage_list.stdout | default('[]') | from_json | default([])) | map(attribute='mount_point') | list }}"
+        dashboard_mount_id: "{{ (external_storage_list.stdout | default('[]') | from_json | default([])) | selectattr('mount_point', 'equalto', '/Dashboard') | map(attribute='mount_id') | first | default('') }}"
       when: nextcloud_is_ready
 
     - name: Remove old capital-D Dashboard mount if it exists
       ansible.builtin.command: >
-        podman exec -u 33 nextcloud-app php occ files_external:delete Dashboard
+        podman exec -u 33 nextcloud-app php occ files_external:delete {{ dashboard_mount_id }} --yes
       register: delete_dashboard
       changed_when: "'deleted' in delete_dashboard.stdout or 'not found' in delete_dashboard.stderr"
-      failed_when: delete_dashboard.rc != 0 and 'not found' not in delete_dashboard.stderr
+      failed_when: delete_dashboard.rc != 0 and 'not found' not in delete_dashboard.stderr and 'does not exist' not in delete_dashboard.stderr
       when:
         - nextcloud_is_ready
         - "'/Dashboard' in existing_mounts | default([])"
+        - dashboard_mount_id | default('') != ''
 
     - name: Ensure lowercase dashboard mount exists
       ansible.builtin.command: >
