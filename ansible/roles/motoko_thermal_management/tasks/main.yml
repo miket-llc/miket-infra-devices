@@ -481,7 +481,124 @@
   tags: [thermal, monitor]
 
 # =============================================================================
-# Integrated Thermal Status Script (CPU + GPU)
+# NVMe Thermal Monitoring (added after incident 2025-12-04)
+# =============================================================================
+
+- name: Create NVMe thermal monitor script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/nvme-thermal-monitor
+    content: |
+      #!/bin/bash
+      # Managed by Ansible - motoko_thermal_management role
+      # Monitors NVMe temperature and alerts on thermal issues
+      # Added after incident 2025-12-04: NVMe medium errors at elevated temps
+
+      NORMAL_TEMP={{ nvme_thermal_normal }}
+      WARM_TEMP={{ nvme_thermal_warm }}
+      HOT_TEMP={{ nvme_thermal_hot }}
+      CRITICAL_TEMP={{ nvme_thermal_critical }}
+      STATE_FILE=/tmp/nvme_thermal_state
+      TEMP_FILE=/tmp/nvme_temperature
+      LOG_FILE=/var/log/nvme-thermal.log
+
+      log() {
+        echo "[$(date -Iseconds)] $*" | tee -a "$LOG_FILE"
+      }
+
+      # Get highest NVMe temperature across all drives
+      get_nvme_temp() {
+        MAX_TEMP=0
+        for device in /dev/nvme[0-9]n[0-9]; do
+          if [ -e "$device" ]; then
+            # Try nvme-cli first
+            if command -v nvme >/dev/null 2>&1; then
+              TEMP=$(nvme smart-log "$device" 2>/dev/null | grep "^temperature" | awk -F: '{print $2}' | awk '{print $1}')
+              if [ -n "$TEMP" ] && [ "$TEMP" -gt "$MAX_TEMP" ]; then
+                MAX_TEMP="$TEMP"
+              fi
+            fi
+          fi
+        done
+        
+        # Fallback to sensors if nvme-cli didn't work
+        if [ "$MAX_TEMP" -eq 0 ] && command -v sensors >/dev/null 2>&1; then
+          TEMP=$(sensors 2>/dev/null | grep -A2 "nvme-pci" | grep "Composite:" | sed 's/.*+\([0-9]*\)\..*/\1/' | sort -rn | head -1)
+          if [ -n "$TEMP" ]; then
+            MAX_TEMP="$TEMP"
+          fi
+        fi
+        
+        echo "$MAX_TEMP"
+      }
+
+      PREV_STATE="unknown"
+
+      while true; do
+        TEMP=$(get_nvme_temp)
+        echo "$TEMP" > "$TEMP_FILE"
+        
+        if [ "$TEMP" -ge "$CRITICAL_TEMP" ]; then
+          STATE="critical"
+          if [ "$PREV_STATE" != "critical" ]; then
+            log "CRITICAL: NVMe temperature ${TEMP}°C exceeds critical threshold (${CRITICAL_TEMP}°C)!"
+            log "WARNING: High risk of medium errors and data loss. Consider reducing I/O load."
+          fi
+        elif [ "$TEMP" -ge "$HOT_TEMP" ]; then
+          STATE="hot"
+          if [ "$PREV_STATE" != "hot" ] && [ "$PREV_STATE" != "critical" ]; then
+            log "WARNING: NVMe temperature ${TEMP}°C is hot (>${HOT_TEMP}°C)"
+          fi
+        elif [ "$TEMP" -ge "$WARM_TEMP" ]; then
+          STATE="warm"
+        elif [ "$TEMP" -ge "$NORMAL_TEMP" ]; then
+          STATE="normal"
+        else
+          STATE="cool"
+        fi
+        
+        echo "$STATE" > "$STATE_FILE"
+        PREV_STATE="$STATE"
+        
+        sleep {{ thermal_monitor_interval }}
+      done
+    mode: '0755'
+  when: nvme_thermal_enabled | default(true)
+  tags: [thermal, nvme]
+
+- name: Create NVMe thermal monitor systemd service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nvme-thermal-monitor.service
+    content: |
+      # Managed by Ansible - motoko_thermal_management role
+      # NVMe thermal monitoring - added after incident 2025-12-04
+      [Unit]
+      Description=NVMe Thermal State Monitor
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/nvme-thermal-monitor
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: '0644'
+  when: nvme_thermal_enabled | default(true)
+  notify: reload systemd
+  tags: [thermal, nvme]
+
+- name: Enable NVMe thermal monitor service
+  ansible.builtin.systemd:
+    name: nvme-thermal-monitor
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: nvme_thermal_enabled | default(true)
+  tags: [thermal, nvme]
+
+# =============================================================================
+# Integrated Thermal Status Script (CPU + GPU + NVMe)
 # =============================================================================
 
 - name: Create integrated thermal status script
@@ -490,7 +607,7 @@
     content: |
       #!/bin/bash
       # Managed by Ansible - motoko_thermal_management role
-      # Shows integrated CPU and GPU thermal status
+      # Shows integrated CPU, GPU, and NVMe thermal status
 
       echo "═══════════════════════════════════════════════════════════"
       echo "MOTOKO THERMAL STATUS"
@@ -515,12 +632,43 @@
         echo "GPU Temperature: Monitoring not active"
       fi
       
+      # NVMe Status
+      if [ -f /tmp/nvme_thermal_state ]; then
+        NVME_STATE=$(cat /tmp/nvme_thermal_state)
+        NVME_TEMP=$(cat /tmp/nvme_temperature 2>/dev/null || echo "N/A")
+        echo "NVMe Temperature: ${NVME_TEMP}°C (State: ${NVME_STATE})"
+      else
+        # Try to get NVMe temp directly if monitor not running
+        if command -v nvme >/dev/null 2>&1; then
+          for dev in /dev/nvme[0-9]n[0-9]; do
+            if [ -e "$dev" ]; then
+              TEMP=$(nvme smart-log "$dev" 2>/dev/null | grep "^temperature" | awk -F: '{print $2}' | awk '{print $1}')
+              MEDIA_ERR=$(nvme smart-log "$dev" 2>/dev/null | grep "media_errors" | awk -F: '{print $2}' | tr -d ' ')
+              echo "NVMe $(basename $dev): ${TEMP}°C (media_errors: ${MEDIA_ERR})"
+            fi
+          done
+        else
+          echo "NVMe Temperature: Monitoring not active"
+        fi
+      fi
+      
       echo ""
       echo "Detailed Sensors:"
       if command -v sensors >/dev/null 2>&1; then
-        sensors | grep -E "(Package|Core|GPU|temp)" | head -15
+        sensors | grep -E "(Package|Core|GPU|nvme|Composite|temp)" | head -20
       else
         echo "sensors command not available"
+      fi
+      
+      echo ""
+      echo "NVMe Health:"
+      if command -v nvme >/dev/null 2>&1; then
+        for dev in /dev/nvme[0-9]; do
+          if [ -e "$dev" ]; then
+            echo "$(basename $dev):"
+            nvme smart-log "${dev}n1" 2>/dev/null | grep -E "(temperature|media_errors|critical_warning|percentage_used)" | sed 's/^/  /'
+          fi
+        done
       fi
       
       echo ""

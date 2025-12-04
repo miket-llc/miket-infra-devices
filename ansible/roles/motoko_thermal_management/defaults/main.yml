@@ -43,6 +43,15 @@ gpu_thermal_normal: 70
 gpu_thermal_hot: 80
 gpu_thermal_critical: 85
 
+# NVMe thermal thresholds
+# Added after incident 2025-12-04: NVMe medium errors at elevated temps
+# NVMe typically: high ~82°C, critical ~85°C (varies by drive)
+nvme_thermal_enabled: true
+nvme_thermal_normal: 55       # Below this: normal operation
+nvme_thermal_warm: 65         # 65-70°C: warm, increase monitoring
+nvme_thermal_hot: 70          # 70-75°C: hot, alert and log
+nvme_thermal_critical: 75     # Above 75°C: critical, aggressive measures
+
 # Fan control settings
 # Alienware laptops may use proprietary fan control, but we configure what we can
 fan_control_enabled: true
