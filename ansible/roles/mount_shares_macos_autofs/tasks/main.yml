@@ -109,6 +109,22 @@
   loop: "{{ user_symlinks }}"
   become: false
 
+# Phase 5b: Remove ~/time symlink if it exists (Time Machine manages its own mount)
+- name: Remove ~/time symlink (Time Machine manages time share directly)
+  file:
+    path: "{{ ansible_env.HOME }}/time"
+    state: absent
+  become: false
+  failed_when: false
+
+# Phase 5c: Unmount any existing autofs time mount (Time Machine needs direct control)
+- name: Unmount existing autofs time mount if present
+  command: umount {{ autofs_mount_base }}/time
+  become: true
+  register: unmount_time
+  failed_when: false
+  changed_when: unmount_time.rc == 0
+
 # Phase 6: Ensure automountd is running
 - name: Check if automountd is running
   command: launchctl list | grep -q com.apple.automountd || echo "not_running"

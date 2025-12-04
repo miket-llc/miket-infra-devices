@@ -23,20 +23,19 @@ autofs_mount_base: "/Volumes/motoko"
 autofs_timeout: 300  # Unmount after 5 minutes idle
 
 # Shares to mount via autofs
+# NOTE: 'time' share is excluded - Time Machine manages it directly via its own mount mechanism
+# Time Machine mounts to /Volumes/.timemachine/... and should not go through autofs
 smb_shares:
   - name: "flux"
     path: "/flux"
   - name: "space"
     path: "/space"
-  - name: "time"
-    path: "/time"
 
 # User symlinks (created in user's home directory)
+# NOTE: ~/time symlink removed - Time Machine manages its own mount at /Volumes/.timemachine/...
 user_symlinks:
   - name: "flux"
     link: "~/flux"
   - name: "space"
     link: "~/space"
-  - name: "time"
-    link: "~/time"
 

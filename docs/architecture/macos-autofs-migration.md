@@ -105,8 +105,9 @@ tmutil startbackup --auto
 ```
 flux -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:URL_ENCODED_PASSWORD@motoko/flux
 space -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:URL_ENCODED_PASSWORD@motoko/space
-time -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:URL_ENCODED_PASSWORD@motoko/time
 ```
+
+**NOTE:** The `time` share is **excluded from autofs** because Time Machine manages it directly. Time Machine mounts to `/Volumes/.timemachine/...` and should not go through autofs.
 
 **Secrets Architecture Compliance:**
 - Password source: Azure Key Vault secret `motoko-smb-password`
@@ -118,7 +119,8 @@ time -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:URL_ENCODED_PASSWORD@motoko/ti
 ### Mount Points
 
 - System mount base: `/Volumes/motoko/` (macOS SIP-compliant)
-- User symlinks: `~/flux`, `~/space`, `~/time`
+- User symlinks: `~/flux`, `~/space` (time excluded - Time Machine manages it)
+- Time Machine mount: `/Volumes/.timemachine/motoko.pangolin-vega.ts.net/.../time` (managed by Time Machine directly)
 
 ## Troubleshooting
 
@@ -143,14 +145,23 @@ The password is URL-encoded and stored in `/etc/auto.motoko`. If credentials cha
 2. Re-run the Ansible playbook
 3. Reload autofs: `sudo automount -vc`
 
+### Time Machine Configuration
+
+**IMPORTANT:** The `time` share is **excluded from autofs** because Time Machine manages it directly. Time Machine mounts to `/Volumes/.timemachine/...` and should not go through autofs.
+
+- Autofs only manages: `flux` and `space` shares
+- Time Machine manages: `time` share directly via its own mount mechanism
+- No `~/time` symlink is created (Time Machine uses its own mount path)
+
 ### Time Machine Still Failing
 
-If Time Machine still fails after migration:
+If Time Machine fails:
 
-1. Ensure autofs mounts are working: `ls ~/space ~/flux ~/time`
-2. Restart Time Machine: `tmutil stopbackup && tmutil startbackup --auto`
-3. Check Time Machine status: `tmutil status`
-4. If needed, remove and re-add Time Machine destination
+1. Ensure autofs mounts are working: `ls ~/space ~/flux`
+2. Check Time Machine mount: `mount | grep timemachine`
+3. Restart Time Machine: `tmutil stopbackup && tmutil startbackup --auto`
+4. Check Time Machine status: `tmutil status`
+5. If needed, remove and re-add Time Machine destination: `tmutil removedestination <ID>`
 
 ## Rollback
 
