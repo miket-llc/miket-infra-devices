@@ -146,3 +146,6 @@
       - "Docker Desktop: {{ 'Not found - GOOD ✓' if not docker_app_check.stat.exists else 'WARNING: Still installed!' }}"
   tags: [docker_prevention, macos, verify]
 
+
+
+

@@ -1,27 +1,14 @@
 # Data Estate Collector Configuration
-# Managed by Ansible - Do not edit manually
 # {{ ansible_managed }}
-#
-# Monitors data estate health on motoko:
-# - Mount status for /flux, /space, /time
-# - Job freshness (space-mirror, flux-backup, flux-local-snap, flux-graduate)
-# - Recent failures from systemd-failures.log
-# - SLO compliance percentage
 
-# Update frequency (seconds)
 update_every: {{ netdata_data_estate_update_every | default(60) }}
-
-# Retry count on failure
 retries: 3
-
-# Priority (lower = higher priority)
 priority: 90000
 
-# Collector configuration
 local:
-    status_json_path: '{{ netdata_data_estate_status_json | default("/space/_ops/data-estate/status.json") }}'
-    device_status_path: '{{ netdata_data_estate_device_status | default("") }}'
-    failure_log_path: '{{ netdata_data_estate_failure_log | default("/var/log/systemd-failures.log") }}'
-    markers_dir: '{{ netdata_data_estate_markers_dir | default("/space/_ops/data-estate/markers") }}'
-    failure_window_minutes: {{ netdata_data_estate_failure_window_minutes | default(60) }}
+    status_json_path: '{{ netdata_data_estate_status_json }}'
+    device_status_path: '{{ netdata_data_estate_device_status }}'
+    failure_log_path: '{{ netdata_data_estate_failure_log }}'
+    markers_dir: '{{ netdata_data_estate_markers_dir }}'
+    failure_window_minutes: {{ netdata_data_estate_failure_window_minutes }}
 

@@ -109,3 +109,6 @@ Filesystem      Inodes  IUsed  IFree IUse% Mounted on
 /dev/nvme0n1p2  5.0M    2.5M   2.5M  50%   /
 ```
 
+
+
+

@@ -57,3 +57,6 @@ fi
 
 echo "Failure notification logged for ${FAILED_UNIT}"
 
+
+
+

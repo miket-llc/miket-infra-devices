@@ -199,75 +199,41 @@ firewall_extra_ports:
 # - LiteLLM: Prometheus metrics DISABLED (requires LiteLLM Enterprise)
 # - Nvidia GPU: RTX 2080 monitoring
 # - Linux Sensors: CPU temps, fans, voltages
-# - Data Estate: Custom dashboard for /flux, /space, /time health
 netdata_enable_containers: true
 netdata_enable_litellm_prometheus: false  # LiteLLM prometheus callback requires Enterprise license
 netdata_litellm_metrics_url: "http://127.0.0.1:8000/metrics"
 netdata_enable_nvidia_gpu: true
 netdata_enable_linux_sensors: true
 
-# Data Estate Collector (motoko-only feature)
-# Provides custom dashboard for data estate health monitoring
+# Data Estate dashboard
 netdata_enable_data_estate: true
 netdata_data_estate_device_status: "/space/devices/motoko/mdt/_status.json"
-
-# SLO thresholds (match DATA_ESTATE_SPEC from data_estate_status role)
-netdata_data_estate_slo_space_mirror_hours: 48
-netdata_data_estate_slo_space_mirror_warn_hours: 24
-netdata_data_estate_slo_flux_backup_hours: 48
-netdata_data_estate_slo_flux_backup_warn_hours: 24
-netdata_data_estate_slo_flux_local_hours: 12
-netdata_data_estate_slo_flux_local_warn_hours: 8
-netdata_data_estate_slo_flux_graduate_hours: 168
-netdata_data_estate_slo_flux_graduate_warn_hours: 144
+netdata_data_estate_mount_group: "flux_time_grp"
+netdata_data_estate_mount_gid: 1003
 
 # ========================================
 # Data Estate Status Configuration
 # ========================================
-# Per DATA_ESTATE_SPEC from miket-infra
-# Motoko is the primary storage server and Nextcloud host
-
-# Host role (nextcloud_server, storage_server, workstation)
 data_estate_role: "nextcloud_server"
-
-# Enable all checks for motoko (primary storage + Nextcloud host)
 data_estate_restic_enabled: true
 data_estate_nextcloud_db_enabled: true
 data_estate_m365_enabled: true
 data_estate_space_mirror_enabled: true
 
-# SLO Thresholds (from DATA_ESTATE_SPEC)
-# These match the canonical spec values
-data_estate_slo_restic_snapshot_max_age_hours: 48
-data_estate_slo_restic_snapshot_warning_age_hours: 24
-data_estate_slo_nextcloud_db_dump_max_age_hours: 48
-data_estate_slo_nextcloud_db_dump_warning_age_hours: 24
-data_estate_slo_m365_ingestion_max_age_hours: 24
-data_estate_slo_m365_ingestion_warning_age_hours: 6
-data_estate_slo_space_mirror_max_age_hours: 48
-data_estate_slo_space_mirror_warning_age_hours: 24
-data_estate_slo_space_mirror_max_gap_percent: 15
-data_estate_slo_space_mirror_warning_gap_percent: 5
-
 # ========================================
 # Disk Maintenance Configuration
 # ========================================
-# Settings for automated disk cleanup when space/inode alerts trigger
-
-# Podman cleanup settings
 podman_cleanup_remove_stopped_containers: true
 podman_cleanup_remove_unused_images: true
-podman_cleanup_remove_unused_volumes: false  # Keep volumes (may contain data)
+podman_cleanup_remove_unused_volumes: false
 podman_cleanup_remove_unused_networks: true
 podman_cleanup_remove_build_cache: true
-
-# Disk maintenance settings
 disk_maintenance_clean_podman: true
 disk_maintenance_clean_journal: true
 disk_maintenance_clean_tmp: true
 disk_maintenance_clean_package_cache: true
 disk_maintenance_clean_old_logs: true
-disk_maintenance_journal_max_size: "500M"  # Maximum journal size
-disk_maintenance_journal_max_days: 7  # Keep last 7 days of logs
-disk_maintenance_dnf_clean_all: true  # Clean all DNF cache
-disk_maintenance_log_max_age_days: 30  # Remove logs older than 30 days
+disk_maintenance_journal_max_size: "500M"
+disk_maintenance_journal_max_days: 7
+disk_maintenance_dnf_clean_all: true
+disk_maintenance_log_max_age_days: 30

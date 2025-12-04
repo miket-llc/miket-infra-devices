@@ -103,17 +103,36 @@ log_and_output "[$(date)] Starting Space Mirror..."
 log_and_output "[$(date)] Source: $SOURCE"
 log_and_output "[$(date)] Destination: $DEST"
 
+# Exclude operational directories that don't need backup and can cause race conditions
+# - _ops/logs: Log files are ephemeral and the script writes to its own log during sync
+# - _ops/tmp: Temporary files
+# - .backup-exclude: Exclude patterns file (if it exists)
+EXCLUDE_PATTERNS=(
+    --exclude="_ops/logs/**"
+    --exclude="_ops/tmp/**"
+    --exclude=".backup-exclude"
+    --exclude="*.tmp"
+    --exclude="*.temp"
+    --exclude="*.swp"
+    --exclude="*.lock"
+)
+
 # Run rclone with JSON stats for marker data
+# Add retries for transient file modification errors (common with log files)
 SYNC_OUTPUT=$(mktemp)
 if rclone sync "$SOURCE" "$DEST" \
     --fast-list \
     --transfers 16 \
+    --checkers 16 \
     --track-renames \
+    --retries 3 \
+    --retries-sleep 5s \
     --stats-one-line \
     --stats-log-level NOTICE \
     --use-json-log \
     --log-file="$LOG_FILE" \
     --log-level=INFO \
+    "${EXCLUDE_PATTERNS[@]}" \
     2>&1 | tee "$SYNC_OUTPUT"; then
     
     # Extract stats from JSON log if available

@@ -226,11 +226,10 @@
   tags: [netdata, configure, collectors]
 
 # ========================================
-# Data Estate Collector (motoko-specific)
+# Data Estate Collector
 # ========================================
-# Custom Python collector for data estate monitoring
 
-- name: Ensure python.d configuration directory exists
+- name: Ensure python.d directory exists
   ansible.builtin.file:
     path: /etc/netdata/python.d
     state: directory
@@ -238,9 +237,9 @@
     group: netdata
     mode: '0755'
   when: netdata_enable_data_estate | bool
-  tags: [netdata, configure, collectors, data_estate]
+  tags: [netdata, configure, data_estate]
 
-- name: Ensure health.d configuration directory exists
+- name: Ensure health.d directory exists
   ansible.builtin.file:
     path: /etc/netdata/health.d
     state: directory
@@ -248,55 +247,42 @@
     group: netdata
     mode: '0755'
   when: netdata_enable_data_estate | bool
-  tags: [netdata, configure, collectors, data_estate]
+  tags: [netdata, configure, data_estate]
 
-- name: Deploy data_estate.chart.py collector script
+- name: Deploy data_estate collector
   ansible.builtin.copy:
     src: python.d/data_estate.chart.py
     dest: /usr/libexec/netdata/python.d/data_estate.chart.py
     owner: netdata
     group: netdata
     mode: '0755'
-    backup: true
   when: netdata_enable_data_estate | bool
   notify: Restart netdata
-  tags: [netdata, configure, collectors, data_estate]
+  tags: [netdata, configure, data_estate]
 
-- name: Deploy data_estate.conf collector configuration
+- name: Deploy data_estate config
   ansible.builtin.template:
     src: python.d/data_estate.conf.j2
     dest: /etc/netdata/python.d/data_estate.conf
     owner: netdata
     group: netdata
     mode: '0644'
-    backup: true
   when: netdata_enable_data_estate | bool
   notify: Restart netdata
-  tags: [netdata, configure, collectors, data_estate]
+  tags: [netdata, configure, data_estate]
 
-- name: Deploy data estate health alarms
+- name: Deploy data_estate alarms
   ansible.builtin.template:
     src: health.d/data_estate.conf.j2
     dest: /etc/netdata/health.d/data_estate.conf
     owner: netdata
     group: netdata
     mode: '0644'
-    backup: true
   when: netdata_enable_data_estate | bool
   notify: Restart netdata
-  tags: [netdata, configure, alarms, data_estate]
-
-- name: Ensure netdata user can read failure log
-  ansible.builtin.file:
-    path: "{{ netdata_data_estate_failure_log }}"
-    mode: '0644'
-  when:
-    - netdata_enable_data_estate | bool
-    - ansible_path_stat.stat.exists | default(false)
-  failed_when: false
   tags: [netdata, configure, data_estate]
 
-- name: Create failure log file if missing
+- name: Create failure log
   ansible.builtin.file:
     path: "{{ netdata_data_estate_failure_log }}"
     state: touch
@@ -305,6 +291,28 @@
     mode: '0644'
   when: netdata_enable_data_estate | bool
   changed_when: false
+  tags: [netdata, configure, data_estate]
+
+- name: Create mount group for data estate
+  ansible.builtin.group:
+    name: "{{ netdata_data_estate_mount_group }}"
+    gid: "{{ netdata_data_estate_mount_gid }}"
+    state: present
+  when:
+    - netdata_enable_data_estate | bool
+    - netdata_data_estate_mount_group | length > 0
+    - netdata_data_estate_mount_gid | string | length > 0
+  tags: [netdata, configure, data_estate]
+
+- name: Add netdata to mount group
+  ansible.builtin.user:
+    name: netdata
+    groups: "{{ netdata_data_estate_mount_group }}"
+    append: true
+  when:
+    - netdata_enable_data_estate | bool
+    - netdata_data_estate_mount_group | length > 0
+  notify: Restart netdata
   tags: [netdata, configure, data_estate]
 
 # ========================================

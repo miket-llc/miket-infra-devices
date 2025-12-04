@@ -31,3 +31,6 @@ ollama_pull_timeout: 1800
 # Timeout for health checks (seconds)
 ollama_health_timeout: 30
 
+
+
+

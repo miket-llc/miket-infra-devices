@@ -137,3 +137,6 @@ Write-Host "  - Check GPU VRAM usage (should be 80-90% used)" -ForegroundColor W
 Write-Host "  - If GPU VRAM is full, reduce max_model_len or gpu_memory_utilization" -ForegroundColor White
 Write-Host "  - Check for CPU offloading in vLLM logs" -ForegroundColor White
 
+
+
+

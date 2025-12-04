@@ -136,50 +136,36 @@ netdata_enable_nvidia_gpu: false
 netdata_enable_linux_sensors: true
 
 # ========================================
-# Data Estate Monitoring (motoko-specific)
+# Data Estate Monitoring
 # ========================================
-# Custom collector for data estate health metrics
-# Reads _status.json and failure logs for dashboard visibility
-
-# Enable data estate collector (only on motoko)
 netdata_enable_data_estate: false
-
-# Path to data estate status.json (from data_estate_status role)
 netdata_data_estate_status_json: "/space/_ops/data-estate/status.json"
-
-# Path to device-specific _status.json (optional)
 netdata_data_estate_device_status: ""
-
-# Path to systemd failure log
 netdata_data_estate_failure_log: "/var/log/systemd-failures.log"
-
-# Path to marker files directory
 netdata_data_estate_markers_dir: "/space/_ops/data-estate/markers"
-
-# Update frequency for data estate collector (seconds)
 netdata_data_estate_update_every: 60
-
-# Failure window for counting recent failures (minutes)
 netdata_data_estate_failure_window_minutes: 60
 
-# SLO thresholds for alarms (hours since last success)
-netdata_data_estate_slo_space_mirror_hours: 24
-netdata_data_estate_slo_space_mirror_warn_hours: 18
+# SLO thresholds (hours)
+netdata_data_estate_slo_space_mirror_hours: 48
+netdata_data_estate_slo_space_mirror_warn_hours: 24
 netdata_data_estate_slo_flux_backup_hours: 48
-netdata_data_estate_slo_flux_backup_warn_hours: 36
+netdata_data_estate_slo_flux_backup_warn_hours: 24
 netdata_data_estate_slo_flux_local_hours: 12
 netdata_data_estate_slo_flux_local_warn_hours: 8
-netdata_data_estate_slo_flux_graduate_hours: 168  # 7 days (weekly job)
-netdata_data_estate_slo_flux_graduate_warn_hours: 144  # 6 days
+netdata_data_estate_slo_flux_graduate_hours: 168
+netdata_data_estate_slo_flux_graduate_warn_hours: 144
 
-# Failure count thresholds for alarms
+# Alarm thresholds
 netdata_data_estate_failure_warn_count: 2
 netdata_data_estate_failure_crit_count: 5
-
-# Disk usage thresholds (percent)
 netdata_data_estate_disk_alarms: true
 netdata_data_estate_disk_warn_percent: 80
 netdata_data_estate_disk_crit_percent: 90
+
+# Mount group (netdata needs read access to /flux and /time)
+netdata_data_estate_mount_group: ""
+netdata_data_estate_mount_gid: ""
 
 # ========================================
 # DEPRECATED - Parent/Child Streaming

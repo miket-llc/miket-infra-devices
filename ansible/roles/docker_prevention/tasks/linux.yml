@@ -154,3 +154,6 @@
     msg: "{{ 'Docker CLI not found - GOOD ✓' if docker_check.rc != 0 else 'WARNING: docker command still exists at ' + docker_check.stdout }}"
   tags: [docker_prevention, linux, verify]
 
+
+
+

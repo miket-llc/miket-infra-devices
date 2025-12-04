@@ -36,3 +36,6 @@ Write-Host "If fan cycling stops, netdata was likely the cause." -ForegroundColo
 Write-Host ""
 
 
+
+
+

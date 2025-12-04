@@ -54,3 +54,6 @@ Write-Host "Device Manager opened. Please manually disable wake on USB devices."
 Write-Host ""
 
 
+
+
+

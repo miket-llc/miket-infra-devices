@@ -74,3 +74,6 @@ Current decision: Keep in repo for simplicity and IaC compliance.
 - Architecture: `docs/architecture/components/REMOTE_DESKTOP_ARCHITECTURE.md`
 
 
+
+
+

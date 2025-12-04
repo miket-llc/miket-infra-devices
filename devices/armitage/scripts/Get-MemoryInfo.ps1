@@ -54,3 +54,6 @@ if ($dockerProcs) {
 
 Write-Host "Memory diagnostic written to: $outputFile"
 
+
+
+

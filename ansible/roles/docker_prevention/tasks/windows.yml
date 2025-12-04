@@ -153,3 +153,6 @@
     msg: "{{ 'Docker Desktop not found - GOOD ✓' if not docker_desktop_exe.stat.exists else 'WARNING: Docker Desktop still exists!' }}"
   tags: [docker_prevention, windows, verify]
 
+
+
+
