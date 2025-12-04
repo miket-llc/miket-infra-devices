@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+galaxy_info:
+  author: MikeT Infrastructure
+  description: >-
+    Device-local permissions guard for Nextcloud client sync directories on macOS.
+    Auto-corrects overly restrictive permissions (700 dirs, 600 files) that cause
+    sync failures (red icons in Nextcloud client).
+  license: proprietary
+  min_ansible_version: "2.10"
+
+  platforms:
+    - name: MacOSX
+      versions:
+        - all
+
+  galaxy_tags:
+    - nextcloud
+    - macos
+    - permissions
+    - launchagent
+
+dependencies: []
+

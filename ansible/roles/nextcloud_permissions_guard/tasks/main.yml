@@ -1,0 +1,170 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Nextcloud Permissions Guard - Main Tasks
+# Installs and configures the permissions monitor for macOS Nextcloud clients.
+#
+# This role:
+# - Installs permission fix/monitor scripts to /usr/local/miket/bin/
+# - Creates a LaunchAgent for periodic monitoring
+# - Ensures logs directory exists
+#
+# IMPORTANT: This operates on LOCAL sync directories only.
+# It must NEVER touch /space (SoR) on motoko.
+
+- name: Validate platform is macOS
+  ansible.builtin.assert:
+    that:
+      - ansible_system == 'Darwin'
+    fail_msg: "nextcloud_permissions_guard role only supports macOS (Darwin)"
+  tags: [nextcloud_perms, validate]
+
+- name: Skip if guard is disabled
+  ansible.builtin.meta: end_host
+  when: not nextcloud_permissions_guard_enabled
+  tags: [nextcloud_perms]
+
+# =============================================================================
+# Script Installation
+# =============================================================================
+
+- name: Ensure script directory exists
+  ansible.builtin.file:
+    path: "{{ nextcloud_permissions_guard_script_dir }}"
+    state: directory
+    owner: "{{ nextcloud_permissions_guard_user }}"
+    mode: "0755"
+  become: true
+  tags: [nextcloud_perms, install]
+
+- name: Install fix-nextcloud-folder-permissions.sh
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/fix-nextcloud-folder-permissions.sh"
+    dest: "{{ nextcloud_permissions_guard_script_dir }}/fix-nextcloud-folder-permissions.sh"
+    owner: "{{ nextcloud_permissions_guard_user }}"
+    mode: "0755"
+  become: true
+  tags: [nextcloud_perms, install]
+
+- name: Install monitor-nextcloud-permissions.sh
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/monitor-nextcloud-permissions.sh"
+    dest: "{{ nextcloud_permissions_guard_script_dir }}/monitor-nextcloud-permissions.sh"
+    owner: "{{ nextcloud_permissions_guard_user }}"
+    mode: "0755"
+  become: true
+  tags: [nextcloud_perms, install]
+
+# =============================================================================
+# Log Directory
+# =============================================================================
+
+- name: Ensure logs directory exists
+  ansible.builtin.file:
+    path: "{{ nextcloud_permissions_guard_log_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+  become_user: "{{ nextcloud_permissions_guard_user }}"
+  tags: [nextcloud_perms, logs]
+
+# =============================================================================
+# LaunchAgent Configuration
+# =============================================================================
+
+- name: Get target user's UID for LaunchAgent management
+  ansible.builtin.command: id -u {{ nextcloud_permissions_guard_user }}
+  register: target_user_uid
+  changed_when: false
+  tags: [nextcloud_perms, launchagent]
+
+- name: Ensure LaunchAgents directory exists for target user
+  ansible.builtin.file:
+    path: "/Users/{{ nextcloud_permissions_guard_user }}/Library/LaunchAgents"
+    state: directory
+    owner: "{{ nextcloud_permissions_guard_user }}"
+    mode: "0755"
+  become: true
+  tags: [nextcloud_perms, launchagent]
+
+- name: Check if old LaunchAgent is loaded
+  ansible.builtin.command: >-
+    launchctl print gui/{{ target_user_uid.stdout }}/{{ nextcloud_permissions_guard_launchagent_label }}
+  register: launchagent_loaded_check
+  failed_when: false
+  changed_when: false
+  become: true
+  become_user: "{{ nextcloud_permissions_guard_user }}"
+  tags: [nextcloud_perms, launchagent]
+
+- name: Unload existing LaunchAgent if loaded
+  ansible.builtin.command: >-
+    launchctl bootout gui/{{ target_user_uid.stdout }}/{{ nextcloud_permissions_guard_launchagent_label }}
+  become: true
+  become_user: "{{ nextcloud_permissions_guard_user }}"
+  when: launchagent_loaded_check.rc == 0
+  failed_when: false
+  changed_when: true
+  tags: [nextcloud_perms, launchagent]
+
+- name: Deploy LaunchAgent plist
+  ansible.builtin.template:
+    src: com.miket.nextcloud-permissions-monitor.plist.j2
+    dest: "/Users/{{ nextcloud_permissions_guard_user }}/Library/LaunchAgents/{{ nextcloud_permissions_guard_launchagent_label }}.plist"
+    owner: "{{ nextcloud_permissions_guard_user }}"
+    mode: "0644"
+  become: true
+  register: launchagent_plist
+  tags: [nextcloud_perms, launchagent]
+
+- name: Load LaunchAgent
+  ansible.builtin.command: >-
+    launchctl bootstrap gui/{{ target_user_uid.stdout }} /Users/{{ nextcloud_permissions_guard_user }}/Library/LaunchAgents/{{ nextcloud_permissions_guard_launchagent_label }}.plist
+  become: true
+  become_user: "{{ nextcloud_permissions_guard_user }}"
+  when: launchagent_plist.changed
+  changed_when: true
+  failed_when: false
+  tags: [nextcloud_perms, launchagent]
+
+- name: Verify LaunchAgent is loaded
+  ansible.builtin.command: >-
+    launchctl print gui/{{ target_user_uid.stdout }}/{{ nextcloud_permissions_guard_launchagent_label }}
+  register: launchagent_verify
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ nextcloud_permissions_guard_user }}"
+  tags: [nextcloud_perms, launchagent, verify]
+
+# =============================================================================
+# Status Report
+# =============================================================================
+
+- name: Display installation status
+  ansible.builtin.debug:
+    msg: |
+      Nextcloud Permissions Guard Status:
+      ====================================
+      Enabled: {{ nextcloud_permissions_guard_enabled }}
+      User: {{ nextcloud_permissions_guard_user }}
+      Sync Roots: {{ nextcloud_permissions_guard_sync_roots | join(', ') }}
+      
+      Scripts:
+        - {{ nextcloud_permissions_guard_script_dir }}/fix-nextcloud-folder-permissions.sh
+        - {{ nextcloud_permissions_guard_script_dir }}/monitor-nextcloud-permissions.sh
+      
+      LaunchAgent: {{ nextcloud_permissions_guard_launchagent_label }}
+      Plist: /Users/{{ nextcloud_permissions_guard_user }}/Library/LaunchAgents/{{ nextcloud_permissions_guard_launchagent_label }}.plist
+      Interval: {{ nextcloud_permissions_guard_interval }} seconds ({{ (nextcloud_permissions_guard_interval / 60) | int }} minutes)
+      Run at Load: {{ nextcloud_permissions_guard_run_at_load }}
+      
+      Log File: {{ nextcloud_permissions_guard_log_dir }}/{{ nextcloud_permissions_guard_log_file }}
+      
+      LaunchAgent Loaded: {{ 'YES' if launchagent_verify.rc == 0 else 'NO (will load on next login)' }}
+      
+      Documentation:
+        - Runbook: docs/runbooks/nextcloud-permissions-troubleshooting.md
+        - Reference: docs/reference/NEXTCLOUD_PLATFORM_CONTRACT.md
+  tags: [nextcloud_perms, verify]
+

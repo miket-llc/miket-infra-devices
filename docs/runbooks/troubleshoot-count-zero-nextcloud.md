@@ -417,6 +417,8 @@ echo "test" > ~/nc/work/test_connection.txt
 - [Nextcloud on Motoko](../guides/nextcloud_on_motoko.md)
 - [Device Health Check Runbook](device-health-check.md)
 - [Troubleshoot count-zero Space Directory](troubleshoot-count-zero-space.md)
+- [Nextcloud Permissions Troubleshooting](nextcloud-permissions-troubleshooting.md) - for red icon/permission issues
+- [Nextcloud Platform Contract](../reference/NEXTCLOUD_PLATFORM_CONTRACT.md)
 
 ---
 

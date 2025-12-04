@@ -41,3 +41,14 @@ netdata_role: child
 
 # Cloud connectivity DISABLED (self-hosted only)
 netdata_cloud_enabled: false
+
+# ========================================
+# Nextcloud Permissions Guard
+# ========================================
+# Auto-corrects overly restrictive permissions (700 dirs, 600 files)
+# in local Nextcloud sync directories caused by Obsidian/macOS.
+# Runbook: docs/runbooks/nextcloud-permissions-troubleshooting.md
+nextcloud_permissions_guard_enabled: true
+nextcloud_permissions_guard_user: miket
+nextcloud_permissions_guard_sync_roots:
+  - "{{ ansible_env.HOME }}/cloud"

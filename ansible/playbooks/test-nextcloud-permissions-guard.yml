@@ -1,0 +1,283 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Test Nextcloud Permissions Guard
+#
+# This playbook validates that the permission fix script works correctly
+# by creating test directories/files with restrictive permissions and
+# verifying they are corrected.
+#
+# Usage:
+#   # Run locally on macOS
+#   ansible-playbook -i inventory/hosts.yml playbooks/test-nextcloud-permissions-guard.yml --limit count-zero
+#
+#   # Run in check mode (doesn't create test files)
+#   ansible-playbook -i inventory/hosts.yml playbooks/test-nextcloud-permissions-guard.yml --limit count-zero --check
+#
+# Prerequisites:
+#   - Fix script must be installed (run deploy-nextcloud-permissions-guard.yml first)
+#   - Must run as a user with write access to /tmp
+
+- name: Test Nextcloud Permissions Guard
+  hosts: macos
+  become: false
+  gather_facts: true
+
+  vars:
+    test_root: /tmp/nextcloud-perm-test
+    fix_script: /usr/local/miket/bin/fix-nextcloud-folder-permissions.sh
+
+  tasks:
+    - name: Display test banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NEXTCLOUD PERMISSIONS GUARD TEST
+          ═══════════════════════════════════════════════════════════════
+          
+          Test Root: {{ test_root }}
+          Fix Script: {{ fix_script }}
+          
+          This test will:
+            1. Create test directories with 700 permissions
+            2. Create test files with 600 permissions
+            3. Run the fix script
+            4. Verify permissions are corrected (755/644)
+            5. Clean up test artifacts
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+    # ==========================================================================
+    # Setup: Create test structure
+    # ==========================================================================
+
+    - name: Clean up any existing test directory
+      ansible.builtin.file:
+        path: "{{ test_root }}"
+        state: absent
+      tags: [test, setup]
+
+    - name: Create test root directory
+      ansible.builtin.file:
+        path: "{{ test_root }}"
+        state: directory
+        mode: "0755"
+      tags: [test, setup]
+
+    - name: Create test directories with 700 permissions
+      ansible.builtin.file:
+        path: "{{ test_root }}/{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - obsidian-vault
+        - obsidian-vault/attachments
+        - obsidian-vault/.obsidian
+        - restricted-folder
+      tags: [test, setup]
+
+    - name: Create test files with 600 permissions
+      ansible.builtin.copy:
+        content: "Test file content"
+        dest: "{{ test_root }}/{{ item }}"
+        mode: "0600"
+      loop:
+        - obsidian-vault/note.md
+        - obsidian-vault/attachments/image.png
+        - restricted-folder/data.txt
+      tags: [test, setup]
+
+    - name: Create normal directories (755) - should not change
+      ansible.builtin.file:
+        path: "{{ test_root }}/{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - normal-folder
+        - normal-folder/subfolder
+      tags: [test, setup]
+
+    - name: Create normal files (644) - should not change
+      ansible.builtin.copy:
+        content: "Normal file content"
+        dest: "{{ test_root }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - normal-folder/readme.txt
+        - normal-folder/subfolder/data.csv
+      tags: [test, setup]
+
+    # ==========================================================================
+    # Pre-check: Verify restrictive permissions exist
+    # ==========================================================================
+
+    - name: Count directories with 700 permissions (before fix)
+      ansible.builtin.shell: |
+        find {{ test_root }} -type d -perm 700 | wc -l
+      register: dirs_700_before
+      changed_when: false
+      tags: [test, verify]
+
+    - name: Count files with 600 permissions (before fix)
+      ansible.builtin.shell: |
+        find {{ test_root }} -type f -perm 600 | wc -l
+      register: files_600_before
+      changed_when: false
+      tags: [test, verify]
+
+    - name: Display pre-fix state
+      ansible.builtin.debug:
+        msg: |
+          Before fix:
+            - Directories with 700: {{ dirs_700_before.stdout | trim }}
+            - Files with 600: {{ files_600_before.stdout | trim }}
+      tags: [test, verify]
+
+    - name: Assert test structure is correct
+      ansible.builtin.assert:
+        that:
+          - dirs_700_before.stdout | trim | int == 4
+          - files_600_before.stdout | trim | int == 3
+        fail_msg: "Test setup failed - unexpected number of restrictive permissions"
+        success_msg: "Test setup verified - restrictive permissions created"
+      tags: [test, verify]
+
+    # ==========================================================================
+    # Execute: Run the fix script
+    # ==========================================================================
+
+    - name: Check fix script exists
+      ansible.builtin.stat:
+        path: "{{ fix_script }}"
+      register: fix_script_stat
+      tags: [test, execute]
+
+    - name: Fail if fix script not installed
+      ansible.builtin.fail:
+        msg: |
+          Fix script not found at {{ fix_script }}
+          Run deploy-nextcloud-permissions-guard.yml first:
+            ansible-playbook -i inventory/hosts.yml playbooks/deploy-nextcloud-permissions-guard.yml --limit {{ inventory_hostname }}
+      when: not fix_script_stat.stat.exists
+      tags: [test, execute]
+
+    - name: Run fix script on test directory
+      ansible.builtin.command: "{{ fix_script }} {{ test_root }}"
+      register: fix_result
+      changed_when: true
+      tags: [test, execute]
+
+    - name: Display fix script output
+      ansible.builtin.debug:
+        var: fix_result.stdout_lines
+      tags: [test, execute]
+
+    # ==========================================================================
+    # Post-check: Verify permissions are corrected
+    # ==========================================================================
+
+    - name: Count directories with 700 permissions (after fix)
+      ansible.builtin.shell: |
+        find {{ test_root }} -type d -perm 700 | wc -l
+      register: dirs_700_after
+      changed_when: false
+      tags: [test, verify]
+
+    - name: Count files with 600 permissions (after fix)
+      ansible.builtin.shell: |
+        find {{ test_root }} -type f -perm 600 | wc -l
+      register: files_600_after
+      changed_when: false
+      tags: [test, verify]
+
+    - name: Count directories with 755 permissions (after fix)
+      ansible.builtin.shell: |
+        find {{ test_root }} -type d -perm 755 | wc -l
+      register: dirs_755_after
+      changed_when: false
+      tags: [test, verify]
+
+    - name: Count files with 644 permissions (after fix)
+      ansible.builtin.shell: |
+        find {{ test_root }} -type f -perm 644 | wc -l
+      register: files_644_after
+      changed_when: false
+      tags: [test, verify]
+
+    - name: Display post-fix state
+      ansible.builtin.debug:
+        msg: |
+          After fix:
+            - Directories with 700: {{ dirs_700_after.stdout | trim }} (should be 0)
+            - Files with 600: {{ files_600_after.stdout | trim }} (should be 0)
+            - Directories with 755: {{ dirs_755_after.stdout | trim }} (should be 7 - root + 6 subdirs)
+            - Files with 644: {{ files_644_after.stdout | trim }} (should be 5)
+      tags: [test, verify]
+
+    - name: Assert all restrictive permissions are fixed
+      ansible.builtin.assert:
+        that:
+          - dirs_700_after.stdout | trim | int == 0
+          - files_600_after.stdout | trim | int == 0
+        fail_msg: "TEST FAILED - Restrictive permissions still exist after fix"
+        success_msg: "TEST PASSED - All restrictive permissions corrected"
+      tags: [test, verify]
+
+    # ==========================================================================
+    # Idempotency: Run again and verify no changes
+    # ==========================================================================
+
+    - name: Run fix script again (idempotency check)
+      ansible.builtin.command: "{{ fix_script }} {{ test_root }}"
+      register: fix_result_2
+      changed_when: false
+      tags: [test, idempotency]
+
+    - name: Display second run output
+      ansible.builtin.debug:
+        var: fix_result_2.stdout_lines
+      tags: [test, idempotency]
+
+    - name: Verify second run reports zero fixes
+      ansible.builtin.assert:
+        that:
+          - "'dirs=0' in fix_result_2.stdout"
+          - "'files=0' in fix_result_2.stdout"
+        fail_msg: "Idempotency check failed - second run should report zero fixes"
+        success_msg: "Idempotency verified - second run reported zero fixes"
+      tags: [test, idempotency]
+
+    # ==========================================================================
+    # Cleanup
+    # ==========================================================================
+
+    - name: Clean up test directory
+      ansible.builtin.file:
+        path: "{{ test_root }}"
+        state: absent
+      tags: [test, cleanup]
+
+    # ==========================================================================
+    # Summary
+    # ==========================================================================
+
+    - name: Display test summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NEXTCLOUD PERMISSIONS GUARD TEST COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Test structure created with restrictive permissions
+          ✅ Fix script executed successfully
+          ✅ All 700 directories corrected to 755
+          ✅ All 600 files corrected to 644
+          ✅ Idempotency verified (second run = no changes)
+          ✅ Test artifacts cleaned up
+          
+          The permissions guard is working correctly!
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+

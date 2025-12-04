@@ -1,0 +1,94 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy Nextcloud Permissions Guard to macOS Devices
+#
+# This playbook installs the permissions guard that auto-corrects overly
+# restrictive permissions in Nextcloud sync directories. This prevents
+# the "red icon" sync errors caused by Obsidian/macOS creating 700 dirs.
+#
+# IMPORTANT: This is a device-local safeguard only.
+# It NEVER touches /space (SoR) on motoko.
+#
+# Usage:
+#   # Deploy to all macOS devices
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nextcloud-permissions-guard.yml
+#
+#   # Deploy to count-zero only
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nextcloud-permissions-guard.yml --limit count-zero
+#
+#   # Dry-run (check mode)
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nextcloud-permissions-guard.yml --limit count-zero --check
+#
+# Documentation:
+#   - Runbook: docs/runbooks/nextcloud-permissions-troubleshooting.md
+#   - Reference: docs/reference/NEXTCLOUD_PLATFORM_CONTRACT.md
+
+- name: Deploy Nextcloud Permissions Guard to macOS
+  hosts: macos
+  become: false
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NEXTCLOUD PERMISSIONS GUARD DEPLOYMENT
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          OS:             {{ ansible_distribution }} {{ ansible_distribution_version }}
+          
+          Purpose:
+            Auto-correct overly restrictive permissions (700 dirs, 600 files)
+            in Nextcloud sync directories that cause sync failures.
+          
+          Components:
+            - fix-nextcloud-folder-permissions.sh (permission fixer)
+            - monitor-nextcloud-permissions.sh (periodic scanner)
+            - LaunchAgent (runs monitor every 15 minutes)
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    - role: nextcloud_permissions_guard
+      tags: [nextcloud_perms]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          NEXTCLOUD PERMISSIONS GUARD DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Scripts installed to: /usr/local/miket/bin/
+          ✅ LaunchAgent configured for user: {{ nextcloud_permissions_guard_user | default('miket') }}
+          ✅ Monitor runs every {{ (nextcloud_permissions_guard_interval | default(900) / 60) | int }} minutes
+          
+          Sync Roots Monitored:
+            {{ nextcloud_permissions_guard_sync_roots | default(['~/cloud']) | join('\n            ') }}
+          
+          Log File:
+            {{ nextcloud_permissions_guard_log_dir | default('~/Library/Logs') }}/{{ nextcloud_permissions_guard_log_file | default('nextcloud-permissions-monitor.log') }}
+          
+          TESTING:
+            # Create a test 700 directory
+            mkdir -m 700 ~/cloud/work/test-perms-700
+            
+            # Run monitor manually (or wait up to 15 min)
+            /usr/local/miket/bin/monitor-nextcloud-permissions.sh ~/cloud
+            
+            # Verify permissions were fixed
+            ls -la ~/cloud/work/test-perms-700
+            # Should show drwxr-xr-x (755), not drwx------ (700)
+          
+          Documentation:
+            - docs/runbooks/nextcloud-permissions-troubleshooting.md
+            - docs/reference/NEXTCLOUD_PLATFORM_CONTRACT.md
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+

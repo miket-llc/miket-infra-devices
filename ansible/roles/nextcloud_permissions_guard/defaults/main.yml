@@ -1,0 +1,46 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Nextcloud Permissions Guard Role Defaults
+# Device-local safeguard for overly restrictive file/directory permissions
+# in Nextcloud client sync directories.
+#
+# IMPORTANT: This is a client-side guard only. It NEVER touches /space on motoko.
+# See: docs/runbooks/nextcloud-permissions-troubleshooting.md
+# See: docs/reference/NEXTCLOUD_PLATFORM_CONTRACT.md
+
+# Enable/disable the permissions guard
+nextcloud_permissions_guard_enabled: true
+
+# User account for the permissions guard
+# - Scripts are installed owned by this user
+# - LaunchAgent runs as this user
+# - This is typically the interactive user (miket), not the automation account (mdt)
+nextcloud_permissions_guard_user: miket
+
+# Sync roots to monitor for permission issues
+# These are LOCAL paths on the device, not remote/server paths
+# Default to ~/cloud which is the standard Nextcloud sync location
+nextcloud_permissions_guard_sync_roots:
+  - "{{ ansible_env.HOME }}/cloud"
+
+# Installation path for scripts
+# Scripts are installed here and owned by nextcloud_permissions_guard_user
+nextcloud_permissions_guard_script_dir: /usr/local/miket/bin
+
+# Log directory for the monitor
+nextcloud_permissions_guard_log_dir: "{{ ansible_env.HOME }}/Library/Logs"
+
+# Log file name
+nextcloud_permissions_guard_log_file: "nextcloud-permissions-monitor.log"
+
+# Polling interval in seconds (900 = 15 minutes)
+# The LaunchAgent runs the monitor at this interval
+nextcloud_permissions_guard_interval: 900
+
+# Run at load (when user logs in)
+nextcloud_permissions_guard_run_at_load: true
+
+# LaunchAgent label
+nextcloud_permissions_guard_launchagent_label: com.miket.nextcloud-permissions-monitor
+

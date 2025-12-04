@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Nextcloud Permissions Monitor LaunchAgent
+  Managed by Ansible - DO NOT EDIT MANUALLY
+  
+  This agent monitors Nextcloud sync directories for overly restrictive
+  permissions and auto-corrects them to prevent sync failures.
+  
+  Runbook: docs/runbooks/nextcloud-permissions-troubleshooting.md
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ nextcloud_permissions_guard_launchagent_label }}</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- Only run in GUI sessions (user must be logged in) -->
+    <key>LimitLoadToSessionType</key>
+    <array>
+        <string>Aqua</string>
+    </array>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ nextcloud_permissions_guard_script_dir }}/monitor-nextcloud-permissions.sh</string>
+        <string>{{ nextcloud_permissions_guard_sync_roots | join(',') }}</string>
+    </array>
+
+    <!-- Run at this interval (seconds) -->
+    <key>StartInterval</key>
+    <integer>{{ nextcloud_permissions_guard_interval }}</integer>
+
+{% if nextcloud_permissions_guard_run_at_load %}
+    <!-- Also run immediately when loaded (user login) -->
+    <key>RunAtLoad</key>
+    <true/>
+{% else %}
+    <key>RunAtLoad</key>
+    <false/>
+{% endif %}
+
+    <!-- Keep process from running continuously -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Log output -->
+    <key>StandardOutPath</key>
+    <string>{{ nextcloud_permissions_guard_log_dir }}/{{ nextcloud_permissions_guard_log_file }}</string>
+    <key>StandardErrorPath</key>
+    <string>{{ nextcloud_permissions_guard_log_dir }}/{{ nextcloud_permissions_guard_log_file }}</string>
+
+    <!-- Nice priority (lower priority than interactive processes) -->
+    <key>Nice</key>
+    <integer>10</integer>
+
+    <!-- Prevent rapid re-execution if the script exits quickly -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+</dict>
+</plist>
+
