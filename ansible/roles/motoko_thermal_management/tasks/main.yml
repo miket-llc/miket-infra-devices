@@ -384,14 +384,15 @@
       get_cpu_temp() {
         # Try sensors first (most reliable - Package id 0 is CPU package temp)
         if command -v sensors >/dev/null 2>&1; then
-          # Look for "Package id 0:" line and extract temperature
-          TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | sed -n 's/.*+\([0-9]*\)\.[0-9]*°C.*/\1/p' | head -1)
+          # Look for "Package id 0:" line and extract the FIRST temperature (not crit/high)
+          # Line format: "Package id 0:  +49.0°C  (high = +100.0°C, crit = +100.0°C)"
+          TEMP=$(sensors 2>/dev/null | grep "Package id 0:" | awk '{print $4}' | sed 's/+\([0-9]*\).*/\1/')
           if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -lt 150 ]; then
             echo "$TEMP"
             return 0
           fi
-          # Fallback to Tdie or Tctl if Package not found
-          TEMP=$(sensors 2>/dev/null | grep -E "Tdie|Tctl" | head -1 | sed -n 's/.*+\([0-9]*\)\.[0-9]*°C.*/\1/p' | head -1)
+          # Fallback to Tdie or Tctl if Package not found (AMD)
+          TEMP=$(sensors 2>/dev/null | grep -E "Tdie|Tctl" | head -1 | awk '{print $2}' | sed 's/+\([0-9]*\).*/\1/')
           if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -lt 150 ]; then
             echo "$TEMP"
             return 0
@@ -510,10 +511,11 @@
         MAX_TEMP=0
         for device in /dev/nvme[0-9]n[0-9]; do
           if [ -e "$device" ]; then
-            # Try nvme-cli first
+            # Try nvme-cli first - get just the temperature number
+            # Line format: "temperature				: 67 °C (340 K)"
             if command -v nvme >/dev/null 2>&1; then
-              TEMP=$(nvme smart-log "$device" 2>/dev/null | grep "^temperature" | awk -F: '{print $2}' | awk '{print $1}')
-              if [ -n "$TEMP" ] && [ "$TEMP" -gt "$MAX_TEMP" ]; then
+              TEMP=$(nvme smart-log "$device" 2>/dev/null | grep "^temperature" | awk '{print $3}')
+              if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ] && [ "$TEMP" -gt "$MAX_TEMP" ]; then
                 MAX_TEMP="$TEMP"
               fi
             fi
@@ -521,9 +523,11 @@
         done
         
         # Fallback to sensors if nvme-cli didn't work
+        # Line format: "Composite:    +67.8°C  (low  =  -0.1°C, high = +81.8°C)"
         if [ "$MAX_TEMP" -eq 0 ] && command -v sensors >/dev/null 2>&1; then
-          TEMP=$(sensors 2>/dev/null | grep -A2 "nvme-pci" | grep "Composite:" | sed 's/.*+\([0-9]*\)\..*/\1/' | sort -rn | head -1)
-          if [ -n "$TEMP" ]; then
+          # Extract the FIRST temperature (composite), not low/high thresholds
+          TEMP=$(sensors 2>/dev/null | grep "Composite:" | awk '{print $2}' | sed 's/+\([0-9]*\).*/\1/' | sort -rn | head -1)
+          if [ -n "$TEMP" ] && [ "$TEMP" -gt 0 ]; then
             MAX_TEMP="$TEMP"
           fi
         fi
