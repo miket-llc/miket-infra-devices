@@ -1,3 +1,41 @@
+## 2025-12-04 – macOS Autofs Migration for count-zero {#2025-12-04-autofs-macos-migration}
+
+### Context
+count-zero experiencing stale SMB mounts causing Time Machine failures. Manual `mount_smbfs` approach creates mounts that become stale after network interruptions or sleep/wake cycles.
+
+### Actions Taken
+- **Created `mount_shares_macos_autofs` role**: On-demand SMB mounting via macOS autofs
+  - Mounts only when accessed (on-demand)
+  - Automatically unmounts after 5 minutes idle
+  - No stale mounts - autofs handles disconnections gracefully
+  - No periodic scripts needed
+- **Fixed mount base**: Changed from `/mnt/motoko` to `/Volumes/motoko` (macOS SIP makes `/mnt` read-only)
+- **Secrets compliance**: Role uses AKV → `~/.mkt/mounts.env` pattern (ephemeral cache)
+  - Password URL-encoded in `/etc/auto.motoko` (macOS autofs limitation - no credentials file support)
+  - File permissions: 0600 (root:wheel) to restrict access
+- **Updated playbook**: `ansible/playbooks/mount-shares-count-zero.yml` now uses autofs role
+- **Documentation**: Created migration guide, troubleshooting runbook, test scripts
+- **Fixed mount script**: Updated `mount_shares_macos` role to detect and remount stale mounts
+
+### Deliverables
+- `ansible/roles/mount_shares_macos_autofs/` - Complete autofs role
+- `docs/architecture/macos-autofs-migration.md` - Migration guide
+- `docs/runbooks/migrate-count-zero-to-autofs.md` - Step-by-step migration
+- `docs/runbooks/troubleshoot-timemachine-smb.md` - Time Machine troubleshooting
+- `scripts/deploy-autofs-now.sh` - Deployment script
+- `scripts/test-autofs-count-zero.sh` - Verification script
+- `scripts/diagnose-timemachine-smb.sh` - Diagnostic script
+- `scripts/fix-timemachine-smb.sh` - Fix script
+
+### Compliance
+- ✅ Secrets Architecture: Uses AKV → `.env` cache pattern
+- ✅ Documentation: Proper taxonomy with front matter
+- ✅ IAC Principles: Ansible role, idempotent, no hardcoded secrets
+- ✅ PHC Patterns: Respects Flux/Space/Time invariants
+
+### Result
+Autofs role ready for deployment. Will eliminate stale mount issues and improve Time Machine reliability.
+
 ## 2025-12-01 – Root directory cleanup {#2025-12-01-root-cleanup}
 
 ### Context

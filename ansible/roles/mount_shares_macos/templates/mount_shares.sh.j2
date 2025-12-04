@@ -42,26 +42,48 @@ SMB_PASSWORD_ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote
 # Each user mounts with their own credentials (per-user SMB session)
 MOUNT_POINT="{{ share.mount_point | replace('~', '$HOME') }}"
 
-if ! mount | grep -q "on ${MOUNT_POINT} "; then
-    log "Mounting {{ share.name }} to ${MOUNT_POINT}..."
-    
-    # Ensure mount point exists
-    if [ ! -d "${MOUNT_POINT}" ]; then
-        log "ERROR: Mount point ${MOUNT_POINT} does not exist. Run Ansible to create it."
-        continue
+# Ensure mount point exists
+if [ ! -d "${MOUNT_POINT}" ]; then
+    log "ERROR: Mount point ${MOUNT_POINT} does not exist. Run Ansible to create it."
+    continue
+fi
+
+# Check if mount exists and is actually working
+MOUNT_EXISTS=$(mount | grep -q "on ${MOUNT_POINT} " && echo "yes" || echo "no")
+MOUNT_WORKING="no"
+
+if [ "$MOUNT_EXISTS" == "yes" ]; then
+    # Test if mount is actually accessible (not stale)
+    if ls "${MOUNT_POINT}" >/dev/null 2>&1; then
+        MOUNT_WORKING="yes"
+        log "{{ share.name }} is mounted and accessible at ${MOUNT_POINT}."
+    else
+        log "WARNING: {{ share.name }} appears mounted but is not accessible (stale mount). Unmounting..."
+        umount "${MOUNT_POINT}" 2>/dev/null || true
+        # Wait a moment for unmount to complete
+        sleep 1
     fi
+fi
+
+# Mount if not mounted or was stale
+if [ "$MOUNT_WORKING" != "yes" ]; then
+    log "Mounting {{ share.name }} to ${MOUNT_POINT}..."
     
     # Mount with SMB credentials
     # mount_smbfs takes the password via the URL: //user:password@server/share
     mount_smbfs "//{{ smb_username }}:${SMB_PASSWORD_ENCODED}@{{ smb_server }}{{ share.path }}" "${MOUNT_POINT}"
     
     if [ $? -eq 0 ]; then
-        log "Successfully mounted {{ share.name }} to ${MOUNT_POINT}."
+        # Verify mount is actually working
+        sleep 1
+        if ls "${MOUNT_POINT}" >/dev/null 2>&1; then
+            log "Successfully mounted {{ share.name }} to ${MOUNT_POINT}."
+        else
+            log "WARNING: {{ share.name }} mount command succeeded but mount is not accessible. Check network connectivity."
+        fi
     else
         log "Failed to mount {{ share.name }}. Check credentials and network connectivity."
     fi
-else
-    log "{{ share.name }} is already mounted at ${MOUNT_POINT}."
 fi
 {% endfor %}
 

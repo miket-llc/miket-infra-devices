@@ -1,7 +1,7 @@
 ---
 document_title: "miket-infra-devices Execution Tracker"
 author: "Codex-PM-011 (miket-infra-devices)"
-last_updated: 2025-11-28
+last_updated: 2025-12-04
 version: v1.11.0
 status: Active
 related_initiatives:
@@ -42,7 +42,7 @@ Use this tracker to record persona activation, deliverables, and dependencies. U
 | **Codex-FIN-008** (FinOps) | ⏸️ Standby | Budget review pending | Estimate NoMachine licensing + Azure Monitor costs | 2025-11-29 |
 | **Codex-DOC-009** (DocOps) | ✅ Complete | Updated all remote access docs to NoMachine-only, created installation runbook | Monitor compliance with new standards | 2025-11-26 |
 | **Codex-UX-010** (UX/DX) | ✅ Complete | Standardized NoMachine client configs, created installation runbook | Ready for remote access UX instrumentation (Wave 4) | 2025-11-30 |
-| **Codex-MAC-012** (macOS Engineer) | 🚧 Active | Mounts/loop-prevention validated on count-zero | Execute DEV-011: NoMachine E2E testing from count-zero | 2025-11-24 |
+| **Codex-MAC-012** (macOS Engineer) | ✅ Complete | Autofs role created for count-zero SMB mounts, fixes stale mount issues | Monitor autofs deployment, validate Time Machine reliability | 2025-12-04 |
 | **Codex-WIN-013** (Windows Engineer) | ✅ Complete | Wintermute mounts fixed (UNC), health file written; smoke/validation executed | Monitor interactive session drive availability; add UNC reachability check to smoke if needed | 2025-11-24 |
 | **Codex-LNX-014** (Linux/NoMachine) | ⏸️ Standby | Watchdog + GNOME fixes validated | Define NoMachine server baseline and validation | 2025-11-27 |
 

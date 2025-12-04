@@ -1,0 +1,8 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Reload autofs
+  command: automount -vc
+  become: true
+  listen: Reload autofs
+
