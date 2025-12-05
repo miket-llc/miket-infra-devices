@@ -173,7 +173,7 @@ device:
       device: /dev/sda1  # WD Red 18TB external USB
       uuid: 9f387c92-613e-44fb-a6c4-3878b95905f3
       filesystem: btrfs
-      fstab_options: compress=zstd:3,noatime,nofail,noauto,x-systemd.automount,x-systemd.idle-timeout=0
+      fstab_options: compress=zstd:3,noatime,nofail,noauto,x-systemd.automount,x-systemd.idle-timeout=0,x-systemd.device-timeout=0
       purpose: Cold storage, archives, media, datasets
       is_local: true  # LOCAL 18TB disk, NOT NFS from motoko
       is_sor: true    # This IS the System of Record for /space on akira
