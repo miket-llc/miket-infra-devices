@@ -23,3 +23,5 @@ cleanup_boot_loader_entries: true
 # List of usernames that have linger files but don't exist
 stale_linger_users: []
 
+
+

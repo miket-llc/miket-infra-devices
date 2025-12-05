@@ -177,6 +177,12 @@ device:
       purpose: Cold storage, archives, media, datasets
       is_local: true  # LOCAL 18TB disk, NOT NFS from motoko
       is_sor: true    # This IS the System of Record for /space on akira
+      is_external: true
+      # Boot impact: USB enclosure + spinning disk adds ~13s to boot
+      # (8s USB enumeration + 5s spin-up). This is hardware behavior.
+      # Automount ensures /space doesn't block services, but USB init
+      # still delays local-fs.target. Disable USB boot scan in BIOS
+      # to reduce firmware wait time.
       is_external: true  # External USB drive - automount on-demand
       note: Unlike other nodes, akira has local /space storage. Uses automount to avoid blocking boot.
   
