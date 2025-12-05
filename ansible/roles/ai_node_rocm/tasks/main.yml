@@ -1,0 +1,175 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/ai_node_rocm/tasks/main.yml
+---
+- name: Install build dependencies
+  ansible.builtin.dnf:
+    name: "{{ build_dependencies }}"
+    state: present
+
+- name: Install ROCm packages from Fedora repos
+  ansible.builtin.dnf:
+    name: "{{ rocm_packages }}"
+    state: present
+  when: enable_rocm
+
+# Fix Fedora ROCm layout for compatibility
+- name: Create ROCm compatibility symlinks
+  block:
+    - name: Create /opt/rocm symlink
+      ansible.builtin.file:
+        src: /usr
+        dest: /opt/rocm
+        state: link
+        force: true
+
+    - name: Ensure ROCm lib cmake directory exists
+      ansible.builtin.file:
+        path: /usr/lib64/rocm/lib/cmake
+        state: directory
+        mode: "0755"
+
+    - name: Create hip-lang cmake symlink
+      ansible.builtin.file:
+        src: /usr/lib64/cmake/hip-lang
+        dest: /usr/lib64/rocm/lib/cmake/hip-lang
+        state: link
+        force: true
+
+    - name: Create hip cmake symlink
+      ansible.builtin.file:
+        src: /usr/lib64/cmake/hip
+        dest: /usr/lib64/rocm/lib/cmake/hip
+        state: link
+        force: true
+  when: enable_rocm
+
+# Create ROCm environment profile
+- name: Create ROCm environment profile
+  ansible.builtin.copy:
+    content: |
+      # ROCm environment configuration
+      # Managed by Ansible - do not edit manually
+      export ROCM_PATH={{ rocm_path }}
+      export HIP_DEVICE_LIB_PATH={{ hip_device_lib_path }}
+      export HIP_CLANG_PATH={{ hip_clang_path }}
+    dest: /etc/profile.d/rocm.sh
+    owner: root
+    group: root
+    mode: "0644"
+  when: enable_rocm
+
+# Verify ROCm installation
+- name: Verify ROCm SMI works
+  ansible.builtin.command: rocm-smi
+  register: rocm_smi_output
+  changed_when: false
+  failed_when: false
+
+- name: Display ROCm status
+  ansible.builtin.debug:
+    msg: |
+      ROCm Status:
+      {{ rocm_smi_output.stdout | default('ROCm SMI not available') }}
+  when: rocm_smi_output.rc == 0
+
+# Check if venv already exists
+- name: Check if AI venv exists
+  ansible.builtin.stat:
+    path: "{{ ai_venv_path }}/bin/activate"
+  register: venv_exists
+
+- name: Display venv status
+  ansible.builtin.debug:
+    msg: |
+      AI Python Environment:
+      - Path: {{ ai_venv_path }}
+      - Exists: {{ venv_exists.stat.exists }}
+      
+      {% if not venv_exists.stat.exists %}
+      To create the venv manually:
+        python3.12 -m venv {{ ai_venv_path }}
+        source {{ ai_venv_path }}/bin/activate
+        pip install --upgrade pip
+        pip install torch --index-url {{ pytorch_index_url }}
+        
+        # Install llama-cpp-python with ROCm
+        export ROCM_PATH={{ rocm_path }}
+        export HIP_DEVICE_LIB_PATH={{ hip_device_lib_path }}
+        CMAKE_ARGS="-DGGML_HIP=on -DAMDGPU_TARGETS={{ gpu_arch }} -DCMAKE_HIP_FLAGS='--rocm-path={{ rocm_path }}/llvm'" pip install llama-cpp-python --force-reinstall --no-cache-dir
+      {% else %}
+      Venv already exists at {{ ai_venv_path }}
+      {% endif %}
+
+# Create model storage directory
+- name: Create AI model storage directory
+  ansible.builtin.file:
+    path: "{{ ai_model_storage }}"
+    state: directory
+    owner: "{{ ai_venv_owner }}"
+    group: "{{ ai_venv_owner }}"
+    mode: "0755"
+
+# Create systemd service template for AI API server
+- name: Create llama-server systemd service file
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible - do not edit manually
+      # llama.cpp OpenAI-compatible API server
+      [Unit]
+      Description=llama.cpp API Server (ROCm)
+      After=network.target
+      
+      [Service]
+      Type=simple
+      User={{ ai_venv_owner }}
+      Group={{ ai_venv_owner }}
+      WorkingDirectory={{ ai_model_storage }}
+      Environment="PATH={{ ai_venv_path }}/bin:/usr/local/bin:/usr/bin"
+      Environment="ROCM_PATH={{ rocm_path }}"
+      Environment="HIP_DEVICE_LIB_PATH={{ hip_device_lib_path }}"
+      # Model and port configured via override or environment file
+      # EnvironmentFile=-/flux/runtime/secrets/llama-server.env
+      ExecStart={{ ai_venv_path }}/bin/python -m llama_cpp.server \
+        --model ${LLAMA_MODEL:-{{ ai_model_storage }}/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf} \
+        --n_gpu_layers -1 \
+        --host 0.0.0.0 \
+        --port {{ ai_api_port }}
+      Restart=on-failure
+      RestartSec=10
+      
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/llama-server.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Display AI stack summary
+  ansible.builtin.debug:
+    msg: |
+      ============================================
+      AI Node (ROCm) Configuration Complete
+      ============================================
+      
+      GPU: AMD {{ gpu_arch }}
+      ROCm Path: {{ rocm_path }}
+      Python Venv: {{ ai_venv_path }}
+      Model Storage: {{ ai_model_storage }}
+      API Port: {{ ai_api_port }}
+      
+      To start AI API server manually:
+        source {{ ai_venv_path }}/bin/activate
+        python -m llama_cpp.server \
+          --model {{ ai_model_storage }}/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf \
+          --n_gpu_layers -1 \
+          --port {{ ai_api_port }}
+      
+      To enable as systemd service:
+        sudo systemctl enable --now llama-server
+      
+      Warp Terminal integration:
+        Configure Warp to use: http://akira.pangolin-vega.ts.net:{{ ai_api_port }}/v1
+      
+      ============================================
+

@@ -1,0 +1,23 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/standardize_users/defaults/main.yml
+---
+# Automation user for Ansible and scripts
+automation_user: mdt
+automation_user_uid: 1000
+automation_user_shell: /bin/bash
+automation_user_groups:
+  - wheel
+  - video  # For GPU access
+  - render # For GPU access
+
+# Interactive users (override in host_vars)
+interactive_users:
+  - miket
+
+# SSH authorized keys directory
+ssh_authorized_keys_dir: /home/{{ automation_user }}/.ssh
+
+# Sudo configuration
+sudo_nopasswd_users:
+  - "{{ automation_user }}"
+

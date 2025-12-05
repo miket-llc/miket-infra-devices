@@ -1,0 +1,91 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/workstation_fedora/defaults/main.yml
+---
+# Core packages for workstation
+workstation_packages:
+  # GNOME enhancements
+  - gnome-tweaks
+  - gnome-extensions-app
+  - gnome-shell-extension-appindicator
+  # Clipboard and utilities
+  - wl-clipboard
+  - xclip
+  # Flatpak support
+  - flatpak
+  # Terminal and shell
+  - tmux
+  - zsh
+  - fish
+  # Text editors
+  - vim-enhanced
+  - neovim
+  # System monitoring
+  - htop
+  - btop
+  - iotop
+  - sysstat
+  # Network tools
+  - curl
+  - wget
+  - httpie
+  - net-tools
+  - bind-utils
+  # Development essentials
+  - git
+  - git-lfs
+  - jq
+  - yq
+  - ripgrep
+  - fd-find
+  - fzf
+  - tree
+  - bat
+  - eza
+  # Build tools
+  - gcc
+  - gcc-c++
+  - make
+  - cmake
+  - ninja-build
+  - automake
+  - autoconf
+  # Python
+  - python3
+  - python3-pip
+  - python3-devel
+  - python3.12
+  - python3.12-devel
+  # Container tools
+  - podman
+  - podman-compose
+  - buildah
+  - skopeo
+  # Compression
+  - p7zip
+  - p7zip-plugins
+  - unzip
+  - zip
+  # Fonts
+  - google-noto-fonts-common
+  - google-noto-sans-fonts
+  - google-noto-serif-fonts
+  - google-noto-sans-mono-fonts
+  - jetbrains-mono-fonts
+  - fira-code-fonts
+  - mozilla-fira-mono-fonts
+  # Media codecs (RPM Fusion)
+  - ffmpeg
+  - gstreamer1-plugins-bad-free
+  - gstreamer1-plugins-good
+  - gstreamer1-plugins-ugly-free
+
+# Flatpak applications
+flatpak_apps:
+  - com.visualstudio.code
+  - dev.warp.Warp
+  # Cursor (if available)
+  # - io.github.ArcticFox-Dev.ArcticFox.Cursor
+
+# Enable RPM Fusion for codecs
+enable_rpmfusion: true
+

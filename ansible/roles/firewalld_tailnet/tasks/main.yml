@@ -1,0 +1,84 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/firewalld_tailnet/tasks/main.yml
+---
+- name: Ensure firewalld is installed
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+
+- name: Create tailnet zone
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_tailnet_zone }}"
+    state: present
+    permanent: true
+  notify: Reload firewalld
+
+- name: Add tailnet source CIDR to tailnet zone
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_tailnet_zone }}"
+    source: "{{ tailnet_cidr }}"
+    state: enabled
+    permanent: true
+    immediate: true
+
+- name: Add tailscale interface to tailnet zone
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_tailnet_zone }}"
+    interface: "{{ tailscale_interface }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  failed_when: false  # Interface may not exist yet
+
+- name: Allow services in tailnet zone
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_tailnet_zone }}"
+    service: "{{ item }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  loop: "{{ tailnet_services }}"
+
+- name: Allow custom ports in tailnet zone
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_tailnet_zone }}"
+    port: "{{ item.port }}/{{ item.protocol }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  loop: "{{ tailnet_ports }}"
+  when: tailnet_ports | length > 0
+
+- name: Remove SSH from public zone (tailnet-only access)
+  ansible.posix.firewalld:
+    zone: "{{ firewalld_default_zone }}"
+    service: ssh
+    state: disabled
+    permanent: true
+    immediate: true
+
+- name: Set default zone to public
+  ansible.builtin.command: firewall-cmd --set-default-zone={{ firewalld_default_zone }}
+  changed_when: false
+
+- name: Display firewall configuration
+  ansible.builtin.command: firewall-cmd --list-all-zones
+  register: firewall_zones
+  changed_when: false
+
+- name: Show firewall status
+  ansible.builtin.debug:
+    msg: |
+      Firewall Configuration:
+      - Default zone: {{ firewalld_default_zone }}
+      - Tailnet zone: {{ firewalld_tailnet_zone }}
+      - Tailnet CIDR: {{ tailnet_cidr }}
+      - Tailnet services: {{ tailnet_services | join(', ') }}
+      - SSH accessible ONLY via tailnet
+

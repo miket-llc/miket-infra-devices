@@ -1,0 +1,8 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/firewalld_tailnet/handlers/main.yml
+---
+- name: Reload firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    state: reloaded
+

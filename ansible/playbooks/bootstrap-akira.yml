@@ -1,0 +1,121 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/playbooks/bootstrap-akira.yml
+#
+# Bootstrap playbook for akira - Fedora 43 AI/Dev Workstation
+# This playbook configures akira as both a workstation and AI inference node.
+#
+# Prerequisites:
+#   - Fedora 43 Workstation installed (single-boot, LUKS encrypted)
+#   - mdt user exists with sudo NOPASSWD
+#   - SSH key authentication configured
+#   - Network connectivity to tailnet
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/bootstrap-akira.yml
+#
+# Tags:
+#   - users: Account setup and sudo configuration
+#   - tailscale: Tailscale installation and configuration
+#   - firewall: firewalld rules for tailnet security
+#   - workstation: Desktop environment and dev tools
+#   - ai: ROCm, AI stack, inference engine
+#   - filesystem: Flux/Space/Time layout and mounts
+
+---
+- name: Bootstrap akira - Fedora AI/Dev Workstation
+  hosts: akira
+  become: true
+  gather_facts: true
+
+  vars:
+    bootstrap_phase: "v1.0"
+    # Ensure we're on Fedora
+    expected_os: "Fedora"
+    expected_version: "43"
+
+  pre_tasks:
+    - name: Verify target OS is Fedora 43
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == expected_os
+          - ansible_distribution_major_version == expected_version
+        fail_msg: "This playbook is designed for Fedora 43. Found: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+        success_msg: "OS verified: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+      tags: always
+
+    - name: Display bootstrap information
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Bootstrapping akira - Phase {{ bootstrap_phase }}
+          ============================================
+          Hostname: {{ ansible_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel: {{ ansible_kernel }}
+          Architecture: {{ ansible_architecture }}
+          Memory: {{ ansible_memtotal_mb }} MB
+          ============================================
+      tags: always
+
+  roles:
+    # Phase 1: User accounts and sudo
+    - role: standardize_users
+      tags: [users, security]
+
+    # Phase 2: Tailscale network integration
+    - role: tailscale_node
+      tags: [tailscale, network]
+
+    # Phase 3: Firewall configuration
+    - role: firewalld_tailnet
+      tags: [firewall, security]
+
+    # Phase 4: Workstation setup (desktop, fonts, dev tools)
+    - role: workstation_fedora
+      tags: [workstation, desktop]
+
+    # Phase 5: Filesystem layout (Flux/Space/Time)
+    - role: filesystem_layout
+      tags: [filesystem, mounts]
+
+    # Phase 6: AI/ML stack (ROCm, llama-cpp)
+    - role: ai_node_rocm
+      tags: [ai, rocm, gpu]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Bootstrap Complete - akira {{ bootstrap_phase }}
+          ============================================
+          
+          Next steps:
+          1. Verify Tailscale: tailscale status
+          2. Test SSH via tailnet: ssh mdt@akira.pangolin-vega.ts.net
+          3. Verify ROCm: rocm-smi
+          4. Test AI inference: source ~/rocm-test/bin/activate && python -c "import torch; print(torch.cuda.is_available())"
+          5. Mount /space from motoko (if not auto-mounted)
+          
+          AI API server (when ready):
+            source ~/rocm-test/bin/activate
+            python -m llama_cpp.server --model /mnt/flux/ai/models/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf --n_gpu_layers -1 --port 8080
+          
+          ============================================
+      tags: always
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Restart tailscaled
+      ansible.builtin.systemd:
+        name: tailscaled
+        state: restarted
+
+    - name: Reload firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: reloaded
+

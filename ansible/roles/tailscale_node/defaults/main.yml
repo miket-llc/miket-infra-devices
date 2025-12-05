@@ -1,32 +1,20 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
-
+# roles/tailscale_node/defaults/main.yml
 ---
-# Tailscale Node Role Defaults
-# Device-side Tailscale configuration for Fedora headless nodes
-#
-# NOTE: This role assumes initial `tailscale up` has been performed manually
-# or via miket-infra. It does NOT overwrite existing tailnet configuration.
+# Tailscale configuration
+tailscale_hostname: "{{ inventory_hostname }}"
+tailscale_tags: []
 
-# Whether to verify tailscale connectivity (fails if not connected)
-tailscale_node_verify_connection: true
+# Auth key configuration
+# The actual auth key is sourced from Azure Key Vault and written to this .env file
+# by a separate secrets-sync process. Never put the actual key in Ansible.
+tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
+tailscale_auth_key_akv_secret: "{{ inventory_hostname }}-tailscale-authkey"
 
-# Whether to expose tailscale facts (tailnet IP, hostname, etc.)
-tailscale_node_expose_facts: true
+# Tailscale service configuration
+tailscale_accept_routes: true
+tailscale_accept_dns: true
+tailscale_ssh: true  # Enable Tailscale SSH
 
-# Tailnet domain suffix (for verification)
-tailscale_node_tailnet_domain: "pangolin-vega.ts.net"
-
-# Accept DNS (MagicDNS) - leave as-is if already configured
-tailscale_node_accept_dns: true
-
-# Accept routes from other tailnet nodes
-tailscale_node_accept_routes: true
-
-# Enable Tailscale SSH
-tailscale_node_ssh_enabled: true
-
-
-
-
-
-
+# Repo configuration
+tailscale_repo_url: "https://pkgs.tailscale.com/stable/fedora/tailscale.repo"

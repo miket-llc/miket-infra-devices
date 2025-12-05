@@ -1,0 +1,158 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/filesystem_layout/tasks/main.yml
+---
+- name: Create mount point directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ flux_mount }}"
+    - "{{ space_mount }}"
+    - "{{ time_mount }}"
+
+# Flux - Local storage
+- name: Create flux subdirectories
+  ansible.builtin.file:
+    path: "{{ flux_mount }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ flux_subdirs }}"
+  when: flux_local
+
+- name: Create user directories in flux
+  ansible.builtin.file:
+    path: "{{ flux_mount }}/users/{{ item }}"
+    state: directory
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: "0750"
+  loop: "{{ filesystem_users }}"
+  when: flux_local
+
+- name: Set permissions on secrets directory
+  ansible.builtin.file:
+    path: "{{ flux_mount }}/runtime/secrets"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: flux_local
+
+# Space - NFS mount from motoko
+- name: Install NFS utilities
+  ansible.builtin.dnf:
+    name:
+      - nfs-utils
+      - nfs4-acl-tools
+    state: present
+  when: space_protocol == "nfs"
+
+- name: Create systemd mount unit for /space
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible - do not edit manually
+      # NFS mount for /space from motoko (System of Record)
+      # akira is a CONSUMER, not SoR
+      [Unit]
+      Description=Mount /space from motoko via NFS
+      After=network-online.target tailscaled.service
+      Wants=network-online.target
+      
+      [Mount]
+      What={{ space_remote_source }}
+      Where={{ space_mount }}
+      Type=nfs4
+      Options={{ space_mount_options }}
+      
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/mnt-space.mount
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+  when: not space_is_sor
+
+- name: Create systemd automount unit for /space
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible - do not edit manually
+      [Unit]
+      Description=Automount /space from motoko
+      
+      [Automount]
+      Where={{ space_mount }}
+      TimeoutIdleSec=600
+      
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/mnt-space.automount
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+  when: not space_is_sor
+
+- name: Enable automount for /space
+  ansible.builtin.systemd:
+    name: mnt-space.automount
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: not space_is_sor
+  failed_when: false  # May fail if motoko not reachable
+
+# User symlinks
+- name: Create user symlinks for flux
+  ansible.builtin.file:
+    src: "{{ flux_mount }}/users/{{ item }}"
+    dest: "/home/{{ item }}/flux"
+    state: link
+    owner: "{{ item }}"
+    group: "{{ item }}"
+  loop: "{{ filesystem_users }}"
+  when: flux_local
+
+- name: Create user symlinks for space
+  ansible.builtin.file:
+    src: "{{ space_mount }}"
+    dest: "/home/{{ item }}/space"
+    state: link
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    force: true
+  loop: "{{ filesystem_users }}"
+
+- name: Create user symlinks for time
+  ansible.builtin.file:
+    src: "{{ time_mount }}"
+    dest: "/home/{{ item }}/time"
+    state: link
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    force: true
+  loop: "{{ filesystem_users }}"
+
+- name: Display filesystem layout summary
+  ansible.builtin.debug:
+    msg: |
+      Filesystem Layout Complete:
+      
+      Mount Points:
+        {{ flux_mount }} - Local active projects and runtime
+        {{ space_mount }} - NFS from {{ space_remote_source }}
+        {{ time_mount }} - Backups
+      
+      IMPORTANT: akira is NOT the System of Record for /space.
+      motoko remains the canonical source. akira is read-mostly.
+      
+      User symlinks created for: {{ filesystem_users | join(', ') }}
+      
+      To manually mount /space:
+        sudo systemctl start mnt-space.mount
+

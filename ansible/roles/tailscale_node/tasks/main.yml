@@ -1,127 +1,70 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
-
+# roles/tailscale_node/tasks/main.yml
 ---
-# Tailscale Node Role
-# Ensures tailscaled is installed, enabled, and running on Fedora
-# Verifies connection to tailnet and exposes tailnet facts
-#
-# IMPORTANT: This role does NOT perform initial `tailscale up` authentication.
-# That must be done manually or via miket-infra before running this role.
-
-- name: Check if running on Fedora
-  ansible.builtin.assert:
-    that:
-      - ansible_distribution == 'Fedora'
-    fail_msg: "This role is designed for Fedora systems"
-    quiet: true
-  tags: [tailscale, validate]
-
-# ========================================
-# Tailscale Installation & Service
-# ========================================
-- name: Check if Tailscale is installed
-  ansible.builtin.command: which tailscale
-  register: tailscale_which
+- name: Check if Tailscale is already installed
+  ansible.builtin.command: rpm -q tailscale
+  register: tailscale_installed
   changed_when: false
   failed_when: false
-  check_mode: false
-  tags: [tailscale, install]
 
-- name: Install Tailscale on Fedora
+- name: Add Tailscale repository
+  ansible.builtin.get_url:
+    url: "{{ tailscale_repo_url }}"
+    dest: /etc/yum.repos.d/tailscale.repo
+    mode: "0644"
+  when: tailscale_installed.rc != 0
+
+- name: Install Tailscale
   ansible.builtin.dnf:
     name: tailscale
     state: present
-  when: tailscale_which.rc != 0
-  tags: [tailscale, install]
+  when: tailscale_installed.rc != 0
 
 - name: Enable and start tailscaled service
   ansible.builtin.systemd:
     name: tailscaled
     enabled: true
     state: started
-  tags: [tailscale, service]
 
-# ========================================
-# Connection Verification
-# ========================================
-- name: Get Tailscale status
+- name: Check current Tailscale status
   ansible.builtin.command: tailscale status --json
-  register: tailscale_status_raw
+  register: tailscale_status
   changed_when: false
   failed_when: false
-  check_mode: false
-  tags: [tailscale, verify]
 
-- name: Parse Tailscale status
-  ansible.builtin.set_fact:
-    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
-  when: tailscale_status_raw.rc == 0
-  tags: [tailscale, verify]
-
-- name: Check if Tailscale is authenticated
-  ansible.builtin.set_fact:
-    tailscale_authenticated: "{{ tailscale_status.Self is defined and tailscale_status.Self.Online | default(false) }}"
-  when: tailscale_status is defined
-  tags: [tailscale, verify]
-
-- name: Warn if Tailscale is not connected
+- name: Display Tailscale status
   ansible.builtin.debug:
     msg: |
-      ⚠️  TAILSCALE NOT CONNECTED
-      
-      Tailscaled is installed and running, but the node is not authenticated.
-      
-      To authenticate, run manually:
-        sudo tailscale up --ssh
-      
-      Or use an auth key:
-        sudo tailscale up --authkey=<key-from-akv> --ssh
-  when: tailscale_status_raw.rc != 0 or not (tailscale_authenticated | default(false))
-  tags: [tailscale, verify]
+      Tailscale Status:
+      - Service: Running
+      - To authenticate (if not already):
+        1. Ensure auth key is in {{ tailscale_auth_key_env_file }}
+           (sourced from AKV secret: {{ tailscale_auth_key_akv_secret }})
+        2. Run: sudo tailscale up --hostname={{ tailscale_hostname }} --authkey=$(cat {{ tailscale_auth_key_env_file }} | grep TAILSCALE_AUTHKEY | cut -d= -f2)
+      - Or use interactive auth: sudo tailscale up --hostname={{ tailscale_hostname }}
 
-- name: Fail if connection verification is required and not connected
-  ansible.builtin.fail:
-    msg: "Tailscale is not connected. Run 'tailscale up' manually to authenticate."
-  when:
-    - tailscale_node_verify_connection | bool
-    - not (tailscale_authenticated | default(false))
-  tags: [tailscale, verify]
+# Note: Actual tailscale up with auth key is typically done manually or via
+# a separate secrets-aware playbook that sources from AKV. We don't put
+# auth keys in Ansible directly.
 
-# ========================================
-# Expose Tailscale Facts
-# ========================================
-- name: Set Tailscale facts
-  ansible.builtin.set_fact:
-    tailscale_ip: "{{ tailscale_status.TailscaleIPs[0] | default('unknown') }}"
-    tailscale_hostname: "{{ tailscale_status.Self.HostName | default(inventory_hostname) }}"
-    tailscale_dns_name: "{{ tailscale_status.Self.DNSName | default(inventory_hostname + '.' + tailscale_node_tailnet_domain) }}"
-    tailscale_online: "{{ tailscale_status.Self.Online | default(false) }}"
-    tailscale_tags: "{{ tailscale_status.Self.Tags | default([]) }}"
-  when:
-    - tailscale_node_expose_facts | bool
-    - tailscale_status is defined
-    - tailscale_authenticated | default(false)
-  tags: [tailscale, facts]
+- name: Create secrets directory for tailscale auth key
+  ansible.builtin.file:
+    path: "{{ tailscale_auth_key_env_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
 
-- name: Display Tailscale node information
-  ansible.builtin.debug:
-    msg:
-      - "═══════════════════════════════════════════════════════════"
-      - "TAILSCALE NODE STATUS"
-      - "═══════════════════════════════════════════════════════════"
-      - ""
-      - "Tailscale IP:     {{ tailscale_ip | default('N/A') }}"
-      - "Hostname:         {{ tailscale_hostname | default('N/A') }}"
-      - "DNS Name:         {{ tailscale_dns_name | default('N/A') }}"
-      - "Online:           {{ tailscale_online | default(false) }}"
-      - "Tags:             {{ tailscale_tags | default([]) | join(', ') }}"
-      - ""
-      - "═══════════════════════════════════════════════════════════"
-  when: tailscale_authenticated | default(false)
-  tags: [tailscale]
-
-
-
-
-
-
+- name: Create placeholder for tailscale auth key env file
+  ansible.builtin.copy:
+    content: |
+      # Tailscale auth key - sourced from Azure Key Vault
+      # AKV Secret: {{ tailscale_auth_key_akv_secret }}
+      # This file should be populated by secrets-sync or manual AKV lookup
+      # Format: TAILSCALE_AUTHKEY=tskey-auth-xxxxx
+      # TAILSCALE_AUTHKEY=
+    dest: "{{ tailscale_auth_key_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+    force: false  # Don't overwrite if exists

@@ -1,0 +1,64 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/standardize_users/tasks/main.yml
+---
+- name: Ensure automation user exists
+  ansible.builtin.user:
+    name: "{{ automation_user }}"
+    uid: "{{ automation_user_uid }}"
+    shell: "{{ automation_user_shell }}"
+    groups: "{{ automation_user_groups }}"
+    append: true
+    create_home: true
+    state: present
+
+- name: Ensure .ssh directory exists for automation user
+  ansible.builtin.file:
+    path: "{{ ssh_authorized_keys_dir }}"
+    state: directory
+    owner: "{{ automation_user }}"
+    group: "{{ automation_user }}"
+    mode: "0700"
+
+- name: Configure NOPASSWD sudo for automation user
+  ansible.builtin.copy:
+    content: |
+      # Ansible automation user - NOPASSWD sudo
+      # Managed by Ansible - do not edit manually
+      {{ automation_user }} ALL=(ALL) NOPASSWD: ALL
+    dest: /etc/sudoers.d/{{ automation_user }}
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Create interactive users
+  ansible.builtin.user:
+    name: "{{ item }}"
+    shell: /bin/bash
+    groups:
+      - wheel
+      - video
+      - render
+    append: true
+    create_home: true
+    state: present
+  loop: "{{ interactive_users }}"
+
+- name: Ensure .ssh directory exists for interactive users
+  ansible.builtin.file:
+    path: "/home/{{ item }}/.ssh"
+    state: directory
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: "0700"
+  loop: "{{ interactive_users }}"
+
+- name: Set secure permissions on home directories
+  ansible.builtin.file:
+    path: "/home/{{ item }}"
+    state: directory
+    owner: "{{ item }}"
+    group: "{{ item }}"
+    mode: "0750"
+  loop: "{{ [automation_user] + interactive_users }}"
+

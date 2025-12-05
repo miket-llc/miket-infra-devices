@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/filesystem_layout/meta/main.yml
+---
+galaxy_info:
+  author: MikeT LLC
+  description: |
+    Configure Flux/Space/Time filesystem topology.
+    Creates mount points and user symlinks.
+    Configures NFS mounts for remote /space from motoko.
+    akira is a CONSUMER of /space, NOT the System of Record.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "43"
+
+dependencies: []
+

@@ -1,0 +1,73 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/workstation_fedora/tasks/main.yml
+---
+- name: Update all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+  tags: [update]
+
+- name: Enable RPM Fusion Free repository
+  ansible.builtin.dnf:
+    name: "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+    state: present
+    disable_gpg_check: true
+  when: enable_rpmfusion
+
+- name: Enable RPM Fusion Non-Free repository
+  ansible.builtin.dnf:
+    name: "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+    state: present
+    disable_gpg_check: true
+  when: enable_rpmfusion
+
+- name: Install workstation packages
+  ansible.builtin.dnf:
+    name: "{{ workstation_packages }}"
+    state: present
+
+- name: Enable Flathub repository
+  ansible.builtin.command: flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+  changed_when: false
+
+- name: Install Flatpak applications
+  community.general.flatpak:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ flatpak_apps }}"
+  failed_when: false  # Don't fail if app not found
+
+- name: Set default editor to neovim
+  ansible.builtin.copy:
+    content: |
+      # Default editor configuration
+      export EDITOR=nvim
+      export VISUAL=nvim
+    dest: /etc/profile.d/editor.sh
+    mode: "0644"
+
+- name: Configure GNOME for developer experience
+  become: false
+  block:
+    - name: Enable dark mode
+      community.general.dconf:
+        key: "/org/gnome/desktop/interface/color-scheme"
+        value: "'prefer-dark'"
+      failed_when: false
+
+    - name: Show battery percentage
+      community.general.dconf:
+        key: "/org/gnome/desktop/interface/show-battery-percentage"
+        value: "true"
+      failed_when: false
+  tags: [gnome, desktop]
+
+- name: Display workstation setup summary
+  ansible.builtin.debug:
+    msg: |
+      Workstation Setup Complete:
+      - Packages installed: {{ workstation_packages | length }}
+      - Flatpak apps: {{ flatpak_apps | join(', ') }}
+      - RPM Fusion enabled: {{ enable_rpmfusion }}
+      - Default editor: neovim
+

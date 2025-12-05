@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/tailscale_node/meta/main.yml
+---
+galaxy_info:
+  author: MikeT LLC
+  description: |
+    Install and configure Tailscale on Fedora nodes.
+    Uses official Tailscale repo.
+    Configures auto-start and hostname.
+    Auth key sourced from AKV via .env file pattern.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "43"
+
+dependencies: []
+

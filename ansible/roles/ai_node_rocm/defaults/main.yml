@@ -1,0 +1,53 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/ai_node_rocm/defaults/main.yml
+---
+# ROCm configuration
+enable_rocm: true
+rocm_version: "7.1"  # Fedora packages, PyTorch nightly for 7.1 support
+
+# GPU architecture (akira is gfx1150 / Strix Point)
+gpu_arch: gfx1150
+
+# ROCm paths (Fedora layout)
+rocm_path: /usr/lib64/rocm
+hip_device_lib_path: /usr/lib64/rocm/llvm/lib/clang/19/amdgcn/bitcode
+hip_clang_path: /usr/lib64/rocm/llvm/bin
+
+# Python environment
+ai_python_version: "3.12"
+ai_venv_path: /home/mdt/rocm-test
+ai_venv_owner: mdt
+
+# PyTorch configuration
+pytorch_index_url: "https://download.pytorch.org/whl/nightly/rocm7.1"
+
+# AI inference
+ai_inference_engine: llama-cpp-python
+ai_model_storage: /mnt/flux/ai/models
+ai_api_port: 8080
+
+# ROCm packages from Fedora repos
+rocm_packages:
+  - rocm-smi
+  - rocm-devel
+  - rocm-hip-devel
+  - rocm-clang
+  - rocm-comgr
+  - rocm-device-libs
+
+# Build dependencies for llama-cpp-python
+build_dependencies:
+  - gcc
+  - gcc-c++
+  - make
+  - cmake
+  - ninja-build
+  - python3.12
+  - python3.12-devel
+
+# Environment variables for ROCm builds
+rocm_env_vars:
+  ROCM_PATH: "{{ rocm_path }}"
+  HIP_DEVICE_LIB_PATH: "{{ hip_device_lib_path }}"
+  HIP_CLANG_PATH: "{{ hip_clang_path }}"
+

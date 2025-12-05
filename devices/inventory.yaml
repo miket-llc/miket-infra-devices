@@ -81,6 +81,56 @@ devices:
         Hosts Podman containers with NVIDIA CDI runtime
         Provides backup services via Samba/AFP
         Docker completely purged 2025-12-03
+
+    akira:
+      hostname: akira
+      fqdn: akira.pangolin-vega.ts.net
+      os: Fedora 43 Workstation
+      codename: workstation
+      type: AI/Dev Workstation
+      hardware:
+        model: Custom Desktop (Strix Point)
+        cpu: AMD Ryzen (Strix Point APU)
+        gpu: AMD Radeon 890M (RDNA 3.5 iGPU)
+        gpu_arch: gfx1150
+        gpu_driver: ROCm 7.1
+        memory_gb: 128
+        unified_memory_gb: 62
+        storage_tb: 2
+      services:
+        - podman
+        - tailscaled
+        - firewalld
+        - llama-server
+      storage:
+        flux_mount: /mnt/flux
+        model_storage: /mnt/flux/ai/models
+        space_mount: /mnt/space  # NFS from motoko
+      network:
+        ssh_enabled: true
+        ssh_auth: key_only
+        tailscale: enabled
+        tailscale_tags:
+          - tag:linux
+          - tag:ai-node
+          - tag:workstation
+          - tag:rocm
+      terminal: WarpTerminal
+      ai_capabilities:
+        runtime: ROCm
+        inference_engine: llama-cpp-python
+        max_model_params: 72B
+        verified_speeds:
+          qwen3_30b_a3b_moe: 20 tok/s
+          qwen3_coder_30b_a3b: 19 tok/s
+          qwen2.5_72b: 1.3 tok/s
+      notes: |
+        Strix Point APU AI/Dev workstation
+        128GB unified memory (62GB accessible to GPU)
+        ROCm 7.1 with gfx1150 support
+        Verified: 72B parameter models on integrated GPU
+        MoE models run at ~20 tok/s
+        Bootstrap completed: 2025-12-05
         
   workstations:
     wintermute:

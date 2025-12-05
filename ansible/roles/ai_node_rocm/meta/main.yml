@@ -1,0 +1,20 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/ai_node_rocm/meta/main.yml
+---
+galaxy_info:
+  author: MikeT LLC
+  description: |
+    Configure AMD ROCm AI/ML stack on Fedora.
+    Installs ROCm packages from Fedora repos.
+    Sets up PyTorch with ROCm support.
+    Configures llama-cpp-python with HIP backend.
+    Creates Python venv for AI workloads.
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "43"
+
+dependencies: []
+

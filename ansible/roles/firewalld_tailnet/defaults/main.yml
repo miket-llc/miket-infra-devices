@@ -1,0 +1,27 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/firewalld_tailnet/defaults/main.yml
+---
+# Tailnet IP range (CGNAT range used by Tailscale)
+tailnet_cidr: "100.64.0.0/10"
+
+# Zone configuration
+firewalld_tailnet_zone: tailnet
+firewalld_default_zone: public
+
+# Services allowed only from tailnet
+tailnet_services:
+  - ssh
+  - cockpit
+
+# Custom ports allowed only from tailnet
+tailnet_ports:
+  - port: 8080
+    protocol: tcp
+    description: AI API server
+
+# Services allowed publicly (use sparingly)
+public_services: []
+
+# Tailscale interface (usually tailscale0)
+tailscale_interface: tailscale0
+
