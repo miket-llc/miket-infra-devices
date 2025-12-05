@@ -1,12 +1,13 @@
 ---
 document_title: "Troubleshoot Time Machine SMB Connection Issues"
 author: "Codex-CA-001"
-last_updated: 2025-12-04
+last_updated: 2025-12-05
 status: Active
 related_initiatives:
   - initiatives/device-onboarding
 linked_communications:
   - docs/communications/COMMUNICATION_LOG.md#2025-12-04-timemachine-smb-troubleshooting
+  - docs/communications/COMMUNICATION_LOG.md#2025-12-05-usb-device-drift-fix
 ---
 
 # Troubleshoot Time Machine SMB Connection Issues
@@ -178,10 +179,10 @@ If client-side fixes don't work, check the server:
 
 ```bash
 # On motoko, verify SMB service is running
-systemctl status smbd
+systemctl status smb  # Note: Fedora uses 'smb' not 'smbd'
 
 # Check SMB logs for errors
-tail -50 /var/log/samba/log.smbd
+sudo tail -50 /var/log/samba/log.smbd
 
 # Verify SMB share is accessible
 smbclient -L localhost -U mdt
@@ -189,6 +190,92 @@ smbclient -L localhost -U mdt
 # Check /time directory exists and has correct permissions
 ls -ld /time
 ```
+
+### 6. USB Drive Device Name Drift (CRITICAL - Server-Side)
+
+**Symptoms:**
+- `ls /time` shows "Input/output error" on motoko
+- `mount | grep /time` shows multiple mounts or `emergency_ro` flag
+- `dmesg | grep -i error` shows EXT4 read errors on sdb/sdc (but disk is now sdd)
+- Time Machine shows "Failed to mount destination" error (Error Code 26)
+- `df -h` shows `/time` or `/space` mounted but kernel reports I/O errors
+
+**Root Cause:**
+USB drives can change device names (e.g., `/dev/sdb` → `/dev/sdd`) after:
+- Server reboots
+- USB cable disconnections
+- Power cycling the drive
+- USB hub issues
+
+When this happens:
+1. The kernel keeps stale mounts to the old device names
+2. These stale mounts overlay the correct mountpoint
+3. Any access to `/time` or `/space` returns I/O errors
+4. The filesystem may be marked `emergency_ro` due to accumulated errors
+
+**Diagnosis:**
+```bash
+# SSH to motoko
+tailscale ssh mdt@motoko
+
+# Check for multiple/stale mounts
+mount | grep -E "/time|/space"
+# BAD: Multiple entries or emergency_ro flag
+# GOOD: Single entry per mountpoint
+
+# Check current disk layout
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT,UUID | grep -E "sd|time|space"
+
+# Check kernel errors
+sudo dmesg | grep -i "error" | tail -30
+
+# Verify fstab uses UUIDs (not device names)
+cat /etc/fstab | grep -E "/time|/space"
+# GOOD: UUID=xxxx /time ext4 ...
+# BAD:  /dev/sdb1 /time ext4 ...
+```
+
+**Fix (Automated - Recommended):**
+```bash
+# Run the recovery script on motoko
+tailscale ssh mdt@motoko 'sudo /path/to/miket-infra-devices/scripts/fix-motoko-storage-mounts.sh'
+```
+
+**Fix (Manual):**
+```bash
+# 1. Stop Samba to release mount handles
+sudo systemctl stop smb
+
+# 2. Force unmount all stale mounts (repeat until none left)
+sudo umount -l /time
+sudo umount -l /time
+sudo umount -l /space
+
+# 3. Verify mounts are cleared
+mount | grep -E "/time|/space"  # Should be empty
+
+# 4. Remount from fstab (uses stable UUIDs)
+sudo mount -a
+
+# 5. Verify mounts are accessible
+ls /time /space  # Should show contents
+
+# 6. Restart Samba
+sudo systemctl start smb
+
+# 7. Verify Samba connections
+sudo smbstatus
+```
+
+**Prevention:**
+1. **Use UUIDs in fstab:** Always configure mounts via UUID, never device names
+2. **Health monitoring:** Run `check-motoko-storage-health.sh` periodically
+3. **Stable USB connection:** Use direct USB ports, avoid hubs if possible
+4. **systemd mount units:** Consider using systemd .mount units instead of fstab for better dependency handling
+
+**Related Scripts:**
+- `scripts/check-motoko-storage-health.sh` - Health check for storage mounts
+- `scripts/fix-motoko-storage-mounts.sh` - Recovery script for mount issues
 
 ## Improved Mount Script
 
@@ -229,18 +316,34 @@ After applying fixes, verify:
 
 ## Related Files
 
+### Client-side (count-zero)
 - Mount script: `~/.scripts/mount_shares.sh`
 - Mount log: `~/.scripts/mount_shares.log`
 - Secrets file: `~/.mkt/mounts.env`
-- Diagnostic script: `scripts/diagnose-timemachine-smb.sh`
-- Troubleshooting script: `scripts/troubleshoot-count-zero-space.sh`
+
+### Server-side (motoko)
+- Samba config: `/etc/samba/smb.conf`
+- Mount config: `/etc/fstab` (uses UUIDs)
+- Storage paths: `/time`, `/space`, `/flux`
+
+### Diagnostic/Recovery Scripts
+- `scripts/diagnose-timemachine-smb.sh` - Client-side diagnostics
+- `scripts/check-motoko-storage-health.sh` - Server-side health check
+- `scripts/fix-motoko-storage-mounts.sh` - Server-side mount recovery
+- `scripts/troubleshoot-count-zero-space.sh` - General troubleshooting
 
 ## Prevention
 
 To prevent future issues:
 
-1. **Keep mounts healthy:** The updated mount script automatically detects and fixes stale mounts
+1. **Keep mounts healthy:** 
+   - Client: The mount script automatically detects and fixes stale mounts
+   - Server: Run `check-motoko-storage-health.sh` periodically (or via cron/systemd timer)
 2. **Monitor Time Machine:** Check System Settings > Time Machine regularly for failed backups
 3. **Network stability:** Ensure Tailscale is running and MagicDNS is configured correctly
-4. **Server health:** Monitor motoko SMB service and disk space
+4. **Server health:** 
+   - Monitor motoko SMB service and disk space
+   - Use UUIDs in fstab (never device names like /dev/sdb1)
+   - Watch for kernel I/O errors: `sudo dmesg | grep -i error`
+5. **USB stability:** Use direct USB ports on motoko, avoid USB hubs for the storage drive
 

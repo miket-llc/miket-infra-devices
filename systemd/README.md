@@ -1,8 +1,57 @@
-# Systemd 1Password Session Service
+# Systemd Services
 
-## Overview
+This directory contains systemd units for PHC infrastructure automation.
+
+## Services
+
+### 1Password Session Service (User Service)
 
 The systemd user service (`op-session.service`) and timer (`op-session.timer`) provide optional 1Password CLI session management on Motoko. Use this for personal/interactive workflows only—automation now pulls secrets from Azure Key Vault into env files via `ansible/playbooks/secrets-sync.yml`, and should not depend on `op` sessions.
+
+### Storage Health Monitor (System Service)
+
+The `motoko-storage-health.service` and `motoko-storage-health.timer` provide automatic monitoring and recovery for PHC storage mounts on motoko.
+
+**Purpose:** Detect and auto-fix stale mounts caused by USB device name drift (e.g., when the external storage drive changes from `/dev/sdb` to `/dev/sdd` after reboots).
+
+**Installation:**
+```bash
+# Deploy via Ansible (recommended)
+ansible-playbook ansible/playbooks/motoko/deploy-storage-health-monitor.yml
+
+# Or manually:
+sudo cp motoko-storage-health.service /etc/systemd/system/
+sudo cp motoko-storage-health.timer /etc/systemd/system/
+sudo mkdir -p /opt/miket-infra-devices/scripts
+sudo cp ../scripts/check-motoko-storage-health.sh /opt/miket-infra-devices/scripts/
+sudo chmod +x /opt/miket-infra-devices/scripts/check-motoko-storage-health.sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now motoko-storage-health.timer
+```
+
+**Operation:**
+```bash
+# Check timer status
+systemctl status motoko-storage-health.timer
+systemctl list-timers motoko-storage-health.timer
+
+# View health check logs
+journalctl -u motoko-storage-health.service --since "1 hour ago"
+
+# Manually trigger health check
+sudo systemctl start motoko-storage-health.service
+
+# Run with auto-fix (what the timer does)
+sudo /opt/miket-infra-devices/scripts/check-motoko-storage-health.sh --fix
+```
+
+**Schedule:** Runs hourly + 2 minutes after boot.
+
+---
+
+## 1Password Session Service Details
+
+### Overview
 
 ## Installation
 

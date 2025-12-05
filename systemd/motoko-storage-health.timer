@@ -1,0 +1,37 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# motoko-storage-health.timer
+# Systemd timer unit for hourly storage health checks
+#
+# This timer triggers motoko-storage-health.service every hour to verify
+# that /time, /space, and /flux are properly mounted and accessible.
+#
+# If mounts are stale or inaccessible, the service will attempt auto-fix.
+#
+# Installation:
+#   sudo cp motoko-storage-health.service /etc/systemd/system/
+#   sudo cp motoko-storage-health.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now motoko-storage-health.timer
+#
+# Check status:
+#   systemctl status motoko-storage-health.timer
+#   systemctl list-timers motoko-storage-health.timer
+#   journalctl -u motoko-storage-health.service --since "1 hour ago"
+
+[Unit]
+Description=Hourly PHC Storage Mount Health Check
+Documentation=file:///opt/miket-infra-devices/docs/runbooks/troubleshoot-timemachine-smb.md
+
+[Timer]
+# Run hourly, with some randomization to avoid thundering herd
+OnCalendar=hourly
+RandomizedDelaySec=300
+Persistent=true
+
+# Also run 2 minutes after boot to catch issues early
+OnBootSec=2min
+
+[Install]
+WantedBy=timers.target
+

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 # Motoko - Primary Infrastructure Server
-# Last Updated: 2025-11-28
+# Last Updated: 2025-12-05
 
 device:
   hostname: motoko
@@ -23,9 +23,46 @@ hardware:
   cuda_version: "12.2"
   memory_gb: 32
   storage:
-    - "/space"  # SoR - 20TB USB 3.0 drive
-    - "/flux"   # Runtime surface
-    - "/time"   # Time Machine backup target
+    internal:
+      - mount: "/"
+        device: nvme1n1p3
+        size_gb: 15
+        type: LVM on NVMe
+      - mount: "/podman"
+        device: nvme0n1p3
+        size_gb: 951
+        type: btrfs on NVMe
+        purpose: Container storage
+      - mount: "/flux"
+        device: sda1
+        size_tb: 3.6
+        type: ext4 on SATA SSD
+        model: "ST4000LM024-2U817V"
+        uuid: "1ee5fe43-ad34-418c-a1b9-935daf594413"
+        purpose: Runtime/active workspace
+    external_usb:
+      # Western Digital 20TB Elements USB 3.0 Drive
+      # WARNING: USB device names (sdb/sdc/sdd) may drift after reboots!
+      # Always use UUIDs in fstab, never device names.
+      model: "WDC WD200EDGZ-11BLDS0"
+      serial: "STGVU4GW"
+      connection: USB 3.0
+      total_size_tb: 18.2
+      partitions:
+        - mount: "/time"
+          label: "time"
+          size_tb: 7.3
+          type: ext4
+          uuid: "f54cf57c-e434-45f5-bde3-cc706ffbe849"
+          partuuid: "1c9f2b1f-f97c-45d0-984a-bd04a33c2cb2"
+          purpose: Time Machine backups (count-zero)
+        - mount: "/space"
+          label: "space"
+          size_tb: 10.9
+          type: ext4
+          uuid: "7f5e508d-fcac-4d18-80ca-84c857b20b40"
+          partuuid: "1eb02297-a2f2-4f97-b630-17321c4685f0"
+          purpose: PHC System of Record (SoR)
 
 operating_system:
   os: "Fedora"

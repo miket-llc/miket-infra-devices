@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# deploy-storage-health-monitor.yml
+# Deploy storage health monitoring systemd timer on motoko
+#
+# This playbook installs:
+# - check-motoko-storage-health.sh script
+# - fix-motoko-storage-mounts.sh script
+# - systemd service and timer for hourly health checks
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/motoko/deploy-storage-health-monitor.yml
+#
+# Or from motoko directly:
+#   ansible-playbook ansible/playbooks/motoko/deploy-storage-health-monitor.yml --connection=local
+
+---
+- name: Deploy Storage Health Monitor on Motoko
+  hosts: motoko
+  become: true
+  vars:
+    scripts_dest: /opt/miket-infra-devices/scripts
+    systemd_dest: /etc/systemd/system
+    
+  tasks:
+    - name: Create scripts directory
+      file:
+        path: "{{ scripts_dest }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy storage health check script
+      copy:
+        src: ../../../scripts/check-motoko-storage-health.sh
+        dest: "{{ scripts_dest }}/check-motoko-storage-health.sh"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy storage mount fix script
+      copy:
+        src: ../../../scripts/fix-motoko-storage-mounts.sh
+        dest: "{{ scripts_dest }}/fix-motoko-storage-mounts.sh"
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy systemd service unit
+      copy:
+        src: ../../../systemd/motoko-storage-health.service
+        dest: "{{ systemd_dest }}/motoko-storage-health.service"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload systemd
+
+    - name: Deploy systemd timer unit
+      copy:
+        src: ../../../systemd/motoko-storage-health.timer
+        dest: "{{ systemd_dest }}/motoko-storage-health.timer"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Reload systemd
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: true
+      
+    - name: Enable and start storage health timer
+      systemd:
+        name: motoko-storage-health.timer
+        state: started
+        enabled: true
+
+    - name: Run initial health check
+      command: "{{ scripts_dest }}/check-motoko-storage-health.sh"
+      register: health_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display health check results
+      debug:
+        msg: "{{ health_check.stdout_lines }}"
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+

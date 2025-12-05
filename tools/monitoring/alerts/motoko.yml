@@ -1,0 +1,117 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Alerting rules for Motoko storage and services
+# These rules monitor critical PHC infrastructure components
+---
+groups:
+  - name: motoko.storage
+    rules:
+      # Critical: Storage mount accessibility
+      - alert: MotokoStorageMountFailed
+        expr: node_filesystem_avail_bytes{instance=~"motoko.*",mountpoint=~"/(time|space|flux)"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          device: motoko
+        annotations:
+          summary: "Critical storage mount {{ $labels.mountpoint }} is inaccessible"
+          description: >
+            The {{ $labels.mountpoint }} mount on motoko is showing zero available bytes,
+            which typically indicates a failed or stale mount. Time Machine backups and
+            PHC storage operations will fail. Run: scripts/fix-motoko-storage-mounts.sh
+
+      # Warning: Storage approaching full
+      - alert: MotokoStorageSpaceLow
+        expr: (node_filesystem_avail_bytes{instance=~"motoko.*",mountpoint=~"/(time|space)"} / node_filesystem_size_bytes{instance=~"motoko.*",mountpoint=~"/(time|space)"}) < 0.1
+        for: 1h
+        labels:
+          severity: warning
+          device: motoko
+        annotations:
+          summary: "Storage {{ $labels.mountpoint }} is below 10% free"
+          description: >
+            The {{ $labels.mountpoint }} mount on motoko has less than 10% free space.
+            Consider cleaning up old backups or expanding storage.
+
+      # Critical: Root filesystem low (system stability)
+      - alert: MotokoRootFilesystemLow
+        expr: (node_filesystem_avail_bytes{instance=~"motoko.*",mountpoint="/"} / node_filesystem_size_bytes{instance=~"motoko.*",mountpoint="/"}) < 0.05
+        for: 10m
+        labels:
+          severity: critical
+          device: motoko
+        annotations:
+          summary: "Root filesystem on motoko is critically low (<5%)"
+          description: >
+            The root filesystem on motoko has less than 5% free space. System stability
+            may be affected. Clean up /var/log, container images, or journal files.
+
+  - name: motoko.services
+    rules:
+      # Critical: Samba service down (affects Time Machine)
+      - alert: MotokoSambaDown
+        expr: node_systemd_unit_state{instance=~"motoko.*",name="smb.service",state="active"} != 1
+        for: 5m
+        labels:
+          severity: critical
+          device: motoko
+        annotations:
+          summary: "Samba service is not running on motoko"
+          description: >
+            The smb.service on motoko is not active. Time Machine backups and SMB
+            file sharing will fail. Run: systemctl start smb
+
+      # Warning: LiteLLM down
+      - alert: MotokoLiteLLMDown
+        expr: up{job="litellm",instance=~"motoko.*"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          device: motoko
+        annotations:
+          summary: "LiteLLM proxy is not responding on motoko"
+          description: >
+            The LiteLLM proxy on motoko (port 8000) is not responding. LLM routing
+            may be affected. Check container status: podman ps
+
+      # Warning: Embeddings service down
+      - alert: MotokoEmbeddingsDown
+        expr: up{job="vllm-embeddings",instance=~"motoko.*"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          device: motoko
+        annotations:
+          summary: "vLLM embeddings service is not responding on motoko"
+          description: >
+            The vLLM embeddings service on motoko (port 8200) is not responding.
+            Embedding generation may be affected. Check container status: podman ps
+
+  - name: motoko.hardware
+    rules:
+      # Warning: High GPU temperature
+      - alert: MotokoHighGpuTemp
+        expr: nvidia_smi_temperature_gpu{instance=~"motoko.*"} > 80
+        for: 10m
+        labels:
+          severity: warning
+          device: motoko
+        annotations:
+          summary: "GPU temperature on motoko is high (>80°C)"
+          description: >
+            The NVIDIA GPU on motoko is running hot. Check GPU workloads and
+            ensure adequate cooling. Consider reducing vLLM memory utilization.
+
+      # Critical: Very high GPU temperature
+      - alert: MotokoGpuOverheating
+        expr: nvidia_smi_temperature_gpu{instance=~"motoko.*"} > 90
+        for: 5m
+        labels:
+          severity: critical
+          device: motoko
+        annotations:
+          summary: "GPU on motoko is overheating (>90°C)"
+          description: >
+            The NVIDIA GPU on motoko is critically hot. Throttling or shutdown
+            may occur. Immediately reduce GPU workloads and check cooling.
+

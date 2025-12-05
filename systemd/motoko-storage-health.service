@@ -1,0 +1,33 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# motoko-storage-health.service
+# Systemd service unit for storage health check
+#
+# This service checks that /time, /space, and /flux are properly mounted
+# and accessible. It is triggered by motoko-storage-health.timer.
+#
+# Installation:
+#   sudo cp motoko-storage-health.service /etc/systemd/system/
+#   sudo cp motoko-storage-health.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now motoko-storage-health.timer
+
+[Unit]
+Description=Check PHC Storage Mount Health
+Documentation=file:///opt/miket-infra-devices/docs/runbooks/troubleshoot-timemachine-smb.md
+After=network-online.target smb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/miket-infra-devices/scripts/check-motoko-storage-health.sh --fix
+User=root
+StandardOutput=journal
+StandardError=journal
+
+# Retry logic handled by the script itself
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
+
