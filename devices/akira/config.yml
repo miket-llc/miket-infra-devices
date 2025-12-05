@@ -168,6 +168,19 @@ device:
     interactive:
       - miket
   
+  credentials:
+    # Developer SSH keys - stored locally in ~/.ssh/, NOT in AKV
+    # AKV is for service accounts; dev keys stay on the workstation
+    ssh_keys:
+      - name: github
+        path: ~/.ssh/id_ed25519_github
+        type: ed25519
+        comment: "akira@pangolin-vega.ts.net"
+        fingerprint: "SHA256:eH3K5fwQFfQpQQa5FU8+dpoUhfZR3qvH7GCLDQQMYCw"
+        purpose: GitHub access for miket-llc repos
+        added: 2025-12-05
+        # Backup recommendation: Store in 1Password for DR (human access only)
+  
   notes: |
     akira - Strix Point APU AI/Dev workstation
     
@@ -190,4 +203,5 @@ device:
     
     Bootstrap completed: 2025-12-05
     ROCm venv: ~/rocm-test (Python 3.12)
+    GitHub SSH key: ~/.ssh/id_ed25519_github (2025-12-05)
 
