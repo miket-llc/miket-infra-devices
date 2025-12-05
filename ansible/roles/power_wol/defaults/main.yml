@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# power_wol role defaults
+# Enable Wake-on-LAN on specified network interfaces
+
+# List of interfaces to enable WOL on
+# Override in host_vars with actual NIC names
+wol_interfaces: []
+# Example:
+# wol_interfaces:
+#   - enp196s0
+#   - enp197s0
+
+# WOL mode to set (g = magic packet, default and most compatible)
+wol_mode: g
+
+# Install ethtool if not present
+wol_install_ethtool: true
+

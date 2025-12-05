@@ -1,0 +1,51 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Unified Wake-on-LAN script for all configured hosts
+#
+# Usage: wake <hostname>
+
+set -euo pipefail
+
+HOST="${1:-}"
+
+if [[ -z "$HOST" ]]; then
+    echo "Usage: wake <hostname>"
+    echo ""
+    echo "Available hosts:"
+{% for target in wol_relay_targets %}
+    echo "  {{ target.name }} ({{ target.mac }})"
+{% endfor %}
+    exit 1
+fi
+
+case "$HOST" in
+{% for target in wol_relay_targets %}
+    {{ target.name }})
+        MAC="{{ target.mac }}"
+        ;;
+{% endfor %}
+    *)
+        echo "Unknown host: $HOST"
+        echo ""
+        echo "Available hosts:"
+{% for target in wol_relay_targets %}
+        echo "  {{ target.name }}"
+{% endfor %}
+        exit 1
+        ;;
+esac
+
+echo "Sending WOL magic packet to ${HOST} (${MAC})..."
+
+{% if ansible_os_family == "RedHat" %}
+/usr/bin/wol ${MAC}
+{% else %}
+/usr/bin/wakeonlan ${MAC}
+{% endif %}
+
+echo "WOL packet sent. ${HOST} should power on within a few seconds."
+echo ""
+echo "Verify with:"
+echo "  tailscale ping ${HOST}"
+echo "  ssh ${HOST}"
+

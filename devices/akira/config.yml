@@ -163,6 +163,73 @@ device:
     lid_close: n/a  # Desktop
     idle_action: ignore
   
+  # ==========================================================================
+  # POWER RESILIENCE CONFIGURATION
+  # ==========================================================================
+  # Design goals:
+  #   1. Survive power loss (UPS → graceful shutdown → auto-power-on)
+  #   2. Remote power control while away (WOL, BMC, PDU)
+  #   3. All management via Tailscale (no direct internet exposure)
+  #   4. IaC-aligned (Ansible roles, secrets in AKV)
+  # ==========================================================================
+  power:
+    # Wake-on-LAN Configuration
+    wol:
+      enabled: true
+      interfaces:
+        - name: enp196s0
+          mac: "38:05:25:30:42:84"
+          ip: 192.168.1.184
+          primary: true  # Use this for WOL
+        - name: enp197s0
+          mac: "38:05:25:30:42:85"
+          ip: 192.168.1.195
+          primary: false
+      relay_host: motoko  # Always-on host that sends WOL packets
+      # WOL support: pumbg (magic packet supported)
+      # Current state: disabled (d) - needs wol@.service
+    
+    # BMC/IPMI Configuration (if available)
+    # NOTE: akira uses consumer Strix Point - no dedicated BMC
+    # This section is for future server-grade hardware upgrade
+    bmc:
+      enabled: false
+      # address: 192.168.1.30  # Static IP on LAN
+      # protocol: ipmi  # ipmi or redfish
+      # secret_env: /flux/runtime/secrets/akira-bmc.env
+      # akv_secrets:
+      #   - akira-bmc-user
+      #   - akira-bmc-password
+    
+    # Switched PDU Configuration (out-of-band power control)
+    pdu:
+      enabled: false  # TODO: Acquire switched PDU
+      # model: "CyberPower PDU41001"  # Example
+      # address: 192.168.1.31
+      # outlet_id: 3  # akira's outlet number
+      # secret_env: /flux/runtime/secrets/pdu-main.env
+      # akv_secrets:
+      #   - pdu-main-user
+      #   - pdu-main-password
+    
+    # UPS Configuration
+    ups:
+      enabled: false  # TODO: Connect UPS
+      # model: "CyberPower CP1500PFCLCD"  # Example
+      # connection: usb
+      # daemon: nut  # or apcupsd
+      # policy:
+      #   on_battery_low: shutdown
+      #   shutdown_delay_seconds: 120
+    
+    # BIOS Settings (documented, not automated)
+    # See: docs/runbooks/AKIRA_POWER_RUNBOOK.md
+    bios:
+      ac_power_loss: power_on  # REQUIRED: Always power on after AC restore
+      erp_ready: disabled      # REQUIRED: Keep +5V standby for WOL
+      wake_on_lan: enabled     # REQUIRED: Enable WOL from S4/S5
+      wake_on_pcie: enabled    # Enable wake from PCIe devices
+  
   accounts:
     automation: mdt
     interactive:

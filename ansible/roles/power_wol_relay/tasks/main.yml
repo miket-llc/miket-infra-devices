@@ -1,0 +1,57 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# power_wol_relay role tasks
+# Set up WOL relay capabilities on the always-on host
+
+- name: Install wakeonlan package (Fedora)
+  package:
+    name: wol
+    state: present
+  when:
+    - wol_relay_install_wakeonlan | bool
+    - ansible_os_family == "RedHat"
+
+- name: Install wakeonlan package (Debian/Ubuntu)
+  package:
+    name: wakeonlan
+    state: present
+  when:
+    - wol_relay_install_wakeonlan | bool
+    - ansible_os_family == "Debian"
+
+- name: Create WOL scripts directory
+  file:
+    path: "{{ wol_relay_script_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Deploy wake scripts for each target
+  template:
+    src: wake-host.sh.j2
+    dest: "{{ wol_relay_script_dir }}/wake-{{ item.name }}.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ wol_relay_targets }}"
+  when: wol_relay_targets | length > 0
+
+- name: Deploy unified wake script
+  template:
+    src: wake.sh.j2
+    dest: "{{ wol_relay_script_dir }}/wake"
+    owner: root
+    group: root
+    mode: '0755'
+  when: wol_relay_targets | length > 0
+
+- name: Display WOL relay setup complete
+  debug:
+    msg: |
+      WOL relay configured. Available commands:
+      {% for target in wol_relay_targets %}
+        - wake-{{ target.name }}.sh ({{ target.mac }})
+      {% endfor %}
+        - wake <hostname> (unified script)
+

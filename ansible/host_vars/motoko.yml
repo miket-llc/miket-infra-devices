@@ -221,6 +221,15 @@ data_estate_m365_enabled: true
 data_estate_space_mirror_enabled: true
 
 # ========================================
+# WOL Relay Configuration
+# ========================================
+# Motoko serves as the always-on WOL relay for remote power management
+wol_relay_targets:
+  - name: akira
+    mac: "38:05:25:30:42:84"
+    description: "Strix Point AI/Dev workstation"
+
+# ========================================
 # Disk Maintenance Configuration
 # ========================================
 podman_cleanup_remove_stopped_containers: true

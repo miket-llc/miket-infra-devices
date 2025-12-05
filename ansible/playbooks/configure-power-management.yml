@@ -1,0 +1,59 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# configure-power-management.yml
+# Configure power resilience for PHC nodes
+#
+# This playbook:
+# 1. Enables WOL on target hosts (akira)
+# 2. Configures WOL relay on always-on host (motoko)
+#
+# Usage:
+#   # Full deployment
+#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-power-management.yml
+#
+#   # Just akira WOL
+#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-power-management.yml --limit akira
+#
+#   # Just motoko relay
+#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-power-management.yml --limit motoko
+
+---
+- name: Configure Wake-on-LAN on target hosts
+  hosts: akira
+  become: true
+  roles:
+    - role: power_wol
+      when: wol_interfaces is defined and wol_interfaces | length > 0
+
+  post_tasks:
+    - name: Display WOL configuration summary
+      debug:
+        msg: |
+          WOL configured on {{ inventory_hostname }}:
+          {% for iface in wol_interfaces %}
+            - {{ iface }}: {{ wol_macs[iface] | default('MAC not defined') }}
+          {% endfor %}
+          
+          Relay host: {{ wol_relay_host | default('not configured') }}
+          
+          Test with:
+            tailscale ssh mdt@{{ wol_relay_host | default('motoko') }} 'wake {{ inventory_hostname }}'
+
+- name: Configure WOL relay on always-on host
+  hosts: motoko
+  become: true
+  roles:
+    - role: power_wol_relay
+      when: wol_relay_targets is defined and wol_relay_targets | length > 0
+
+  post_tasks:
+    - name: Display relay configuration summary
+      debug:
+        msg: |
+          WOL relay configured on {{ inventory_hostname }}:
+          {% for target in wol_relay_targets %}
+            - wake-{{ target.name }}.sh → {{ target.mac }}
+          {% endfor %}
+          
+          Unified command: wake <hostname>
+

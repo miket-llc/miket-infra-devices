@@ -1,0 +1,35 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Wake {{ item.name }} via Wake-on-LAN magic packet
+#
+# Usage: wake-{{ item.name }}.sh
+
+set -euo pipefail
+
+MAC="{{ item.mac }}"
+HOST="{{ item.name }}"
+{% if item.interface is defined %}
+INTERFACE="{{ item.interface }}"
+{% endif %}
+
+echo "Sending WOL magic packet to ${HOST} (${MAC})..."
+
+{% if ansible_os_family == "RedHat" %}
+# Fedora uses 'wol' command
+{% if item.interface is defined %}
+/usr/bin/wol -i ${INTERFACE} ${MAC}
+{% else %}
+/usr/bin/wol ${MAC}
+{% endif %}
+{% else %}
+# Debian/Ubuntu uses 'wakeonlan' command
+{% if item.interface is defined %}
+/usr/bin/wakeonlan -i ${INTERFACE} ${MAC}
+{% else %}
+/usr/bin/wakeonlan ${MAC}
+{% endif %}
+{% endif %}
+
+echo "WOL packet sent. ${HOST} should power on within a few seconds."
+echo "Check status: tailscale ping ${HOST} or ssh ${HOST}"
+

@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+# Wake-on-LAN systemd service for interface %i
+# Enables WOL (magic packet) on the specified network interface
+
+[Unit]
+Description=Enable Wake-on-LAN on %i
+After=network.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/ethtool -s %i wol {{ wol_mode }}
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+

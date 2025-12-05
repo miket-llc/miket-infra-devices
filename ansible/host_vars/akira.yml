@@ -160,3 +160,18 @@ interactive_users:
 netdata_enabled: true
 netdata_cloud_claim: true
 
+# =============================================================================
+# Power Management (Wake-on-LAN)
+# =============================================================================
+# Enable WOL on these interfaces
+wol_interfaces:
+  - enp196s0   # Primary - 38:05:25:30:42:84
+
+# MAC addresses for documentation/relay config
+wol_macs:
+  enp196s0: "38:05:25:30:42:84"
+  enp197s0: "38:05:25:30:42:85"
+
+# WOL relay host (always-on, same LAN segment)
+wol_relay_host: motoko
+
