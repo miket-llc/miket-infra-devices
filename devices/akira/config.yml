@@ -1,0 +1,193 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# devices/akira/config.yml
+# Device configuration for akira - Fedora AI/Dev Workstation
+
+device:
+  hostname: akira
+  fqdn: akira.pangolin-vega.ts.net
+  os: Fedora 43 Workstation
+  codename: workstation
+  type: AI/Dev Workstation
+  
+  roles:
+    - workstation
+    - ai_node
+    - gpu_node
+    - dev_node
+  
+  hardware:
+    model: Custom Desktop (Strix Point)
+    cpu: AMD Ryzen (Strix Point APU)
+    cpu_cores: 24  # Adjust based on actual
+    gpu: AMD Radeon 890M (RDNA 3.5 iGPU)
+    gpu_arch: gfx1150
+    gpu_driver: ROCm 7.1
+    memory_gb: 128
+    gpu_accessible_memory_gb: 62  # GTT unified memory
+    storage:
+      - device: nvme0n1
+        model: Crucial P3 1TB
+        size_tb: 1
+        type: NVMe SSD
+        purpose: Boot + OS
+        partitions:
+          - mount: /boot/efi
+            size_gb: 0.6
+            filesystem: vfat
+          - mount: /boot
+            size_gb: 2
+            filesystem: ext4
+          - mount: /
+            subvol: /root
+            filesystem: btrfs
+          - mount: /home
+            subvol: /home
+            filesystem: btrfs
+      - device: nvme1n1
+        model: Crucial P310 4TB
+        size_tb: 4
+        type: NVMe SSD
+        pcie_link: x1  # Slot limitation
+        purpose: Backups and snapshots (time) - slower slot OK for backups
+        mount: /time
+        filesystem: ext4
+      - device: nvme2n1
+        model: Samsung 990 PRO 4TB
+        size_tb: 4
+        type: NVMe SSD
+        pcie_link: x4  # Full speed slot
+        purpose: Active storage (flux) - containers, AI models, projects
+        mount: /flux
+        filesystem: ext4
+      - device: sda
+        model: WD Red 18TB
+        size_tb: 18
+        type: HDD (spinning)
+        purpose: Cold storage, archives (space) - LOCAL, not NFS
+        mount: /space
+        filesystem: btrfs
+    battery: false
+  
+  network:
+    tailscale:
+      enabled: true
+      hostname: akira
+      ip: null  # Assigned dynamically
+      tags:
+        - tag:linux
+        - tag:ai-node
+        - tag:workstation
+        - tag:rocm
+      auth_key_akv_secret: akira-tailscale-authkey
+    ssh:
+      enabled: true
+      auth: key_only
+      tailnet_only: true
+    firewall: firewalld
+  
+  services:
+    - tailscaled
+    - firewalld
+    - podman
+    - sshd
+    - llama-server  # llama.cpp OpenAI-compatible API
+  
+  container_config:
+    runtime: podman
+    storage_root: /flux/containers
+    # Ensures containers and images are on fast NVMe, not spinning disk
+    graphroot: /flux/containers/storage
+    runroot: /run/containers
+  
+  ai_stack:
+    gpu_vendor: AMD
+    gpu_runtime: ROCm
+    rocm_version: "7.1"
+    pytorch_variant: rocm7.1-nightly
+    inference_engine: llama-cpp-python
+    container_runtime: podman
+    model_storage: /mnt/flux/ai/models
+    verified_models:
+      - name: TinyLlama-1.1B
+        speed_tps: 77
+        context: 2048
+      - name: Qwen2.5-7B
+        speed_tps: 14
+        context: 4096
+      - name: Qwen3-30B-A3B (MoE)
+        speed_tps: 20
+        context: 32768
+      - name: Qwen3-Coder-30B-A3B (MoE)
+        speed_tps: 19
+        context: 16384
+      - name: Qwen3-32B
+        speed_tps: 3
+        context: 32768
+      - name: Qwen2.5-Coder-32B
+        speed_tps: 3
+        context: 32768
+      - name: Qwen2.5-72B
+        speed_tps: 1.3
+        context: 8192
+  
+  filesystem:
+    flux:
+      mount: /flux
+      device: /dev/nvme2n1p1  # Samsung 990 PRO (x4 slot)
+      filesystem: ext4
+      purpose: Active projects, containers, AI models, code
+      contains:
+        - /flux/containers  # Podman storage root
+        - /flux/ai/models   # LLM models
+        - /flux/projects    # Development projects
+        - /flux/runtime     # Runtime data and secrets
+    space:
+      mount: /space
+      device: /dev/sda1
+      filesystem: btrfs
+      purpose: Cold storage, archives, media, datasets
+      is_local: true  # LOCAL 18TB disk, NOT NFS from motoko
+      is_sor: true    # This IS the System of Record for /space on akira
+      note: Unlike other nodes, akira has local /space storage
+    time:
+      mount: /time
+      device: /dev/nvme1n1p1  # Crucial P310 (x1 slot - OK for backups)
+      filesystem: ext4
+      purpose: Backups, snapshots, time-travel
+  
+  selinux:
+    mode: enforcing
+    custom_modules: []
+  
+  power_policy:
+    lid_close: n/a  # Desktop
+    idle_action: ignore
+  
+  accounts:
+    automation: mdt
+    interactive:
+      - miket
+  
+  notes: |
+    akira - Strix Point APU AI/Dev workstation
+    
+    Key capabilities:
+    - 128GB unified memory (62GB accessible to GPU via GTT)
+    - AMD ROCm 7.1 with gfx1150 support (PyTorch nightly)
+    - Verified: 72B parameter models running on integrated GPU
+    - llama-cpp-python with ROCm/HIP for fast inference
+    - MoE models (Qwen3-30B-A3B) run at ~20 tok/s
+    
+    Storage Layout (optimized 2025-12-05):
+    - /flux (4TB Samsung 990 PRO NVMe, x4 slot) - containers, models, projects
+    - /time (4TB Crucial P310 NVMe, x1 slot) - backups, snapshots
+    - /space (18TB WD Red HDD) - LOCAL cold storage (not NFS!)
+    - / /home (1TB Crucial P3 NVMe, x4 slot) - OS, user profiles
+    
+    Note: Unlike other nodes, akira has LOCAL /space storage.
+    This is the SoR for akira's /space, but does NOT replace
+    motoko's /space as the PHC-wide SoR.
+    
+    Bootstrap completed: 2025-12-05
+    ROCm venv: ~/rocm-test (Python 3.12)
+

@@ -1,0 +1,162 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/host_vars/akira.yml
+# Host-specific variables for akira
+
+# =============================================================================
+# Identity & Network
+# =============================================================================
+hostname: akira
+tailscale_hostname: akira
+tailscale_tags:
+  - "tag:linux"
+  - "tag:ai-node"
+  - "tag:workstation"
+  - "tag:rocm"
+tailscale_auth_key_akv_secret: "akira-tailscale-authkey"
+tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
+
+# =============================================================================
+# GPU / AI Configuration
+# =============================================================================
+gpu_vendor: AMD
+gpu_model: "Radeon 890M"
+gpu_arch: gfx1150
+gpu_driver: ROCm
+rocm_version: "7.1"
+enable_rocm: true
+enable_nvidia: false  # Explicitly disabled - this is AMD
+
+# ROCm-specific paths (Fedora layout)
+rocm_path: /usr/lib64/rocm
+hip_device_lib_path: /usr/lib64/rocm/llvm/lib/clang/19/amdgcn/bitcode
+hip_clang_path: /usr/lib64/rocm/llvm/bin
+
+# AI inference configuration
+ai_inference_engine: llama-cpp-python
+ai_model_storage: /flux/ai/models
+ai_venv_path: /home/mdt/rocm-test
+ai_api_port: 8080
+
+# =============================================================================
+# Container Runtime
+# =============================================================================
+container_runtime: podman
+# ROCm device passthrough for containers
+container_gpu_args: "--device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined"
+
+# =============================================================================
+# Filesystem Layout (optimized 2025-12-05)
+# =============================================================================
+# /flux - Samsung 990 PRO 4TB (x4 PCIe slot) - fast active storage
+flux_mount: /flux
+flux_device: /dev/nvme2n1p1
+flux_uuid: "1e5c92a7-c2fc-4b0e-833d-b852d64ea331"
+flux_filesystem: ext4
+flux_mount_options: "noatime,discard"
+
+# /time - Crucial P310 4TB (x1 PCIe slot) - backups, snapshots
+time_mount: /time
+time_device: /dev/nvme1n1p1
+time_uuid: "9f55fc05-8375-4694-8067-c431fa1a9325"
+time_filesystem: ext4
+time_mount_options: "noatime,discard"
+time_local: true
+
+# /space - WD Red 18TB HDD - LOCAL cold storage (NOT NFS!)
+space_mount: /space
+space_device: /dev/sda1
+space_uuid: "9f387c92-613e-44fb-a6c4-3878b95905f3"
+space_filesystem: btrfs
+space_mount_options: "compress=zstd:3,noatime"
+space_is_local: true  # NOT remote NFS
+space_is_sor: true    # This IS the SoR for akira's /space
+
+# User symlinks
+user_symlinks:
+  - user: mdt
+    links:
+      - src: /flux/users/mdt
+        dest: "{{ ansible_env.HOME }}/flux"
+      - src: /space
+        dest: "{{ ansible_env.HOME }}/space"
+      - src: /time
+        dest: "{{ ansible_env.HOME }}/time"
+  - user: miket
+    links:
+      - src: /flux/users/miket
+        dest: "/home/miket/flux"
+      - src: /space
+        dest: "/home/miket/space"
+      - src: /time
+        dest: "/home/miket/time"
+
+# =============================================================================
+# Firewall Configuration
+# =============================================================================
+firewall_backend: firewalld
+# Tailnet IP range for trusted access
+tailnet_cidr: "100.64.0.0/10"
+# Services exposed only to tailnet
+tailnet_services:
+  - ssh
+  - llama-api  # Custom service for AI API
+# Public services (none for now)
+public_services: []
+
+# =============================================================================
+# Workstation Configuration
+# =============================================================================
+workstation_packages:
+  - gnome-tweaks
+  - gnome-extensions-app
+  - wl-clipboard
+  - flatpak
+  # Dev essentials
+  - git
+  - vim
+  - neovim
+  - tmux
+  - htop
+  - btop
+  - ripgrep
+  - fd-find
+  - jq
+  - yq
+  - curl
+  - wget
+  - tree
+  # Build tools
+  - gcc
+  - gcc-c++
+  - make
+  - cmake
+  - ninja-build
+  # Python
+  - python3.12
+  - python3.12-devel
+
+# Flatpaks for workstation
+flatpak_apps:
+  - com.visualstudio.code
+  - dev.warp.Warp
+  - io.github.ArcticFox-Dev.ArcticFox.Cursor
+
+# =============================================================================
+# SELinux
+# =============================================================================
+selinux_mode: enforcing
+selinux_custom_modules: []
+
+# =============================================================================
+# Accounts
+# =============================================================================
+automation_user: mdt
+interactive_users:
+  - miket
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+netdata_enabled: true
+netdata_cloud_claim: true
+
