@@ -1,0 +1,11 @@
+# /etc/vconsole.conf
+# Managed by Ansible - boot_optimization_fedora role
+# Virtual console configuration for Fedora
+#
+# Font: {{ vconsole_font }}
+# - Unicode support for UTF-8 text
+# - Box-drawing glyphs for TUIs (btop, htop, etc.)
+
+KEYMAP="{{ vconsole_keymap }}"
+FONT="{{ vconsole_font }}"
+

@@ -233,7 +233,69 @@ ssh -o ConnectTimeout=5 mdt@192.168.1.184 'tailscale status; systemctl status ta
 
 ---
 
-## 8. Hardware Acquisition List
+## 8. Boot Optimization
+
+Boot time reduced from **60+ seconds** to **42 seconds** through the following optimizations.
+
+### 8.1 Boot Time Breakdown
+
+| Phase | Time | Notes |
+|-------|------|-------|
+| Firmware | 25.6s | BIOS POST + microcode attempts (AMD limitation) |
+| Loader | 2.1s | GRUB/systemd-boot |
+| Kernel | 2.3s | Normal |
+| Initrd | 2.5s | Normal |
+| Userspace | 9.3s | **Optimized from 24s** |
+
+### 8.2 Optimizations Applied
+
+| Change | Impact | Managed By |
+|--------|--------|------------|
+| `/space` automount | Removed 13s boot block | `/etc/fstab` |
+| Plymouth masked | Removed 30s timeout | `systemctl mask plymouth-quit-wait.service` |
+| vconsole font | Fixed missing font error | `/etc/vconsole.conf` |
+| GRUB rhgb quiet removed | Boot visibility | `/etc/default/grub` |
+| Boot entry cleanup | Removed grub_* warnings | `/boot/loader/entries/*.conf` |
+| WiFi wait timeout | Reduced NM-wait-online | `nmcli connection modify` |
+| Stale linger cleanup | Removed logind errors | `/var/lib/systemd/linger/` |
+
+### 8.3 Known Boot Warnings (Not Fixable)
+
+These are hardware/firmware limitations:
+
+| Warning | Cause | Impact |
+|---------|-------|--------|
+| Microcode failures (24x) | AMD hasn't released signed Strix Point microcode | None |
+| RDSEED32 broken | AMD silicon errata | Kernel works around it |
+| amdgpu HDMI infoframe | Driver quirk | Display works |
+| Bluetooth HCI | Feature mismatch | Bluetooth works |
+| Thunderbolt PCI IDs | Thunderbolt 5 not in database | Thunderbolt works |
+
+### 8.4 Recreating Boot Configuration
+
+```bash
+# Apply via Ansible
+cd ~/dev/miket-infra-devices
+ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-akira-boot.yml
+
+# Manual verification
+systemd-analyze                     # Check boot time
+systemd-analyze blame | head -15    # Slowest units
+journalctl -b -p err                # Boot errors
+```
+
+### 8.5 Hardware Sensors
+
+Sensors work via kernel hwmon (no lm_sensors config needed):
+
+```bash
+sensors   # View all temperatures
+# CPU: k10temp, GPU: amdgpu, RAM: spd5118, NVMe: nvme
+```
+
+---
+
+## 9. Hardware Acquisition List
 
 | Item | Purpose | Priority | Notes |
 |------|---------|----------|-------|
@@ -243,17 +305,18 @@ ssh -o ConnectTimeout=5 mdt@192.168.1.184 'tailscale status; systemctl status ta
 
 ---
 
-## 9. Related Files
+## 10. Related Files
 
-- `devices/akira/config.yml` - Power configuration section
+- `devices/akira/config.yml` - Power & boot configuration
 - `ansible/roles/power_wol/` - WOL enablement role
 - `ansible/roles/power_wol_relay/` - Relay host configuration
+- `ansible/roles/boot_optimization_fedora/` - Boot optimization role
 - `ansible/host_vars/akira.yml` - Host-specific variables
 - `ansible/host_vars/motoko.yml` - Relay host variables
 
 ---
 
-## 10. Test Matrix
+## 11. Test Matrix
 
 Run before relying on remote power control:
 

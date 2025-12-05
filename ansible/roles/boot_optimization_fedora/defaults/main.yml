@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/roles/boot_optimization_fedora/defaults/main.yml
+#
+# Default variables for Fedora boot optimization role
+
+# Console configuration
+vconsole_keymap: "us"
+vconsole_font: "eurlatgr"  # Unicode + box-drawing for TUIs
+
+# Plymouth configuration
+# Set to true to mask plymouth-quit-wait.service (avoids 30s timeout)
+mask_plymouth_quit_wait: true
+
+# GRUB configuration
+# Set to true to remove rhgb quiet from GRUB_CMDLINE_LINUX
+grub_remove_quiet_boot: true
+
+# Boot loader entries cleanup
+# Set to true to remove grub_* lines from BLS entries (systemd-boot compatibility)
+cleanup_boot_loader_entries: true
+
+# Stale linger users to clean up
+# List of usernames that have linger files but don't exist
+stale_linger_users: []
+

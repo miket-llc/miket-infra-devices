@@ -1,0 +1,50 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/roles/storage_phc_local/defaults/main.yml
+#
+# Default variables for local PHC storage configuration
+# Used for hosts with local /flux, /time, /space storage (not NFS)
+
+# Mount points
+flux_mount: /flux
+time_mount: /time
+space_mount: /space
+
+# Storage configuration - override in host_vars
+# Example for akira:
+# storage_mounts:
+#   - name: flux
+#     uuid: 1e5c92a7-c2fc-4b0e-833d-b852d64ea331
+#     mount: /flux
+#     fstype: ext4
+#     options: noatime,discard
+#     passno: 2
+#   - name: time
+#     uuid: 9f55fc05-8375-4694-8067-c431fa1a9325
+#     mount: /time
+#     fstype: ext4
+#     options: noatime,discard
+#     passno: 2
+#   - name: space
+#     uuid: 9f387c92-613e-44fb-a6c4-3878b95905f3
+#     mount: /space
+#     fstype: btrfs
+#     options: compress=zstd:3,noatime,nofail,noauto,x-systemd.automount,x-systemd.idle-timeout=0
+#     passno: 0
+#     automount: true  # Creates automount unit
+storage_mounts: []
+
+# Standard flux subdirectories
+flux_subdirs:
+  - containers
+  - containers/storage
+  - ai
+  - ai/models
+  - projects
+  - runtime
+  - runtime/secrets
+  - users
+
+# Users to create directories for
+filesystem_users:
+  - mdt
+

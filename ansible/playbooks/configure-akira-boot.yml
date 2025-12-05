@@ -1,0 +1,43 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/playbooks/configure-akira-boot.yml
+#
+# Configure boot optimization for akira
+# Reduces boot time by fixing common Fedora slowdowns
+
+---
+- name: Configure akira boot optimization
+  hosts: akira
+  become: true
+  
+  vars:
+    # Boot optimization settings
+    mask_plymouth_quit_wait: true
+    grub_remove_quiet_boot: true
+    cleanup_boot_loader_entries: true
+    vconsole_font: "eurlatgr"
+    stale_linger_users:
+      - miket  # User doesn't exist on this system
+  
+  roles:
+    - boot_optimization_fedora
+  
+  post_tasks:
+    - name: Display boot optimization summary
+      ansible.builtin.debug:
+        msg: |
+          Boot optimization complete for akira.
+          
+          Changes applied:
+          - Plymouth quit-wait masked (avoids 30s timeout)
+          - GRUB rhgb quiet removed (boot visibility)
+          - Boot loader entries cleaned (grub_* lines removed)
+          - vconsole font set to eurlatgr (TUI compatible)
+          - Stale linger files removed
+          
+          Verify with:
+            systemd-analyze
+            systemd-analyze blame | head -15
+          
+          Note: WiFi wait-device-timeout should be set via nmcli:
+            nmcli connection modify "Fios-CVM9P-5G" connection.wait-device-timeout 1
+

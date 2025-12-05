@@ -1,0 +1,60 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/roles/boot_optimization_fedora/tasks/main.yml
+#
+# Tasks for Fedora boot optimization
+# Reduces boot time by fixing common slowdowns
+
+---
+- name: Configure virtual console
+  ansible.builtin.template:
+    src: vconsole.conf.j2
+    dest: /etc/vconsole.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Rebuild initramfs
+
+- name: Mask plymouth-quit-wait.service
+  ansible.builtin.systemd:
+    name: plymouth-quit-wait.service
+    masked: true
+  when: mask_plymouth_quit_wait | bool
+
+- name: Check current GRUB configuration
+  ansible.builtin.slurp:
+    src: /etc/default/grub
+  register: grub_config_current
+  when: grub_remove_quiet_boot | bool
+
+- name: Remove rhgb quiet from GRUB_CMDLINE_LINUX
+  ansible.builtin.lineinfile:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX=.*rhgb.*quiet'
+    line: 'GRUB_CMDLINE_LINUX=""'
+    backrefs: false
+  register: grub_modified
+  when: grub_remove_quiet_boot | bool
+  notify: Regenerate GRUB config
+
+- name: Find boot loader entry files
+  ansible.builtin.find:
+    paths: /boot/loader/entries
+    patterns: "*.conf"
+  register: boot_entries
+  when: cleanup_boot_loader_entries | bool
+
+- name: Remove grub_* lines from boot loader entries
+  ansible.builtin.lineinfile:
+    path: "{{ item.path }}"
+    regexp: "^grub_"
+    state: absent
+  loop: "{{ boot_entries.files }}"
+  when: cleanup_boot_loader_entries | bool and boot_entries.matched > 0
+
+- name: Remove stale linger files for non-existent users
+  ansible.builtin.file:
+    path: "/var/lib/systemd/linger/{{ item }}"
+    state: absent
+  loop: "{{ stale_linger_users }}"
+  when: stale_linger_users | length > 0
+

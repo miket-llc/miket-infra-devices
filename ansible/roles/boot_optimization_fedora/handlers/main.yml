@@ -1,0 +1,16 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/roles/boot_optimization_fedora/handlers/main.yml
+#
+# Handlers for Fedora boot optimization role
+
+---
+- name: Rebuild initramfs
+  ansible.builtin.command:
+    cmd: dracut --force
+  listen: Rebuild initramfs
+
+- name: Regenerate GRUB config
+  ansible.builtin.command:
+    cmd: grub2-mkconfig -o /boot/grub2/grub.cfg
+  listen: Regenerate GRUB config
+

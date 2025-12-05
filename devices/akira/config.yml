@@ -67,6 +67,18 @@ device:
         mount: /space
         filesystem: btrfs
     battery: false
+    
+    # Hardware sensors (kernel hwmon - no lm_sensors config needed)
+    # sensors-detect shows "no sensors" because Strix Point is too new,
+    # but kernel drivers load automatically
+    sensors:
+      cpu: k10temp        # AMD CPU temperature
+      gpu: amdgpu         # GPU temp + power (edge, PPT)
+      ram: spd5118        # DDR5 DIMM temperature sensors
+      nvme: nvme          # NVMe drive temperatures
+      wifi: mt7925_phy0   # WiFi adapter temp
+      ethernet: r8169     # Ethernet adapter temps
+      note: "Run 'sensors' command to see all readings"
   
   network:
     tailscale:
@@ -79,6 +91,12 @@ device:
         - tag:workstation
         - tag:rocm
       auth_key_akv_secret: akira-tailscale-authkey
+    wifi:
+      enabled: true
+      connection_name: "Fios-CVM9P-5G"
+      # Boot optimization: don't wait for WiFi (connects in background)
+      wait_device_timeout: 1  # ms - effectively instant timeout
+      autoconnect: true
     ssh:
       enabled: true
       auth: key_only
@@ -133,27 +151,34 @@ device:
   filesystem:
     flux:
       mount: /flux
-      device: /dev/nvme2n1p1  # Samsung 990 PRO (x4 slot)
+      device: /dev/nvme1n1p1  # Samsung 990 PRO 4TB (x4 slot)
+      uuid: 1e5c92a7-c2fc-4b0e-833d-b852d64ea331
       filesystem: ext4
+      fstab_options: noatime,discard
       purpose: Active projects, containers, AI models, code
       contains:
         - /flux/containers  # Podman storage root
         - /flux/ai/models   # LLM models
         - /flux/projects    # Development projects
         - /flux/runtime     # Runtime data and secrets
+    time:
+      mount: /time
+      device: /dev/nvme2n1p1  # Crucial P310 4TB (x1 slot - OK for backups)
+      uuid: 9f55fc05-8375-4694-8067-c431fa1a9325
+      filesystem: ext4
+      fstab_options: noatime,discard
+      purpose: Backups, snapshots, time-travel
     space:
       mount: /space
-      device: /dev/sda1
+      device: /dev/sda1  # WD Red 18TB external USB
+      uuid: 9f387c92-613e-44fb-a6c4-3878b95905f3
       filesystem: btrfs
+      fstab_options: compress=zstd:3,noatime,nofail,noauto,x-systemd.automount,x-systemd.idle-timeout=0
       purpose: Cold storage, archives, media, datasets
       is_local: true  # LOCAL 18TB disk, NOT NFS from motoko
       is_sor: true    # This IS the System of Record for /space on akira
-      note: Unlike other nodes, akira has local /space storage
-    time:
-      mount: /time
-      device: /dev/nvme1n1p1  # Crucial P310 (x1 slot - OK for backups)
-      filesystem: ext4
-      purpose: Backups, snapshots, time-travel
+      is_external: true  # External USB drive - automount on-demand
+      note: Unlike other nodes, akira has local /space storage. Uses automount to avoid blocking boot.
   
   selinux:
     mode: enforcing
@@ -162,6 +187,54 @@ device:
   power_policy:
     lid_close: n/a  # Desktop
     idle_action: ignore
+
+  # ==========================================================================
+  # BOOT OPTIMIZATION (2025-12-05)
+  # ==========================================================================
+  # Optimizations applied to reduce boot time from 60s to 42s
+  # See: docs/runbooks/AKIRA_POWER_RUNBOOK.md for details
+  # ==========================================================================
+  boot:
+    # GRUB Configuration
+    grub:
+      cmdline_linux: ""  # Removed rhgb quiet for boot visibility
+      # Note: grub_* lines removed from /boot/loader/entries/*.conf
+    
+    # Plymouth (graphical boot splash)
+    plymouth:
+      enabled: false
+      # plymouth-quit-wait.service is masked to avoid 30s timeout
+      masked_services:
+        - plymouth-quit-wait.service
+    
+    # Console Configuration
+    vconsole:
+      keymap: us
+      font: eurlatgr  # Unicode + box-drawing for TUIs (not Lat15-Terminus32)
+    
+    # Systemd optimizations
+    systemd:
+      # Removed stale linger files
+      cleaned_linger_users:
+        - miket  # User doesn't exist, file was leftover
+      # External USB uses automount to not block boot
+      automount_filesystems:
+        - /space
+    
+    # Known boot warnings (AMD Strix Point - not fixable until AMD releases signed microcode)
+    known_warnings:
+      - issue: "Microcode update failed for all 24 CPUs"
+        cause: "AMD hasn't released signed microcode for Strix Point (Family 1Ah)"
+        impact: "None - CPU works fine with BIOS microcode"
+        fix: "Wait for linux-firmware update from AMD"
+      - issue: "RDSEED32 is broken"
+        cause: "AMD silicon errata in Strix Point"
+        impact: "Kernel works around it automatically"
+        fix: "None needed"
+      - issue: "amdgpu HDMI infoframe failed"
+        cause: "Display driver quirk"
+        impact: "Display works fine"
+        fix: "None needed"
   
   # ==========================================================================
   # POWER RESILIENCE CONFIGURATION
@@ -259,14 +332,26 @@ device:
     - MoE models (Qwen3-30B-A3B) run at ~20 tok/s
     
     Storage Layout (optimized 2025-12-05):
-    - /flux (4TB Samsung 990 PRO NVMe, x4 slot) - containers, models, projects
-    - /time (4TB Crucial P310 NVMe, x1 slot) - backups, snapshots
-    - /space (18TB WD Red HDD) - LOCAL cold storage (not NFS!)
-    - / /home (1TB Crucial P3 NVMe, x4 slot) - OS, user profiles
+    - /flux (4TB Samsung 990 PRO NVMe, nvme1n1) - containers, models, projects
+    - /time (4TB Crucial P310 NVMe, nvme2n1) - backups, snapshots
+    - /space (18TB WD Red HDD, sda1) - LOCAL cold storage, automount on-demand
+    - / /home (1TB Crucial P3 NVMe, nvme0n1) - OS, user profiles
     
     Note: Unlike other nodes, akira has LOCAL /space storage.
     This is the SoR for akira's /space, but does NOT replace
     motoko's /space as the PHC-wide SoR.
+    
+    Boot optimization (2025-12-05):
+    - Boot time: 42s (firmware 25s + userspace 9s)
+    - Plymouth masked (was causing 30s delay)
+    - /space uses automount (external USB, not always connected)
+    - vconsole font: eurlatgr (TUI compatible)
+    - GRUB: rhgb quiet removed for boot visibility
+    - BIOS: 1.05, AC restore=Power On, WOL enabled
+    
+    Known issues (Strix Point early adoption):
+    - Microcode errors at boot (AMD hasn't released signed patches)
+    - RDSEED32 errata (kernel works around it)
     
     Bootstrap completed: 2025-12-05
     ROCm venv: ~/rocm-test (Python 3.12)
