@@ -205,8 +205,9 @@ kde_config:
 # GNOME Migration Configuration
 # =============================================================================
 # Users whose GNOME configs should be archived before KDE migration
+# Note: Only mdt exists on akira; miket user not created yet
 gnome_archive_users:
-  - miket
+  - mdt
 
 # =============================================================================
 # Container Runtime
@@ -232,8 +233,8 @@ selinux_custom_modules: []
 # Accounts
 # =============================================================================
 automation_user: mdt
-interactive_users:
-  - miket
+interactive_users: []
+  # - miket  # Not created yet
 
 # =============================================================================
 # Monitoring

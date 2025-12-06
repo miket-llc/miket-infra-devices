@@ -11,10 +11,32 @@
     state: present
   tags: [kde, packages]
 
-- name: Enable SDDM display manager
+- name: Check if GDM is currently the display manager
+  ansible.builtin.stat:
+    path: /etc/systemd/system/display-manager.service
+  register: dm_link
+  tags: [kde, display-manager]
+
+- name: Stop GDM if running (for migration)
   ansible.builtin.systemd:
-    name: "{{ kde_display_manager }}"
-    enabled: true
+    name: gdm
+    state: stopped
+  failed_when: false
+  when: dm_link.stat.exists
+  tags: [kde, display-manager]
+
+- name: Disable GDM before enabling SDDM
+  ansible.builtin.systemd:
+    name: gdm
+    enabled: false
+  failed_when: false
+  tags: [kde, display-manager]
+
+- name: Remove existing display-manager.service symlink
+  ansible.builtin.file:
+    path: /etc/systemd/system/display-manager.service
+    state: absent
+  when: dm_link.stat.exists
   tags: [kde, display-manager]
 
 - name: Set SDDM as default display manager
@@ -23,6 +45,13 @@
     dest: /etc/systemd/system/display-manager.service
     state: link
     force: true
+  tags: [kde, display-manager]
+
+- name: Enable SDDM display manager
+  ansible.builtin.systemd:
+    name: "{{ kde_display_manager }}"
+    enabled: true
+    daemon_reload: true
   tags: [kde, display-manager]
 
 - name: Set graphical target as default

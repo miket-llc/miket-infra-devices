@@ -21,13 +21,24 @@ gnome_packages_to_remove:
   - gnome-shell-extension-launch-new-instance
   - gnome-shell-extension-places-menu
   - gnome-shell-extension-window-list
-  # GNOME Session
+  # GNOME Session and Classic
   - gnome-session
   - gnome-session-wayland-session
   - gnome-session-xsession
+  - gnome-classic-session
   # GNOME Desktop components
   - gnome-desktop3
   - gnome-desktop4
+  # GNOME Window Manager
+  - mutter
+  # GNOME Settings Daemon
+  - gnome-settings-daemon
+  # GNOME Portal (use xdg-desktop-portal-kde instead)
+  - xdg-desktop-portal-gnome
+  # GNOME Browser Integration
+  - gnome-browser-connector
+  # GNOME Software extras
+  - gnome-software-fedora-langpacks
   # GNOME Settings
   - gnome-control-center
   - gnome-control-center-filesystem
