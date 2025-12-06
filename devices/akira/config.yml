@@ -63,6 +63,9 @@ device:
         model: WD Red 18TB
         size_tb: 18
         type: HDD (spinning)
+        enclosure: OWC Mercury Elite Pro USB-C
+        connection: USB 3.2 Type-B to Type-A (5Gbps)
+        usb_port: "Bus 4 (USB 3.x) - NOT Bus 3 (USB 2.0 only)"
         purpose: Cold storage, archives (space) - LOCAL, not NFS
         mount: /space
         filesystem: btrfs
@@ -184,6 +187,9 @@ device:
       # still delays local-fs.target. Disable USB boot scan in BIOS
       # to reduce firmware wait time.
       is_external: true  # External USB drive - automount on-demand
+      # IMPORTANT: Must be connected to USB 3.x port (Bus 4) for 5Gbps speed.
+      # The USB-A ports on the FRONT panel are USB 2.0 only (Bus 3, 480Mbps).
+      # Use the USB-A ports on the BACK panel for USB 3.x (Bus 4, 5000Mbps).
       note: Unlike other nodes, akira has local /space storage. Uses automount to avoid blocking boot.
   
   selinux:
