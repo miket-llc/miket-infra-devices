@@ -90,3 +90,4 @@
       - RPM Fusion enabled: {{ enable_rpmfusion }}
       - Default editor: neovim
 
+

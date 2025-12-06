@@ -32,3 +32,4 @@ echo "  cd ~/dev/miket-infra-devices/ansible"
 echo "  ansible-playbook -i inventory/hosts.yml playbooks/deploy-armitage-fedora-kde.yml"
 echo "==================================================="
 
+

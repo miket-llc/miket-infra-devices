@@ -80,3 +80,4 @@
     msg: "Ollama installed: {{ ollama_version_check.stdout }}"
   tags: [ollama, verify]
 
+

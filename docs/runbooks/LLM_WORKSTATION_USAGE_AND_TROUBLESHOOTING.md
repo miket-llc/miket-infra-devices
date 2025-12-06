@@ -379,3 +379,4 @@ sudo journalctl -u ollama | grep -i "out of memory\|oom"
 - [Device Health Check](./device-health-check.md)
 - [Tailscale Device Setup](./TAILSCALE_DEVICE_SETUP.md)
 
+

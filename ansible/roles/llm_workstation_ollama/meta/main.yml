@@ -17,3 +17,4 @@ dependencies:
   - role: nvidia_gpu_fedora
     when: ollama_enable_cuda | default(true)
 
+

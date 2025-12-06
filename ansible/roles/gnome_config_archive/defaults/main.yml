@@ -74,3 +74,4 @@ gnome_archive_skip_if_exists: true
 # Dry run mode - show what would be archived without moving files
 gnome_archive_dry_run: false
 
+
