@@ -1,0 +1,82 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/tasks/install.yml
+#
+# Ollama installation for Linux
+---
+
+- name: Install required packages
+  ansible.builtin.dnf:
+    name:
+      - curl
+      - wget
+      - jq
+    state: present
+  tags: [ollama, packages]
+
+- name: Create ollama system group
+  ansible.builtin.group:
+    name: "{{ ollama_service_group }}"
+    state: present
+    system: true
+  tags: [ollama, user]
+
+- name: Create ollama system user
+  ansible.builtin.user:
+    name: "{{ ollama_service_user }}"
+    group: "{{ ollama_service_group }}"
+    system: true
+    shell: /sbin/nologin
+    home: "{{ ollama_home }}"
+    create_home: false
+  tags: [ollama, user]
+
+- name: Add automation user to ollama group
+  ansible.builtin.user:
+    name: "{{ automation_user | default('mdt') }}"
+    groups: "{{ ollama_service_group }}"
+    append: true
+  tags: [ollama, user]
+
+- name: Create Ollama directories (Flux/Space layout)
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ ollama_service_user }}"
+    group: "{{ ollama_service_group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ ollama_home }}", mode: "0755" }
+    - { path: "{{ ollama_home }}/bin", mode: "0755" }
+    - { path: "{{ ollama_models_path }}", mode: "0755" }
+    - { path: "{{ ollama_data_path }}", mode: "0755" }
+    - { path: "/flux/runtime/secrets", mode: "0700" }
+  tags: [ollama, directories]
+
+- name: Check if Ollama is already installed
+  ansible.builtin.stat:
+    path: /usr/local/bin/ollama
+  register: ollama_binary
+  tags: [ollama, install]
+
+- name: Install Ollama via official script
+  ansible.builtin.shell: |
+    curl -fsSL {{ ollama_install_script_url }} | sh
+  args:
+    creates: /usr/local/bin/ollama
+  when: 
+    - ollama_install_method == "script"
+    - not ollama_binary.stat.exists
+  tags: [ollama, install]
+
+- name: Verify Ollama installation
+  ansible.builtin.command: /usr/local/bin/ollama --version
+  register: ollama_version_check
+  changed_when: false
+  failed_when: ollama_version_check.rc != 0
+  tags: [ollama, verify]
+
+- name: Display Ollama version
+  ansible.builtin.debug:
+    msg: "Ollama installed: {{ ollama_version_check.stdout }}"
+  tags: [ollama, verify]
+

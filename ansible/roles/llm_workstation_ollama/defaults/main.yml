@@ -1,0 +1,97 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/defaults/main.yml
+#
+# Ollama LLM workstation configuration for Linux
+# Per ADR-005: Workstations use LLAMA/Ollama pattern; servers use vLLM
+# Per AI Fabric Platform Contract: Ports 11434 (Ollama) and 8000 (Gateway)
+---
+
+# =============================================================================
+# Ollama Configuration
+# =============================================================================
+ollama_enabled: true
+ollama_version: "latest"
+
+# Network binding
+ollama_host: "0.0.0.0"    # Bind to all interfaces for tailnet access
+ollama_port: 11434        # Default Ollama API port
+
+# Installation method: script (recommended) or package
+ollama_install_method: script
+
+# Ollama install script URL
+ollama_install_script_url: "https://ollama.com/install.sh"
+
+# =============================================================================
+# Filesystem Layout (Flux/Space/Time Standard)
+# =============================================================================
+# Per FILESYSTEM_ARCHITECTURE.md:
+#   - /flux: Fast active storage (binaries, config, runtime)
+#   - /space: Large storage (models, datasets)
+#   - /time: Backups only (not for active data)
+
+# Ollama binary and config location
+ollama_home: /flux/apps/ollama
+
+# Model weights storage (can be very large - multi-GB per model)
+ollama_models_path: /space/llm/ollama/models
+
+# Runtime data and cache
+ollama_data_path: /space/llm/ollama/data
+
+# =============================================================================
+# Models
+# =============================================================================
+# Models to pull on first run
+ollama_models:
+  - name: qwen2.5:7b
+    context: 8192
+  - name: llama3.2:3b
+    context: 8192
+
+# Timeout for model pull operations (models can be multi-GB)
+ollama_pull_timeout: 3600
+
+# =============================================================================
+# Systemd Service
+# =============================================================================
+ollama_service_name: ollama
+ollama_service_user: ollama
+ollama_service_group: ollama
+
+# Environment file for secrets (API keys for upstream services)
+ollama_env_file: /flux/runtime/secrets/ollama.env
+
+# =============================================================================
+# GPU Configuration
+# =============================================================================
+# NVIDIA CUDA support
+ollama_enable_cuda: true
+
+# AMD ROCm support (mutually exclusive with CUDA)
+ollama_enable_rocm: false
+
+# GPU memory utilization (0.0-1.0)
+ollama_gpu_memory_utilization: 0.90
+
+# =============================================================================
+# Health Check
+# =============================================================================
+ollama_healthcheck_enabled: true
+ollama_healthcheck_script: /flux/apps/ollama/bin/ollama-health.sh
+ollama_health_timeout: 30
+
+# =============================================================================
+# System Tray Controller
+# =============================================================================
+# Enable KDE system tray app for Ollama control
+ollama_tray_enabled: true
+
+# =============================================================================
+# AI Fabric Integration
+# =============================================================================
+# AI Fabric role (per platform contract)
+ai_fabric_node_type: workstation
+ai_fabric_runtime: ollama
+ai_fabric_port: 11434
+

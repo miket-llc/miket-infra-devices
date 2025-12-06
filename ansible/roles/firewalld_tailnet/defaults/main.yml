@@ -1,6 +1,10 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 # roles/firewalld_tailnet/defaults/main.yml
+#
+# Firewalld configuration for tailnet-only access
+# Implements defense-in-depth alongside Tailscale ACLs
 ---
+
 # Tailnet IP range (CGNAT range used by Tailscale)
 tailnet_cidr: "100.64.0.0/10"
 
@@ -14,14 +18,25 @@ tailnet_services:
   - cockpit
 
 # Custom ports allowed only from tailnet
+# Per AI Fabric Platform Contract:
+#   - 11434: Ollama API (workstation LLM)
+#   - 8000: LLM Gateway / vLLM API (per AI Fabric contract)
 tailnet_ports:
+  - port: 11434
+    protocol: tcp
+    description: "Ollama LLM API (ADR-005 workstation pattern)"
+  - port: 8000
+    protocol: tcp
+    description: "LLM Gateway / vLLM API (AI Fabric contract)"
   - port: 8080
     protocol: tcp
-    description: AI API server
+    description: "AI API server (legacy)"
+  - port: 4000
+    protocol: tcp
+    description: "NoMachine remote desktop"
 
 # Services allowed publicly (use sparingly)
 public_services: []
 
 # Tailscale interface (usually tailscale0)
 tailscale_interface: tailscale0
-

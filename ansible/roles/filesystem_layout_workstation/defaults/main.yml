@@ -1,0 +1,63 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Filesystem Layout (Flux/Space/Time) for Workstations
+
+# Primary user (owner of flux/space/time symlinks)
+workstation_user: miket
+
+# ========================================
+# Flux (Local - Active Projects)
+# ========================================
+flux_path: "/home/{{ workstation_user }}/flux"
+flux_type: local
+flux_owner: "{{ workstation_user }}"
+flux_group: "{{ workstation_user }}"
+flux_mode: "0755"
+
+# Subdirectories under flux
+flux_subdirs:
+  - projects        # Active code projects
+  - notebooks       # Jupyter notebooks
+  - models          # AI model cache
+  - runtime         # Runtime state, logs
+  - tmp             # Temp workspace
+
+# ========================================
+# Space (Remote - SoR on motoko)
+# ========================================
+space_path: "/home/{{ workstation_user }}/space"
+space_type: remote
+space_source: "//motoko.pangolin-vega.ts.net/space"
+space_mount_type: cifs
+space_mount_point: "/home/{{ workstation_user }}/.mkt/mounts/space"
+space_mount_options: "credentials={{ space_credentials_file }},uid={{ workstation_user }},gid={{ workstation_user }},iocharset=utf8,vers=3.0,nofail"
+
+# SMB credentials from AKV
+space_credentials_akv:
+  username_key: motoko-smb-username
+  password_key: motoko-smb-password
+space_credentials_file: "/home/{{ workstation_user }}/.mkt/smb-credentials"
+
+# ========================================
+# Time (Remote - Backups on motoko)
+# ========================================
+time_path: "/home/{{ workstation_user }}/time"
+time_type: remote
+time_source: "//motoko.pangolin-vega.ts.net/time"
+time_mount_type: cifs
+time_mount_point: "/home/{{ workstation_user }}/.mkt/mounts/time"
+time_mount_options: "credentials={{ space_credentials_file }},uid={{ workstation_user }},gid={{ workstation_user }},iocharset=utf8,vers=3.0,nofail,ro"
+
+# ========================================
+# Implementation Paths
+# ========================================
+mkt_dir: "/home/{{ workstation_user }}/.mkt"
+mkt_mounts_dir: "{{ mkt_dir }}/mounts"
+
+# ========================================
+# Device Status Reporting
+# ========================================
+device_status_enabled: true
+device_status_path: "{{ space_path }}/devices/{{ ansible_hostname }}/{{ workstation_user }}/_status.json"
+

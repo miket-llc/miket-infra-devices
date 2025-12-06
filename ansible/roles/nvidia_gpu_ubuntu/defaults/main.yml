@@ -1,0 +1,35 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# NVIDIA GPU Configuration for Ubuntu
+
+nvidia_gpu_enabled: true
+nvidia_gpu_auto_detect: true
+nvidia_gpu_skip_if_absent: true
+
+# Driver installation
+nvidia_gpu_install_drivers: true
+nvidia_gpu_driver_version: "latest"  # Use meta-package nvidia-driver-XXX
+
+# CUDA installation
+nvidia_gpu_install_cuda: true
+nvidia_gpu_cuda_version: "12.6"  # Latest CUDA 12.x
+
+# Verification
+nvidia_gpu_verify: true
+nvidia_gpu_verify_commands:
+  - nvidia-smi
+  - nvcc --version
+
+# Packages to install
+nvidia_gpu_packages:
+  - "nvidia-driver-{{ nvidia_gpu_driver_version | default('latest') }}"
+  - nvidia-utils
+  - nvidia-settings
+
+nvidia_cuda_packages:
+  - nvidia-cuda-toolkit
+
+# Blacklist nouveau (open-source NVIDIA driver)
+nvidia_blacklist_nouveau: true
+

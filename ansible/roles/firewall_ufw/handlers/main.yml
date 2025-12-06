@@ -1,0 +1,9 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+- name: reload ufw
+  ansible.builtin.systemd:
+    name: ufw
+    state: reloaded
+  listen: reload ufw
+

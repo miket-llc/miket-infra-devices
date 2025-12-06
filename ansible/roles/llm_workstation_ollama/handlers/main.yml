@@ -1,0 +1,13 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/handlers/main.yml
+---
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart ollama
+  ansible.builtin.systemd:
+    name: ollama
+    state: restarted
+

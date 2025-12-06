@@ -1,0 +1,20 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Jupyter Notebook/Lab Configuration
+
+workstation_user: miket
+
+jupyter_enabled: true
+jupyter_port: 8888
+jupyter_bind_address: "0.0.0.0"  # UFW restricts to tailnet
+jupyter_notebook_dir: "/home/{{ workstation_user }}/flux/notebooks"
+jupyter_config_dir: "/home/{{ workstation_user }}/.jupyter"
+
+# Authentication (token-based by default)
+jupyter_password_hash: ""  # Leave empty to use token auth
+
+# Systemd service (optional)
+jupyter_systemd_enabled: false
+jupyter_systemd_service_name: "jupyter-notebook"
+

@@ -1,0 +1,29 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/tasks/main.yml
+#
+# Ollama LLM workstation setup for Linux (Fedora)
+# Per ADR-005: Workstations use LLAMA/Ollama pattern
+---
+
+- name: Include installation tasks
+  ansible.builtin.include_tasks: install.yml
+  when: ollama_enabled | default(true)
+
+- name: Include configuration tasks
+  ansible.builtin.include_tasks: configure.yml
+  when: ollama_enabled | default(true)
+
+- name: Include model tasks
+  ansible.builtin.include_tasks: models.yml
+  when: ollama_enabled | default(true)
+
+- name: Include tray application tasks
+  ansible.builtin.include_tasks: tray.yml
+  when: 
+    - ollama_enabled | default(true)
+    - ollama_tray_enabled | default(true)
+
+- name: Include validation tasks
+  ansible.builtin.include_tasks: validate.yml
+  when: ollama_enabled | default(true)
+

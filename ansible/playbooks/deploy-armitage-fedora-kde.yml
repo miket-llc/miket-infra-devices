@@ -1,0 +1,20 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# DEPLOY ARMITAGE - FEDORA KDE WORKSTATION + OLLAMA
+# =============================================================================
+#
+# Wrapper playbook for deploying armitage as a Fedora KDE workstation
+# with Ollama LLM capabilities.
+#
+# USAGE:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-armitage-fedora-kde.yml
+#
+# For more control, use the full playbook:
+#   ansible-playbook -i inventory/hosts.yml playbooks/workstations/armitage-fedora-kde-ollama.yml
+#
+# =============================================================================
+
+- name: Deploy Armitage - Fedora KDE + Ollama
+  import_playbook: workstations/armitage-fedora-kde-ollama.yml
+

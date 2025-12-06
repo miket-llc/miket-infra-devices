@@ -1,0 +1,88 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/linux_desktop_base/defaults/main.yml
+#
+# Base configuration for all Linux workstations with a graphical desktop.
+# This role handles common packages shared across all desktop environments.
+---
+
+# Common packages for all Linux desktops
+linux_desktop_base_packages:
+  # Clipboard utilities
+  - wl-clipboard
+  - xclip
+  # Terminal emulators (DE-agnostic)
+  - tmux
+  - zsh
+  # Text editors
+  - vim-enhanced
+  - neovim
+  # System monitoring
+  - htop
+  - btop
+  - iotop
+  - sysstat
+  # File utilities
+  - tree
+  - bat
+  # - eza  # Not available on Fedora; use ls --color or install via cargo
+  - fd-find
+  - ripgrep
+  - fzf
+  - jq
+  - yq
+  # Network tools
+  - curl
+  - wget
+  - net-tools
+  - bind-utils
+  # Archive tools
+  - p7zip
+  - p7zip-plugins
+  - unzip
+  - zip
+  # Development essentials
+  - git
+  - git-lfs
+  # Build tools
+  - gcc
+  - gcc-c++
+  - make
+  - cmake
+  - ninja-build
+  # Python
+  - python3
+  - python3-pip
+  - python3-devel
+  - python3.12
+  - python3.12-devel
+  # Flatpak support
+  - flatpak
+
+# Fonts (used across all DEs)
+linux_desktop_fonts:
+  - google-noto-fonts-common
+  - google-noto-sans-fonts
+  - google-noto-serif-fonts
+  - google-noto-sans-mono-fonts
+  - jetbrains-mono-fonts
+  - fira-code-fonts
+  # mozilla-fira-mono-fonts not available on Fedora 43
+
+# Enable RPM Fusion for codecs and additional packages
+enable_rpmfusion: true
+
+# Timezone (override per host if needed)
+system_timezone: "America/New_York"
+
+# Locale settings
+system_locale: "en_US.UTF-8"
+
+# Flathub repository URL
+flathub_repo: "https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+# Common Flatpak applications (DE-agnostic)
+linux_desktop_flatpaks:
+  - com.visualstudio.code
+  - dev.warp.Warp
+  # - io.github.ArcticFox-Dev.ArcticFox.Cursor  # Cursor IDE when available
+

@@ -1,0 +1,78 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# =============================================================================
+# Jupyter Server Role
+# =============================================================================
+# Configures Jupyter Notebook/Lab for AI/ML development.
+# Binds to 0.0.0.0 but UFW restricts access to Tailscale only.
+# =============================================================================
+
+- name: Ensure Jupyter is installed (via conda/pip)
+  ansible.builtin.debug:
+    msg: "Jupyter should be installed via python_ai_stack role (in conda environment)"
+  tags: [jupyter]
+
+- name: Create Jupyter config directory
+  ansible.builtin.file:
+    path: "{{ jupyter_config_dir }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  tags: [jupyter, config]
+
+- name: Create Jupyter notebook directory
+  ansible.builtin.file:
+    path: "{{ jupyter_notebook_dir }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  tags: [jupyter, config]
+
+- name: Generate Jupyter config file
+  ansible.builtin.copy:
+    content: |
+      # Jupyter Notebook Configuration
+      # Managed by Ansible
+      
+      c.NotebookApp.ip = '{{ jupyter_bind_address }}'
+      c.NotebookApp.port = {{ jupyter_port }}
+      c.NotebookApp.open_browser = False
+      c.NotebookApp.notebook_dir = '{{ jupyter_notebook_dir }}'
+      c.NotebookApp.allow_remote_access = True
+      {% if jupyter_password_hash %}
+      c.NotebookApp.password = '{{ jupyter_password_hash }}'
+      {% endif %}
+      
+      # Allow embedding in iframes (for Tailscale use)
+      c.NotebookApp.tornado_settings = {
+          'headers': {
+              'Content-Security-Policy': "frame-ancestors 'self' *.ts.net"
+          }
+      }
+    dest: "{{ jupyter_config_dir }}/jupyter_notebook_config.py"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+  tags: [jupyter, config]
+
+- name: Display Jupyter access instructions
+  ansible.builtin.debug:
+    msg: |
+      Jupyter Notebook configured:
+        - Port: {{ jupyter_port }}
+        - Notebook directory: {{ jupyter_notebook_dir }}
+        - Config: {{ jupyter_config_dir }}/jupyter_notebook_config.py
+      
+      To start Jupyter (manual):
+        ssh {{ workstation_user }}@{{ ansible_hostname }}.pangolin-vega.ts.net
+        source ~/miniforge3/bin/activate
+        conda activate ai-base
+        jupyter notebook
+      
+      Access via Tailscale:
+        http://{{ ansible_hostname }}.pangolin-vega.ts.net:{{ jupyter_port }}
+  tags: [jupyter]
+

@@ -1,0 +1,63 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/linux_desktop_kde/defaults/main.yml
+#
+# KDE Plasma desktop configuration
+# Per ADR-004: KDE Plasma is the standard desktop for all Linux UI nodes
+---
+
+# KDE Plasma packages (Fedora)
+kde_packages:
+  # Core KDE Plasma meta-packages
+  - "@kde-desktop-environment"
+  # Essential KDE applications
+  - konsole        # Terminal emulator
+  - dolphin        # File manager
+  - kate           # Text editor
+  - ark            # Archive manager
+  - spectacle      # Screenshot tool
+  - gwenview       # Image viewer
+  - okular         # Document viewer
+  - kcalc          # Calculator
+  - kcharselect    # Character selector
+  - kwalletmanager # Credential manager
+  - filelight      # Disk usage visualizer
+  # KDE system tools
+  - plasma-systemmonitor
+  - plasma-discover
+  - plasma-discover-flatpak
+  - kde-connect    # Phone integration
+
+# Display manager to use
+kde_display_manager: sddm
+
+# Plasma theme (infra-level default, not personal preference)
+kde_theme: breeze-dark
+
+# Power management settings (for laptops)
+kde_power_management:
+  # Don't suspend on lid close (for docked operation)
+  lid_close_action: "nothing"
+  # Dim screen after 10 minutes
+  dim_display_timeout: 600
+  # Turn off screen after 15 minutes
+  dpms_standby: 900
+  # Never suspend on AC power
+  suspend_on_ac: false
+
+# Session defaults
+kde_session:
+  # Use Wayland by default (Fedora default)
+  session_type: wayland
+  # Single-click to activate (false = double-click)
+  single_click: false
+  # Desktop icons layout
+  desktop_folder_view: false
+
+# Additional Plasma settings (applied via kwriteconfig5/kwriteconfig6)
+kde_settings:
+  # Look and feel
+  - key: "LookAndFeelPackage"
+    value: "org.kde.breezedark.desktop"
+    group: "[General]"
+    file: "~/.config/kdeglobals"
+

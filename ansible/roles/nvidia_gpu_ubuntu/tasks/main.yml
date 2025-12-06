@@ -1,0 +1,126 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# =============================================================================
+# NVIDIA GPU Role (Ubuntu)
+# =============================================================================
+# Installs NVIDIA proprietary drivers and CUDA toolkit on Ubuntu.
+# Supports auto-detection and graceful skipping if no GPU present.
+# =============================================================================
+
+- name: Check if NVIDIA GPU is present
+  ansible.builtin.shell: lspci | grep -i nvidia
+  register: nvidia_gpu_check
+  changed_when: false
+  failed_when: false
+  tags: [gpu, nvidia, detect]
+
+- name: Display GPU detection result
+  ansible.builtin.debug:
+    msg: |
+      NVIDIA GPU detected: {{ nvidia_gpu_check.rc == 0 }}
+      {% if nvidia_gpu_check.rc == 0 %}
+      GPU info: {{ nvidia_gpu_check.stdout_lines | join(', ') }}
+      {% else %}
+      No NVIDIA GPU found on this system.
+      {% endif %}
+  tags: [gpu, nvidia, detect]
+
+- name: Skip GPU installation if no NVIDIA GPU present
+  ansible.builtin.meta: end_host
+  when:
+    - nvidia_gpu_check.rc != 0
+    - nvidia_gpu_skip_if_absent
+  tags: [gpu, nvidia]
+
+- name: Add NVIDIA graphics drivers PPA (Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: ppa:graphics-drivers/ppa
+    state: present
+    update_cache: true
+  when: nvidia_gpu_install_drivers
+  tags: [gpu, nvidia, drivers]
+
+- name: Blacklist nouveau driver
+  ansible.builtin.copy:
+    content: |
+      # Blacklist nouveau driver (conflicts with NVIDIA proprietary)
+      blacklist nouveau
+      options nouveau modeset=0
+    dest: /etc/modprobe.d/blacklist-nouveau.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: nvidia_blacklist_nouveau
+  notify: update initramfs
+  tags: [gpu, nvidia, drivers]
+
+- name: Install NVIDIA drivers
+  ansible.builtin.apt:
+    name: "{{ nvidia_gpu_packages }}"
+    state: present
+    update_cache: true
+  when: nvidia_gpu_install_drivers
+  notify: reboot required
+  tags: [gpu, nvidia, drivers]
+
+- name: Install CUDA toolkit
+  ansible.builtin.apt:
+    name: "{{ nvidia_cuda_packages }}"
+    state: present
+  when: nvidia_gpu_install_cuda
+  tags: [gpu, nvidia, cuda]
+
+- name: Verify NVIDIA driver installation
+  ansible.builtin.command: nvidia-smi
+  register: nvidia_smi_output
+  changed_when: false
+  failed_when: false
+  when: nvidia_gpu_verify
+  tags: [gpu, nvidia, verify]
+
+- name: Display nvidia-smi output
+  ansible.builtin.debug:
+    var: nvidia_smi_output.stdout_lines
+  when:
+    - nvidia_gpu_verify
+    - nvidia_smi_output.rc == 0
+  tags: [gpu, nvidia, verify]
+
+- name: Verify CUDA installation
+  ansible.builtin.command: nvcc --version
+  register: nvcc_output
+  changed_when: false
+  failed_when: false
+  when:
+    - nvidia_gpu_verify
+    - nvidia_gpu_install_cuda
+  tags: [gpu, nvidia, cuda, verify]
+
+- name: Display CUDA version
+  ansible.builtin.debug:
+    var: nvcc_output.stdout_lines
+  when:
+    - nvidia_gpu_verify
+    - nvidia_gpu_install_cuda
+    - nvcc_output.rc == 0
+  tags: [gpu, nvidia, cuda, verify]
+
+- name: Check if reboot is required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required_stat
+  tags: [gpu, nvidia, reboot]
+
+- name: Display reboot notice
+  ansible.builtin.debug:
+    msg: |
+      ================================================================================
+      REBOOT REQUIRED FOR NVIDIA DRIVERS
+      ================================================================================
+      NVIDIA drivers have been installed but require a reboot to load.
+      Please reboot the system before proceeding with GPU-dependent tasks.
+      ================================================================================
+  when: reboot_required_stat.stat.exists
+  tags: [gpu, nvidia, reboot]
+

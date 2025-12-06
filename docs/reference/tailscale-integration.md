@@ -29,7 +29,8 @@ Tags are **applied** to devices using scripts in this repo:
 | Device | Tags | Script |
 |--------|------|--------|
 | motoko | `tag:server,tag:linux,tag:ansible` | `scripts/setup-tailscale.sh` |
-| armitage | `tag:workstation,tag:windows,tag:gaming` | `scripts/Setup-Tailscale.ps1` |
+| akira | `tag:workstation,tag:linux,tag:ai-node,tag:llm_node,tag:rocm` | `scripts/setup-tailscale.sh` |
+| armitage | `tag:workstation,tag:linux,tag:gpu,tag:llm_node` | `scripts/setup-tailscale.sh` |
 | wintermute | `tag:workstation,tag:windows,tag:gaming` | `scripts/Setup-Tailscale.ps1` |
 | count-zero | `tag:workstation,tag:macos` | `scripts/setup-tailscale.sh` |
 | atom | `tag:server,tag:linux,tag:workstation` | `scripts/setup-tailscale.sh` |
@@ -163,8 +164,12 @@ ansible all -i ansible/inventory/hosts.yml \
 │     └──WinRM──> Windows devices                │
 │                                                  │
 │  armitage (100.x.x.x)                          │
-│  Tags: workstation, windows, gaming            │
-│  Role: Gaming/Dev Workstation                  │
+│  Tags: workstation, linux, gpu, llm_node       │
+│  Role: Fedora KDE + Ollama LLM Workstation     │
+│                                                  │
+│  akira (100.x.x.x)                              │
+│  Tags: workstation, linux, ai-node, llm_node   │
+│  Role: Fedora + vLLM Server                    │
 │                                                  │
 │  wintermute (100.x.x.x)                        │
 │  Tags: workstation, windows, gaming            │

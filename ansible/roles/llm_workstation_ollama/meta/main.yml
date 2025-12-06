@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/meta/main.yml
+---
+galaxy_info:
+  author: MikeT Infrastructure Team
+  description: Ollama LLM workstation setup (ADR-005 workstation pattern)
+  company: MikeT LLC
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "40"
+        - "41"
+
+dependencies:
+  - role: nvidia_gpu_fedora
+    when: ollama_enable_cuda | default(true)
+

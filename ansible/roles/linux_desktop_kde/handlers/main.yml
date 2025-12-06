@@ -1,0 +1,8 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/linux_desktop_kde/handlers/main.yml
+---
+- name: Restart systemd-logind
+  ansible.builtin.systemd:
+    name: systemd-logind
+    state: restarted
+

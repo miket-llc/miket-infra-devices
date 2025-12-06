@@ -1,0 +1,47 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Workstation Base Configuration (Ubuntu)
+
+# Desktop environment enhancements
+install_gnome_tweaks: true
+install_fonts: true
+install_themes: true
+
+# Base utilities
+base_packages:
+  - vim
+  - nano
+  - curl
+  - wget
+  - git
+  - htop
+  - tmux
+  - tree
+  - zip
+  - unzip
+  - net-tools
+  - dnsutils
+  - ca-certificates
+  - gnupg
+  - lsb-release
+
+# GNOME desktop packages
+gnome_packages:
+  - gnome-tweaks
+  - gnome-shell-extensions
+  - chrome-gnome-shell
+
+# Fonts
+font_packages:
+  - fonts-firacode
+  - fonts-noto
+  - fonts-noto-color-emoji
+  - ttf-mscorefonts-installer
+
+# Development tools (basic, more in common_dev_tools)
+dev_packages:
+  - build-essential
+  - software-properties-common
+  - apt-transport-https
+

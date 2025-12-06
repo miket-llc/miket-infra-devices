@@ -1,0 +1,161 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# =============================================================================
+# Akira Bootstrap Playbook (Fedora 43 Workstation)
+# =============================================================================
+#
+# Purpose: Bootstrap akira as Fedora 43 workstation + AI/dev node
+#
+# Scope:
+#   - Workstation configuration (GNOME, dev tools)
+#   - Filesystem layout (Flux/Space/Time)
+#   - Container runtime (Podman with AMD GPU support)
+#   - Python AI/dev toolchain
+#   - Monitoring (Netdata)
+#
+# Pre-requisites:
+#   - Fedora 43 Workstation installed
+#   - mdt user with passwordless sudo
+#   - Tailscale already joined to tailnet
+#   - SSH accessible via Tailscale
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/bootstrap-akira-fedora.yml
+#
+# =============================================================================
+
+- name: Akira Fedora Workstation Bootstrap
+  hosts: akira
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Display bootstrap banner
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Akira Bootstrap - Fedora 43 Workstation + AI/Dev Node
+          ================================================================================
+          Target: {{ inventory_hostname }} ({{ ansible_distribution }} {{ ansible_distribution_version }})
+          CPU: {{ ansible_processor_vcpus }} vCPUs
+          RAM: {{ ansible_memtotal_mb }} MB
+          
+          This playbook will:
+            1. Configure workstation base (already done in manual setup)
+            2. Set up Flux/Space/Time filesystem layout
+            3. Install Podman with AMD GPU support
+            4. Install Python AI/dev toolchain
+            5. Install Netdata monitoring
+            6. Configure firewalld for Tailscale-only access
+          
+          Duration: ~20-30 minutes
+          ================================================================================
+
+    - name: Verify OS compatibility
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Fedora"
+          - ansible_distribution_major_version | int >= 43
+        fail_msg: "This playbook requires Fedora 43 or newer"
+        success_msg: "OS check passed: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+    - name: Update DNF cache
+      ansible.builtin.dnf:
+        update_cache: true
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Base System
+    # ========================================
+    
+    - role: common
+      tags: [common, base]
+    
+    - role: common_dev_tools
+      tags: [dev-tools, base]
+    
+    - role: tailscale_node
+      tags: [tailscale, network]
+    
+    # ========================================
+    # Phase 2: Workstation GUI Tools
+    # ========================================
+    
+    - role: workstation_gui_tools
+      tags: [workstation, gui]
+    
+    # ========================================
+    # Phase 3: Remote Desktop (NoMachine)
+    # ========================================
+    
+    - role: nomachine_server
+      tags: [nomachine, remote]
+    
+    - role: nomachine_firewall
+      tags: [nomachine, firewall]
+    
+    # ========================================
+    # Phase 4: Container Runtime
+    # ========================================
+    
+    - role: podman_base
+      tags: [containers, podman]
+    
+    - role: docker_prevention
+      tags: [security, podman]
+    
+    # ========================================
+    # Phase 5: Monitoring
+    # ========================================
+    
+    - role: netdata
+      tags: [monitoring, netdata]
+    
+    # ========================================
+    # Phase 6: Console & UX
+    # ========================================
+    
+    - role: console_ux_fedora
+      tags: [console, ux]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ================================================================================
+          Akira Bootstrap - COMPLETE
+          ================================================================================
+          
+          System Details:
+            - Hostname: {{ ansible_hostname }}
+            - OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+            - CPU: AMD Ryzen AI 9 HX 370 ({{ ansible_processor_vcpus }} vCPUs)
+            - RAM: {{ ansible_memtotal_mb | int // 1024 }} GB
+            - GPU: AMD Radeon 890M (integrated)
+          
+          Next Steps:
+          
+          1. Verify Tailscale connectivity:
+             ssh mdt@akira.pangolin-vega.ts.net
+          
+          2. Verify mounts:
+             ssh akira.pangolin-vega.ts.net "ls -la ~/flux ~/space ~/time"
+          
+          3. Check Netdata:
+             https://app.netdata.cloud (akira should appear)
+          
+          4. Test Python AI stack:
+             ssh miket@akira.pangolin-vega.ts.net
+             source ~/miniforge3/bin/activate
+             conda activate ai-base
+             python -c "import torch; print(torch.__version__)"
+          
+          5. Configure AMD GPU for AI workloads:
+             - Install ROCm if needed for compute tasks
+             - Test with PyTorch ROCm backend
+          
+          Phase 0 Bootstrap: SUCCESS
+          ================================================================================
+

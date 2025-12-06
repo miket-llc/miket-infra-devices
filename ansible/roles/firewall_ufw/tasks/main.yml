@@ -1,0 +1,81 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# =============================================================================
+# UFW Firewall Role
+# =============================================================================
+# Configures Ubuntu's Uncomplicated Firewall (UFW) with Tailscale-first security:
+#   - Default deny incoming, allow outgoing
+#   - SSH restricted to Tailscale IP range only
+#   - Additional rules for services (Jupyter, Netdata, etc.)
+# =============================================================================
+
+- name: Install UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: true
+  tags: [firewall, install]
+
+- name: Reset UFW to default state (idempotent on first run)
+  community.general.ufw:
+    state: reset
+  when: firewall_enabled
+  tags: [firewall, config]
+  ignore_errors: true  # May fail if UFW never configured before
+
+- name: Set UFW default incoming policy
+  community.general.ufw:
+    default: "{{ firewall_default_incoming }}"
+    direction: incoming
+  tags: [firewall, config]
+
+- name: Set UFW default outgoing policy
+  community.general.ufw:
+    default: "{{ firewall_default_outgoing }}"
+    direction: outgoing
+  tags: [firewall, config]
+
+- name: Allow SSH from Tailscale only
+  community.general.ufw:
+    rule: allow
+    port: "{{ firewall_ssh_port }}"
+    proto: tcp
+    from_ip: "{{ item }}"
+    comment: "SSH (Tailscale only)"
+  loop: "{{ firewall_ssh_allowed_sources }}"
+  when: firewall_ssh_enabled
+  tags: [firewall, ssh]
+
+- name: Apply additional firewall rules
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+    from_ip: "{{ item.source | default('any') }}"
+    comment: "{{ item.comment | default('Custom rule') }}"
+  loop: "{{ firewall_extra_rules }}"
+  tags: [firewall, custom]
+
+- name: Configure UFW logging
+  community.general.ufw:
+    logging: "{{ firewall_logging }}"
+  tags: [firewall, logging]
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  when: firewall_enabled
+  tags: [firewall, enable]
+
+- name: Display firewall status
+  ansible.builtin.command: ufw status verbose
+  register: ufw_status
+  changed_when: false
+  tags: [firewall, verify]
+
+- name: Show firewall configuration
+  ansible.builtin.debug:
+    var: ufw_status.stdout_lines
+  tags: [firewall, verify]
+

@@ -26,8 +26,14 @@ Endpoint automation and UX for the MikeT PHC devices, aligned to the platform de
 
 ## Device inventory (summary)
 - **motoko (server/core):** LiteLLM/Nextcloud host, PHC storage export, Ansible control node; ingress via Cloudflare Tunnel + Access only.
-- **armitage & wintermute (Windows/GPU):** vLLM hosts, mapped Flux/Space/Time drives, remote UX via NoMachine/WinRM.
+- **armitage (Fedora KDE / GPU / Ollama):** Fedora KDE workstation with NVIDIA GPU. Uses Ollama for LLM (per ADR-005 workstation pattern). Remote UX via NoMachine.
+- **akira (Fedora / GPU / vLLM):** Fedora workstation (GNOME, migrating to KDE). vLLM server node with AMD GPU. Remote UX via NoMachine.
+- **wintermute (Windows / GPU):** Windows workstation with vLLM, mapped Flux/Space/Time drives (X:/S:/T:), remote UX via NoMachine/WinRM.
 - **count-zero & managed macOS:** Flux/Space/Time mounts at `~/{flux,space,time}` backed by `/~/.mkt`, OS cloud ingestion into `/space/devices/...`.
+
+## Architecture references
+- **ADR-004:** KDE Plasma is the standard desktop for all Linux UI nodes.
+- **ADR-005:** Workstations use Ollama; servers use vLLM.
 
 ## Execution quick links
 - Mount + device infrastructure deployment: `ansible/playbooks/deploy-devices-infrastructure.yml` (see `docs/runbooks/devices-infrastructure-deployment.md`).

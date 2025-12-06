@@ -1,0 +1,60 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# =============================================================================
+# Workstation Base Role (Ubuntu)
+# =============================================================================
+# Installs base utilities and desktop enhancements for Ubuntu workstations.
+# =============================================================================
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [workstation, install]
+
+- name: Install base system packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+  tags: [workstation, install]
+
+- name: Install development packages
+  ansible.builtin.apt:
+    name: "{{ dev_packages }}"
+    state: present
+  tags: [workstation, dev]
+
+- name: Install GNOME packages
+  ansible.builtin.apt:
+    name: "{{ gnome_packages }}"
+    state: present
+  when: install_gnome_tweaks
+  tags: [workstation, gnome]
+
+- name: Accept Microsoft font EULA (for ttf-mscorefonts-installer)
+  ansible.builtin.debconf:
+    name: ttf-mscorefonts-installer
+    question: msttcorefonts/accepted-mscorefonts-eula
+    value: "true"
+    vtype: select
+  when: install_fonts
+  tags: [workstation, fonts]
+
+- name: Install fonts
+  ansible.builtin.apt:
+    name: "{{ font_packages }}"
+    state: present
+  when: install_fonts
+  tags: [workstation, fonts]
+
+- name: Display workstation base summary
+  ansible.builtin.debug:
+    msg: |
+      Workstation base configuration complete:
+        - Base utilities installed
+        - GNOME desktop enhancements installed
+        - Development tools installed
+        - Fonts installed
+  tags: [workstation]
+

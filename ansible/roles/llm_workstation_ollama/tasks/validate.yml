@@ -1,0 +1,57 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/tasks/validate.yml
+#
+# Validate Ollama installation and configuration
+---
+
+- name: Verify Ollama service is running
+  ansible.builtin.systemd:
+    name: ollama
+    state: started
+  check_mode: true
+  register: ollama_service_check
+  failed_when: ollama_service_check.changed
+  tags: [ollama, validate]
+
+- name: Test Ollama API endpoint
+  ansible.builtin.uri:
+    url: "http://{{ ollama_host }}:{{ ollama_port }}/api/tags"
+    method: GET
+    return_content: true
+  register: ollama_api_test
+  failed_when: ollama_api_test.status != 200
+  tags: [ollama, validate]
+
+- name: Run health check script
+  ansible.builtin.command: "{{ ollama_healthcheck_script }}"
+  register: health_check
+  changed_when: false
+  when: ollama_healthcheck_enabled
+  tags: [ollama, validate]
+
+- name: Display validation summary
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      Ollama LLM Workstation Validation Complete
+      ═══════════════════════════════════════════════════════════════
+      
+      Service Status: {{ 'RUNNING' if not ollama_service_check.changed else 'NOT RUNNING' }}
+      API Endpoint:   http://{{ ollama_host }}:{{ ollama_port }}
+      Health Check:   {{ health_check.stdout | default('N/A') }}
+      
+      Filesystem Layout (Flux/Space/Time):
+        - Config/Binaries: {{ ollama_home }}
+        - Models:          {{ ollama_models_path }}
+        - Data:            {{ ollama_data_path }}
+      
+      AI Fabric Integration:
+        - Node Type:  {{ ai_fabric_node_type }}
+        - Runtime:    {{ ai_fabric_runtime }}
+        - Port:       {{ ai_fabric_port }}
+      
+      Per ADR-005: This workstation uses the Ollama pattern.
+      vLLM is used on server nodes (e.g., akira).
+      ═══════════════════════════════════════════════════════════════
+  tags: [ollama, validate]
+

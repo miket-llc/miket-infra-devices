@@ -36,5 +36,6 @@ common_dev_tools_install_openai_cli: true
 common_dev_tools_install_claude_cli: true
 
 # Aider (AI pair programming)
-common_dev_tools_install_aider: true
+# aider-chat disabled - requires Python <3.14, current Fedora 43 has Python 3.14
+common_dev_tools_install_aider: false
 

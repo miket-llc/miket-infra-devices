@@ -48,8 +48,9 @@
   become: false
   loop:
     - { name: 'motoko', host: 'motoko', session_type: 'unix' }
+    - { name: 'akira', host: 'akira', session_type: 'unix' }
+    - { name: 'armitage', host: 'armitage', session_type: 'unix' }
     - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
-    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
 
 - name: Display NoMachine client installation status
   ansible.builtin.debug:
@@ -58,5 +59,6 @@
       - "Launch from: Applications menu > NoMachine or run 'nxplayer'"
       - "Pre-configured servers available in ~/Documents/NoMachine:"
       - "  - motoko (Linux)"
+      - "  - akira (Linux)"
+      - "  - armitage (Linux - Fedora KDE)"
       - "  - wintermute (Windows)"
-      - "  - armitage (Windows)"

@@ -1,0 +1,52 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# Python AI/Dev Stack Configuration
+
+workstation_user: miket
+
+# Python versions to install
+python_versions:
+  - "3.11"
+  - "3.12"
+
+# Package managers
+python_install_pip: true
+python_install_uv: true     # Fast Rust-based package installer
+python_install_pipx: true   # Isolated CLI tools
+
+# Environment managers
+python_install_conda: true
+python_conda_variant: miniforge  # Faster, community-driven conda
+python_conda_install_path: "/home/{{ workstation_user }}/miniforge3"
+python_conda_init_shell: true
+
+# AI/ML frameworks (base environment)
+python_ai_base_env: ai-base
+python_ai_frameworks:
+  - pytorch
+  - torchvision
+  - torchaudio
+  - transformers
+  - datasets
+  - accelerate
+  - jupyter
+  - jupyterlab
+  - ipykernel
+  - pandas
+  - numpy
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - plotly
+
+# Model cache directories
+huggingface_cache_dir: "/home/{{ workstation_user }}/flux/models/huggingface"
+torch_hub_cache_dir: "/home/{{ workstation_user }}/flux/models/torch"
+
+# Environment variables
+python_env_vars:
+  - { key: "HF_HOME", value: "{{ huggingface_cache_dir }}" }
+  - { key: "TORCH_HOME", value: "{{ torch_hub_cache_dir }}" }
+  - { key: "TRANSFORMERS_CACHE", value: "{{ huggingface_cache_dir }}/transformers" }
+

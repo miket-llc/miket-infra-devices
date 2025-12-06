@@ -1,0 +1,175 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# =============================================================================
+# Filesystem Layout Role (Workstation)
+# =============================================================================
+# Creates Flux/Space/Time filesystem layout for workstation nodes:
+#   - ~/flux: Local active workspace
+#   - ~/space: Remote mount to motoko (SoR)
+#   - ~/time: Remote mount to motoko (backups)
+# =============================================================================
+
+- name: Install CIFS utilities for SMB mounts
+  ansible.builtin.apt:
+    name: cifs-utils
+    state: present
+  tags: [filesystem, install]
+
+- name: Create .mkt directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0700"
+  loop:
+    - "{{ mkt_dir }}"
+    - "{{ mkt_mounts_dir }}"
+  tags: [filesystem, structure]
+
+- name: Create local flux directory
+  ansible.builtin.file:
+    path: "{{ flux_path }}"
+    state: directory
+    owner: "{{ flux_owner }}"
+    group: "{{ flux_group }}"
+    mode: "{{ flux_mode }}"
+  tags: [filesystem, flux]
+
+- name: Create flux subdirectories
+  ansible.builtin.file:
+    path: "{{ flux_path }}/{{ item }}"
+    state: directory
+    owner: "{{ flux_owner }}"
+    group: "{{ flux_group }}"
+    mode: "0755"
+  loop: "{{ flux_subdirs }}"
+  tags: [filesystem, flux]
+
+- name: Retrieve SMB credentials from AKV
+  ansible.builtin.shell: |
+    /usr/bin/az keyvault secret show \
+      --vault-name kv-miket-ops \
+      --name {{ item.key }} \
+      --query value -o tsv
+  register: akv_smb_secrets
+  loop:
+    - { key: "{{ space_credentials_akv.username_key }}", var: "username" }
+    - { key: "{{ space_credentials_akv.password_key }}", var: "password" }
+  loop_control:
+    label: "{{ item.key }}"
+  no_log: true
+  changed_when: false
+  tags: [filesystem, credentials]
+
+- name: Create SMB credentials file
+  ansible.builtin.copy:
+    content: |
+      username={{ akv_smb_secrets.results[0].stdout }}
+      password={{ akv_smb_secrets.results[1].stdout }}
+      domain=WORKGROUP
+    dest: "{{ space_credentials_file }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0600"
+  no_log: true
+  tags: [filesystem, credentials]
+
+- name: Create mount points for remote shares
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  loop:
+    - "{{ space_mount_point }}"
+    - "{{ time_mount_point }}"
+  tags: [filesystem, mounts]
+
+- name: Add space mount to /etc/fstab
+  ansible.posix.mount:
+    path: "{{ space_mount_point }}"
+    src: "{{ space_source }}"
+    fstype: "{{ space_mount_type }}"
+    opts: "{{ space_mount_options }}"
+    state: mounted
+  tags: [filesystem, mounts, space]
+
+- name: Add time mount to /etc/fstab
+  ansible.posix.mount:
+    path: "{{ time_mount_point }}"
+    src: "{{ time_source }}"
+    fstype: "{{ time_mount_type }}"
+    opts: "{{ time_mount_options }}"
+    state: mounted
+  tags: [filesystem, mounts, time]
+
+- name: Create symlinks for user-facing paths
+  ansible.builtin.file:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    state: link
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    force: true
+  loop:
+    - { src: "{{ space_mount_point }}", dest: "{{ space_path }}" }
+    - { src: "{{ time_mount_point }}", dest: "{{ time_path }}" }
+  tags: [filesystem, symlinks]
+
+- name: Verify mounts are accessible
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: mount_check
+  loop:
+    - "{{ flux_path }}"
+    - "{{ space_path }}"
+    - "{{ time_path }}"
+  failed_when: not mount_check.stat.exists
+  tags: [filesystem, verify]
+
+- name: Create device status directory on space
+  ansible.builtin.file:
+    path: "{{ space_path }}/devices/{{ ansible_hostname }}/{{ workstation_user }}"
+    state: directory
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0755"
+  when: device_status_enabled
+  tags: [filesystem, status]
+
+- name: Write device status JSON
+  ansible.builtin.copy:
+    content: |
+      {
+        "hostname": "{{ ansible_hostname }}",
+        "fqdn": "{{ ansible_fqdn }}",
+        "user": "{{ workstation_user }}",
+        "timestamp": "{{ ansible_date_time.iso8601 }}",
+        "mounts": {
+          "flux": "{{ flux_path }}",
+          "space": "{{ space_path }}",
+          "time": "{{ time_path }}"
+        },
+        "status": "online"
+      }
+    dest: "{{ device_status_path }}"
+    owner: "{{ workstation_user }}"
+    group: "{{ workstation_user }}"
+    mode: "0644"
+  when: device_status_enabled
+  tags: [filesystem, status]
+
+- name: Display filesystem layout summary
+  ansible.builtin.debug:
+    msg: |
+      Filesystem layout configured:
+        - Flux (local):  {{ flux_path }}
+        - Space (remote): {{ space_path }} -> {{ space_mount_point }}
+        - Time (remote):  {{ time_path }} -> {{ time_mount_point }}
+      
+      Device status: {{ device_status_path if device_status_enabled else 'disabled' }}
+  tags: [filesystem]
+

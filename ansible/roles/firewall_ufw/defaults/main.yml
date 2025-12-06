@@ -1,0 +1,32 @@
+---
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+# UFW (Uncomplicated Firewall) configuration
+
+firewall_enabled: true
+firewall_default_incoming: deny
+firewall_default_outgoing: allow
+
+# SSH configuration
+firewall_ssh_port: 22
+firewall_ssh_enabled: true
+
+# Tailscale IP range (CGNAT range used by Tailscale)
+tailscale_ip_range: "100.64.0.0/10"
+
+# Allow SSH only from Tailscale
+firewall_ssh_allowed_sources:
+  - "{{ tailscale_ip_range }}"
+
+# Additional firewall rules
+# Format: { port: <port>, proto: <tcp|udp>, source: <cidr|any>, comment: <description> }
+firewall_extra_rules: []
+
+# Example:
+# firewall_extra_rules:
+#   - { port: 8888, proto: tcp, source: "{{ tailscale_ip_range }}", comment: "Jupyter (tailnet)" }
+#   - { port: 19999, proto: tcp, source: "{{ tailscale_ip_range }}", comment: "Netdata (tailnet)" }
+
+# Logging
+firewall_logging: "low"  # off, low, medium, high, full
+

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Ollama Tray
+Comment=System tray control for Ollama LLM
+Exec=/usr/local/bin/ollama-tray
+Icon=ollama
+Terminal=false
+Type=Application
+Categories=Utility;System;
+StartupNotify=false
+X-KDE-autostart-after=panel
+

@@ -1,0 +1,40 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/tasks/models.yml
+#
+# Pull Ollama models
+---
+
+- name: Wait for Ollama service to be ready
+  ansible.builtin.uri:
+    url: "http://{{ ollama_host }}:{{ ollama_port }}/api/tags"
+    method: GET
+  register: ollama_ready
+  until: ollama_ready.status == 200
+  retries: 30
+  delay: 2
+  tags: [ollama, models]
+
+- name: Pull configured models
+  ansible.builtin.command: >
+    /usr/local/bin/ollama pull {{ item.name }}
+  loop: "{{ ollama_models }}"
+  async: "{{ ollama_pull_timeout }}"
+  poll: 30
+  register: model_pull
+  changed_when: "'pulling' in model_pull.stdout"
+  failed_when: model_pull.rc != 0
+  tags: [ollama, models]
+
+- name: List installed models
+  ansible.builtin.command: /usr/local/bin/ollama list
+  register: installed_models
+  changed_when: false
+  tags: [ollama, models]
+
+- name: Display installed models
+  ansible.builtin.debug:
+    msg: |
+      Installed Ollama models:
+      {{ installed_models.stdout }}
+  tags: [ollama, models]
+

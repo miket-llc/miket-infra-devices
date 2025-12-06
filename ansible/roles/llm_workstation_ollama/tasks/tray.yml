@@ -1,0 +1,88 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/llm_workstation_ollama/tasks/tray.yml
+#
+# Install Ollama system tray controller for KDE
+---
+
+- name: Install tray application dependencies
+  ansible.builtin.dnf:
+    name:
+      - python3-pip
+      - python3-pillow
+      - libappindicator-gtk3
+    state: present
+  tags: [ollama, tray]
+
+- name: Install pystray via pip
+  ansible.builtin.pip:
+    name: pystray
+    state: present
+  tags: [ollama, tray]
+
+- name: Install Ollama icons
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "0644"
+    owner: root
+    group: root
+  loop:
+    - { src: ollama.png, dest: /usr/share/icons/hicolor/256x256/apps/ollama.png }
+    - { src: ollama-light.png, dest: /usr/share/icons/hicolor/256x256/apps/ollama-light.png }
+  tags: [ollama, tray]
+
+- name: Update icon cache
+  ansible.builtin.command: gtk-update-icon-cache /usr/share/icons/hicolor
+  changed_when: false
+  failed_when: false
+  tags: [ollama, tray]
+
+- name: Install Ollama tray application
+  ansible.builtin.copy:
+    src: ollama-tray.py
+    dest: /usr/local/bin/ollama-tray
+    mode: "0755"
+    owner: root
+    group: root
+  tags: [ollama, tray]
+
+- name: Install tray application desktop entry
+  ansible.builtin.copy:
+    src: ollama-tray.desktop
+    dest: /usr/share/applications/ollama-tray.desktop
+    mode: "0644"
+    owner: root
+    group: root
+  tags: [ollama, tray]
+
+- name: Enable tray autostart for all users
+  ansible.builtin.copy:
+    src: ollama-tray.desktop
+    dest: /etc/xdg/autostart/ollama-tray.desktop
+    mode: "0644"
+    owner: root
+    group: root
+  tags: [ollama, tray]
+
+- name: Allow ollama group to control service without password
+  ansible.builtin.copy:
+    content: |
+      # Allow users in ollama group to start/stop/restart ollama service
+      %ollama ALL=(ALL) NOPASSWD: /usr/bin/systemctl start ollama
+      %ollama ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop ollama
+      %ollama ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ollama
+      %ollama ALL=(ALL) NOPASSWD: /usr/bin/systemctl status ollama
+    dest: /etc/sudoers.d/ollama-service
+    mode: "0440"
+    validate: 'visudo -cf %s'
+  tags: [ollama, tray]
+
+- name: Display tray setup summary
+  ansible.builtin.debug:
+    msg: |
+      Ollama Tray Controller installed:
+      - System tray icon shows running/stopped status
+      - Right-click to Start/Stop/Restart
+      - Auto-starts with KDE session
+      - Users in 'ollama' group can control without password
+  tags: [ollama, tray]

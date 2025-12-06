@@ -9,8 +9,22 @@
   - Runs containers (LiteLLM, Nextcloud), exports `/flux`/`/space`/`/time` via SMB.
   - Hosts Ansible control node and systemd timers (backups, space-mirror, secrets-sync).
   - Cloudflare Tunnel endpoint; never directly internet-exposed.
-- **armitage & wintermute (Windows workstations / GPU):**
-  - vLLM hosts connected to LiteLLM proxy; mapped drives `X:/S:/T:` for Flux/Space/Time.
+- **armitage (Fedora KDE workstation / GPU / Ollama LLM node):**
+  - Fedora KDE desktop (per ADR-004: KDE Plasma is the Linux UI standard).
+  - Ollama LLM runtime (per ADR-005: workstations use Ollama, servers use vLLM).
+  - NVIDIA RTX 4070 GPU for local LLM inference.
+  - Tailscale tags: `linux`, `gpu`, `llm_node`.
+  - Remote UX via NoMachine. SSH via tailnet.
+  - **Note:** A small Windows partition exists for Dell support/diagnostics only (offline, not on tailnet, not managed by Ansible).
+- **akira (Fedora workstation / GPU / vLLM server):**
+  - Fedora workstation (currently GNOME, will migrate to KDE per ADR-004).
+  - vLLM server node (per ADR-005: servers use vLLM).
+  - AMD Strix Point APU with ROCm support.
+  - Tailscale tags: `linux`, `ai-node`, `llm_node`, `rocm`.
+  - Remote UX via NoMachine.
+- **wintermute (Windows workstation / GPU):**
+  - Windows 11 with vLLM connected to LiteLLM proxy.
+  - Mapped drives `X:/S:/T:` for Flux/Space/Time.
   - Remote UX via NoMachine; WinRM used for automation.
 - **count-zero & managed macOS devices:**
   - Consume `/flux`/`/space`/`/time` via SMB mounts at `~/.mkt/...` with user-facing symlinks.
@@ -38,7 +52,7 @@
 ## 5) Monitoring & observability
 - **Netdata Cloud (Homelab):** All PHC nodes run standalone Netdata agents claimed to Netdata Cloud (Homelab subscription). Cloud is the **primary monitoring UI**; local dashboards are secondary (break-glass, tailnet-only). Uses STABLE release channel by default.
 - **Architecture:**
-  - Each node (motoko, atom, count-zero, wintermute, armitage) runs a standalone Netdata agent
+  - Each node (motoko, akira, armitage, atom, count-zero, wintermute) runs a standalone Netdata agent
   - Agents connect to Netdata Cloud via ACLK (Agent-Cloud Link) for unified monitoring
   - **NO parent/child streaming** - Cloud handles aggregation and long-term retention
   - motoko is no longer a local parent aggregator
@@ -46,7 +60,8 @@
 - **Local dashboards (secondary):** Available on each node via tailnet for break-glass debugging:
   - `http://<hostname>.pangolin-vega.ts.net:19999`
   - Bound to `127.0.0.1` and Tailscale IP only
-- **Windows support:** Fully enabled (Homelab subscription unlocks Windows agents). wintermute and armitage appear in Cloud with full metrics.
+- **Windows support:** Fully enabled (Homelab subscription unlocks Windows agents). wintermute appears in Cloud with full metrics.
+- **Linux support:** All Linux nodes (motoko, akira, armitage, atom) run native Netdata agents with full metrics.
 - **Cloud/ACLK enabled:**
   - `[cloud] enabled = yes` in `cloud.conf`
   - Agents claimed to Homelab Space via `netdata-claim.sh`

@@ -1,0 +1,92 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/linux_desktop_base/tasks/main.yml
+#
+# Base setup for all Linux desktops
+# Handles common packages, fonts, time sync, and cross-DE configuration
+---
+
+- name: Update all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+  tags: [update]
+
+- name: Enable RPM Fusion Free repository
+  ansible.builtin.dnf:
+    name: "https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+    state: present
+    disable_gpg_check: true
+  when: enable_rpmfusion
+  tags: [repos]
+
+- name: Enable RPM Fusion Non-Free repository
+  ansible.builtin.dnf:
+    name: "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+    state: present
+    disable_gpg_check: true
+  when: enable_rpmfusion
+  tags: [repos]
+
+- name: Install base desktop packages
+  ansible.builtin.dnf:
+    name: "{{ linux_desktop_base_packages }}"
+    state: present
+  tags: [packages]
+
+- name: Install fonts
+  ansible.builtin.dnf:
+    name: "{{ linux_desktop_fonts }}"
+    state: present
+  tags: [fonts]
+
+- name: Set system timezone
+  ansible.builtin.timezone:
+    name: "{{ system_timezone }}"
+  tags: [time]
+
+- name: Enable time synchronization
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    enabled: true
+    state: started
+  tags: [time]
+
+- name: Set system locale
+  ansible.builtin.command: localectl set-locale LANG={{ system_locale }}
+  changed_when: false
+  tags: [locale]
+
+- name: Enable Flathub repository
+  ansible.builtin.command: flatpak remote-add --if-not-exists flathub {{ flathub_repo }}
+  changed_when: false
+  tags: [flatpak]
+
+- name: Install common Flatpak applications
+  community.general.flatpak:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ linux_desktop_flatpaks }}"
+  failed_when: false  # Don't fail if app not found in repo
+  tags: [flatpak]
+
+- name: Set default editor to neovim
+  ansible.builtin.copy:
+    content: |
+      # Default editor configuration
+      export EDITOR=nvim
+      export VISUAL=nvim
+    dest: /etc/profile.d/editor.sh
+    mode: "0644"
+  tags: [editor]
+
+- name: Display base desktop setup summary
+  ansible.builtin.debug:
+    msg: |
+      Linux Desktop Base Setup Complete:
+      - Base packages installed: {{ linux_desktop_base_packages | length }}
+      - Fonts installed: {{ linux_desktop_fonts | length }}
+      - Timezone: {{ system_timezone }}
+      - Locale: {{ system_locale }}
+      - RPM Fusion enabled: {{ enable_rpmfusion }}
+      - Default editor: neovim
+

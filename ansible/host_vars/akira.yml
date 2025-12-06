@@ -1,6 +1,27 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 # ansible/host_vars/akira.yml
 # Host-specific variables for akira
+#
+# Architecture References:
+#   - ADR-004: KDE Plasma is the standard desktop (migration planned)
+#   - ADR-005: akira uses vLLM server pattern (armitage uses Ollama)
+#   - AI_FABRIC_SERVICE.md: akira is the vLLM server node
+
+# =============================================================================
+# OS & Desktop Configuration
+# =============================================================================
+os_family: linux
+distro: fedora
+distro_version: "41"
+# Desktop environment: Currently GNOME, will migrate to KDE after armitage
+# proves the pattern. See ADR-004.
+desktop_environment: gnome
+# NOTE: To migrate to KDE, change desktop_environment to "kde" and run:
+#   ansible-playbook playbooks/workstations/linux.yml --limit akira
+desktop_environment_migration_note: |
+  akira is currently running GNOME. Per ADR-004, KDE Plasma is the standard
+  Linux UI baseline. Migration to KDE will occur after armitage successfully
+  demonstrates the KDE baseline. This is a 1-variable flip + playbook run.
 
 # =============================================================================
 # Identity & Network
@@ -12,6 +33,7 @@ tailscale_tags:
   - "tag:ai-node"
   - "tag:workstation"
   - "tag:rocm"
+  - "tag:llm_node"
 tailscale_auth_key_akv_secret: "akira-tailscale-authkey"
 tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
 

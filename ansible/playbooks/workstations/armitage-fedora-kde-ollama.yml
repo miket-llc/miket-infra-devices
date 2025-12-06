@@ -1,0 +1,180 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# ARMITAGE: FEDORA KDE WORKSTATION + OLLAMA LLM NODE
+# =============================================================================
+#
+# Comprehensive playbook for armitage as a Fedora KDE workstation with
+# Ollama LLM capabilities.
+#
+# Architecture References:
+#   - ADR-004: KDE Plasma is the standard desktop for Linux UI nodes
+#   - ADR-005: Workstations use Ollama; servers use vLLM
+#   - AI_FABRIC_PLATFORM_CONTRACT.md: Ports 11434 (Ollama), 8000 (Gateway)
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/armitage-fedora-kde-ollama.yml
+#
+#   Check mode (dry run):
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/armitage-fedora-kde-ollama.yml --check
+#
+#   Desktop only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/armitage-fedora-kde-ollama.yml --tags desktop
+#
+#   LLM only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/armitage-fedora-kde-ollama.yml --tags llm
+#
+# PREREQUISITES:
+#   - Fresh Fedora installation
+#   - Network connectivity via Tailscale
+#   - mdt user with sudo access
+#   - GPU drivers installed (NVIDIA)
+#
+# =============================================================================
+
+- name: Configure Armitage - Fedora KDE + Ollama LLM Node
+  hosts: armitage
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target host
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Fedora"
+          - desktop_environment | default('kde') == 'kde'
+        fail_msg: "This playbook is designed for Fedora KDE workstations only"
+        success_msg: "Host validated: {{ inventory_hostname }} running {{ ansible_distribution }}"
+      tags: [always]
+
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ARMITAGE: FEDORA KDE WORKSTATION + OLLAMA LLM NODE
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          GPU:            {{ gpu_vendor | default('NVIDIA') }} {{ gpu_model | default('N/A') }}
+          
+          Architecture References:
+            - ADR-004: KDE Plasma is the Linux UI standard
+            - ADR-005: Workstations use Ollama (not vLLM)
+          
+          Deployment Phases:
+            1. linux_desktop_base      - Common desktop packages, fonts, time sync
+            2. linux_desktop_kde       - KDE Plasma desktop environment
+            3. firewalld_tailnet       - Host firewall (defense-in-depth)
+            4. secrets_sync            - Azure Key Vault → .env files
+            5. llm_workstation_ollama  - Ollama LLM runtime
+            6. common_dev_tools        - Development tools
+            7. podman_standard_linux   - Container runtime
+            8. workstation_gui_tools   - GUI applications
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Base Desktop Setup
+    # ========================================
+    - role: linux_desktop_base
+      tags: [desktop, base]
+
+    # ========================================
+    # Phase 2: KDE Plasma Desktop
+    # ========================================
+    - role: linux_desktop_kde
+      tags: [desktop, kde]
+
+    # ========================================
+    # Phase 3: Host Firewall (Defense-in-Depth)
+    # ========================================
+    - role: firewalld_tailnet
+      tags: [firewall, security]
+
+    # ========================================
+    # Phase 4: Secrets Sync (AKV → .env)
+    # ========================================
+    - role: secrets_sync
+      vars:
+        secrets_map_file: "{{ playbook_dir }}/../../secrets-map.yml"
+      tags: [secrets]
+
+    # ========================================
+    # Phase 5: Ollama LLM Runtime
+    # ========================================
+    - role: llm_workstation_ollama
+      tags: [llm, ollama]
+
+    # ========================================
+    # Phase 6: Development Tools
+    # ========================================
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+    # ========================================
+    # Phase 7: Container Runtime
+    # ========================================
+    - role: podman_standard_linux
+      tags: [containers, podman]
+
+    # ========================================
+    # Phase 8: GUI Applications
+    # ========================================
+    - role: workstation_gui_tools
+      tags: [gui_tools]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ARMITAGE DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ Desktop Environment
+             - KDE Plasma installed and configured
+             - Display manager: SDDM (Wayland session)
+             - Power management: lid close → ignore (docked operation)
+          
+          ✅ Host Firewall (Defense-in-Depth)
+             - SSH: tailnet only (100.64.0.0/10)
+             - Ollama API (11434): tailnet only
+             - LLM Gateway (8000): tailnet only
+             - NoMachine (4000): tailnet only
+          
+          ✅ Ollama LLM Runtime
+             - API Endpoint: http://armitage.pangolin-vega.ts.net:11434
+             - Models: {{ ollama_models | map(attribute='name') | list | join(', ') }}
+             - Config: {{ ollama_home }}
+             - Models Storage: {{ ollama_models_path }}
+          
+          ✅ Development Environment
+             - Container runtime: Podman
+             - Dev tools: git, tmux, neovim, etc.
+             - GUI apps: VS Code, Warp
+          
+          ═══════════════════════════════════════════════════════════════
+          
+          NEXT STEPS:
+          1. Reboot to start KDE session: sudo systemctl reboot
+          2. Test Ollama: curl http://localhost:11434/api/tags
+          3. Test from tailnet: curl http://armitage.pangolin-vega.ts.net:11434/api/tags
+          
+          RUNBOOKS:
+          - docs/runbooks/ARMITAGE_REBUILD_FEDORA_KDE_OLLAMA.md
+          - docs/runbooks/LLM_WORKSTATION_USAGE_AND_TROUBLESHOOTING.md
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+    - name: Run validation checks
+      ansible.builtin.include_role:
+        name: llm_workstation_ollama
+        tasks_from: validate
+      tags: [validate]
+

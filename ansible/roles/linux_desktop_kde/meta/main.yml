@@ -1,0 +1,18 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/linux_desktop_kde/meta/main.yml
+---
+galaxy_info:
+  author: MikeT Infrastructure Team
+  description: KDE Plasma desktop environment setup (ADR-004 Linux UI standard)
+  company: MikeT LLC
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "40"
+        - "41"
+
+dependencies:
+  - role: linux_desktop_base
+

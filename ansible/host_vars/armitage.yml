@@ -1,17 +1,45 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
+# ansible/host_vars/armitage.yml
+#
+# Host-specific variables for armitage
+# Fedora KDE Workstation + Ollama LLM Node
+#
+# Architecture References:
+#   - ADR-004: KDE Plasma is the standard desktop for all Linux UI nodes
+#   - ADR-005: Workstations use LLAMA/Ollama pattern; akira is the vLLM server
+#   - AI_FABRIC_SERVICE.md: Dual-pattern LLM architecture (workstation vs server)
+#   - AI_FABRIC_PLATFORM_CONTRACT.md: Node topology and cross-repo dependencies
 
 ---
-# Hardware and OS profile for the armitage workstation
-# Alienware laptop with high-end GPU for mobile development and gaming
+# =============================================================================
+# OS & Desktop Configuration
+# =============================================================================
+os_family: linux
+distro: fedora
+distro_version: "41"
+desktop_environment: kde   # ADR-004: KDE Plasma is the Linux UI standard
 
-# WinRM credentials sourced from Azure Key Vault (see inventory/hosts.yml)
-# Note: Do NOT override ansible_password here - it's set in inventory via AKV lookup
+# =============================================================================
+# Identity & Network
+# =============================================================================
+hostname: armitage
+tailscale_hostname: armitage
+tailscale_tags:
+  - "tag:linux"
+  - "tag:gpu"
+  - "tag:llm_node"
+  - "tag:workstation"
+tailscale_auth_key_akv_secret: "armitage-tailscale-authkey"
+tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
 
+# =============================================================================
+# Hardware Specification
+# =============================================================================
 hardware:
   vendor: "Alienware"
   model: "Gaming Laptop"
   cpu:
-    model: "Intel Core i9-13900HX"  # High-end mobile CPU typical for Alienware
+    model: "Intel Core i9-13900HX"
     cores: 24
     threads: 32
   gpu:
@@ -24,84 +52,234 @@ hardware:
   storage:
     - type: "NVMe SSD"
       size_gb: 2048
-network:
-  interfaces:
-    - name: "Wi-Fi"
-      type: "wifi"
-      mac_address: "{{ vault_armitage_wifi_mac | default('REDACTED') }}"
-    - name: "Ethernet"
-      type: "ethernet"
-      mac_address: "{{ vault_armitage_eth_mac | default('REDACTED') }}"
-  tailscale:
-    enabled: true
-    hostname: "armitage"
-os:
-  name: "Windows"
-  version: "11"
-  edition: "Pro"
-  build: "22H2"
-device_roles:
-  - windows-workstation
-  - gaming-mode
-  - cuda-development
-  - podman-desktop
+      purpose: "Primary OS and data"
 
-# Remote desktop configuration
-# NoMachine is the standardized remote access protocol (RDP retired 2025-11-22)
+# =============================================================================
+# GPU / AI Configuration
+# =============================================================================
+gpu_vendor: NVIDIA
+gpu_model: "GeForce RTX 4070"
+gpu_vram_gb: 8
+enable_nvidia: true
+enable_cuda: true
+enable_rocm: false  # This is NVIDIA, not AMD
+
+# =============================================================================
+# LLM Configuration: Ollama Workstation Pattern (ADR-005)
+# =============================================================================
+# Per ADR-005 and AI Fabric Platform Contract:
+#   - Workstations (like armitage) use LLAMA/Ollama pattern
+#   - Servers (akira) use vLLM as a central AI Fabric service
+#
+# Ollama is the workstation LLM runtime - lightweight, single-user focused
+ollama_enabled: true
+ollama_port: 11434
+ollama_host: "0.0.0.0"   # Accessible from tailnet
+
+# Models to pull on first run
+ollama_models:
+  - name: qwen2.5:7b
+    context: 8192
+  - name: llama3.2:3b
+    context: 8192
+
+# AI Fabric role assignment (aligns with platform contract)
+ai_node_roles:
+  - chat-fast         # Low-latency chat for local development
+
+# LLM Gateway (optional, port 8000 per AI Fabric contract)
+# Enable this for LiteLLM or similar proxy fronting Ollama
+llm_gateway_enabled: false
+llm_gateway_port: 8000
+
+# =============================================================================
+# Filesystem Layout (Flux/Space/Time Standard)
+# =============================================================================
+# Per FILESYSTEM_ARCHITECTURE.md:
+#   - /flux: Fast active storage (apps, runtime, configs)
+#   - /space: Large storage for models, datasets, project data
+#   - /time: Backups and snapshots (not for active data)
+
+# Ollama paths following Flux/Space/Time pattern
+ollama_config_path: /flux/apps/ollama           # Binaries and config
+ollama_models_path: /space/llm/ollama/models    # Large model weights
+ollama_data_path: /space/llm/ollama/data        # Runtime data
+
+# User symlinks for convenience
+user_symlinks:
+  - user: mdt
+    links:
+      - src: /flux
+        dest: "{{ ansible_env.HOME }}/flux"
+      - src: /space
+        dest: "{{ ansible_env.HOME }}/space"
+      - src: /time
+        dest: "{{ ansible_env.HOME }}/time"
+
+# =============================================================================
+# Firewall Configuration
+# =============================================================================
+firewall_backend: firewalld
+
+# Tailnet IP range for trusted access
+tailnet_cidr: "100.64.0.0/10"
+
+# Services exposed only to tailnet
+tailnet_services:
+  - ssh
+
+# Custom ports for LLM access (per AI Fabric ACLs)
+tailnet_ports:
+  - port: 11434
+    protocol: tcp
+    description: "Ollama API"
+  - port: 8000
+    protocol: tcp
+    description: "LLM Gateway (AI Fabric contract)"
+  - port: 4000
+    protocol: tcp
+    description: "NoMachine remote desktop"
+
+# Public services (none - all access via tailnet)
+public_services: []
+
+# =============================================================================
+# Container Runtime
+# =============================================================================
+container_runtime: podman
+# NVIDIA GPU passthrough for containers
+container_gpu_args: "--device nvidia.com/gpu=all --security-opt=no-new-privileges"
+
+# Docker is BANNED - see docker_prevention role
+docker_prevention_enabled: true
+
+# =============================================================================
+# KDE Plasma Desktop Configuration
+# =============================================================================
+# Per ADR-004: KDE Plasma is the standard desktop for Linux UI nodes
+kde_config:
+  # Power management for laptop
+  power_management:
+    suspend_on_lid_close: false   # Keep running when docked
+    dim_screen_timeout: 600       # 10 minutes
+    blank_screen_timeout: 900     # 15 minutes
+  # Basic UX settings (not personal dotfiles)
+  theme: breeze-dark
+  single_click_activation: false
+
+# =============================================================================
+# Workstation Packages
+# =============================================================================
+workstation_packages:
+  # KDE specific tools
+  - konsole
+  - dolphin
+  - kate
+  - ark
+  - spectacle
+  - gwenview
+  - okular
+  - kcalc
+  - kcharselect
+  # Clipboard integration
+  - wl-clipboard
+  - xclip
+  # Flatpak support
+  - flatpak
+  - plasma-discover-flatpak
+  # Dev essentials
+  - git
+  - git-lfs
+  - vim-enhanced
+  - neovim
+  - tmux
+  - htop
+  - btop
+  - ripgrep
+  - fd-find
+  - jq
+  - yq
+  - fzf
+  - curl
+  - wget
+  - tree
+  - bat
+  - eza
+  # Build tools
+  - gcc
+  - gcc-c++
+  - make
+  - cmake
+  - ninja-build
+  # Python
+  - python3.12
+  - python3.12-devel
+  - python3-pip
+  # Container tools
+  - podman
+  - podman-compose
+  - buildah
+
+# Flatpaks for workstation
+flatpak_apps:
+  - com.visualstudio.code
+  - dev.warp.Warp
+  # - io.github.ArcticFox-Dev.ArcticFox.Cursor
+
+# =============================================================================
+# Remote Desktop Configuration
+# =============================================================================
+# NoMachine is the standardized remote access protocol
 remote_protocol: nomachine
 remote_port: 4000
 restrict_to_tailscale: true
-
-# NoMachine settings
 nomachine_version: "9.2.18"
-nomachine_port: 4000
 
-# vLLM Configuration
-vllm:
-  enabled: true
-  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
-  served_model_name: "qwen2.5-7b-armitage"
-  port: 8000
-  container_name: "vllm-armitage"
-  image: "vllm/vllm-openai:latest"
-  quantization: "awq"
-  max_model_len: 8192
-  max_num_seqs: 1
-  gpu_memory_utilization: 0.90
-  kv_cache_dtype: "fp8"
-  tensor_parallel_size: 1
-  auto_switch: true
-  check_interval_minutes: 5
-  idle_threshold_minutes: 5
+# =============================================================================
+# Accounts (Account Architecture)
+# =============================================================================
+# mdt: automation account - local identity, sudo/NOPASSWD, SSH key auth
+automation_user: mdt
+interactive_users:
+  - miket
 
-# AI Fabric Role Assignment (aligns with miket-infra platform contract)
-# This node serves: chat-fast (default, low-latency chat)
-ai_node_roles:
-  - chat-fast
+# =============================================================================
+# Monitoring
+# =============================================================================
+netdata_enabled: true
+netdata_cloud_claim: true
+netdata_role: child  # Streams metrics to motoko parent
 
-# ========================================
-# Ollama Configuration (PHC AI Fabric)
-# ========================================
-# NOTE: Ollama must be manually installed by user
-# Install from: https://ollama.com/download/windows
-# Requires: NVIDIA Studio drivers (not Game Ready)
-ollama_enabled: true
-ollama_models:
-  - name: qwen2.5:7b     # Base model to pull
-    context: 8192
-  - name: qwen2.5-8k     # Custom model with explicit context
-    context: 8192
-    custom: true         # Created from qwen2.5:7b with PARAMETER num_ctx 8192
+# =============================================================================
+# SELinux
+# =============================================================================
+selinux_mode: enforcing
+selinux_custom_modules: []
 
-# ========================================
-# Netdata Monitoring Configuration
-# ========================================
-# armitage is a Netdata CHILD node
-# Streams metrics to motoko parent
-netdata_role: child
+# =============================================================================
+# Power Management (Wake-on-LAN)
+# =============================================================================
+wol_enabled: true
+wol_interfaces:
+  - name: eth0  # Update with actual interface name
+wol_relay_host: motoko
 
-# Tailscale IP will be auto-detected during deployment
-# netdata_tailscale_ip: 100.x.x.x
-
-# Cloud connectivity DISABLED (self-hosted only)
-netdata_cloud_enabled: false
+# =============================================================================
+# IMPORTANT: Windows Partition Documentation
+# =============================================================================
+# A small Windows partition exists on this device for:
+#   - Dell support and diagnostics
+#   - Windows-specific hardware tools
+#   - BIOS/firmware updates requiring Windows
+#
+# This Windows partition is:
+#   ❌ NOT joined to the tailnet
+#   ❌ NOT managed by Ansible
+#   ❌ NOT part of any automation
+#   ❌ NOT used for any regular workloads
+#
+# It is an out-of-band, offline utility partition only.
+# All active work happens on the Fedora KDE installation.
+windows_partition_note: |
+  Out-of-band Windows partition exists for Dell support/diagnostics only.
+  Never joined to tailnet. Not managed by Ansible. Not part of infrastructure.

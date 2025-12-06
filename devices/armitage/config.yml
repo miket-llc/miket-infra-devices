@@ -1,83 +1,125 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
-
-# Armitage - Windows Gaming/Development Laptop
-# Last Updated: 2024-11-07
+#
+# Armitage - Fedora KDE Workstation + Ollama LLM Node
+# Last Updated: 2025-12-06
+#
+# Architecture References:
+#   - ADR-004-kde-plasma-linux-ui-standard.md: KDE Plasma is the standard desktop
+#   - ADR-005-llm-runtime-llama-vs-vllm.md: Workstations use Ollama pattern
+#   - AI_FABRIC_SERVICE.md: Dual-pattern LLM architecture
+#   - AI_FABRIC_PLATFORM_CONTRACT.md: Node topology and ports
 
 device:
   hostname: armitage
   type: laptop
   location: mobile
   primary_user: mdt
+  
+  # Device classification
+  roles:
+    - linux_workstation
+    - gpu_node
+    - llm_node
+    - cuda_development
+    - kde_desktop
 
 hardware:
   manufacturer: Alienware
   model: Gaming Laptop
   cpu: Intel Core i9-13900HX (24 cores, 32 threads)
-  gpu: NVIDIA GeForce RTX 4070 (8GB VRAM)
+  gpu: NVIDIA GeForce RTX 4070 (8GB VRAM, CUDA capable)
   memory: 16GB DDR5
   storage:
-    - 2TB NVMe SSD (Primary)
-    - 1TB NVMe SSD (Games/Data)
+    - 2TB NVMe SSD (Primary - Fedora + data)
 
 operating_system:
-  os: Windows 11 Pro
-  version: 22H2
-  wsl: true
-  docker_desktop: false  # BANNED - Docker purged 2025-12-03
+  os: Fedora
+  version: "41"
+  desktop: KDE Plasma       # ADR-004: KDE is the Linux UI standard
+  container_runtime: podman
+  docker_desktop: false     # Docker is BANNED - Podman only
 
 network:
   tailscale_enabled: true
-  remote_desktop: true
+  tailscale_tags:
+    - linux
+    - gpu
+    - llm_node
+  remote_desktop: nomachine
   wake_on_lan: true
 
 services:
-  - Podman Desktop (container runtime)
+  # LLM Runtime (ADR-005: Ollama pattern for workstations)
+  - Ollama (workstation LLM runtime)
+  # Container Runtime
+  - Podman (container runtime)
+  # GPU/Development
   - NVIDIA CUDA Toolkit
-  - WSL2 (Ubuntu 22.04)
-  - Steam/Gaming platforms
-  - Development IDEs (VS Code, Visual Studio)
-  - NVIDIA Container Toolkit (via WSL2)
+  - NVIDIA Container Toolkit
+  # Development IDEs
+  - VS Code (Flatpak)
+  - Warp Terminal (Flatpak)
+  # Remote Access
+  - NoMachine (remote desktop)
+
+# =============================================================================
+# LLM Configuration: Ollama Workstation Pattern
+# =============================================================================
+# Per ADR-005 and AI Fabric Platform Contract:
+#   - armitage runs Ollama (workstation pattern)
+#   - akira runs vLLM (server pattern)
+#
+# Ports per AI Fabric ACLs:
+#   - 11434: Ollama API (default)
+#   - 8000: LLM Gateway (optional, for LiteLLM proxy)
+ollama:
+  enabled: true
+  port: 11434
+  api_endpoint: "http://armitage.pangolin-vega.ts.net:11434"
+  models:
+    - qwen2.5:7b
+    - llama3.2:3b
+  # Filesystem layout (Flux/Space/Time standard)
+  config_path: /flux/apps/ollama
+  models_path: /space/llm/ollama/models
+  data_path: /space/llm/ollama/data
+
+# Optional LLM Gateway on port 8000 (per AI Fabric contract)
+llm_gateway:
+  enabled: false
+  port: 8000
+  type: litellm  # or custom proxy
 
 use_cases:
+  - Local LLM inference via Ollama
   - Mobile development workstation
-  - High-performance gaming
   - CUDA/ML development
   - Podman containerization
   - Remote access via Tailscale
 
-vllm:
-  enabled: true
-  model: "Qwen/Qwen2.5-7B-Instruct-AWQ"
-  served_model_name: "qwen2.5-7b-armitage"
-  port: 8000
-  container_name: "vllm-armitage"
-  image: "vllm/vllm-openai:latest"
-  quantization: "awq"
-  max_model_len: 8192
-  max_num_seqs: 1
-  gpu_memory_utilization: 0.90  # 90% of GPU VRAM (not system RAM)
-  kv_cache_dtype: "fp8"  # Reduces GPU memory usage
-  tensor_parallel_size: 1
-  auto_switch: true
-  check_interval_minutes: 5
-  idle_threshold_minutes: 5
-  # Memory Usage:
-  # - Model weights: GPU VRAM only (~5GB for AWQ quantized model)
-  # - KV cache: GPU VRAM (fp8 dtype reduces memory footprint)
-  # - Container overhead: System RAM (~100-500MB for Docker/WSL2)
-  # - CPU offloading: Should NOT occur with AWQ + fp8 on 8GB VRAM
-  # Configuration ensures vLLM uses GPU VRAM, not system RAM
-  # If system RAM usage is high, check GPU VRAM usage first
-  # For 8GB VRAM, fp16/bf16 build (current configuration):
-  # - Qwen/Qwen2.5-7B-Instruct (bf16) - fp16/bf16 build as specified
-  #   Settings: 0.9 util, 8192 max_len, 2 max_seqs (optimized for fp16/bf16)
-  #   Note: AWQ quantized version available if memory constraints require it
-  #   AWQ version: Qwen/Qwen2.5-7B-Instruct-AWQ (~5GB VRAM, use kv_cache_dtype: fp8)
+# =============================================================================
+# IMPORTANT: Windows Partition (Out-of-Band)
+# =============================================================================
+# A small Windows partition exists for Dell support/diagnostics ONLY.
+#
+# This partition is:
+#   ❌ NOT joined to tailnet
+#   ❌ NOT managed by Ansible
+#   ❌ NOT part of any infrastructure automation
+#   ❌ NOT used for regular workloads
+#
+# It is a recovery/diagnostic partition only. All active work uses Fedora KDE.
+windows_partition:
+  purpose: "Dell support, diagnostics, BIOS updates"
+  on_tailnet: false
+  managed_by_ansible: false
+  note: "Out-of-band utility partition. Boot into Windows ONLY for hardware diagnostics."
 
 notes:
   - High-performance Alienware laptop with RTX 4070
-  - Optimized for both gaming and development workflows
-  - Supports GPU passthrough to WSL2 for CUDA workloads
-  - Connected to Tailnet for secure remote access
-  - Gaming mode optimizations available via Windows Game Mode
-  - vLLM serving with automatic mode switching between workstation and LLM modes
+  - Migrated from Windows to Fedora KDE (2025-12)
+  - KDE Plasma desktop per ADR-004
+  - Ollama LLM runtime per ADR-005 (not vLLM)
+  - Connected to Tailnet with llm_node tag
+  - LLM ports 11434/8000 accessible via tailnet ACLs
+  - Small Windows partition retained for Dell support only (offline, not on tailnet)
