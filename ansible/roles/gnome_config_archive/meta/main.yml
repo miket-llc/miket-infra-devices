@@ -1,0 +1,23 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_config_archive/meta/main.yml
+---
+galaxy_info:
+  author: MikeT Infrastructure
+  description: Archives GNOME user configuration for reversible DE migration
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "41"
+        - "42"
+        - "43"
+  galaxy_tags:
+    - gnome
+    - config
+    - archive
+    - backup
+    - migration
+
+dependencies: []
+

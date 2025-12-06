@@ -3,25 +3,23 @@
 # Host-specific variables for akira
 #
 # Architecture References:
-#   - ADR-004: KDE Plasma is the standard desktop (migration planned)
+#   - ADR-004: KDE Plasma is the standard desktop for all Linux UI nodes
 #   - ADR-005: akira uses vLLM server pattern (armitage uses Ollama)
 #   - AI_FABRIC_SERVICE.md: akira is the vLLM server node
+#
+# Migration History:
+#   - 2025-12: Migrated from GNOME to KDE Plasma
+#   - See docs/runbooks/AKIRA_GNOME_TO_KDE_CONVERSION.md for details
 
 # =============================================================================
 # OS & Desktop Configuration
 # =============================================================================
 os_family: linux
 distro: fedora
-distro_version: "41"
-# Desktop environment: Currently GNOME, will migrate to KDE after armitage
-# proves the pattern. See ADR-004.
-desktop_environment: gnome
-# NOTE: To migrate to KDE, change desktop_environment to "kde" and run:
-#   ansible-playbook playbooks/workstations/linux.yml --limit akira
-desktop_environment_migration_note: |
-  akira is currently running GNOME. Per ADR-004, KDE Plasma is the standard
-  Linux UI baseline. Migration to KDE will occur after armitage successfully
-  demonstrates the KDE baseline. This is a 1-variable flip + playbook run.
+distro_version: "43"
+# Desktop environment: KDE Plasma per ADR-004
+# Migrated from GNOME as of 2025-12 after armitage proved the pattern
+desktop_environment: kde
 
 # =============================================================================
 # Identity & Network
@@ -129,13 +127,31 @@ public_services: []
 # Workstation Configuration
 # =============================================================================
 workstation_packages:
-  - gnome-tweaks
-  - gnome-extensions-app
+  # KDE specific tools (per ADR-004)
+  - konsole
+  - dolphin
+  - kate
+  - ark
+  - spectacle
+  - gwenview
+  - okular
+  - kcalc
+  - kcharselect
+  - kwalletmanager
+  - filelight
+  - plasma-systemmonitor
+  - plasma-discover
+  - plasma-discover-flatpak
+  - kde-connect
+  # Clipboard integration
   - wl-clipboard
+  - xclip
+  # Flatpak support
   - flatpak
   # Dev essentials
   - git
-  - vim
+  - git-lfs
+  - vim-enhanced
   - neovim
   - tmux
   - htop
@@ -144,9 +160,12 @@ workstation_packages:
   - fd-find
   - jq
   - yq
+  - fzf
   - curl
   - wget
   - tree
+  - bat
+  - eza
   # Build tools
   - gcc
   - gcc-c++
@@ -156,12 +175,52 @@ workstation_packages:
   # Python
   - python3.12
   - python3.12-devel
+  - python3-pip
+  # Container tools
+  - podman
+  - podman-compose
+  - buildah
 
 # Flatpaks for workstation
 flatpak_apps:
   - com.visualstudio.code
   - dev.warp.Warp
   - io.github.ArcticFox-Dev.ArcticFox.Cursor
+
+# =============================================================================
+# KDE Plasma Desktop Configuration
+# =============================================================================
+# Per ADR-004: KDE Plasma is the standard desktop for Linux UI nodes
+kde_config:
+  # Power management for desktop (different from laptop)
+  power_management:
+    suspend_on_lid_close: false   # N/A for desktop
+    dim_screen_timeout: 600       # 10 minutes
+    blank_screen_timeout: 900     # 15 minutes
+  # Basic UX settings (not personal dotfiles)
+  theme: breeze-dark
+  single_click_activation: false
+
+# =============================================================================
+# GNOME Migration Configuration
+# =============================================================================
+# Users whose GNOME configs should be archived before KDE migration
+gnome_archive_users:
+  - miket
+
+# =============================================================================
+# Container Runtime
+# =============================================================================
+# Docker is BANNED - see docker_prevention role
+docker_prevention_enabled: true
+
+# =============================================================================
+# Remote Desktop Configuration
+# =============================================================================
+# NoMachine is the standardized remote access protocol
+remote_protocol: nomachine
+remote_port: 4000
+restrict_to_tailscale: true
 
 # =============================================================================
 # SELinux

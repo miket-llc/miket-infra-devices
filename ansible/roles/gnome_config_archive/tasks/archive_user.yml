@@ -1,0 +1,166 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_config_archive/tasks/archive_user.yml
+#
+# Archive GNOME config for a single user
+# Called from main.yml with archive_user variable
+---
+
+- name: "{{ archive_user }} - Get user home directory"
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ archive_user }}"
+  register: user_info
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Set user home path"
+  ansible.builtin.set_fact:
+    user_home: "{{ user_info.ansible_facts.getent_passwd[archive_user][4] }}"
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Set archive path"
+  ansible.builtin.set_fact:
+    archive_path: "{{ user_home }}/{{ gnome_archive_base }}/gnome-config-{{ gnome_archive_timestamp }}"
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Check if archive already exists"
+  ansible.builtin.stat:
+    path: "{{ archive_path }}"
+  register: archive_exists
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Skip if archive exists"
+  ansible.builtin.debug:
+    msg: "Archive already exists at {{ archive_path }}, skipping"
+  when:
+    - archive_exists.stat.exists
+    - gnome_archive_skip_if_exists
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Create archive directory structure"
+  ansible.builtin.file:
+    path: "{{ archive_path }}/{{ item | dirname }}"
+    state: directory
+    owner: "{{ archive_user }}"
+    mode: "0700"
+  loop: "{{ gnome_config_dirs }}"
+  when:
+    - not gnome_archive_dry_run
+    - not (archive_exists.stat.exists and gnome_archive_skip_if_exists)
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Check which config directories exist"
+  ansible.builtin.stat:
+    path: "{{ user_home }}/{{ item }}"
+  loop: "{{ gnome_config_dirs }}"
+  register: config_dirs_check
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Build list of existing config directories"
+  ansible.builtin.set_fact:
+    existing_config_dirs: "{{ config_dirs_check.results | selectattr('stat.exists') | map(attribute='item') | list }}"
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Display directories to archive"
+  ansible.builtin.debug:
+    msg: |
+      GNOME config directories found for {{ archive_user }}:
+      {% for dir in existing_config_dirs %}
+        - {{ dir }}
+      {% endfor %}
+  when: existing_config_dirs | length > 0
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Export dconf database"
+  become: true
+  become_user: "{{ archive_user }}"
+  ansible.builtin.shell: |
+    dconf dump / > "{{ archive_path }}/dconf-backup.ini" 2>/dev/null || true
+  when:
+    - gnome_archive_export_dconf
+    - not gnome_archive_dry_run
+    - not (archive_exists.stat.exists and gnome_archive_skip_if_exists)
+  failed_when: false
+  changed_when: false
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Move GNOME config directories to archive"
+  ansible.builtin.command:
+    cmd: "mv '{{ user_home }}/{{ item }}' '{{ archive_path }}/{{ item }}'"
+  loop: "{{ existing_config_dirs }}"
+  when:
+    - not gnome_archive_dry_run
+    - not (archive_exists.stat.exists and gnome_archive_skip_if_exists)
+  failed_when: false
+  register: move_results
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Create archive manifest"
+  ansible.builtin.copy:
+    content: |
+      # GNOME Configuration Archive Manifest
+      # Created: {{ gnome_archive_timestamp }}
+      # Host: {{ inventory_hostname }}
+      # User: {{ archive_user }}
+      
+      ## Archive Contents
+      
+      This archive contains GNOME configuration files that were moved
+      (not copied) from their original locations during DE migration.
+      
+      ### Archived Directories
+      {% for dir in existing_config_dirs %}
+      - {{ dir }}
+      {% endfor %}
+      
+      ### dconf Database
+      {% if gnome_archive_export_dconf %}
+      - dconf-backup.ini (full GNOME settings dump)
+      {% endif %}
+      
+      ## Restoration Instructions
+      
+      To restore GNOME configuration:
+      
+      1. Move directories back to their original locations:
+         ```bash
+         cd {{ archive_path }}
+         {% for dir in existing_config_dirs %}
+         cp -r "{{ dir }}" "{{ user_home }}/{{ dir }}"
+         {% endfor %}
+         ```
+      
+      2. Restore dconf settings:
+         ```bash
+         dconf load / < {{ archive_path }}/dconf-backup.ini
+         ```
+      
+      3. Log out and log back in to GNOME session.
+      
+      ## Notes
+      
+      - This archive was created as part of GNOME → KDE migration
+      - Original files were MOVED (not copied) to prevent conflicts
+      - GTK settings may still be used by GTK apps on KDE
+      
+    dest: "{{ archive_path }}/MANIFEST.md"
+    owner: "{{ archive_user }}"
+    mode: "0644"
+  when:
+    - gnome_archive_create_manifest
+    - not gnome_archive_dry_run
+    - not (archive_exists.stat.exists and gnome_archive_skip_if_exists)
+    - existing_config_dirs | length > 0
+  tags: [gnome-archive]
+
+- name: "{{ archive_user }} - Set archive directory ownership"
+  ansible.builtin.file:
+    path: "{{ user_home }}/{{ gnome_archive_base }}"
+    state: directory
+    owner: "{{ archive_user }}"
+    recurse: true
+    mode: "0700"
+  when:
+    - not gnome_archive_dry_run
+    - not (archive_exists.stat.exists and gnome_archive_skip_if_exists)
+  tags: [gnome-archive]
+

@@ -1,8 +1,12 @@
 # Akira Bootstrap Implementation Summary
 
 **Date:** 2025-12-04  
-**Status:** READY FOR EXECUTION  
+**Status:** ✅ COMPLETED  
 **Phase:** 0 / v1.0 (Initial Linux-side bootstrap)
+
+> **Update 2025-12-06:** akira has been migrated from Ubuntu GNOME to **Fedora 43 KDE Plasma**
+> per ADR-004. See `docs/runbooks/AKIRA_GNOME_TO_KDE_CONVERSION.md` for the migration details.
+> This document is retained for historical reference of the original bootstrap approach.
 
 ---
 

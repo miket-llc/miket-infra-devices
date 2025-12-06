@@ -5,8 +5,9 @@
 device:
   hostname: akira
   fqdn: akira.pangolin-vega.ts.net
-  os: Fedora 43 Workstation
+  os: Fedora 43 KDE Plasma
   codename: workstation
+  desktop_environment: kde
   type: AI/Dev Workstation
   
   roles:
@@ -336,6 +337,12 @@ device:
   notes: |
     akira - Strix Point APU AI/Dev workstation
     
+    Desktop Environment:
+    - KDE Plasma (migrated from GNOME 2025-12)
+    - Display Manager: SDDM (Wayland session)
+    - Theme: Breeze Dark
+    - See docs/runbooks/AKIRA_GNOME_TO_KDE_CONVERSION.md
+    
     Key capabilities:
     - 128GB unified memory (62GB accessible to GPU via GTT)
     - AMD ROCm 7.1 with gfx1150 support (PyTorch nightly)
@@ -368,4 +375,5 @@ device:
     Bootstrap completed: 2025-12-05
     ROCm venv: ~/rocm-test (Python 3.12)
     GitHub SSH key: ~/.ssh/id_ed25519_github (2025-12-05)
+    GNOME→KDE migration: 2025-12-06
 

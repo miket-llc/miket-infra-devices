@@ -1,0 +1,76 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_config_archive/defaults/main.yml
+#
+# GNOME Configuration Archive Role
+# Archives GNOME-specific user configuration to ~/.mkt/archives/
+# for reversible DE migration
+---
+
+# Archive destination base path (relative to user home)
+gnome_archive_base: ".mkt/archives"
+
+# Archive naming pattern
+# {user} and {timestamp} are substituted
+gnome_archive_name_pattern: "gnome-config-{timestamp}"
+
+# Timestamp format for archive naming
+gnome_archive_timestamp_format: "%Y%m%d-%H%M%S"
+
+# GNOME configuration directories to archive (relative to user home)
+gnome_config_dirs:
+  # GNOME Shell settings
+  - ".config/gnome-shell"
+  # GNOME desktop settings (via dconf)
+  - ".config/dconf"
+  # GTK settings (GNOME-themed)
+  - ".config/gtk-3.0"
+  - ".config/gtk-4.0"
+  # GNOME apps data
+  - ".local/share/gnome-shell"
+  - ".local/share/gnome-control-center"
+  - ".local/share/gnome-software"
+  - ".local/share/gnome-screenshot"
+  - ".local/share/gnome-photos"
+  - ".local/share/gnome-boxes"
+  # Evolution (GNOME mail/calendar)
+  - ".local/share/evolution"
+  - ".config/evolution"
+  # GNOME keyrings
+  - ".local/share/keyrings"
+  # Nautilus bookmarks and settings
+  - ".config/nautilus"
+  - ".local/share/nautilus"
+  # GNOME Files recent files
+  - ".local/share/recently-used.xbel"
+  # GDM face/avatar
+  - ".face"
+
+# GNOME cache directories (archived separately, can be deleted)
+gnome_cache_dirs:
+  - ".cache/gnome-software"
+  - ".cache/gnome-shell"
+  - ".cache/evolution"
+  - ".cache/tracker3"
+
+# Users to process (overridden in host_vars typically)
+gnome_archive_users: []
+# Example:
+# gnome_archive_users:
+#   - miket
+#   - mdt
+
+# Export dconf database before archiving
+gnome_archive_export_dconf: true
+
+# Archive GNOME cache directories (usually not needed)
+gnome_archive_include_cache: false
+
+# Create a summary manifest in the archive
+gnome_archive_create_manifest: true
+
+# Skip archiving if archive already exists for this timestamp (idempotent)
+gnome_archive_skip_if_exists: true
+
+# Dry run mode - show what would be archived without moving files
+gnome_archive_dry_run: false
+

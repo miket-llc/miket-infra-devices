@@ -1,0 +1,26 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_removal/meta/main.yml
+---
+galaxy_info:
+  author: MikeT Infrastructure
+  description: Safely removes GNOME desktop environment packages
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - "41"
+        - "42"
+        - "43"
+  galaxy_tags:
+    - gnome
+    - desktop
+    - fedora
+    - removal
+    - migration
+
+dependencies:
+  # gnome_config_archive should run before this role
+  # But we don't force it as a dependency - let playbooks control order
+  []
+

@@ -1,0 +1,129 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_removal/tasks/main.yml
+#
+# GNOME Desktop Removal Role
+# Safely removes GNOME desktop environment when migrating to KDE or other DE
+#
+# Prerequisites:
+#   - Another DE (KDE) should be installed FIRST
+#   - gnome_config_archive role should run BEFORE this one
+---
+
+- name: Display GNOME removal banner
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      GNOME DESKTOP REMOVAL
+      ═══════════════════════════════════════════════════════════════
+      
+      Host: {{ inventory_hostname }}
+      Mode: {{ 'DRY RUN' if gnome_removal_dry_run else 'LIVE' }}
+      
+      This role will:
+        1. Disable GDM display manager
+        2. Remove GNOME-specific packages
+        3. Clean up unused dependencies
+      
+      Note: GTK libraries and shared components are preserved.
+      ═══════════════════════════════════════════════════════════════
+  tags: [gnome-removal, always]
+
+- name: Check if GDM is installed
+  ansible.builtin.command: rpm -q gdm
+  register: gdm_check
+  changed_when: false
+  failed_when: false
+  tags: [gnome-removal]
+
+- name: Stop and disable GDM service
+  ansible.builtin.systemd:
+    name: gdm.service
+    state: stopped
+    enabled: false
+  when:
+    - gdm_check.rc == 0
+    - not gnome_removal_dry_run
+  failed_when: false
+  tags: [gnome-removal, services]
+
+- name: Check which GNOME packages are installed
+  ansible.builtin.command: "rpm -q {{ item }}"
+  loop: "{{ gnome_packages_to_remove | difference(gnome_removal_skip_packages) }}"
+  register: gnome_packages_check
+  changed_when: false
+  failed_when: false
+  tags: [gnome-removal]
+
+- name: Build list of installed GNOME packages to remove
+  ansible.builtin.set_fact:
+    gnome_installed_packages: "{{ gnome_packages_check.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
+  tags: [gnome-removal]
+
+- name: Display packages to be removed
+  ansible.builtin.debug:
+    msg: |
+      GNOME packages found for removal: {{ gnome_installed_packages | length }}
+      
+      Packages:
+      {% for pkg in gnome_installed_packages %}
+        - {{ pkg }}
+      {% endfor %}
+      
+      {% if gnome_removal_dry_run %}
+      [DRY RUN] No packages will actually be removed.
+      {% endif %}
+  when: gnome_installed_packages | length > 0
+  tags: [gnome-removal]
+
+- name: Remove GNOME packages
+  ansible.builtin.dnf:
+    name: "{{ gnome_installed_packages }}"
+    state: absent
+  when:
+    - gnome_installed_packages | length > 0
+    - not gnome_removal_dry_run
+  tags: [gnome-removal, packages]
+
+- name: Clean up unused dependencies
+  ansible.builtin.command: dnf autoremove -y
+  when: not gnome_removal_dry_run
+  changed_when: false
+  tags: [gnome-removal, cleanup]
+
+- name: Verify GDM is no longer the display manager
+  ansible.builtin.stat:
+    path: /etc/systemd/system/display-manager.service
+  register: dm_link
+  tags: [gnome-removal, verify]
+
+- name: Check current display manager target
+  ansible.builtin.command: readlink -f /etc/systemd/system/display-manager.service
+  register: current_dm
+  changed_when: false
+  failed_when: false
+  when: dm_link.stat.exists
+  tags: [gnome-removal, verify]
+
+- name: Display GNOME removal summary
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      GNOME REMOVAL COMPLETE
+      ═══════════════════════════════════════════════════════════════
+      
+      Packages removed: {{ gnome_installed_packages | length }}
+      GDM status: {{ 'removed' if gdm_check.rc != 0 else 'was installed' }}
+      Current display manager: {{ current_dm.stdout | default('not set') }}
+      
+      {% if gnome_removal_dry_run %}
+      [DRY RUN] This was a dry run. No changes were made.
+      Run with gnome_removal_dry_run: false to apply changes.
+      {% endif %}
+      
+      Next steps:
+        - Reboot to ensure SDDM starts correctly
+        - Verify KDE session loads properly
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [gnome-removal, always]
+

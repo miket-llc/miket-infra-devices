@@ -1,0 +1,225 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# AKIRA: FEDORA 43 KDE WORKSTATION (GNOME → KDE CONVERSION)
+# =============================================================================
+#
+# This playbook performs a complete, idempotent conversion of akira from
+# GNOME to KDE Plasma desktop environment.
+#
+# Architecture References:
+#   - ADR-004: KDE Plasma is the standard desktop for Linux UI nodes
+#   - ADR-005: akira uses vLLM server pattern for AI workloads
+#   - FILESYSTEM_ARCHITECTURE.md: Flux/Space/Time storage layout
+#
+# USAGE:
+#   Check mode (dry run):
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/akira-fedora-kde.yml --check
+#
+#   Full conversion:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/akira-fedora-kde.yml
+#
+#   Specific phases:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/akira-fedora-kde.yml --tags gnome-archive
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/akira-fedora-kde.yml --tags kde
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/akira-fedora-kde.yml --tags gnome-removal
+#
+# PREREQUISITES:
+#   - akira is a Fedora 43 workstation with GNOME currently installed
+#   - Network connectivity via Tailscale
+#   - mdt user with sudo access
+#   - ROCm GPU drivers installed (AMD Strix Point)
+#
+# PHASES:
+#   1. Archive GNOME configuration (reversible backup to ~/.mkt/archives/)
+#   2. Install KDE Plasma desktop environment
+#   3. Remove GNOME desktop packages
+#   4. Configure host firewall (defense-in-depth)
+#   5. Sync secrets from Azure Key Vault
+#   6. Install development tools and container runtime
+#   7. Install GUI applications (VS Code, Warp, Cursor)
+#
+# =============================================================================
+
+- name: Convert Akira from GNOME to KDE Plasma
+  hosts: akira
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target host
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Fedora"
+          - ansible_distribution_major_version | int >= 43
+          - desktop_environment == 'kde'
+        fail_msg: |
+          This playbook requires:
+            - Fedora 43 or later
+            - desktop_environment: kde in host_vars
+          
+          Current state:
+            - Distribution: {{ ansible_distribution }} {{ ansible_distribution_version }}
+            - desktop_environment: {{ desktop_environment | default('not set') }}
+        success_msg: "Host validated: {{ inventory_hostname }} - Fedora {{ ansible_distribution_version }}"
+      tags: [always]
+
+    - name: Display conversion banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          AKIRA: GNOME → KDE PLASMA CONVERSION
+          ═══════════════════════════════════════════════════════════════
+          
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          GPU:            {{ gpu_vendor | default('AMD') }} {{ gpu_model | default('Radeon 890M') }}
+          
+          Architecture References:
+            - ADR-004: KDE Plasma is the Linux UI standard
+            - ADR-005: akira is the vLLM server node
+          
+          Conversion Phases:
+            1. gnome_config_archive  - Archive GNOME configs to ~/.mkt/archives/
+            2. linux_desktop_base    - Common desktop packages, fonts, time sync
+            3. linux_desktop_kde     - KDE Plasma desktop environment
+            4. gnome_removal         - Remove GNOME packages (safe, after KDE installed)
+            5. firewalld_tailnet     - Host firewall (defense-in-depth)
+            6. secrets_sync          - Azure Key Vault → .env files
+            7. common_dev_tools      - Development tools
+            8. podman_standard_linux - Container runtime
+            9. workstation_gui_tools - GUI applications
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Archive GNOME Configuration
+    # ========================================
+    # MUST run before GNOME removal to preserve user configs
+    - role: gnome_config_archive
+      tags: [gnome-archive, migration]
+
+    # ========================================
+    # Phase 2: Base Desktop Setup
+    # ========================================
+    - role: linux_desktop_base
+      tags: [desktop, base]
+
+    # ========================================
+    # Phase 3: KDE Plasma Desktop
+    # ========================================
+    - role: linux_desktop_kde
+      tags: [desktop, kde]
+
+    # ========================================
+    # Phase 4: Remove GNOME Desktop
+    # ========================================
+    # Only after KDE is installed and confirmed working
+    - role: gnome_removal
+      tags: [gnome-removal, migration]
+
+    # ========================================
+    # Phase 5: Host Firewall (Defense-in-Depth)
+    # ========================================
+    - role: firewalld_tailnet
+      tags: [firewall, security]
+
+    # ========================================
+    # Phase 6: Secrets Sync (AKV → .env)
+    # ========================================
+    - role: secrets_sync
+      vars:
+        secrets_map_file: "{{ playbook_dir }}/../../secrets-map.yml"
+      tags: [secrets]
+
+    # ========================================
+    # Phase 7: Development Tools
+    # ========================================
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+    # ========================================
+    # Phase 8: Container Runtime
+    # ========================================
+    - role: podman_standard_linux
+      tags: [containers, podman]
+
+    # ========================================
+    # Phase 9: GUI Applications
+    # ========================================
+    - role: workstation_gui_tools
+      tags: [gui_tools]
+
+  post_tasks:
+    - name: Display conversion completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          AKIRA GNOME → KDE CONVERSION COMPLETE
+          ═══════════════════════════════════════════════════════════════
+          
+          ✅ GNOME Configuration Archived
+             - Location: ~/.mkt/archives/gnome-config-*/
+             - Includes: dconf database, shell settings, configs
+             - Reversible: See MANIFEST.md in archive
+          
+          ✅ KDE Plasma Installed
+             - Display manager: SDDM (Wayland session)
+             - Theme: {{ kde_config.theme | default('breeze-dark') }}
+             - Power management configured
+          
+          ✅ GNOME Desktop Removed
+             - Packages uninstalled (GTK libraries preserved)
+             - GDM disabled
+          
+          ✅ Host Firewall (Defense-in-Depth)
+             - SSH: tailnet only (100.64.0.0/10)
+             - AI API (8080): tailnet only
+             - NoMachine (4000): tailnet only
+          
+          ✅ Development Environment
+             - Container runtime: Podman
+             - Dev tools: git, tmux, neovim, etc.
+             - GUI apps: VS Code, Warp, Cursor
+          
+          ═══════════════════════════════════════════════════════════════
+          
+          NEXT STEPS:
+          1. Reboot to start KDE session:
+             sudo systemctl reboot
+          
+          2. Log in via SDDM - select "Plasma (Wayland)" session
+          
+          3. Verify filesystem mounts:
+             ls -la ~/flux ~/space ~/time
+          
+          4. Test AI API (if vLLM running):
+             curl http://localhost:8080/health
+          
+          ROLLBACK:
+          To restore GNOME configs (if ever needed):
+            1. Install GNOME: sudo dnf install @gnome-desktop-environment
+            2. Restore dconf: dconf load / < ~/.mkt/archives/gnome-config-*/dconf-backup.ini
+            3. Copy config dirs back from archive
+          
+          RUNBOOKS:
+          - docs/runbooks/AKIRA_GNOME_TO_KDE_CONVERSION.md
+          - docs/runbooks/AKIRA_POWER_RUNBOOK.md
+          
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+    - name: Recommend reboot
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  REBOOT REQUIRED
+          
+          The system needs to be rebooted to complete the conversion.
+          SDDM will start and present the KDE Plasma login session.
+          
+          Run: sudo systemctl reboot
+      tags: [always]
+

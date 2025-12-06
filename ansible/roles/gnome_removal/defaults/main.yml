@@ -1,0 +1,115 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_removal/defaults/main.yml
+#
+# GNOME Desktop Removal Role
+# Safely removes GNOME desktop packages when migrating to another DE (e.g., KDE)
+#
+# IMPORTANT: This role does NOT delete user configuration files.
+# Use the gnome_config_archive role to safely archive GNOME configs first.
+---
+
+# GNOME-specific packages to remove
+# These are safe to remove as they are GNOME-only and not shared
+gnome_packages_to_remove:
+  # GNOME Shell and core components
+  - gnome-shell
+  - gnome-shell-extensions
+  - gnome-shell-extension-appindicator
+  - gnome-shell-extension-apps-menu
+  - gnome-shell-extension-background-logo
+  - gnome-shell-extension-common
+  - gnome-shell-extension-launch-new-instance
+  - gnome-shell-extension-places-menu
+  - gnome-shell-extension-window-list
+  # GNOME Session
+  - gnome-session
+  - gnome-session-wayland-session
+  - gnome-session-xsession
+  # GNOME Desktop components
+  - gnome-desktop3
+  - gnome-desktop4
+  # GNOME Settings
+  - gnome-control-center
+  - gnome-control-center-filesystem
+  - gnome-tweaks
+  - gnome-extensions-app
+  # GNOME specific apps (not needed with KDE equivalents)
+  - gnome-software
+  - gnome-software-plugin-flatpak
+  - gnome-software-plugin-snap
+  - gnome-terminal
+  - gnome-text-editor
+  - gnome-calculator
+  - gnome-characters
+  - gnome-clocks
+  - gnome-color-manager
+  - gnome-contacts
+  - gnome-disk-utility
+  - gnome-font-viewer
+  - gnome-logs
+  - gnome-maps
+  - gnome-photos
+  - gnome-remote-desktop
+  - gnome-screenshot
+  - gnome-system-monitor
+  - gnome-weather
+  - gnome-tour
+  - gnome-user-docs
+  - gnome-video-effects
+  # GNOME file manager (replaced by Dolphin on KDE)
+  - nautilus
+  - nautilus-extensions
+  # GNOME image viewer (replaced by Gwenview on KDE)
+  - eog
+  - loupe
+  # GNOME document viewer (replaced by Okular on KDE)
+  - evince
+  - evince-djvu
+  - evince-nautilus
+  # GNOME Boxes (VM manager - use native tools instead)
+  - gnome-boxes
+  # GNOME Initial Setup
+  - gnome-initial-setup
+  # GDM (display manager - replaced by SDDM)
+  - gdm
+  # Tracker (GNOME file indexer)
+  - tracker
+  - tracker-miners
+
+# GNOME packages to KEEP (shared with other DEs or critical libs)
+# This is informational - we only remove what's in gnome_packages_to_remove
+gnome_packages_to_keep:
+  # GTK libraries (used by many apps including Firefox)
+  - gtk3
+  - gtk4
+  # GLib (fundamental library)
+  - glib2
+  # D-Bus (system IPC)
+  - dbus
+  # PolicyKit (authentication)
+  - polkit
+  # GVfs (virtual filesystem - used by some apps)
+  - gvfs
+  # NetworkManager (shared across DEs)
+  - NetworkManager
+  # Flatpak (cross-DE app distribution)
+  - flatpak
+
+# Services to disable
+gnome_services_to_disable:
+  - gdm.service
+
+# GNOME meta-groups to remove (Fedora DNF groups)
+gnome_groups_to_remove:
+  - "@gnome-desktop"
+
+# Skip removal of these packages even if in the removal list
+# (useful for overriding per-host)
+gnome_removal_skip_packages: []
+
+# Dry run mode - don't actually remove packages
+gnome_removal_dry_run: false
+
+# Force removal even if packages have dependencies
+gnome_removal_force: false
+

@@ -1,0 +1,62 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/gnome_config_archive/tasks/main.yml
+#
+# Archives GNOME configuration files to ~/.mkt/archives/ for safe DE migration
+# This allows users to restore their GNOME settings if needed
+---
+
+- name: Display GNOME config archive banner
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      GNOME CONFIGURATION ARCHIVE
+      ═══════════════════════════════════════════════════════════════
+      
+      Host: {{ inventory_hostname }}
+      Mode: {{ 'DRY RUN' if gnome_archive_dry_run else 'LIVE' }}
+      
+      This role will:
+        1. Export dconf database (GNOME settings)
+        2. Archive GNOME config directories to ~/.mkt/archives/
+        3. Create a manifest of archived files
+      
+      Users to process: {{ gnome_archive_users | join(', ') }}
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [gnome-archive, always]
+
+- name: Generate archive timestamp
+  ansible.builtin.set_fact:
+    gnome_archive_timestamp: "{{ lookup('pipe', 'date +' + gnome_archive_timestamp_format) }}"
+  tags: [gnome-archive]
+
+- name: Process each user's GNOME configuration
+  ansible.builtin.include_tasks: archive_user.yml
+  loop: "{{ gnome_archive_users }}"
+  loop_control:
+    loop_var: archive_user
+  when: gnome_archive_users | length > 0
+  tags: [gnome-archive]
+
+- name: Display completion message
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      GNOME CONFIG ARCHIVE COMPLETE
+      ═══════════════════════════════════════════════════════════════
+      
+      Processed users: {{ gnome_archive_users | join(', ') }}
+      Archive timestamp: {{ gnome_archive_timestamp }}
+      Archive location: ~/.mkt/archives/gnome-config-{{ gnome_archive_timestamp }}/
+      
+      {% if gnome_archive_dry_run %}
+      [DRY RUN] This was a dry run. No files were moved.
+      {% endif %}
+      
+      To restore GNOME configs later:
+        1. Copy directories back from archive to original locations
+        2. Run: dconf load / < ~/.mkt/archives/gnome-config-*/dconf-backup.ini
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [gnome-archive, always]
+

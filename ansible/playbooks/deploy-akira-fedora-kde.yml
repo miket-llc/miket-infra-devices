@@ -1,0 +1,20 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# DEPLOY AKIRA - FEDORA 43 KDE WORKSTATION
+# =============================================================================
+#
+# Wrapper playbook for deploying akira as a Fedora 43 KDE workstation.
+# This performs a complete GNOME → KDE conversion.
+#
+# USAGE:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-akira-fedora-kde.yml
+#
+# For more control, use the full playbook:
+#   ansible-playbook -i inventory/hosts.yml playbooks/workstations/akira-fedora-kde.yml
+#
+# =============================================================================
+
+- name: Deploy Akira - Fedora 43 KDE (GNOME to KDE Conversion)
+  import_playbook: workstations/akira-fedora-kde.yml
+
