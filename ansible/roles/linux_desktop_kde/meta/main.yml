@@ -12,6 +12,8 @@ galaxy_info:
       versions:
         - "40"
         - "41"
+        - "42"
+        - "43"
 
 dependencies:
   - role: linux_desktop_base

@@ -16,8 +16,8 @@
   - Tailscale tags: `linux`, `gpu`, `llm_node`.
   - Remote UX via NoMachine. SSH via tailnet.
   - **Note:** A small Windows partition exists for Dell support/diagnostics only (offline, not on tailnet, not managed by Ansible).
-- **akira (Fedora workstation / GPU / vLLM server):**
-  - Fedora workstation (currently GNOME, will migrate to KDE per ADR-004).
+- **akira (Fedora KDE workstation / GPU / vLLM server):**
+  - Fedora 43 KDE Plasma desktop (per ADR-004: KDE Plasma is the Linux UI standard).
   - vLLM server node (per ADR-005: servers use vLLM).
   - AMD Strix Point APU with ROCm support.
   - Tailscale tags: `linux`, `ai-node`, `llm_node`, `rocm`.
