@@ -33,3 +33,4 @@ echo "  ansible-playbook -i inventory/hosts.yml playbooks/deploy-armitage-fedora
 echo "==================================================="
 
 
+
