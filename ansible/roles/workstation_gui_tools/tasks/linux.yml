@@ -241,6 +241,94 @@
       - "Cursor: {{ 'installed' if (cursor_verify.stat.exists | default(false)) else 'not installed' if cursor_enabled else 'skipped' }}"
   tags: [workstation_gui, verify]
 
+# ========================================
+# Cool Retro Term Qt Theming Fix
+# ========================================
+# Fixes white-on-white text in Qt settings menu
+- name: Cool Retro Term Qt theming fix block
+  when: cool_retro_term_qt_fix_enabled | bool
+  block:
+    - name: Check if cool-retro-term is installed
+      ansible.builtin.command: which cool-retro-term
+      register: cool_retro_term_check
+      changed_when: false
+      failed_when: false
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Install qt5ct for better Qt theme control (optional)
+      ansible.builtin.dnf:
+        name: qt5ct
+        state: present
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Install qt5ct for better Qt theme control (optional)
+      ansible.builtin.apt:
+        name: qt5ct
+        state: present
+        update_cache: yes
+      when: ansible_os_family == 'Debian'
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Install cool-retro-term wrapper script
+      ansible.builtin.copy:
+        src: cool-retro-term-wrapper.sh
+        dest: /usr/local/bin/cool-retro-term-wrapper
+        mode: '0755'
+        owner: root
+        group: root
+      when: cool_retro_term_check.rc == 0 or ansible_os_family == 'RedHat'
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Find existing cool-retro-term desktop entry
+      ansible.builtin.find:
+        paths:
+          - /usr/share/applications
+          - ~/.local/share/applications
+        patterns:
+          - "*cool-retro-term*.desktop"
+        file_type: file
+      register: cool_retro_term_desktop
+      changed_when: false
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Backup existing cool-retro-term desktop entry
+      ansible.builtin.copy:
+        src: "{{ item.path }}"
+        dest: "{{ item.path }}.backup"
+        remote_src: yes
+      loop: "{{ cool_retro_term_desktop.files }}"
+      when: cool_retro_term_desktop.matched > 0
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Update cool-retro-term desktop entry to use wrapper
+      ansible.builtin.replace:
+        path: "{{ item.path }}"
+        regexp: '^Exec=(.*cool-retro-term.*)'
+        replace: 'Exec=/usr/local/bin/cool-retro-term-wrapper'
+      loop: "{{ cool_retro_term_desktop.files }}"
+      when: cool_retro_term_desktop.matched > 0
+      tags: [workstation_gui, cool-retro-term]
+
+    - name: Create cool-retro-term desktop entry if it doesn't exist
+      ansible.builtin.copy:
+        dest: /usr/share/applications/cool-retro-term.desktop
+        content: |
+          [Desktop Entry]
+          Name=Cool Retro Term
+          Comment=Terminal emulator with retro aesthetics
+          Exec=/usr/local/bin/cool-retro-term-wrapper
+          Icon=cool-retro-term
+          Type=Application
+          Categories=System;TerminalEmulator;
+          Terminal=false
+          StartupNotify=true
+        mode: '0644'
+      when:
+        - cool_retro_term_desktop.matched == 0
+        - workstation_create_desktop_entries | bool
+      tags: [workstation_gui, cool-retro-term]
+
 
 
 

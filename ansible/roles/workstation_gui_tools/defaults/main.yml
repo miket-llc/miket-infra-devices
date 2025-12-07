@@ -32,6 +32,12 @@ warp_enabled: true
 # Warp is currently Linux and macOS only (no Windows support yet)
 
 # ========================================
+# Cool Retro Term Configuration
+# ========================================
+cool_retro_term_qt_fix_enabled: true
+# Fixes Qt theming issues (white-on-white text in settings menu)
+
+# ========================================
 # Linux-specific Options
 # ========================================
 # Create desktop entries for GUI apps
