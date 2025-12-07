@@ -9,6 +9,12 @@
 kde_packages:
   # Core KDE Plasma meta-packages
   - "@kde-desktop-environment"
+  # Qt Quick Controls 2 KDE style - CRITICAL for QtQuick app theming
+  # Without this, Qt Quick apps (like cool-retro-term settings) may show
+  # white backgrounds regardless of Plasma color scheme
+  - qqc2-desktop-style
+  # Qt platform integration for KDE (should be pulled by meta-package, but be explicit)
+  - plasma-integration
   # Essential KDE applications
   - konsole        # Terminal emulator
   - dolphin        # File manager

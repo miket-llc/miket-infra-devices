@@ -1,55 +1,8 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# =============================================================================
-# Data Lifecycle Role Defaults
-# =============================================================================
-# Manages backup and mirroring jobs for PHC storage infrastructure
-# Deploys restic and rclone jobs with systemd timers
-
-# Location for data lifecycle service credentials (from AKV via secrets_sync)
-data_lifecycle_env_file: "/etc/miket/storage-credentials.env"
-data_lifecycle_env_owner: root
-data_lifecycle_env_group: root
-data_lifecycle_env_mode: "0600"
-
-# =============================================================================
-# Restic Installation
-# =============================================================================
-data_lifecycle_install_restic: true
-data_lifecycle_install_rclone: true
-
-# =============================================================================
-# Marker Files (for Data Estate collector)
-# =============================================================================
-# Marker files record last-success timestamps for each job
-# The Data Estate collector reads these for freshness checks
-data_lifecycle_markers_dir: /space/_ops/data-estate/markers
-data_lifecycle_logs_dir: /space/_ops/logs/data-lifecycle
-
-# =============================================================================
-# Paths (per PHC filesystem invariants)
-# =============================================================================
-data_lifecycle_flux_path: /flux
-data_lifecycle_space_path: /space
-data_lifecycle_restic_local_repo: /space/snapshots/flux-local
-data_lifecycle_restic_cloud_repo: "b2:miket-backups-restic:flux"
-data_lifecycle_b2_mirror_bucket: miket-space-mirror
-
-# =============================================================================
-# Timer Schedules
-# =============================================================================
-# Flux cloud backup - daily at 3am (after Nextcloud DB backup at 2am)
-data_lifecycle_flux_backup_schedule: "03:00"
-# Flux local snapshot - every 6 hours
-data_lifecycle_flux_local_schedule: "*-*-* 0/6:00:00"
-# Space mirror - every 4 hours
-data_lifecycle_space_mirror_schedule: "*-*-* 0/4:00:00"
-# Flux graduation - weekly on Sunday at 4am
-data_lifecycle_flux_graduate_schedule: "Sun 04:00"
-
-# =============================================================================
-# Failure Notification
-# =============================================================================
-# OnFailure target for systemd (uses %p = unit prefix without .service suffix)
-data_lifecycle_on_failure_target: "failure-notify@%p.service"
+# Feature flags for which lifecycle services to deploy
+data_lifecycle_enable_space_mirror: true
+data_lifecycle_enable_flux_backup: true
+data_lifecycle_enable_flux_local: true
+data_lifecycle_enable_flux_graduate: true

@@ -2,7 +2,11 @@
 
 ---
 # Defaults for Windows mount shares role
-smb_server: "motoko"  # Using Tailscale/Local hostname
+# Default SMB hosts (SoR: space on akira, time on motoko)
+smb_server_space: "akira"
+smb_server_time: "motoko"
+smb_server_flux: "akira"
+smb_server: "{{ smb_server_space }}"  # legacy fallback
 
 # Network drive mappings with labels
 smb_shares:
@@ -10,12 +14,14 @@ smb_shares:
     path: "/flux"
     drive_letter: "X"
     label: "FLUX"
+    server: "{{ smb_server_flux }}"
   - name: "space"
     path: "/space"
     drive_letter: "S"
     label: "SPACE"
+    server: "{{ smb_server_space }}"
   - name: "time"
     path: "/time"
     drive_letter: "T"
     label: "TIME"
-
+    server: "{{ smb_server_time }}"

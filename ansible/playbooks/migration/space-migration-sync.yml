@@ -1,0 +1,195 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# /space Migration Sync Playbook
+# =============================================================================
+# Syncs /space from motoko to akira for the PHC migration
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   # Bulk initial sync (first run):
+#   ansible-playbook playbooks/migration/space-migration-sync.yml --limit motoko
+#
+#   # Delta sync (just before cutover):
+#   ansible-playbook playbooks/migration/space-migration-sync.yml --limit motoko -e sync_mode=delta
+#
+#   # Dry run (show what would be synced):
+#   ansible-playbook playbooks/migration/space-migration-sync.yml --limit motoko -e dry_run=true
+#
+# Prerequisites:
+# - akira:/space must be mounted and accessible
+# - SSH keys must allow motoko -> akira connection
+# - Tailscale must be active on both nodes
+
+---
+- name: Sync /space from motoko to akira
+  hosts: motoko
+  become: true
+  vars:
+    log_dir: /var/log/space-migration
+    log_file_path: "{{ log_dir }}/space-migration-{{ ansible_date_time.iso8601_basic_short }}.log"
+    # Sync configuration
+    source_path: /space/
+    target_host: akira.pangolin-vega.ts.net
+    target_path: /space/
+    target_user: mdt
+    
+    # Sync mode: bulk (initial) or delta (pre-cutover)
+    sync_mode: "{{ sync_mode | default('bulk') }}"
+    
+    # Exclude patterns (don't sync ephemeral/runtime data)
+    exclude_patterns:
+      - "_ops/logs/**"
+      - "_ops/tmp/**"
+      - "*.tmp"
+      - "*.temp"
+      - "*.swp"
+      - "*.lock"
+      - ".DS_Store"
+      - "Thumbs.db"
+    
+    # Rsync options
+    rsync_base_opts:
+      - "--archive"           # Preserve permissions, timestamps, etc.
+      - "--hard-links"        # Preserve hard links
+      - "--compress"          # Compress during transfer (helpful over Tailscale)
+      - "--partial"           # Keep partially transferred files (allows resume)
+      - "--partial-dir=.rsync-partial"  # Store partial files in hidden dir
+      - "--progress"          # Show progress
+      - "--human-readable"    # Human-readable sizes
+      - "--stats"             # Show transfer stats
+      - "--itemize-changes"   # Show what changed
+      - "--log-file={{ log_file_path }}"  # Log to file for monitoring
+    
+    rsync_bulk_opts:
+      - "--delete"            # Delete files on target not in source
+      - "--delete-excluded"   # Delete excluded files on target
+    
+    rsync_delta_opts:
+      - "--delete"            # Delete files on target not in source
+      - "--update"            # Skip files newer on target (safety)
+
+  tasks:
+    - name: Ensure log directory exists
+      ansible.builtin.file:
+        path: "{{ log_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Verify /space is mounted on motoko
+      ansible.builtin.command: mountpoint -q {{ source_path | regex_replace('/$', '') }}
+      changed_when: false
+
+    - name: Test connectivity to akira
+      ansible.builtin.command: >-
+        ssh -o BatchMode=yes -o ConnectTimeout=10 
+        {{ target_user }}@{{ target_host }} "mountpoint -q {{ target_path | regex_replace('/$', '') }}"
+      changed_when: false
+      register: akira_connectivity
+
+    - name: Fail if akira /space is not mounted
+      ansible.builtin.fail:
+        msg: |
+          Cannot verify /space mount on akira. 
+          Ensure the external drive is connected and mounted.
+          Run: ansible-playbook playbooks/akira/setup-space.yml --limit akira
+      when: akira_connectivity.rc != 0
+
+    - name: Calculate /space size on motoko
+      ansible.builtin.command: du -sh {{ source_path }}
+      register: space_size
+      changed_when: false
+
+    - name: Set dry_run fact safely
+      ansible.builtin.set_fact:
+        dry_run_enabled: "{{ dry_run | default('false') | lower | bool }}"
+
+    - name: Display sync information
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          /space Migration Sync
+          ============================================
+          Mode: {{ sync_mode | upper }}
+          Source: motoko:{{ source_path }}
+          Target: {{ target_host }}:{{ target_path }}
+          Source size: {{ space_size.stdout.split()[0] }}
+          Dry run: {{ dry_run_enabled | string | upper }}
+          ============================================
+
+    - name: Set dry_run flag for command building
+      ansible.builtin.set_fact:
+        dry_run_flag: "{{ '--dry-run' if dry_run_enabled else '' }}"
+
+    - name: Build rsync command
+      ansible.builtin.set_fact:
+        rsync_command: >-
+          rsync
+          {{ rsync_base_opts | join(' ') }}
+          {{ (rsync_bulk_opts if sync_mode == 'bulk' else rsync_delta_opts) | join(' ') }}
+          {% for pattern in exclude_patterns %}--exclude='{{ pattern }}' {% endfor %}
+          {{ dry_run_flag }}
+          {{ source_path }}
+          {{ target_user }}@{{ target_host }}:{{ target_path }}
+
+    - name: Display rsync command (for logging)
+      ansible.builtin.debug:
+        msg: "{{ rsync_command }}"
+
+    - name: Confirm sync (interactive)
+      ansible.builtin.pause:
+        prompt: |
+          
+          About to {{ 'DRY RUN' if dry_run_enabled else 'SYNC' }} /space from motoko to akira.
+          Mode: {{ sync_mode }}
+          This may take several hours for bulk sync.
+          
+          Press Enter to continue or Ctrl+C to abort...
+      when: not (ansible_check_mode | default(false))
+
+    - name: Run rsync
+      ansible.builtin.command: "{{ rsync_command }}"
+      register: rsync_result
+      async: 86400  # 24 hour timeout for large syncs
+      poll: 60       # Check every 60 seconds
+
+    - name: Display sync results
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Sync Complete
+          ============================================
+          {{ rsync_result.stdout }}
+          ============================================
+
+    - name: Write sync completion marker
+      ansible.builtin.copy:
+        content: |
+          {
+            "job": "space_migration_sync",
+            "mode": "{{ sync_mode }}",
+            "source_host": "motoko",
+            "target_host": "{{ target_host }}",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+          "status": "success",
+          "dry_run": {{ dry_run_enabled | lower }}
+          }
+        dest: /space/_ops/data-estate/markers/migration_sync.json
+        mode: "0644"
+      when: not dry_run
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: |
+          /space sync from motoko to akira completed successfully.
+          
+          Next steps:
+          {% if sync_mode == 'bulk' %}
+          1. Verify data on akira: ssh {{ target_user }}@{{ target_host }} "ls -la {{ target_path }}"
+          2. Deploy Nextcloud on akira: ansible-playbook playbooks/migration/nextcloud-stage-akira.yml
+          3. Before cutover, run delta sync: ansible-playbook playbooks/migration/space-migration-sync.yml -e sync_mode=delta
+          {% else %}
+          1. Data is synchronized and ready for cutover
+          2. Run cutover playbook: ansible-playbook playbooks/migration/nextcloud-cutover.yml
+          {% endif %}

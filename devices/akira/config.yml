@@ -177,21 +177,20 @@ device:
       device: /dev/sda1  # WD Red 18TB external USB
       uuid: 9f387c92-613e-44fb-a6c4-3878b95905f3
       filesystem: btrfs
-      fstab_options: compress=zstd:3,noatime,nofail,noauto,x-systemd.automount,x-systemd.idle-timeout=0,x-systemd.device-timeout=0
-      purpose: Cold storage, archives, media, datasets
-      is_local: true  # LOCAL 18TB disk, NOT NFS from motoko
-      is_sor: true    # This IS the System of Record for /space on akira
+      fstab_options: compress=zstd:3,noatime,nofail,x-systemd.device-timeout=30
+      purpose: PHC System of Record (SoR) - migrated from motoko per ADR-0010
+      is_local: true
+      is_sor: true    # PRIMARY System of Record for the entire PHC
       is_external: true
+      # Per ADR-0010 (2025-12): akira is now the PRIMARY /space host
+      # - Nextcloud runs here with external storage mounts to /space/mike/*
+      # - space-mirror syncs to B2:miket-space-mirror
+      # - M365 ingestion targets /space/mike/inbox/ms365
       # Boot impact: USB enclosure + spinning disk adds ~13s to boot
-      # (8s USB enumeration + 5s spin-up). This is hardware behavior.
-      # Automount ensures /space doesn't block services, but USB init
-      # still delays local-fs.target. Disable USB boot scan in BIOS
-      # to reduce firmware wait time.
-      is_external: true  # External USB drive - automount on-demand
       # IMPORTANT: Must be connected to USB 3.x port (Bus 4) for 5Gbps speed.
       # The USB-A ports on the FRONT panel are USB 2.0 only (Bus 3, 480Mbps).
       # Use the USB-A ports on the BACK panel for USB 3.x (Bus 4, 5000Mbps).
-      note: Unlike other nodes, akira has local /space storage. Uses automount to avoid blocking boot.
+      note: PRIMARY /space host for PHC. Exported via SMB for other nodes.
   
   selinux:
     mode: enforcing
@@ -335,13 +334,19 @@ device:
         # Backup recommendation: Store in 1Password for DR (human access only)
   
   notes: |
-    akira - Strix Point APU AI/Dev workstation
+    akira - PHC Storage + Nextcloud + AI Workstation
     
     Desktop Environment:
     - KDE Plasma (migrated from GNOME 2025-12)
     - Display Manager: SDDM (Wayland session)
     - Theme: Breeze Dark
     - See docs/runbooks/AKIRA_GNOME_TO_KDE_CONVERSION.md
+    
+    PHC Storage Role (per ADR-0010, 2025-12):
+    - Hosts /space (System of Record) on WD Red 18TB external USB drive
+    - Runs Nextcloud container stack (migrated from motoko)
+    - Runs space-mirror job (B2 sync to miket-space-mirror)
+    - Runs M365 ingestion job (rclone → /space/mike/inbox/ms365)
     
     Key capabilities:
     - 128GB unified memory (62GB accessible to GPU via GTT)
@@ -351,14 +356,13 @@ device:
     - MoE models (Qwen3-30B-A3B) run at ~20 tok/s
     
     Storage Layout (optimized 2025-12-05):
-    - /flux (4TB Samsung 990 PRO NVMe, nvme1n1) - containers, models, projects
-    - /time (4TB Crucial P310 NVMe, nvme2n1) - backups, snapshots
-    - /space (18TB WD Red HDD, sda1) - LOCAL cold storage, automount on-demand
+    - /flux (4TB Samsung 990 PRO NVMe, nvme2n1) - containers, models, Nextcloud runtime
+    - /time (4TB Crucial P310 NVMe, nvme1n1) - backups, snapshots
+    - /space (18TB WD Red HDD, sda1) - PHC System of Record (SoR)
     - / /home (1TB Crucial P3 NVMe, nvme0n1) - OS, user profiles
     
-    Note: Unlike other nodes, akira has LOCAL /space storage.
-    This is the SoR for akira's /space, but does NOT replace
-    motoko's /space as the PHC-wide SoR.
+    Note: akira is now the PRIMARY /space host for the PHC.
+    Other nodes mount /space from akira via SMB.
     
     Boot optimization (2025-12-05):
     - Boot time: 42s (firmware 25s + userspace 9s)
@@ -376,4 +380,5 @@ device:
     ROCm venv: ~/rocm-test (Python 3.12)
     GitHub SSH key: ~/.ssh/id_ed25519_github (2025-12-05)
     GNOME→KDE migration: 2025-12-06
+    /space + Nextcloud migration: 2025-12-07 (ADR-0010)
 

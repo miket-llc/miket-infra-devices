@@ -35,7 +35,11 @@ warp_enabled: true
 # Cool Retro Term Configuration
 # ========================================
 cool_retro_term_qt_fix_enabled: true
-# Fixes Qt theming issues (white-on-white text in settings menu)
+# Partial fix for Qt Quick theming (white-on-white text in settings menu on dark themes)
+# Uses Material Dark theme via wrapper script - makes ~80% of settings UI readable
+# Some labels remain invisible due to hardcoded colors in app's QML (upstream bug)
+# Wrapper only affects cool-retro-term; other Qt apps use KDE native theming
+# See: docs/runbooks/QT_THEMING_KDE.md
 
 # ========================================
 # Linux-specific Options

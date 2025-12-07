@@ -2,8 +2,12 @@
 
 ---
 # Defaults for macOS mount shares role
-smb_server: "motoko"  # Using Tailscale/Local hostname
-smb_username: "mdt"  # SMB username on motoko (may differ from ansible_user)
+# Default SMB hosts (SoR: space on akira, time on motoko)
+smb_server_space: "akira"
+smb_server_time: "motoko"
+smb_server_flux: "akira"
+smb_server: "{{ smb_server_space }}"  # legacy fallback
+smb_username: "mdt"  # SMB username on PHC servers (may differ from ansible_user)
 
 # Secrets landing zone (populated via ansible/playbooks/secrets-sync.yml)
 smb_env_file: "{{ ansible_env.HOME }}/.mkt/mounts.env"
@@ -14,12 +18,15 @@ smb_shares:
   - name: "flux"
     path: "/flux"
     mount_point: "~/.mkt/flux"
+    server: "{{ smb_server_flux }}"
   - name: "space"
     path: "/space"
     mount_point: "~/.mkt/space"
+    server: "{{ smb_server_space }}"
   - name: "time"
     path: "/time"
     mount_point: "~/.mkt/time"
+    server: "{{ smb_server_time }}"
 
 # User-level symlinks for convenience
 # Points from user home to mounts

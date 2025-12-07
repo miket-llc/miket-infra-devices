@@ -1,0 +1,83 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Deploy Data Lifecycle Services on akira
+# =============================================================================
+# Deploys space-mirror and related backup jobs on akira
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   ansible-playbook playbooks/akira/deploy-data-lifecycle.yml --limit akira
+#
+# Prerequisites:
+# - /space mounted and accessible
+# - Storage credentials synced from AKV
+
+---
+- name: Deploy Data Lifecycle Services on akira
+  hosts: akira
+  become: true
+  gather_facts: true
+  
+  pre_tasks:
+    - name: Verify /space is mounted
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+
+    - name: Check for storage credentials
+      ansible.builtin.stat:
+        path: /etc/miket/storage-credentials.env
+      register: creds_file
+
+    - name: Fail if credentials not deployed
+      ansible.builtin.fail:
+        msg: |
+          Storage credentials not found at /etc/miket/storage-credentials.env
+          Run: ansible-playbook playbooks/secrets-sync.yml --limit akira
+      when: not creds_file.stat.exists
+
+    - name: Create /etc/miket directory
+      ansible.builtin.file:
+        path: /etc/miket
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+  roles:
+    - role: data-lifecycle
+      vars:
+        # Override paths for akira
+        data_lifecycle_env_file: /etc/miket/storage-credentials.env
+        data_lifecycle_markers_dir: /space/_ops/data-estate/markers
+        data_lifecycle_logs_dir: /space/_ops/logs/data-lifecycle
+        data_lifecycle_flux_path: /flux
+        data_lifecycle_space_path: /space
+        # Only space-mirror should run on akira
+        data_lifecycle_enable_space_mirror: true
+        data_lifecycle_enable_flux_backup: false
+        data_lifecycle_enable_flux_local: false
+        data_lifecycle_enable_flux_graduate: false
+      tags: [data-lifecycle]
+
+  post_tasks:
+    - name: Verify space-mirror timer
+      ansible.builtin.command: systemctl is-enabled space-mirror.timer
+      register: timer_status
+      changed_when: false
+      failed_when: false
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Data Lifecycle Services Deployed on akira
+          ============================================
+          space-mirror.timer: {{ 'ENABLED' if timer_status.rc == 0 else 'NOT ENABLED' }}
+          
+          B2 Target: miket-space-mirror
+          Schedule: Every 4 hours
+          
+          Test with:
+          sudo systemctl start space-mirror.service
+          journalctl -u space-mirror.service -f
+          ============================================

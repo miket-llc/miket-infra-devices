@@ -1,0 +1,59 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# SMB Export Configuration for /space
+# =============================================================================
+# Exports /space via Samba for other PHC nodes to mount
+# Replicates motoko's current SMB configuration
+
+- name: Ensure Samba is installed
+  ansible.builtin.dnf:
+    name:
+      - samba
+      - samba-common
+    state: present
+
+- name: Ensure smb.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/samba/smb.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy /space SMB share config
+  ansible.builtin.template:
+    src: space.conf.j2
+    dest: /etc/samba/smb.conf.d/space.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart smbd
+
+- name: Ensure Samba includes share configs
+  ansible.builtin.lineinfile:
+    path: /etc/samba/smb.conf
+    line: "include = /etc/samba/smb.conf.d/space.conf"
+    state: present
+    insertafter: "\\[global\\]"
+  notify: restart smbd
+
+- name: Enable and start Samba services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - smb
+    - nmb
+
+- name: Open firewall for Samba (tailnet only)
+  ansible.posix.firewalld:
+    service: samba
+    zone: "{{ firewall_zone_tailnet | default('trusted') }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: ansible_facts['os_family'] == 'RedHat'
+

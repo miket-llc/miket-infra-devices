@@ -22,12 +22,13 @@ from datetime import datetime
 from pathlib import Path
 
 # Configuration
+CONTAINER_RUNTIME = os.getenv("CONTAINER_RUNTIME", "podman")
 NEXTCLOUD_CONFIG = {
-    "name": "motoko",
+    "name": "akira",
     "internal_url": "http://127.0.0.1:8080/status.php",
     "external_url": "https://nextcloud.miket.io",
     "container_name": "nextcloud-app",
-    "data_path": "/mnt/data/nextcloud/data",
+    "data_path": "/flux/apps/nextcloud/data",
     "space_path": "/space/mike",
 }
 
@@ -69,10 +70,15 @@ def run_command(cmd: List[str], capture: bool = True) -> Tuple[int, str, str]:
         return (-1, "", str(e))
 
 
+def container_exec(args: List[str]) -> Tuple[int, str, str]:
+    """Run a container command using the configured runtime."""
+    return run_command([CONTAINER_RUNTIME] + args)
+
+
 def test_container_running() -> Tuple[bool, str]:
     """Test if Nextcloud container is running."""
     code, stdout, stderr = run_command(
-        ["docker", "ps", "--filter", f"name={NEXTCLOUD_CONFIG['container_name']}", "--format", "{{.Status}}"]
+        [CONTAINER_RUNTIME, "ps", "--filter", f"name={NEXTCLOUD_CONFIG['container_name']}", "--format", "{{.Status}}"]
     )
     if code == 0 and "Up" in stdout:
         return (True, f"Container running: {stdout.strip()}")
@@ -98,8 +104,8 @@ def test_nextcloud_status() -> Tuple[bool, str, Optional[Dict]]:
 
 def test_skeleton_disabled() -> Tuple[bool, str]:
     """Test if skeleton directory is disabled (pure façade requirement)."""
-    code, stdout, stderr = run_command([
-        "docker", "exec", "-u", "33", NEXTCLOUD_CONFIG["container_name"],
+    code, stdout, stderr = container_exec([
+        "exec", "-u", "33", NEXTCLOUD_CONFIG["container_name"],
         "php", "occ", "config:system:get", "skeletondirectory"
     ])
     # Empty output or non-zero exit means disabled (good)
@@ -111,8 +117,8 @@ def test_skeleton_disabled() -> Tuple[bool, str]:
 def test_external_mounts() -> Tuple[bool, str, List[str]]:
     """Test if external storage mounts are configured."""
     # Use -a flag to show all mounts including user-specific (personal) mounts
-    code, stdout, stderr = run_command([
-        "docker", "exec", "-u", "33", NEXTCLOUD_CONFIG["container_name"],
+    code, stdout, stderr = container_exec([
+        "exec", "-u", "33", NEXTCLOUD_CONFIG["container_name"],
         "php", "occ", "files_external:list", "-a", "--output=json"
     ])
     if code != 0:
@@ -133,9 +139,9 @@ def test_external_mounts() -> Tuple[bool, str, List[str]]:
 
 def test_internal_home_empty(user: str) -> Tuple[bool, str]:
     """Test if user's internal Nextcloud home is empty (pure façade)."""
-    # Use docker exec to check as www-data user (uid 33)
-    code, stdout, stderr = run_command([
-        "docker", "exec", "-u", "33", NEXTCLOUD_CONFIG["container_name"],
+    # Use container exec to check as www-data user (uid 33)
+    code, stdout, stderr = container_exec([
+        "exec", "-u", "33", NEXTCLOUD_CONFIG["container_name"],
         "find", f"/var/www/html/data/{user}/files", "-maxdepth", "1", "-type", "f"
     ])
     
@@ -286,4 +292,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

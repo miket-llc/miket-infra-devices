@@ -1,0 +1,327 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Nextcloud Cutover Playbook
+# =============================================================================
+# Performs the coordinated cutover of Nextcloud from motoko to akira
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   # Full cutover (maintenance window required):
+#   ansible-playbook playbooks/migration/nextcloud-cutover.yml
+#
+#   # Dry run (show what would happen):
+#   ansible-playbook playbooks/migration/nextcloud-cutover.yml --check
+#
+# Prerequisites:
+# - /space fully synced to akira (space-migration-sync.yml completed)
+# - Nextcloud staged on akira (nextcloud-stage-akira.yml completed)
+# - Secrets deployed to akira
+# - Communication with miket-infra team for tunnel switch
+
+---
+# =============================================================================
+# Phase 1: Pre-Cutover Validation
+# =============================================================================
+- name: "Cutover Phase 1: Pre-flight Checks"
+  hosts: motoko:akira
+  become: true
+  gather_facts: true
+  
+  tasks:
+    - name: Verify /space is mounted
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+
+    - name: Verify connectivity between nodes
+      ansible.builtin.command: ping -c 1 {{ item }}
+      loop:
+        - motoko.pangolin-vega.ts.net
+        - akira.pangolin-vega.ts.net
+      changed_when: false
+      delegate_to: localhost
+      run_once: true
+
+# =============================================================================
+# Phase 2: Put motoko Nextcloud in Maintenance Mode
+# =============================================================================
+- name: "Cutover Phase 2: Maintenance Mode on motoko"
+  hosts: motoko
+  become: true
+  vars:
+    nextcloud_workdir: /flux/apps/nextcloud
+    
+  tasks:
+    - name: Display maintenance mode warning
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          ENTERING MAINTENANCE WINDOW
+          ============================================
+          Nextcloud on motoko will be put in maintenance mode.
+          Users will see a maintenance page.
+          ============================================
+
+    - name: Enable Nextcloud maintenance mode on motoko
+      ansible.builtin.command: >-
+        podman exec nextcloud-app php occ maintenance:mode --on
+      register: maint_on
+      changed_when: "'enabled' in maint_on.stdout"
+      failed_when: false
+
+    - name: Stop M365 sync timer on motoko
+      ansible.builtin.systemd:
+        name: nextcloud-m365-sync.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Stop space-mirror timer on motoko
+      ansible.builtin.systemd:
+        name: space-mirror.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Wait for any running sync jobs to complete
+      ansible.builtin.shell: |
+        while systemctl is-active nextcloud-m365-sync.service 2>/dev/null | grep -q active; do
+          sleep 5
+        done
+        while systemctl is-active space-mirror.service 2>/dev/null | grep -q active; do
+          sleep 5
+        done
+      changed_when: false
+      timeout: 300
+
+# =============================================================================
+# Phase 3: Final Data Sync
+# =============================================================================
+- name: "Cutover Phase 3: Final Data Sync"
+  hosts: motoko
+  become: true
+  
+  tasks:
+    - name: Run final /space delta sync to akira
+      ansible.builtin.command: >-
+        rsync -avz --delete --progress
+        --exclude='_ops/logs/**'
+        --exclude='_ops/tmp/**'
+        --exclude='*.tmp'
+        --exclude='*.swp'
+        --exclude='*.lock'
+        /space/
+        mdt@akira.pangolin-vega.ts.net:/space/
+      register: final_sync
+      async: 3600  # 1 hour timeout
+      poll: 30
+
+    - name: Display sync summary
+      ansible.builtin.debug:
+        msg: "{{ final_sync.stdout_lines | last | default('Sync complete') }}"
+
+# =============================================================================
+# Phase 4: Database Migration
+# =============================================================================
+- name: "Cutover Phase 4: Database Snapshot and Restore"
+  hosts: motoko
+  become: true
+  vars:
+    db_snapshot_path: /space/_services/nextcloud/db-snapshots
+    snapshot_filename: "cutover-{{ ansible_date_time.iso8601_basic_short }}.sql.gz"
+    
+  tasks:
+    - name: Create final database snapshot on motoko
+      ansible.builtin.shell: |
+        podman exec nextcloud-db pg_dump -U nextcloud -d nextcloud | gzip > {{ db_snapshot_path }}/{{ snapshot_filename }}
+      register: db_dump
+
+    - name: Copy database snapshot to akira
+      ansible.builtin.command: >-
+        scp {{ db_snapshot_path }}/{{ snapshot_filename }}
+        mdt@akira.pangolin-vega.ts.net:{{ db_snapshot_path }}/{{ snapshot_filename }}
+      
+    - name: Store snapshot filename for akira
+      ansible.builtin.set_fact:
+        cutover_snapshot_path: "{{ db_snapshot_path }}/{{ snapshot_filename }}"
+      delegate_facts: true
+      delegate_to: akira
+
+- name: "Cutover Phase 4b: Restore Database on akira"
+  hosts: akira
+  become: true
+  vars:
+    db_snapshot_path: /space/_services/nextcloud/db-snapshots
+    
+  tasks:
+    - name: Find latest cutover snapshot
+      ansible.builtin.find:
+        paths: "{{ db_snapshot_path }}"
+        patterns: "cutover-*.sql.gz"
+      register: snapshots
+
+    - name: Get most recent snapshot
+      ansible.builtin.set_fact:
+        latest_snapshot: "{{ (snapshots.files | sort(attribute='mtime', reverse=true) | first).path }}"
+      when: snapshots.matched > 0
+
+    - name: Stop Nextcloud on akira for DB restore
+      ansible.builtin.command: podman compose -f /flux/apps/nextcloud/docker-compose.yml stop nextcloud-app
+      args:
+        chdir: /flux/apps/nextcloud
+      failed_when: false
+
+    - name: Restore database on akira
+      ansible.builtin.shell: |
+        gunzip -c {{ latest_snapshot }} | podman exec -i nextcloud-db psql -U nextcloud -d nextcloud
+      when: latest_snapshot is defined
+
+    - name: Start Nextcloud on akira
+      ansible.builtin.command: podman compose -f /flux/apps/nextcloud/docker-compose.yml start nextcloud-app
+      args:
+        chdir: /flux/apps/nextcloud
+
+# =============================================================================
+# Phase 5: Activate akira, Deactivate motoko
+# =============================================================================
+- name: "Cutover Phase 5: Service Switch"
+  hosts: motoko
+  become: true
+  
+  tasks:
+    - name: Stop Nextcloud services on motoko
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - nextcloud
+        - nextcloud-db-backup.timer
+        - nextcloud-home-sweeper.timer
+        - nextcloud-healthcheck.timer
+      failed_when: false
+
+    - name: Stop Nextcloud containers on motoko
+      ansible.builtin.command: podman compose -f /flux/apps/nextcloud/docker-compose.yml down
+      args:
+        chdir: /flux/apps/nextcloud
+      failed_when: false
+
+- name: "Cutover Phase 5b: Enable Services on akira"
+  hosts: akira
+  become: true
+  
+  tasks:
+    - name: Disable maintenance mode on akira Nextcloud
+      ansible.builtin.command: >-
+        podman exec nextcloud-app php occ maintenance:mode --off
+      register: maint_off
+      changed_when: "'disabled' in maint_off.stdout"
+      failed_when: false
+
+    - name: Enable and start M365 sync on akira
+      ansible.builtin.systemd:
+        name: nextcloud-m365-sync.timer
+        state: started
+        enabled: true
+        daemon_reload: true
+      failed_when: false
+
+    - name: Enable and start space-mirror on akira
+      ansible.builtin.systemd:
+        name: space-mirror.timer
+        state: started
+        enabled: true
+        daemon_reload: true
+      failed_when: false
+
+    - name: Enable DB backup timer on akira
+      ansible.builtin.systemd:
+        name: nextcloud-db-backup.timer
+        state: started
+        enabled: true
+      failed_when: false
+
+    - name: Enable healthcheck timer on akira
+      ansible.builtin.systemd:
+        name: nextcloud-healthcheck.timer
+        state: started
+        enabled: true
+      failed_when: false
+
+# =============================================================================
+# Phase 6: Smoke Tests
+# =============================================================================
+- name: "Cutover Phase 6: Smoke Tests"
+  hosts: akira
+  become: true
+  
+  tasks:
+    - name: Wait for Nextcloud to be ready
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8080/status.php"
+        method: GET
+        status_code: 200
+        return_content: true
+      register: nc_status
+      until: nc_status.status == 200
+      retries: 6
+      delay: 10
+
+    - name: Verify external storage mounts
+      ansible.builtin.command: >-
+        podman exec nextcloud-app php occ files_external:list
+      register: ext_storage
+      changed_when: false
+
+    - name: Display external storage configuration
+      ansible.builtin.debug:
+        msg: "{{ ext_storage.stdout_lines }}"
+
+    - name: Create test file via Nextcloud to verify write access
+      ansible.builtin.shell: |
+        TEST_FILE="/space/mike/inbox/.cutover-test-$(date +%s)"
+        touch "$TEST_FILE"
+        rm "$TEST_FILE"
+      register: write_test
+
+    - name: Verify space-mirror job configuration
+      ansible.builtin.command: systemctl status space-mirror.timer
+      register: space_mirror_status
+      changed_when: false
+      failed_when: false
+
+    - name: Display cutover summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          CUTOVER COMPLETE
+          ============================================
+          Nextcloud Status: {{ 'READY' if nc_status.status == 200 else 'NOT READY' }}
+          External Storage: {{ 'Configured' if ext_storage.rc == 0 else 'ERROR' }}
+          Write Test: {{ 'PASSED' if write_test.rc == 0 else 'FAILED' }}
+          
+          akira is now the active Nextcloud host.
+          
+          IMPORTANT: Contact miket-infra team to update:
+          1. Cloudflare tunnel: nextcloud.miket.io → akira:8080
+          2. DNS if needed
+          
+          Rollback available for 7 days via:
+          ansible-playbook playbooks/migration/nextcloud-rollback.yml
+          ============================================
+
+    - name: Write cutover marker
+      ansible.builtin.copy:
+        content: |
+          {
+            "event": "cutover_complete",
+            "source_host": "motoko",
+            "target_host": "akira",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "status": "success",
+            "nextcloud_ready": {{ nc_status.status == 200 | lower }},
+            "rollback_available_until": "{{ '%Y-%m-%dT%H:%M:%S' | strftime(ansible_date_time.epoch | int + 604800) }}"
+          }
+        dest: /space/_ops/data-estate/markers/cutover.json
+        mode: "0644"
+

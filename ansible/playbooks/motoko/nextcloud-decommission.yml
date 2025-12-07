@@ -1,0 +1,210 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Nextcloud Decommission on motoko
+# =============================================================================
+# Removes Nextcloud runtime from motoko after successful migration to akira
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   # After rollback window (7 days post-cutover):
+#   ansible-playbook playbooks/motoko/nextcloud-decommission.yml --limit motoko
+#
+# WARNING: Only run this after the rollback window has expired!
+# This will remove Nextcloud containers and disable services.
+
+---
+- name: Decommission Nextcloud on motoko
+  hosts: motoko
+  become: true
+  gather_facts: true
+  
+  vars:
+    nextcloud_workdir: /flux/apps/nextcloud
+    nextcloud_db_path: /space/apps/nextcloud/db
+    nextcloud_data_path: /space/apps/nextcloud/data
+    archive_dir: /space/_services/nextcloud/archive/motoko-decommission-{{ ansible_date_time.date }}
+    
+  pre_tasks:
+    - name: Check for cutover marker
+      ansible.builtin.slurp:
+        src: /space/_ops/data-estate/markers/cutover.json
+      register: cutover_marker
+      failed_when: false
+      delegate_to: akira
+
+    - name: Parse cutover data
+      ansible.builtin.set_fact:
+        cutover_data: "{{ (cutover_marker.content | b64decode | from_json) if cutover_marker is succeeded else {} }}"
+
+    - name: Calculate days since cutover
+      ansible.builtin.set_fact:
+        days_since_cutover: "{{ ((ansible_date_time.epoch | int) - (cutover_data.timestamp | default('1970-01-01') | to_datetime('%Y-%m-%dT%H:%M:%S%z')).timestamp() | int) // 86400 }}"
+      when: cutover_data.timestamp is defined
+      failed_when: false
+
+    - name: Warn if within rollback window
+      ansible.builtin.pause:
+        prompt: |
+          
+          ============================================
+          WARNING: ROLLBACK WINDOW MAY STILL BE ACTIVE
+          ============================================
+          Days since cutover: {{ days_since_cutover | default('unknown') }}
+          Rollback window: 7 days
+          
+          If you proceed, rolling back to motoko will require
+          a full redeploy of Nextcloud.
+          
+          Press Enter to continue or Ctrl+C to abort...
+      when: (days_since_cutover | default(0) | int) < 7
+
+  tasks:
+    # ==========================================================================
+    # Archive Configuration and Data
+    # ==========================================================================
+    - name: Create archive directory
+      ansible.builtin.file:
+        path: "{{ archive_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Archive docker-compose.yml
+      ansible.builtin.copy:
+        src: "{{ nextcloud_workdir }}/docker-compose.yml"
+        dest: "{{ archive_dir }}/docker-compose.yml"
+        remote_src: true
+        mode: "0644"
+      failed_when: false
+
+    - name: Archive Nextcloud config
+      ansible.builtin.command: >-
+        tar -czf {{ archive_dir }}/config-backup.tar.gz -C {{ nextcloud_workdir }} config
+      args:
+        creates: "{{ archive_dir }}/config-backup.tar.gz"
+      failed_when: false
+
+    - name: Create final database snapshot
+      ansible.builtin.shell: |
+        podman exec nextcloud-db pg_dump -U nextcloud -d nextcloud | gzip > {{ archive_dir }}/final-db-snapshot.sql.gz
+      failed_when: false
+
+    - name: Archive systemd units
+      ansible.builtin.shell: |
+        cp /etc/systemd/system/nextcloud*.service {{ archive_dir }}/ 2>/dev/null || true
+        cp /etc/systemd/system/nextcloud*.timer {{ archive_dir }}/ 2>/dev/null || true
+      failed_when: false
+
+    # ==========================================================================
+    # Stop and Disable Services
+    # ==========================================================================
+    - name: Stop Nextcloud services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - nextcloud
+        - nextcloud-m365-sync.timer
+        - nextcloud-m365-sync.service
+        - nextcloud-db-backup.timer
+        - nextcloud-db-backup.service
+        - nextcloud-home-sweeper.timer
+        - nextcloud-home-sweeper.service
+        - nextcloud-healthcheck.timer
+        - nextcloud-healthcheck.service
+      failed_when: false
+
+    - name: Stop Nextcloud containers
+      ansible.builtin.command: podman compose -f {{ nextcloud_workdir }}/docker-compose.yml down
+      args:
+        chdir: "{{ nextcloud_workdir }}"
+      failed_when: false
+
+    # ==========================================================================
+    # Remove Systemd Units
+    # ==========================================================================
+    - name: Remove Nextcloud systemd units
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ item }}"
+        state: absent
+      loop:
+        - nextcloud.service
+        - nextcloud-m365-sync.timer
+        - nextcloud-m365-sync.service
+        - nextcloud-db-backup.timer
+        - nextcloud-db-backup.service
+        - nextcloud-home-sweeper.timer
+        - nextcloud-home-sweeper.service
+        - nextcloud-healthcheck.timer
+        - nextcloud-healthcheck.service
+      notify: reload systemd
+
+    # ==========================================================================
+    # Cleanup Runtime (Optional)
+    # ==========================================================================
+    - name: Remove Nextcloud workdir (optional)
+      ansible.builtin.file:
+        path: "{{ nextcloud_workdir }}"
+        state: absent
+      when: cleanup_workdir | default(false) | bool
+
+    - name: Remove container images (optional)
+      ansible.builtin.command: podman rmi {{ item }}
+      loop:
+        - docker.io/library/nextcloud:29-apache
+        - docker.io/library/postgres:16-alpine
+        - docker.io/library/redis:7-alpine
+      when: cleanup_images | default(false) | bool
+      failed_when: false
+
+    # ==========================================================================
+    # Summary
+    # ==========================================================================
+    - name: Display decommission summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Nextcloud Decommission Complete on motoko
+          ============================================
+          
+          Archived to: {{ archive_dir }}
+          Contents:
+          - docker-compose.yml
+          - config-backup.tar.gz
+          - final-db-snapshot.sql.gz
+          - systemd unit files
+          
+          Removed:
+          - Nextcloud services (stopped and disabled)
+          - Systemd units
+          {% if cleanup_workdir | default(false) %}
+          - Workdir: {{ nextcloud_workdir }}
+          {% endif %}
+          {% if cleanup_images | default(false) %}
+          - Container images
+          {% endif %}
+          
+          /space is still accessible on motoko for other uses.
+          Nextcloud is now running on akira.
+          ============================================
+
+    - name: Write decommission marker
+      ansible.builtin.copy:
+        content: |
+          {
+            "event": "nextcloud_decommission",
+            "host": "motoko",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "archive_path": "{{ archive_dir }}",
+            "status": "complete"
+          }
+        dest: /space/_ops/data-estate/markers/motoko_decommission.json
+        mode: "0644"
+
+  handlers:
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+

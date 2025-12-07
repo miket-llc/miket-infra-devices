@@ -20,14 +20,15 @@ The Flux/Space/Time filesystem is the storage backplane for the Personal Hybrid 
 6. External mounts (SMB/NFS) present `/flux`, `/space`, `/time` via canonical paths; avoid hardcoded IPs.
 
 ## 3) Layout & permissions
-- **Server (motoko):** `/space` (SoR, ZFS/ext), `/flux` (runtime/cache), `/time` (backups). Exported via SMB.
+- **Primary storage host (akira):** `/space` (SoR, btrfs on 18TB external), `/flux` (runtime, NVMe), `/time` (backups, NVMe). Exported via SMB. Hosts Nextcloud and space-mirror jobs. (Per ADR-0010, migrated from motoko 2025-12.)
+- **Secondary host (motoko):** `/time` (Time Machine backups), `/flux` (local runtime). No longer hosts `/space` SoR.
 - **Client UX paths:** `~/{flux,space,time}` on every OS. These are symlinks or mapped drives masking implementation paths.
 - **Do not expose:** `/space/projects/**`, `/space/dev/**`, `/space/code/**`, or any internal automation state via sync services.
 
 ## 4) Mount patterns per OS
-- **macOS:** Implementation mounts at `~/.mkt/{flux,space,time}` with symlinks `~/{flux,space,time}`. SMB target `//motoko/{flux,space,time}`. Use hostname resolution first (MagicDNS).
-- **Windows:** Drives `X:` (flux), `S:` (space), `T:` (time) mapped to `\\motoko\{flux,space,time}`. Junctions excluded from any OS cloud ingestion.
-- **Linux:** `/mnt/{flux,space,time}` or user-level `~/.mkt/...` (FUSE/GVFS). Symlinks in `$HOME` mirror the canonical naming.
+- **macOS:** Implementation mounts at `~/.mkt/{flux,space,time}` with symlinks `~/{flux,space,time}`. SMB target `//akira/space` for `/space`, `//motoko/time` for `/time`. Use hostname resolution first (MagicDNS).
+- **Windows:** Drives `X:` (flux), `S:` (space), `T:` (time) mapped to `\\akira\space` and `\\motoko\time`. Junctions excluded from any OS cloud ingestion.
+- **Linux:** `/mnt/{flux,space,time}` or user-level `~/.mkt/...` (FUSE/GVFS). Symlinks in `$HOME` mirror the canonical naming. Note: akira has local `/space`; other nodes mount via SMB.
 
 ## 5) Ingestion & device reporting
 - **OS-native clouds:** iCloud/OneDrive ingest **into** `/space/devices/<host>/<user>/...` with loop prevention (`rsync --no-links`, `robocopy /XJ`). Never sync mount points back to the cloud providers.

@@ -6,9 +6,10 @@
 
 ## 1) Device roles
 - **motoko (server/core):**
-  - Runs containers (LiteLLM, Nextcloud), exports `/flux`/`/space`/`/time` via SMB.
-  - Hosts Ansible control node and systemd timers (backups, space-mirror, secrets-sync).
-  - Cloudflare Tunnel endpoint; never directly internet-exposed.
+  - Runs containers (LiteLLM, vLLM embeddings).
+  - Hosts Ansible control node and systemd timers (flux-backup, secrets-sync).
+  - Exports `/time` via SMB (Time Machine backups for count-zero).
+  - **Note:** `/space` and Nextcloud migrated to akira per ADR-0010 (2025-12).
 - **armitage (Fedora KDE workstation / GPU / Ollama LLM node):**
   - Fedora KDE desktop (per ADR-004: KDE Plasma is the Linux UI standard).
   - Ollama LLM runtime (per ADR-005: workstations use Ollama, servers use vLLM).
@@ -16,10 +17,12 @@
   - Tailscale tags: `linux`, `gpu`, `llm_node`.
   - Remote UX via NoMachine. SSH via tailnet.
   - **Note:** A small Windows partition exists for Dell support/diagnostics only (offline, not on tailnet, not managed by Ansible).
-- **akira (Fedora KDE workstation / GPU / vLLM server):**
+- **akira (storage + Nextcloud + AI workstation):**
   - Fedora 43 KDE Plasma desktop (per ADR-004: KDE Plasma is the Linux UI standard).
-  - vLLM server node (per ADR-005: servers use vLLM).
-  - AMD Strix Point APU with ROCm support.
+  - **Hosts `/space` (SoR)** on WD Red 18TB external drive (per ADR-0010).
+  - **Runs Nextcloud container stack** with external storage mounts to `/space/mike/*`.
+  - Runs `space-mirror` job (B2 sync) and M365 ingestion job.
+  - AMD Strix Point APU with ROCm support for AI workloads.
   - Tailscale tags: `linux`, `ai-node`, `llm_node`, `rocm`.
   - Remote UX via NoMachine.
 - **wintermute (Windows workstation / GPU):**
@@ -46,8 +49,11 @@
 - **Data ingress:** OS clouds → `/space/devices/...`; manual uploads land in `/space/mike/inbox/*` before being curated. No reverse sync from `/space` to clouds.
 - **Service data:**
   - **AI fabric:** Models/configs under `/space/ai/` (SoR), ephemeral caches under `/flux/ai/`.
-  - **Nextcloud:** External storage to approved `/space/mike/*` folders; internal homes empty. Home sweeper + skeleton disabled remain enforced.
-  - **Backups/mirrors:** Restic + space-mirror timers run on motoko using AKV-provisioned credentials.
+  - **Nextcloud (on akira):** External storage to approved `/space/mike/*` folders; internal homes empty. Home sweeper + skeleton disabled remain enforced.
+  - **Backups/mirrors:**
+    - `space-mirror` runs on **akira** (syncs `/space` → B2:miket-space-mirror)
+    - `flux-backup` runs on **motoko** (syncs `/flux` → B2:miket-backups-restic)
+    - All using AKV-provisioned credentials.
 
 ## 5) Monitoring & observability
 - **Netdata Cloud (Homelab):** All PHC nodes run standalone Netdata agents claimed to Netdata Cloud (Homelab subscription). Cloud is the **primary monitoring UI**; local dashboards are secondary (break-glass, tailnet-only). Uses STABLE release channel by default.

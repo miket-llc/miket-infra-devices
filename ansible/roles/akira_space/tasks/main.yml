@@ -1,0 +1,177 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# akira_space Role - Main Tasks
+# =============================================================================
+# Configures /space on akira as the PHC System of Record (SoR)
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# This role:
+# 1. Ensures the external drive is mounted at /space
+# 2. Creates the canonical directory structure
+# 3. Sets up user symlinks for UX
+# 4. Optionally configures SMB export for other nodes
+
+- name: Verify external drive is connected
+  ansible.builtin.stat:
+    path: "{{ akira_space_device }}"
+  register: space_device_stat
+
+- name: Fail if external drive not connected
+  ansible.builtin.fail:
+    msg: |
+      External drive not found at {{ akira_space_device }}
+      Please connect the WD Red 18TB drive to USB 3.x port (Bus 4, rear panel).
+      Expected UUID: {{ akira_space_uuid }}
+  when: not space_device_stat.stat.exists
+
+- name: Get device UUID
+  ansible.builtin.command: blkid -s UUID -o value {{ akira_space_device }}
+  register: device_uuid
+  changed_when: false
+  failed_when: false
+
+- name: Get filesystem type
+  ansible.builtin.command: blkid -s TYPE -o value {{ akira_space_device }}
+  register: device_fstype
+  changed_when: false
+  failed_when: false
+
+- name: Format /space device if missing filesystem and allowed
+  when:
+    - device_uuid.rc != 0
+    - device_fstype.rc != 0
+    - akira_space_format_if_missing | bool
+  block:
+    - name: Create btrfs filesystem on /space device
+      ansible.builtin.command: >
+        mkfs.btrfs -f -L {{ akira_space_label }} -U {{ akira_space_uuid }} {{ akira_space_device }}
+      register: mkfs_result
+      changed_when: true
+    - name: Refresh device UUID after format
+      ansible.builtin.command: blkid -s UUID -o value {{ akira_space_device }}
+      register: device_uuid
+      changed_when: false
+    - name: Refresh filesystem type after format
+      ansible.builtin.command: blkid -s TYPE -o value {{ akira_space_device }}
+      register: device_fstype
+      changed_when: false
+
+- name: Verify device UUID matches expected
+  ansible.builtin.assert:
+    that:
+      - device_uuid.stdout == akira_space_uuid
+    fail_msg: |
+      UUID mismatch! Expected {{ akira_space_uuid }} but got {{ device_uuid.stdout }}.
+      This may indicate a different drive is connected or the drive was reformatted.
+    success_msg: "Device UUID verified: {{ akira_space_uuid }}"
+  when: device_uuid.rc == 0
+
+- name: Verify filesystem type matches expected
+  ansible.builtin.assert:
+    that:
+      - device_fstype.stdout == akira_space_filesystem
+    fail_msg: |
+      Filesystem type mismatch! Expected {{ akira_space_filesystem }} but got {{ device_fstype.stdout }}.
+      Set akira_space_format_if_missing=true only on fresh disks if formatting is intended.
+    success_msg: "Filesystem type verified: {{ akira_space_filesystem }}"
+  when: device_fstype.rc == 0
+
+# =============================================================================
+# Mount Point Setup
+# =============================================================================
+
+- name: Create /space mount point
+  ansible.builtin.file:
+    path: "{{ akira_space_mount }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Configure /space in fstab
+  ansible.posix.mount:
+    path: "{{ akira_space_mount }}"
+    src: "UUID={{ akira_space_uuid }}"
+    fstype: "{{ akira_space_filesystem }}"
+    opts: "{{ akira_space_mount_options }}"
+    state: present
+    dump: "0"
+    passno: "0"
+  notify: reload systemd
+
+- name: Mount /space
+  ansible.posix.mount:
+    path: "{{ akira_space_mount }}"
+    state: mounted
+    src: "UUID={{ akira_space_uuid }}"
+    fstype: "{{ akira_space_filesystem }}"
+    opts: "{{ akira_space_mount_options }}"
+
+- name: Verify /space is mounted
+  ansible.builtin.command: mountpoint -q {{ akira_space_mount }}
+  changed_when: false
+
+- name: Run btrfs scrub (optional)
+  ansible.builtin.command: btrfs scrub start -Bd {{ akira_space_mount }}
+  changed_when: false
+  when: akira_space_run_scrub | bool
+
+# =============================================================================
+# Directory Structure
+# =============================================================================
+
+- name: Create canonical user directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop: "{{ akira_space_canonical_dirs }}"
+  when: akira_space_canonical_dirs is defined
+  ignore_errors: true  # Allow failures if user doesn't exist yet; ownership will be fixed during data sync
+
+- name: Create service directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ akira_space_service_dirs }}"
+  when: akira_space_service_dirs is defined
+
+- name: Create ops directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop: "{{ akira_space_ops_dirs }}"
+  when: akira_space_ops_dirs is defined
+
+# =============================================================================
+# User Symlinks
+# =============================================================================
+
+- name: Create user symlinks for /space
+  ansible.builtin.file:
+    src: "{{ akira_space_mount }}"
+    dest: "{{ item.home }}/space"
+    state: link
+    owner: "{{ item.user }}"
+    group: "{{ item.user }}"
+  loop: "{{ akira_space_user_symlinks }}"
+  when: akira_space_user_symlinks is defined
+  failed_when: false  # Don't fail if user doesn't exist yet
+
+# =============================================================================
+# SMB Export (Optional)
+# =============================================================================
+
+- name: Include SMB export tasks
+  ansible.builtin.include_tasks: smb_export.yml
+  when: akira_space_smb_export | default(false) | bool

@@ -242,32 +242,47 @@
   tags: [workstation_gui, verify]
 
 # ========================================
-# Cool Retro Term Qt Theming Fix
+# Cool Retro Term Qt Theming Fix (Partial)
 # ========================================
-# Fixes white-on-white text in Qt settings menu
+# Improves readability of Qt Quick settings menu on KDE dark themes.
+# Uses Material Dark theme which makes ~80% of UI readable.
+#
+# Limitation: Some labels remain invisible due to hardcoded colors in the app's
+# QML source. This is an upstream bug requiring app patches to fully fix.
+#
+# This wrapper ONLY affects cool-retro-term. Other Qt apps use KDE native theming.
+# See: docs/runbooks/QT_THEMING_KDE.md
 - name: Cool Retro Term Qt theming fix block
-  when: cool_retro_term_qt_fix_enabled | bool
+  when:
+    - cool_retro_term_qt_fix_enabled | bool
+    - desktop_environment | default('') == 'kde'
   block:
+    # Ensure Qt Quick Controls 2 KDE style is available
+    - name: Ensure qqc2-desktop-style is installed for Qt Quick theming
+      ansible.builtin.dnf:
+        name:
+          - qqc2-desktop-style
+          - plasma-integration
+        state: present
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, cool-retro-term, qt-theming]
+
+    # Remove qt5ct/qt6ct - these conflict with KDE native theming
+    # They override QT_QPA_PLATFORMTHEME=kde which breaks Plasma integration
+    - name: Remove qt5ct/qt6ct to prevent KDE theming conflicts
+      ansible.builtin.dnf:
+        name:
+          - qt5ct
+          - qt6ct
+        state: absent
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, cool-retro-term, qt-theming]
+
     - name: Check if cool-retro-term is installed
       ansible.builtin.command: which cool-retro-term
       register: cool_retro_term_check
       changed_when: false
       failed_when: false
-      tags: [workstation_gui, cool-retro-term]
-
-    - name: Install qt5ct for better Qt theme control (optional)
-      ansible.builtin.dnf:
-        name: qt5ct
-        state: present
-      when: ansible_os_family == 'RedHat'
-      tags: [workstation_gui, cool-retro-term]
-
-    - name: Install qt5ct for better Qt theme control (optional)
-      ansible.builtin.apt:
-        name: qt5ct
-        state: present
-        update_cache: yes
-      when: ansible_os_family == 'Debian'
       tags: [workstation_gui, cool-retro-term]
 
     - name: Install cool-retro-term wrapper script
@@ -277,57 +292,66 @@
         mode: '0755'
         owner: root
         group: root
-      when: cool_retro_term_check.rc == 0 or ansible_os_family == 'RedHat'
+      when: cool_retro_term_check.rc == 0
       tags: [workstation_gui, cool-retro-term]
 
-    - name: Find existing cool-retro-term desktop entry
-      ansible.builtin.find:
-        paths:
-          - /usr/share/applications
-          - ~/.local/share/applications
-        patterns:
-          - "*cool-retro-term*.desktop"
-        file_type: file
-      register: cool_retro_term_desktop
-      changed_when: false
+    # Deploy desktop entry to /usr/local/share/applications which takes precedence
+    # over /usr/share/applications, allowing us to override without modifying
+    # the package-provided file
+    - name: Ensure local applications directory exists
+      ansible.builtin.file:
+        path: /usr/local/share/applications
+        state: directory
+        mode: '0755'
       tags: [workstation_gui, cool-retro-term]
 
-    - name: Backup existing cool-retro-term desktop entry
+    - name: Deploy cool-retro-term desktop entry with wrapper
       ansible.builtin.copy:
-        src: "{{ item.path }}"
-        dest: "{{ item.path }}.backup"
-        remote_src: yes
-      loop: "{{ cool_retro_term_desktop.files }}"
-      when: cool_retro_term_desktop.matched > 0
-      tags: [workstation_gui, cool-retro-term]
-
-    - name: Update cool-retro-term desktop entry to use wrapper
-      ansible.builtin.replace:
-        path: "{{ item.path }}"
-        regexp: '^Exec=(.*cool-retro-term.*)'
-        replace: 'Exec=/usr/local/bin/cool-retro-term-wrapper'
-      loop: "{{ cool_retro_term_desktop.files }}"
-      when: cool_retro_term_desktop.matched > 0
-      tags: [workstation_gui, cool-retro-term]
-
-    - name: Create cool-retro-term desktop entry if it doesn't exist
-      ansible.builtin.copy:
-        dest: /usr/share/applications/cool-retro-term.desktop
+        dest: /usr/local/share/applications/cool-retro-term.desktop
         content: |
           [Desktop Entry]
           Name=Cool Retro Term
-          Comment=Terminal emulator with retro aesthetics
+          Comment=Terminal emulator with retro CRT aesthetics
           Exec=/usr/local/bin/cool-retro-term-wrapper
           Icon=cool-retro-term
           Type=Application
           Categories=System;TerminalEmulator;
           Terminal=false
           StartupNotify=true
+          # Managed by Ansible - workstation_gui_tools role
+          # See: docs/runbooks/QT_THEMING_KDE.md
         mode: '0644'
-      when:
-        - cool_retro_term_desktop.matched == 0
-        - workstation_create_desktop_entries | bool
+      when: cool_retro_term_check.rc == 0
       tags: [workstation_gui, cool-retro-term]
+
+# Validation task for Qt theming (optional, run with --tags validate)
+- name: Validate Qt theming configuration
+  when:
+    - desktop_environment | default('') == 'kde'
+    - "'validate' in ansible_run_tags"
+  block:
+    - name: Check qqc2-desktop-style is installed
+      ansible.builtin.command: rpm -q qqc2-desktop-style
+      register: qqc2_check
+      changed_when: false
+      failed_when: qqc2_check.rc != 0
+      tags: [validate, qt-theming]
+
+    - name: Check qt5ct is NOT installed
+      ansible.builtin.command: rpm -q qt5ct
+      register: qt5ct_check
+      changed_when: false
+      failed_when: qt5ct_check.rc == 0
+      ignore_errors: true
+      tags: [validate, qt-theming]
+
+    - name: Check qt6ct is NOT installed
+      ansible.builtin.command: rpm -q qt6ct
+      register: qt6ct_check
+      changed_when: false
+      failed_when: qt6ct_check.rc == 0
+      ignore_errors: true
+      tags: [validate, qt-theming]
 
 
 

@@ -1,0 +1,119 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# akira_space Role Defaults
+# =============================================================================
+# Configures /space on akira as the PHC System of Record (SoR)
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+
+# External drive configuration (WD Red 18TB)
+akira_space_device: /dev/sda1
+akira_space_uuid: "9f387c92-613e-44fb-a6c4-3878b95905f3"
+akira_space_filesystem: btrfs
+akira_space_mount: /space
+akira_space_mount_options: "compress=zstd:3,noatime,nofail,x-systemd.device-timeout=30"
+akira_space_label: "space"
+akira_space_format_if_missing: false  # Safety valve - only set true on fresh disks
+akira_space_run_scrub: false
+
+# Directory structure per FILESYSTEM_ARCHITECTURE.md
+# These are the canonical directories that must exist on /space
+akira_space_canonical_dirs:
+  - path: /space/mike
+    owner: miket
+    group: miket
+  - path: /space/mike/work
+    owner: miket
+    group: miket
+  - path: /space/mike/media
+    owner: miket
+    group: miket
+  - path: /space/mike/finance
+    owner: miket
+    group: miket
+  - path: /space/mike/assets
+    owner: miket
+    group: miket
+  - path: /space/mike/camera
+    owner: miket
+    group: miket
+  - path: /space/mike/inbox
+    owner: miket
+    group: miket
+  - path: /space/mike/inbox/ms365
+    owner: miket
+    group: miket
+  - path: /space/projects
+    owner: mdt
+    group: mdt
+  - path: /space/datasets
+    owner: mdt
+    group: mdt
+  - path: /space/archives
+    owner: mdt
+    group: mdt
+
+# Service directories (automation-owned)
+akira_space_service_dirs:
+  - path: /space/_services
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_services/nextcloud
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_services/nextcloud/config
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_services/nextcloud/db-snapshots
+    owner: root
+    group: root
+    mode: "0755"
+
+# Ops directories (for data estate and logs)
+akira_space_ops_dirs:
+  - path: /space/_ops
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_ops/data-estate
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_ops/data-estate/markers
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_ops/logs
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_ops/logs/data-lifecycle
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_ops/logs/nextcloud
+    owner: root
+    group: root
+    mode: "0755"
+  - path: /space/_ops/nextcloud-quarantine
+    owner: root
+    group: root
+    mode: "0750"
+
+# User symlinks for UX (~/space -> /space)
+akira_space_user_symlinks:
+  - user: mdt
+    home: /home/mdt
+  - user: miket
+    home: /home/miket
+
+# SMB export configuration (for other PHC nodes)
+akira_space_smb_export: true
+akira_space_smb_share_name: space
+akira_space_smb_valid_users:
+  - miket
+  - mdt

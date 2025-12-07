@@ -1,0 +1,258 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Nextcloud Rollback Playbook
+# =============================================================================
+# Rolls back Nextcloud from akira to motoko in case of issues
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   ansible-playbook playbooks/migration/nextcloud-rollback.yml
+#
+# WARNING: This should only be used within the rollback window (7 days post-cutover)
+# After the rollback window, motoko's Nextcloud data may be stale.
+
+---
+# =============================================================================
+# Phase 1: Pre-Rollback Validation
+# =============================================================================
+- name: "Rollback Phase 1: Pre-flight Checks"
+  hosts: localhost
+  gather_facts: false
+  
+  tasks:
+    - name: Check rollback marker
+      ansible.builtin.slurp:
+        src: /space/_ops/data-estate/markers/cutover.json
+      register: cutover_marker
+      delegate_to: akira
+      failed_when: false
+
+    - name: Parse cutover timestamp
+      ansible.builtin.set_fact:
+        cutover_data: "{{ cutover_marker.content | b64decode | from_json }}"
+      when: cutover_marker is succeeded
+
+    - name: Warn if outside rollback window
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          WARNING: ROLLBACK WINDOW CHECK
+          ============================================
+          Cutover occurred: {{ cutover_data.timestamp | default('unknown') }}
+          Rollback available until: {{ cutover_data.rollback_available_until | default('unknown') }}
+          
+          If you are outside the rollback window, data on motoko
+          may be stale. Proceed with caution!
+          ============================================
+      when: cutover_data is defined
+
+    - name: Confirm rollback
+      ansible.builtin.pause:
+        prompt: |
+          
+          You are about to rollback Nextcloud from akira to motoko.
+          This will:
+          1. Put akira Nextcloud in maintenance mode
+          2. Export any new data written to akira
+          3. Sync changes back to motoko
+          4. Restart Nextcloud on motoko
+          5. Stop Nextcloud on akira
+          
+          Press Enter to continue or Ctrl+C to abort...
+
+# =============================================================================
+# Phase 2: Put akira in Maintenance Mode
+# =============================================================================
+- name: "Rollback Phase 2: Maintenance Mode on akira"
+  hosts: akira
+  become: true
+  
+  tasks:
+    - name: Enable Nextcloud maintenance mode on akira
+      ansible.builtin.command: >-
+        podman exec nextcloud-app php occ maintenance:mode --on
+      register: maint_on
+      changed_when: "'enabled' in maint_on.stdout"
+      failed_when: false
+
+    - name: Stop M365 sync timer on akira
+      ansible.builtin.systemd:
+        name: nextcloud-m365-sync.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Stop space-mirror timer on akira
+      ansible.builtin.systemd:
+        name: space-mirror.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+# =============================================================================
+# Phase 3: Export Data from akira
+# =============================================================================
+- name: "Rollback Phase 3: Data Export from akira"
+  hosts: akira
+  become: true
+  vars:
+    db_snapshot_path: /space/_services/nextcloud/db-snapshots
+    snapshot_filename: "rollback-{{ ansible_date_time.iso8601_basic_short }}.sql.gz"
+    
+  tasks:
+    - name: Create database snapshot on akira
+      ansible.builtin.shell: |
+        podman exec nextcloud-db pg_dump -U nextcloud -d nextcloud | gzip > {{ db_snapshot_path }}/{{ snapshot_filename }}
+      register: db_dump
+
+    - name: Sync /space changes back to motoko
+      ansible.builtin.command: >-
+        rsync -avz --update --progress
+        --exclude='_ops/logs/**'
+        --exclude='_ops/tmp/**'
+        /space/
+        mdt@motoko.pangolin-vega.ts.net:/space/
+      register: rollback_sync
+      async: 3600
+      poll: 30
+
+# =============================================================================
+# Phase 4: Restore motoko Services
+# =============================================================================
+- name: "Rollback Phase 4: Restore motoko Services"
+  hosts: motoko
+  become: true
+  vars:
+    db_snapshot_path: /space/_services/nextcloud/db-snapshots
+    
+  tasks:
+    - name: Find latest rollback snapshot
+      ansible.builtin.find:
+        paths: "{{ db_snapshot_path }}"
+        patterns: "rollback-*.sql.gz"
+      register: snapshots
+
+    - name: Get most recent snapshot
+      ansible.builtin.set_fact:
+        latest_snapshot: "{{ (snapshots.files | sort(attribute='mtime', reverse=true) | first).path }}"
+      when: snapshots.matched > 0
+
+    - name: Start Nextcloud containers on motoko
+      ansible.builtin.command: podman compose -f /flux/apps/nextcloud/docker-compose.yml up -d
+      args:
+        chdir: /flux/apps/nextcloud
+
+    - name: Wait for PostgreSQL to be ready
+      ansible.builtin.command: >-
+        podman exec nextcloud-db pg_isready -U nextcloud -d nextcloud
+      register: pg_ready
+      until: pg_ready.rc == 0
+      retries: 12
+      delay: 5
+
+    - name: Restore database from akira snapshot
+      ansible.builtin.shell: |
+        gunzip -c {{ latest_snapshot }} | podman exec -i nextcloud-db psql -U nextcloud -d nextcloud
+      when: latest_snapshot is defined
+
+    - name: Enable Nextcloud services on motoko
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+        daemon_reload: true
+      loop:
+        - nextcloud
+        - nextcloud-m365-sync.timer
+        - nextcloud-db-backup.timer
+        - nextcloud-home-sweeper.timer
+        - nextcloud-healthcheck.timer
+      failed_when: false
+
+    - name: Enable space-mirror on motoko
+      ansible.builtin.systemd:
+        name: space-mirror.timer
+        state: started
+        enabled: true
+
+    - name: Disable maintenance mode on motoko
+      ansible.builtin.command: >-
+        podman exec nextcloud-app php occ maintenance:mode --off
+      register: maint_off
+      changed_when: "'disabled' in maint_off.stdout"
+      failed_when: false
+
+# =============================================================================
+# Phase 5: Stop akira Services
+# =============================================================================
+- name: "Rollback Phase 5: Deactivate akira"
+  hosts: akira
+  become: true
+  
+  tasks:
+    - name: Stop Nextcloud services on akira
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - nextcloud
+        - nextcloud-m365-sync.timer
+        - nextcloud-db-backup.timer
+        - nextcloud-home-sweeper.timer
+        - nextcloud-healthcheck.timer
+      failed_when: false
+
+    - name: Stop Nextcloud containers on akira
+      ansible.builtin.command: podman compose -f /flux/apps/nextcloud/docker-compose.yml down
+      args:
+        chdir: /flux/apps/nextcloud
+      failed_when: false
+
+# =============================================================================
+# Phase 6: Verification
+# =============================================================================
+- name: "Rollback Phase 6: Verification"
+  hosts: motoko
+  become: true
+  
+  tasks:
+    - name: Wait for Nextcloud to be ready
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8080/status.php"
+        method: GET
+        status_code: 200
+      register: nc_status
+      until: nc_status.status == 200
+      retries: 6
+      delay: 10
+
+    - name: Display rollback summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          ROLLBACK COMPLETE
+          ============================================
+          Nextcloud Status: {{ 'READY' if nc_status.status == 200 else 'NOT READY' }}
+          
+          motoko is now the active Nextcloud host again.
+          
+          IMPORTANT: Contact miket-infra team to revert:
+          1. Cloudflare tunnel: nextcloud.miket.io → motoko:8080
+          2. DNS if changed
+          ============================================
+
+    - name: Write rollback marker
+      ansible.builtin.copy:
+        content: |
+          {
+            "event": "rollback_complete",
+            "from_host": "akira",
+            "to_host": "motoko",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "status": "success",
+            "reason": "Manual rollback triggered"
+          }
+        dest: /space/_ops/data-estate/markers/rollback.json
+        mode: "0644"
+

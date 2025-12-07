@@ -1,0 +1,51 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Setup /space on akira
+# =============================================================================
+# Mounts and configures /space on akira as the PHC System of Record
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   ansible-playbook playbooks/akira/setup-space.yml --limit akira
+#
+# Prerequisites:
+# - WD Red 18TB drive connected to USB 3.x port (rear panel)
+# - Drive formatted as btrfs with UUID: 9f387c92-613e-44fb-a6c4-3878b95905f3
+
+---
+- name: Setup /space on akira
+  hosts: akira
+  become: true
+  gather_facts: true
+  
+  roles:
+    - role: akira_space
+      tags: [storage, space]
+  
+  post_tasks:
+    - name: Verify /space mount
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+      register: space_mount
+
+    - name: Get /space usage
+      ansible.builtin.command: df -h /space
+      register: space_usage
+      changed_when: false
+
+    - name: Display setup summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          /space Setup Complete on akira
+          ============================================
+          Mount Status: {{ 'MOUNTED' if space_mount.rc == 0 else 'NOT MOUNTED' }}
+          
+          Usage:
+          {{ space_usage.stdout }}
+          
+          Next steps:
+          1. Sync data from motoko: ansible-playbook playbooks/migration/space-migration-sync.yml
+          2. Deploy Nextcloud: ansible-playbook playbooks/migration/nextcloud-stage-akira.yml
+          ============================================
+

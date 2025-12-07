@@ -28,12 +28,12 @@
 - name: Mount SMB shares via fstab
   mount:
     path: "{{ item.mount_point }}"
-    src: "//{{ smb_server }}{{ item.path }}"
+    src: "//{{ item.server | default(smb_server) }}{{ item.path }}"
     fstype: cifs
     opts: "credentials={{ smb_credentials_file }},uid={{ ansible_user_uid | default(1000) }},gid={{ ansible_user_gid | default(1000) }},iocharset=utf8,vers=3.0,_netdev"
     state: mounted
   loop: "{{ smb_shares }}"
-  when: inventory_hostname != smb_server
+  when: inventory_hostname != (item.server | default(smb_server))
 
 - name: Bind mount local directories (Server Mode)
   mount:
@@ -43,7 +43,7 @@
     opts: bind
     state: mounted
   loop: "{{ smb_shares }}"
-  when: inventory_hostname == smb_server
+  when: inventory_hostname == (item.server | default(smb_server))
 
 - name: Create user symlinks
   file:
@@ -96,4 +96,3 @@
     state: started
     enabled: yes
     daemon_reload: yes
-

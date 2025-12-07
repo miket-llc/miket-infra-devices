@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+# /space SMB share for PHC nodes
+# Per FILESYSTEM_ARCHITECTURE.md - /space is the System of Record
+
+[{{ akira_space_smb_share_name }}]
+    comment = PHC System of Record
+    path = {{ akira_space_mount }}
+    browseable = yes
+    read only = no
+    guest ok = no
+    valid users = {{ akira_space_smb_valid_users | join(' ') }}
+    create mask = 0644
+    directory mask = 0755
+    force user = miket
+    force group = miket
+    # Prevent creation of Nextcloud-branded directories
+    veto files = /Nextcloud/nextcloud/.nextcloud/
+

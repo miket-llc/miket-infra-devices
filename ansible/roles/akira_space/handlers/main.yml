@@ -1,0 +1,14 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# akira_space Role Handlers
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart smbd
+  ansible.builtin.systemd:
+    name: smb
+    state: restarted
+

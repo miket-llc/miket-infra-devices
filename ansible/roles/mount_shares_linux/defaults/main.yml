@@ -2,23 +2,30 @@
 
 ---
 # Defaults for Linux mount shares role
-smb_server: "motoko"
+# Default SMB hosts (SoR: space on akira, time on motoko)
+smb_server_space: "akira"
+smb_server_time: "motoko"
+smb_server_flux: "akira"
+smb_server: "{{ smb_server_space }}"  # legacy fallback
 smb_username: "mdt"
 
 # Credentials file for cifs (managed by this role or externally)
-smb_credentials_file: "/root/.smbcredentials_motoko"
+smb_credentials_file: "/root/.smbcredentials_phc"
 
 # System-level mount points
 smb_shares:
   - name: "flux"
     path: "/flux"
     mount_point: "/mnt/flux"
+    server: "{{ smb_server_flux }}"
   - name: "space"
     path: "/space"
     mount_point: "/mnt/space"
+    server: "{{ smb_server_space }}"
   - name: "time"
     path: "/time"
     mount_point: "/mnt/time"
+    server: "{{ smb_server_time }}"
 
 # User-level symlinks
 # These will be created for the ansible_user
@@ -32,7 +39,6 @@ user_symlinks:
   - name: "time"
     target: "/mnt/time"
     link: "~/time"
-
 
 
 

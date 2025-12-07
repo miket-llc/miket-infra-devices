@@ -1,0 +1,221 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Stage Nextcloud on akira (Dark Deployment)
+# =============================================================================
+# Deploys Nextcloud on akira in "dark" mode for pre-cutover validation
+# Per ADR-0010: /space + Nextcloud migration from motoko to akira
+#
+# Usage:
+#   ansible-playbook playbooks/migration/nextcloud-stage-akira.yml --limit akira
+#
+# Prerequisites:
+# - /space must be synced from motoko (run space-migration-sync.yml first)
+# - Secrets must be synced to akira (nextcloud.env)
+# - DB snapshot must be available from motoko
+
+---
+- name: Stage Nextcloud on akira (Dark Deployment)
+  hosts: akira
+  become: true
+  vars:
+    # Override nextcloud_server role defaults for akira
+    nextcloud_container_runtime: podman
+    nextcloud_workdir: /flux/apps/nextcloud
+    nextcloud_compose_path: /flux/apps/nextcloud/docker-compose.yml
+    nextcloud_config_path: /flux/apps/nextcloud/config
+    nextcloud_bin_path: /flux/apps/nextcloud/bin
+    nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
+    
+    # Data paths (on /space for SoR, except DB which is on /flux for performance)
+    nextcloud_data_path: /flux/apps/nextcloud/data
+    nextcloud_db_path: /flux/dbs/nextcloud
+    nextcloud_db_backup_path: /space/_services/nextcloud/db-snapshots
+    nextcloud_log_path: /space/_ops/logs/nextcloud
+    
+    # M365 ingestion target
+    nextcloud_m365_inbox: /space/mike/inbox/ms365
+    
+    # Container images (same as motoko)
+    nextcloud_image: docker.io/library/nextcloud:29-apache
+    nextcloud_postgres_image: docker.io/library/postgres:16-alpine
+    nextcloud_redis_image: docker.io/library/redis:7-alpine
+    
+    # Network / Ports
+    nextcloud_port: 8080
+    nextcloud_internal_hostname: akira.pangolin-vega.ts.net
+    nextcloud_external_hostname: nextcloud.miket.io
+    
+    # Dark mode - disable public-facing features during staging
+    nextcloud_dark_mode: true
+    
+    # Trusted domains (include both hosts during migration)
+    nextcloud_trusted_domains:
+      - localhost
+      - akira
+      - akira.pangolin-vega.ts.net
+      - motoko
+      - motoko.pangolin-vega.ts.net
+      - nextcloud.miket.io
+      - 127.0.0.1
+    
+    # External storage mounts (same as motoko)
+    nextcloud_external_mounts:
+      - name: work
+        path: /space/mike/work
+      - name: media
+        path: /space/mike/media
+      - name: finance
+        path: /space/mike/finance
+      - name: assets
+        path: /space/mike/assets
+      - name: camera
+        path: /space/mike/camera
+      - name: inbox
+        path: /space/mike/inbox
+      - name: ms365
+        path: /space/mike/inbox/ms365
+    
+    # Façade configuration
+    nextcloud_skeleton_directory: ""
+    nextcloud_home_sweeper_enabled: true
+    nextcloud_home_sweeper_quarantine: /space/_ops/nextcloud-quarantine
+    nextcloud_managed_users:
+      - mike
+    
+    # Disable M365 sync during dark mode
+    nextcloud_m365_sync_enabled: false
+    
+    # DB backup configuration
+    nextcloud_db_backup_schedule: "02:00"
+    nextcloud_db_backup_retain_days: 7
+
+    # Source of truth on motoko for initial restore
+    motoko_nextcloud_host: motoko.pangolin-vega.ts.net
+    motoko_nextcloud_config_path: /flux/apps/nextcloud/config
+    motoko_nextcloud_snapshot_path: /space/_services/nextcloud/db-snapshots
+
+  pre_tasks:
+    - name: Verify /space is mounted
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+
+    - name: Verify /flux is mounted
+      ansible.builtin.command: mountpoint -q /flux
+      changed_when: false
+
+    - name: Check for secrets file
+      ansible.builtin.stat:
+        path: "{{ nextcloud_env_path }}"
+      register: secrets_file
+
+    - name: Fail if secrets not deployed
+      ansible.builtin.fail:
+        msg: |
+          Nextcloud secrets not found at {{ nextcloud_env_path }}
+          Run: ansible-playbook playbooks/secrets-sync.yml --limit akira
+      when: not secrets_file.stat.exists
+
+    - name: Create required directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ nextcloud_workdir }}"
+        - "{{ nextcloud_config_path }}"
+        - "{{ nextcloud_bin_path }}"
+        - "{{ nextcloud_data_path }}"
+        - "{{ nextcloud_db_path }}"
+        - /flux/dbs
+        - /flux/runtime/secrets
+
+  roles:
+    - role: nextcloud_server
+      tags: [nextcloud]
+
+  post_tasks:
+    - name: Find latest database snapshot on motoko
+      ansible.builtin.find:
+        paths: "{{ motoko_nextcloud_snapshot_path }}"
+        patterns: "*.sql.gz"
+      delegate_to: motoko
+      register: motoko_snapshots
+      changed_when: false
+
+    - name: Set latest snapshot path fact
+      ansible.builtin.set_fact:
+        motoko_latest_snapshot: "{{ (motoko_snapshots.files | sort(attribute='mtime', reverse=true) | first).path }}"
+      when: motoko_snapshots.matched | default(0) > 0
+
+    - name: Sync Nextcloud config from motoko
+      ansible.builtin.command: >-
+        rsync -az --delete
+        mdt@{{ motoko_nextcloud_host }}:{{ motoko_nextcloud_config_path }}/
+        {{ nextcloud_config_path }}/
+      register: config_sync
+      changed_when: config_sync.rc == 0
+      failed_when: config_sync.rc != 0
+
+    - name: Copy latest DB snapshot from motoko
+      ansible.builtin.command: >-
+        scp mdt@{{ motoko_nextcloud_host }}:{{ motoko_latest_snapshot }}
+        {{ nextcloud_db_backup_path }}/
+      when: motoko_latest_snapshot is defined
+      register: snapshot_copy
+      changed_when: snapshot_copy.rc == 0
+      failed_when: snapshot_copy.rc != 0
+
+    - name: Restore database from motoko snapshot
+      ansible.builtin.shell: |
+        LATEST_LOCAL=$(ls -t {{ nextcloud_db_backup_path }}/*.sql.gz | head -1)
+        gunzip -c "$LATEST_LOCAL" | podman exec -i nextcloud-db psql -U nextcloud -d nextcloud
+      when: motoko_latest_snapshot is defined
+      register: db_restore
+      changed_when: true
+      failed_when: db_restore.rc != 0
+
+    - name: Wait for Nextcloud to be ready
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ nextcloud_port }}/status.php"
+        method: GET
+        status_code: 200
+        return_content: true
+      register: nc_status
+      until: nc_status.status == 200
+      retries: 12
+      delay: 10
+      failed_when: false
+
+    - name: Display deployment status
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Nextcloud Dark Deployment Status
+          ============================================
+          Status: {{ 'READY' if nc_status.status == 200 else 'NOT READY' }}
+          
+          Internal access (tailnet only):
+            https://{{ nextcloud_internal_hostname }}:{{ nextcloud_port }}
+          
+          Next steps:
+          1. Access Nextcloud via tailnet to validate
+          2. Verify external storage mounts are visible
+          3. Restore database from motoko snapshot if needed
+          4. When ready, run cutover: ansible-playbook playbooks/migration/nextcloud-cutover.yml
+          ============================================
+
+    - name: Create staging marker
+      ansible.builtin.copy:
+        content: |
+          {
+            "deployment": "nextcloud-dark",
+            "host": "akira",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "status": "{{ 'ready' if nc_status.status == 200 else 'pending' }}",
+            "port": {{ nextcloud_port }},
+            "external_mounts": {{ nextcloud_external_mounts | to_json }}
+          }
+        dest: /space/_ops/data-estate/markers/nextcloud_staging.json
+        mode: "0644"

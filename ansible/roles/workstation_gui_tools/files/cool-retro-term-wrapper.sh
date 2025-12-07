@@ -1,51 +1,30 @@
 #!/bin/bash
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 #
-# Wrapper script for cool-retro-term that fixes Qt theming issues
-# Sets Qt environment variables to ensure proper theme rendering
+# Wrapper script for cool-retro-term on KDE Plasma
+#
+# Purpose: Force Qt Quick Controls to use Material Dark theme for readable UI
+#
+# Root cause: cool-retro-term's Qt Quick settings UI has hardcoded colors that
+# don't respect system themes. This is an upstream bug - the app uses raw QML
+# Text elements instead of themed Label components in some places.
+#
+# Workaround: Material Dark theme makes MOST of the UI readable, though some
+# labels remain invisible due to hardcoded colors in the app's QML.
+#
+# This wrapper ONLY affects cool-retro-term. Other Qt apps use KDE's native
+# theming via plasma-integration and qqc2-desktop-style.
+#
+# See: docs/runbooks/QT_THEMING_KDE.md
 
-# Force Qt to use KDE platform theme (if available)
-# This ensures Qt applications respect KDE system theme
-export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-kde}"
+# Force Material Dark theme for this app only
+export QT_QUICK_CONTROLS_STYLE=Material
+export QT_QUICK_CONTROLS_MATERIAL_THEME=Dark
 
-# Force Qt style to Breeze (KDE default) if platform theme doesn't work
-# This ensures readable text colors
-export QT_STYLE_OVERRIDE="${QT_STYLE_OVERRIDE:-Breeze}"
-
-# Set Qt color scheme to match system
-# For dark themes, this ensures proper contrast
-export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
-
-# Additional Qt settings for better theme integration
-# Force Qt to use system color scheme
-export QT_AUTO_SCREEN_SCALE_FACTOR=1
-
-# If qt5ct/qt6ct is installed, use it for better theme control
-if command -v qt5ct >/dev/null 2>&1; then
-    export QT_QPA_PLATFORMTHEME=qt5ct
-elif command -v qt6ct >/dev/null 2>&1; then
-    export QT_QPA_PLATFORMTHEME=qt6ct
-fi
-
-# Find cool-retro-term binary
-COOL_RETRO_TERM_BIN=""
-if command -v cool-retro-term >/dev/null 2>&1; then
-    COOL_RETRO_TERM_BIN="cool-retro-term"
-elif [ -f /usr/bin/cool-retro-term ]; then
-    COOL_RETRO_TERM_BIN="/usr/bin/cool-retro-term"
-elif [ -f /usr/local/bin/cool-retro-term ]; then
-    COOL_RETRO_TERM_BIN="/usr/local/bin/cool-retro-term"
+# Execute cool-retro-term
+if [ -x /usr/bin/cool-retro-term ]; then
+    exec /usr/bin/cool-retro-term "$@"
 else
-    # Try to find it in common locations
-    COOL_RETRO_TERM_BIN=$(find /usr -name "cool-retro-term" -type f 2>/dev/null | head -1)
-fi
-
-if [ -z "$COOL_RETRO_TERM_BIN" ]; then
-    echo "Error: cool-retro-term not found" >&2
+    echo "Error: cool-retro-term not found at /usr/bin/cool-retro-term" >&2
     exit 1
 fi
-
-# Execute cool-retro-term with all arguments
-exec "$COOL_RETRO_TERM_BIN" "$@"
-
-
