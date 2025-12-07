@@ -1,0 +1,168 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/main.yml
+#
+# HEADLESS FEDORA SERVER CONVERSION ROLE
+# ======================================
+#
+# This role converts a Fedora Workstation into a headless server:
+#   1. Sets default boot target to multi-user.target
+#   2. Masks graphical targets and display managers
+#   3. Removes desktop packages (optional, controlled by skip flag)
+#   4. Installs minimal CLI baseline
+#   5. Configures tailnet-only SSH firewall
+#
+# PREREQUISITES:
+#   - Tailscale MUST be installed and authenticated BEFORE running this role
+#   - SSH access via Tailscale must be working
+#
+# SAFETY:
+#   - Use tag 'safe_headless_cutover' to skip GUI removal until connectivity proven
+#   - Role is idempotent and safe to re-run
+#
+---
+
+- name: Display headless conversion banner
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      HEADLESS FEDORA SERVER CONVERSION
+      ═══════════════════════════════════════════════════════════════
+      
+      Host:           {{ inventory_hostname }}
+      Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+      Kernel:         {{ ansible_kernel }}
+      
+      Mode:           {{ 'DRY RUN' if headless_dry_run else 'LIVE' }}
+      Skip GUI:       {{ 'YES (safe cutover)' if headless_skip_gui_removal else 'NO (full conversion)' }}
+      
+      Actions:
+        1. Set boot target to {{ headless_boot_target }}
+        2. Mask graphical targets and display managers
+        {% if not headless_skip_gui_removal %}
+        3. Remove desktop packages
+        {% else %}
+        3. [SKIPPED] Desktop packages preserved (safe cutover mode)
+        {% endif %}
+        4. Install CLI baseline packages
+        5. Configure tailnet-only SSH firewall
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [always, headless]
+
+- name: Verify Fedora distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role requires Fedora (found: {{ ansible_distribution }})"
+    success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+  tags: [always, headless]
+
+# ========================================
+# Phase 1: Verify Tailscale Connectivity
+# ========================================
+- name: Include Tailscale connectivity verification
+  ansible.builtin.include_tasks: verify-tailscale.yml
+  tags: [headless, tailscale, verify]
+
+# ========================================
+# Phase 2: Configure Headless Boot Target
+# ========================================
+- name: Include boot target configuration
+  ansible.builtin.include_tasks: configure-boot.yml
+  tags: [headless, boot, safe_headless_cutover]
+
+# ========================================
+# Phase 3: Configure Lid Switch (for laptops)
+# ========================================
+- name: Include lid switch configuration
+  ansible.builtin.include_tasks: configure-lid.yml
+  tags: [headless, lid, power]
+
+# ========================================
+# Phase 4: Install Baseline Packages
+# ========================================
+- name: Include baseline package installation
+  ansible.builtin.include_tasks: install-baseline.yml
+  tags: [headless, packages]
+
+# ========================================
+# Phase 5: Strip GUI (unless skipped for safe cutover)
+# ========================================
+- name: Include GUI removal tasks
+  ansible.builtin.include_tasks: strip-gui.yml
+  when: not headless_skip_gui_removal
+  tags: [headless, gui, strip]
+
+- name: Display safe cutover notice
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      SAFE CUTOVER MODE - GUI PRESERVED
+      ═══════════════════════════════════════════════════════════════
+      
+      Desktop packages have NOT been removed.
+      This allows rollback if Tailscale connectivity fails.
+      
+      To complete the conversion:
+        1. Verify SSH works via Tailscale:
+           ssh {{ inventory_hostname }}.pangolin-vega.ts.net
+        
+        2. Reboot and verify the node comes up in multi-user.target
+        
+        3. Run again WITHOUT safe_headless_cutover tag:
+           ansible-playbook playbooks/atom/convert-to-headless.yml
+      
+      ═══════════════════════════════════════════════════════════════
+  when: headless_skip_gui_removal
+  tags: [headless, safe_headless_cutover]
+
+# ========================================
+# Phase 6: Configure Firewall (Tailnet-only SSH)
+# ========================================
+- name: Include firewall configuration
+  ansible.builtin.include_tasks: configure-firewall.yml
+  tags: [headless, firewall]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display conversion summary
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      HEADLESS FEDORA SERVER CONVERSION COMPLETE
+      ═══════════════════════════════════════════════════════════════
+      
+      ✅ Boot Target
+         - Default: {{ headless_boot_target }}
+         - Masked: {{ headless_mask_targets | join(', ') }}
+      
+      ✅ Display Managers
+         - All disabled/masked
+      
+      {% if not headless_skip_gui_removal %}
+      ✅ Desktop Packages
+         - Removed (GNOME/KDE/X11)
+      {% else %}
+      ⚠️  Desktop Packages
+         - PRESERVED (safe cutover mode)
+      {% endif %}
+      
+      ✅ CLI Baseline
+         - Essential packages installed
+      
+      ✅ Firewall
+         - SSH: tailnet only ({{ headless_tailnet_cidr }})
+         - Public zone: no services
+      
+      ═══════════════════════════════════════════════════════════════
+      
+      NEXT STEPS:
+        1. Verify SSH: ssh {{ inventory_hostname }}.pangolin-vega.ts.net
+        2. Reboot: sudo systemctl reboot
+        3. Verify headless boot: systemctl get-default
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [always, headless]
+
+

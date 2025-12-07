@@ -8,8 +8,13 @@ tailscale_tags: []
 # Auth key configuration
 # The actual auth key is sourced from Azure Key Vault and written to this .env file
 # by a separate secrets-sync process. Never put the actual key in Ansible.
-tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
+tailscale_auth_key_env_file: "/etc/tailscale/auth.env"
 tailscale_auth_key_akv_secret: "{{ inventory_hostname }}-tailscale-authkey"
+
+# Non-interactive join
+# When true, this role will use the auth key from the env file to join the tailnet.
+# Requires secrets-sync to have run first to populate the env file from AKV.
+tailscale_join_enabled: false
 
 # Tailscale service configuration
 tailscale_accept_routes: true

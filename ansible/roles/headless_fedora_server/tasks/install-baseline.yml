@@ -1,0 +1,49 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/install-baseline.yml
+#
+# Install baseline CLI packages for headless operation
+---
+
+- name: Install essential headless server packages
+  ansible.builtin.dnf:
+    name: "{{ headless_packages_keep }}"
+    state: present
+  when: not headless_dry_run
+  tags: [packages]
+
+- name: Install Cockpit web admin (if enabled)
+  ansible.builtin.dnf:
+    name: "{{ headless_cockpit_packages }}"
+    state: present
+  when:
+    - headless_fedora_server_install_cockpit
+    - not headless_dry_run
+  tags: [packages, cockpit]
+
+- name: Enable and start Cockpit socket (if installed)
+  ansible.builtin.systemd:
+    name: cockpit.socket
+    enabled: true
+    state: started
+  when:
+    - headless_fedora_server_install_cockpit
+    - not headless_dry_run
+  tags: [packages, cockpit]
+
+- name: Ensure SSH server is enabled and started
+  ansible.builtin.systemd:
+    name: sshd
+    enabled: true
+    state: started
+  when: not headless_dry_run
+  tags: [packages, ssh]
+
+- name: Ensure tailscaled is enabled and started
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+  when: not headless_dry_run
+  tags: [packages, tailscale]
+
+

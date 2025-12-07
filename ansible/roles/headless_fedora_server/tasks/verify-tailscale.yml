@@ -1,0 +1,78 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/verify-tailscale.yml
+#
+# Verify Tailscale is running and connected before proceeding
+# This is critical - we MUST have Tailscale SSH working before stripping the GUI
+---
+
+- name: Check if Tailscale is installed
+  ansible.builtin.command: which tailscale
+  register: tailscale_check
+  changed_when: false
+  failed_when: false
+  tags: [tailscale, verify]
+
+- name: Fail if Tailscale is not installed
+  ansible.builtin.fail:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      CRITICAL: TAILSCALE NOT INSTALLED
+      ═══════════════════════════════════════════════════════════════
+      
+      Tailscale must be installed and authenticated BEFORE converting
+      to headless mode. Without Tailscale, you will lose SSH access!
+      
+      To install and authenticate Tailscale:
+        1. Run the secrets-sync playbook to get the auth key
+        2. Run the tailscale_node role
+        3. Then retry this playbook
+      
+      ═══════════════════════════════════════════════════════════════
+  when: tailscale_check.rc != 0
+  tags: [tailscale, verify]
+
+- name: Get Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_raw
+  changed_when: false
+  failed_when: false
+  tags: [tailscale, verify]
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_status: "{{ tailscale_status_raw.stdout | from_json }}"
+  when: tailscale_status_raw.rc == 0
+  tags: [tailscale, verify]
+
+- name: Verify Tailscale is connected
+  ansible.builtin.assert:
+    that:
+      - tailscale_status is defined
+      - tailscale_status.BackendState == "Running"
+    fail_msg: |
+      Tailscale is not connected. Current state: {{ tailscale_status.BackendState | default('unknown') }}
+      
+      Run 'sudo tailscale up' or check Tailscale auth.
+    success_msg: "Tailscale is connected and running"
+  tags: [tailscale, verify]
+
+- name: Get Tailscale IP address
+  ansible.builtin.command: tailscale ip -4
+  register: tailscale_ip_result
+  changed_when: false
+  tags: [tailscale, verify]
+
+- name: Store Tailscale IP
+  ansible.builtin.set_fact:
+    tailscale_ip_current: "{{ tailscale_ip_result.stdout | trim }}"
+  tags: [tailscale, verify]
+
+- name: Display Tailscale connectivity
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale is connected"
+      - "   IP: {{ tailscale_ip_current }}"
+      - "   SSH should work via: ssh {{ inventory_hostname }}.pangolin-vega.ts.net"
+  tags: [tailscale, verify]
+
+

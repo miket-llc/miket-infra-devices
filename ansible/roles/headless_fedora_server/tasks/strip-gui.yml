@@ -1,0 +1,100 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/strip-gui.yml
+#
+# Remove desktop environment packages
+# WARNING: Only run this after verifying Tailscale SSH connectivity!
+---
+
+- name: Display GUI removal warning
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      ⚠️  GUI REMOVAL STARTING
+      ═══════════════════════════════════════════════════════════════
+      
+      This task will remove GNOME/KDE desktop packages.
+      
+      PREREQUISITE CHECK:
+        ✓ Tailscale is connected: {{ tailscale_ip_current | default('VERIFIED') }}
+        ✓ SSH should work via: ssh {{ inventory_hostname }}.pangolin-vega.ts.net
+      
+      If you lose access, you will need physical console access to recover.
+      
+      Mode: {{ 'DRY RUN - no changes' if headless_dry_run else 'LIVE - packages will be removed' }}
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [gui, strip]
+
+- name: Check which desktop packages are installed
+  ansible.builtin.command: "rpm -q {{ item }}"
+  loop: "{{ headless_desktop_packages_remove }}"
+  register: desktop_packages_check
+  failed_when: false
+  changed_when: false
+  tags: [gui, strip]
+
+- name: Build list of installed desktop packages to remove
+  ansible.builtin.set_fact:
+    desktop_installed_packages: "{{ desktop_packages_check.results | selectattr('rc', 'equalto', 0) | map(attribute='item') | list }}"
+  tags: [gui, strip]
+
+- name: Display packages to be removed
+  ansible.builtin.debug:
+    msg: |
+      Desktop packages found for removal: {{ desktop_installed_packages | length }}
+      
+      Packages:
+      {% for pkg in desktop_installed_packages[:20] %}
+        - {{ pkg }}
+      {% endfor %}
+      {% if desktop_installed_packages | length > 20 %}
+        ... and {{ desktop_installed_packages | length - 20 }} more
+      {% endif %}
+      
+      {% if headless_dry_run %}
+      [DRY RUN] No packages will actually be removed.
+      {% endif %}
+  when: desktop_installed_packages | length > 0
+  tags: [gui, strip]
+
+- name: Remove desktop packages (GNOME/KDE/X11)
+  ansible.builtin.dnf:
+    name: "{{ desktop_installed_packages }}"
+    state: absent
+    autoremove: true
+  when:
+    - desktop_installed_packages | length > 0
+    - not headless_dry_run
+  register: package_removal
+  tags: [gui, strip]
+
+- name: Clean up orphaned dependencies
+  ansible.builtin.command: dnf autoremove -y
+  when:
+    - package_removal is changed
+    - not headless_dry_run
+  changed_when: true
+  tags: [gui, strip]
+
+- name: Display GUI removal summary
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      GUI REMOVAL COMPLETE
+      ═══════════════════════════════════════════════════════════════
+      
+      Packages removed: {{ desktop_installed_packages | length }}
+      
+      {% if headless_dry_run %}
+      [DRY RUN] This was a dry run. No changes were made.
+      {% else %}
+      The system is now headless. Next steps:
+        1. Verify SSH: ssh {{ inventory_hostname }}.pangolin-vega.ts.net
+        2. Reboot: sudo systemctl reboot
+        3. Verify: systemctl get-default (should show multi-user.target)
+      {% endif %}
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [gui, strip]
+
+

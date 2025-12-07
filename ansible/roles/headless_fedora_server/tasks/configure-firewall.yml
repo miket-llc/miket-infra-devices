@@ -1,0 +1,123 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/configure-firewall.yml
+#
+# Configure firewall for tailnet-only SSH access
+# Defense-in-depth: both Tailscale ACLs and host firewall must allow traffic
+---
+
+- name: Ensure firewalld is installed
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Enable and start firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Check if tailnet zone exists
+  ansible.builtin.command: firewall-cmd --get-zones
+  register: existing_zones
+  changed_when: false
+  tags: [firewall]
+
+- name: Create tailnet zone
+  ansible.posix.firewalld:
+    zone: "{{ headless_firewall_zone_tailnet }}"
+    state: present
+    permanent: true
+  register: zone_created
+  when:
+    - headless_firewall_zone_tailnet not in existing_zones.stdout
+    - not headless_dry_run
+  tags: [firewall]
+
+- name: Reload firewalld to register new zone
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true
+  when:
+    - zone_created is changed
+    - not headless_dry_run
+  tags: [firewall]
+
+- name: Add tailnet source CIDR to tailnet zone
+  ansible.builtin.command: >
+    firewall-cmd --permanent --zone={{ headless_firewall_zone_tailnet }}
+    --add-source={{ headless_tailnet_cidr }}
+  register: add_source
+  changed_when: "'ALREADY_ENABLED' not in add_source.stderr"
+  failed_when: add_source.rc != 0 and 'ALREADY_ENABLED' not in add_source.stderr
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Add tailscale interface to tailnet zone
+  ansible.builtin.command: >
+    firewall-cmd --permanent --zone={{ headless_firewall_zone_tailnet }}
+    --add-interface={{ headless_tailscale_interface }}
+  register: add_interface
+  changed_when: "'ALREADY_ENABLED' not in add_interface.stderr"
+  failed_when: false  # Interface may not exist yet
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Allow SSH in tailnet zone
+  ansible.builtin.command: >
+    firewall-cmd --permanent --zone={{ headless_firewall_zone_tailnet }}
+    --add-service={{ item }}
+  loop: "{{ headless_tailnet_services }}"
+  register: add_service
+  changed_when: "'ALREADY_ENABLED' not in add_service.stderr"
+  failed_when: add_service.rc != 0 and 'ALREADY_ENABLED' not in add_service.stderr
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Allow custom ports in tailnet zone
+  ansible.builtin.command: >
+    firewall-cmd --permanent --zone={{ headless_firewall_zone_tailnet }}
+    --add-port={{ item.port }}/{{ item.protocol }}
+  loop: "{{ headless_tailnet_ports }}"
+  register: add_port
+  changed_when: "'ALREADY_ENABLED' not in add_port.stderr"
+  failed_when: add_port.rc != 0 and 'ALREADY_ENABLED' not in add_port.stderr
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Remove SSH from public zone (tailnet-only access)
+  ansible.builtin.command: >
+    firewall-cmd --permanent --zone={{ headless_firewall_zone_default }}
+    --remove-service=ssh
+  register: remove_ssh
+  changed_when: "'NOT_ENABLED' not in remove_ssh.stderr"
+  failed_when: remove_ssh.rc != 0 and 'NOT_ENABLED' not in remove_ssh.stderr
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Apply firewall changes
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Set default zone to public
+  ansible.builtin.command: firewall-cmd --set-default-zone={{ headless_firewall_zone_default }}
+  changed_when: false
+  when: not headless_dry_run
+  tags: [firewall]
+
+- name: Display firewall configuration
+  ansible.builtin.debug:
+    msg: |
+      Firewall Configuration:
+        - Default zone: {{ headless_firewall_zone_default }} (no SSH)
+        - Tailnet zone: {{ headless_firewall_zone_tailnet }}
+        - Tailnet CIDR: {{ headless_tailnet_cidr }}
+        - Tailnet services: {{ headless_tailnet_services | join(', ') }}
+        - SSH accessible ONLY via tailnet
+  tags: [firewall]
+
+

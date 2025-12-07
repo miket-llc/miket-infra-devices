@@ -1,0 +1,180 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/defaults/main.yml
+#
+# Defaults for converting a Fedora Workstation to headless server
+# This role strips the GUI, hardens the firewall, and enforces headless operation
+---
+
+# ========================================
+# Boot Target Configuration
+# ========================================
+headless_boot_target: multi-user.target
+
+# Targets to mask (prevent graphical boot)
+headless_mask_targets:
+  - graphical.target
+  - sleep.target
+  - suspend.target
+  - hibernate.target
+  - hybrid-sleep.target
+
+# Display managers to disable/mask
+headless_display_managers:
+  - gdm
+  - sddm
+  - lightdm
+  - lxdm
+
+# ========================================
+# Package Management
+# ========================================
+# Desktop metapackages to remove
+headless_desktop_packages_remove:
+  # GNOME
+  - "@workstation-product-environment"
+  - "@gnome-desktop"
+  - "@base-graphical"
+  - gnome-shell
+  - gnome-session
+  - gnome-session-wayland-session
+  - gnome-session-xsession
+  - gnome-terminal
+  - gnome-control-center
+  - gnome-settings-daemon
+  - gnome-tweaks
+  - gnome-shell-extension-apps-menu
+  - gnome-shell-extension-background-logo
+  - gnome-shell-extension-launch-new-instance
+  - gnome-shell-extension-places-menu
+  - gnome-shell-extension-window-list
+  - gdm
+  - mutter
+  - nautilus
+  - totem
+  - cheese
+  - eog
+  - evince
+  - gedit
+  - evolution
+  - rhythmbox
+  - shotwell
+  - simple-scan
+  - baobab
+  - gnome-boxes
+  - gnome-calculator
+  - gnome-calendar
+  - gnome-characters
+  - gnome-clocks
+  - gnome-connections
+  - gnome-contacts
+  - gnome-disk-utility
+  - gnome-font-viewer
+  - gnome-logs
+  - gnome-maps
+  - gnome-photos
+  - gnome-screenshot
+  - gnome-system-monitor
+  - gnome-text-editor
+  - gnome-tour
+  - gnome-weather
+  - yelp
+  # KDE (in case it was installed)
+  - "@kde-desktop-environment"
+  - plasma-desktop
+  - plasma-workspace
+  - sddm
+  - dolphin
+  - konsole
+  - kate
+  # Generic X11/Wayland
+  - xorg-x11-server-Xorg
+  - xorg-x11-server-Xwayland
+  - xorg-x11-drv-*
+  # Remove any workstation-specific GUI apps
+  - firefox
+  - libreoffice*
+
+# Packages to keep (essential for headless operation)
+headless_packages_keep:
+  # Network and SSH
+  - openssh-server
+  - openssh-clients
+  - tailscale
+  - NetworkManager
+  - NetworkManager-wifi
+  # CLI tools
+  - vim-enhanced
+  - git
+  - curl
+  - wget
+  - htop
+  - tmux
+  - rsync
+  - lsof
+  - net-tools
+  - bind-utils
+  - bash-completion
+  - jq
+  - tree
+  # System tools
+  - firewalld
+  - systemd
+  - sudo
+  # Python (for Ansible)
+  - python3
+  - python3-pip
+  - python3-libselinux
+  # SELinux
+  - policycoreutils
+  - policycoreutils-python-utils
+  - selinux-policy-targeted
+  # Note: node_exporter installed separately via resilience_node role
+
+# Optional: Cockpit web admin (disabled by default for minimal footprint)
+headless_fedora_server_install_cockpit: false
+headless_cockpit_packages:
+  - cockpit
+  - cockpit-system
+  - cockpit-networkmanager
+  - cockpit-storaged
+
+# ========================================
+# Firewall Configuration
+# ========================================
+# Tailnet CIDR (Tailscale IP range)
+headless_tailnet_cidr: "100.64.0.0/10"
+
+# Tailscale interface
+headless_tailscale_interface: tailscale0
+
+# Firewall zone names
+headless_firewall_zone_tailnet: tailnet
+headless_firewall_zone_default: public
+
+# Services allowed only from tailnet
+headless_tailnet_services:
+  - ssh
+
+# Ports allowed only from tailnet
+headless_tailnet_ports:
+  - port: 9100
+    protocol: tcp
+    description: "node_exporter (Prometheus metrics)"
+
+# ========================================
+# Lid Switch Configuration
+# ========================================
+headless_lid_switch: ignore
+headless_lid_switch_external_power: ignore
+headless_lid_switch_docked: ignore
+
+# ========================================
+# Safety Flags
+# ========================================
+# Skip GUI removal (for safe cutover testing)
+headless_skip_gui_removal: false
+
+# Dry run mode (report what would be done, don't do it)
+headless_dry_run: false
+
+

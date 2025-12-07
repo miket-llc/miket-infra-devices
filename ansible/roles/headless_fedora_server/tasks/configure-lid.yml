@@ -1,0 +1,49 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/configure-lid.yml
+#
+# Configure lid switch behavior for headless laptop operation
+---
+
+- name: Check if this is a laptop (battery present)
+  ansible.builtin.stat:
+    path: /sys/class/power_supply/BAT0
+  register: battery_check
+  tags: [lid, power]
+
+- name: Skip lid configuration if not a laptop
+  ansible.builtin.debug:
+    msg: "No battery detected - skipping lid switch configuration"
+  when: not battery_check.stat.exists
+  tags: [lid, power]
+
+- name: Ensure logind.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/logind.conf.d
+    state: directory
+    mode: '0755'
+  when:
+    - battery_check.stat.exists
+    - not headless_dry_run
+  tags: [lid, power]
+
+- name: Configure systemd-logind for headless lid-closed operation
+  ansible.builtin.copy:
+    dest: /etc/systemd/logind.conf.d/00-headless-server.conf
+    content: |
+      # Managed by Ansible - headless_fedora_server role
+      # Headless server: ignore lid switch, never suspend
+      [Login]
+      HandleLidSwitch={{ headless_lid_switch }}
+      HandleLidSwitchExternalPower={{ headless_lid_switch_external_power }}
+      HandleLidSwitchDocked={{ headless_lid_switch_docked }}
+      IdleAction=ignore
+      IdleActionSec=0
+    mode: '0644'
+    backup: yes
+  when:
+    - battery_check.stat.exists
+    - not headless_dry_run
+  notify: restart systemd-logind
+  tags: [lid, power]
+
+

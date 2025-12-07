@@ -1,0 +1,70 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/tasks/configure-boot.yml
+#
+# Configure boot target for headless operation
+---
+
+- name: Get current default target
+  ansible.builtin.command: systemctl get-default
+  register: current_target
+  changed_when: false
+  check_mode: false
+  tags: [boot]
+
+- name: Display current boot target
+  ansible.builtin.debug:
+    msg: "Current boot target: {{ current_target.stdout }}"
+  tags: [boot]
+
+- name: Set default boot target to {{ headless_boot_target }}
+  ansible.builtin.command: systemctl set-default {{ headless_boot_target }}
+  register: set_default_result
+  changed_when: current_target.stdout != headless_boot_target
+  when:
+    - current_target.stdout != headless_boot_target
+    - not headless_dry_run
+  tags: [boot]
+
+- name: Mask graphical target
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop: "{{ headless_mask_targets }}"
+  when: not headless_dry_run
+  notify: reload systemd daemon
+  tags: [boot]
+
+- name: Check for display managers
+  ansible.builtin.command: systemctl is-enabled {{ item }}
+  loop: "{{ headless_display_managers }}"
+  register: dm_check
+  failed_when: false
+  changed_when: false
+  tags: [boot]
+
+- name: Stop and disable display managers
+  ansible.builtin.systemd:
+    name: "{{ item.item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ dm_check.results }}"
+  when:
+    - item.rc == 0
+    - item.stdout == 'enabled'
+    - not headless_dry_run
+  loop_control:
+    label: "{{ item.item }}"
+  failed_when: false
+  tags: [boot]
+
+- name: Mask display managers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  loop: "{{ headless_display_managers }}"
+  when: not headless_dry_run
+  failed_when: false
+  notify: reload systemd daemon
+  tags: [boot]
+
+

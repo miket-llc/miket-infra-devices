@@ -1,0 +1,131 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/tailscale_node/tasks/join.yml
+#
+# Non-interactive Tailscale join using auth key from AKV
+# This task is called when the node needs to be enrolled in the tailnet
+# without human intervention.
+#
+# PREREQUISITES:
+#   - secrets-sync must have already written the auth key to the env file
+#   - tailscaled service must be running
+#
+---
+
+- name: Display Tailscale join banner
+  ansible.builtin.debug:
+    msg: |
+      ═══════════════════════════════════════════════════════════════
+      TAILSCALE NON-INTERACTIVE JOIN
+      ═══════════════════════════════════════════════════════════════
+      
+      Host:           {{ inventory_hostname }}
+      Auth Key File:  {{ tailscale_auth_key_env_file }}
+      AKV Secret:     {{ tailscale_auth_key_akv_secret }}
+      Hostname:       {{ tailscale_hostname }}
+      
+      This task will join the tailnet non-interactively using the
+      auth key from Azure Key Vault (synced via secrets-sync).
+      
+      ═══════════════════════════════════════════════════════════════
+  tags: [tailscale, join]
+
+- name: Check if auth key env file exists
+  ansible.builtin.stat:
+    path: "{{ tailscale_auth_key_env_file }}"
+  register: auth_key_file
+  tags: [tailscale, join]
+
+- name: Fail if auth key file not found
+  ansible.builtin.fail:
+    msg: |
+      Auth key file not found: {{ tailscale_auth_key_env_file }}
+      
+      Run secrets-sync first to populate the auth key:
+        ansible-playbook playbooks/secrets-sync.yml -l {{ inventory_hostname }}
+      
+      The secrets-sync role will fetch 'tailscale-auth-key-atom' from AKV
+      and write it to {{ tailscale_auth_key_env_file }}.
+  when: not auth_key_file.stat.exists
+  tags: [tailscale, join]
+
+- name: Read auth key from env file
+  ansible.builtin.slurp:
+    src: "{{ tailscale_auth_key_env_file }}"
+  register: auth_key_content
+  no_log: true
+  tags: [tailscale, join]
+
+- name: Parse auth key from env file
+  ansible.builtin.set_fact:
+    tailscale_auth_key: "{{ (auth_key_content.content | b64decode | regex_search('TAILSCALE_AUTH_KEY=(.+)', '\\1')) | first | default('') }}"
+  no_log: true
+  tags: [tailscale, join]
+
+- name: Fail if auth key is empty
+  ansible.builtin.fail:
+    msg: |
+      Auth key not found in {{ tailscale_auth_key_env_file }}
+      
+      The file exists but TAILSCALE_AUTH_KEY is not set.
+      Run secrets-sync to populate it from AKV.
+  when: tailscale_auth_key | length == 0
+  tags: [tailscale, join]
+
+- name: Get current Tailscale status
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_status_before
+  changed_when: false
+  failed_when: false
+  tags: [tailscale, join]
+
+- name: Parse current Tailscale status
+  ansible.builtin.set_fact:
+    tailscale_is_connected: "{{ (tailscale_status_before.stdout | from_json).BackendState == 'Running' }}"
+  when: tailscale_status_before.rc == 0
+  failed_when: false
+  tags: [tailscale, join]
+
+- name: Skip join if already connected
+  ansible.builtin.debug:
+    msg: "Tailscale already connected - skipping join"
+  when: tailscale_is_connected | default(false)
+  tags: [tailscale, join]
+
+- name: Join tailnet with auth key (non-interactive)
+  ansible.builtin.command: >
+    tailscale up
+    --authkey={{ tailscale_auth_key }}
+    --hostname={{ tailscale_hostname }}
+    --accept-dns={{ tailscale_accept_dns | lower }}
+    --accept-routes={{ tailscale_accept_routes | lower }}
+    {% if tailscale_ssh | default(true) %}--ssh{% endif %}
+  register: tailscale_up_result
+  changed_when: tailscale_up_result.rc == 0
+  when: not (tailscale_is_connected | default(false))
+  no_log: true  # Hide auth key from logs
+  become: true
+  tags: [tailscale, join]
+
+- name: Verify Tailscale is connected after join
+  ansible.builtin.command: tailscale status
+  register: tailscale_verify
+  changed_when: false
+  failed_when: tailscale_verify.rc != 0
+  tags: [tailscale, join]
+
+- name: Get Tailscale IP
+  ansible.builtin.command: tailscale ip -4
+  register: tailscale_ip_after
+  changed_when: false
+  tags: [tailscale, join]
+
+- name: Display join success
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale join successful"
+      - "   Hostname: {{ tailscale_hostname }}"
+      - "   IP: {{ tailscale_ip_after.stdout | trim }}"
+      - "   DNS: {{ tailscale_hostname }}.pangolin-vega.ts.net"
+  tags: [tailscale, join]
+
+

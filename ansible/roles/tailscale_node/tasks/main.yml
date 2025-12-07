@@ -43,9 +43,14 @@
         2. Run: sudo tailscale up --hostname={{ tailscale_hostname }} --authkey=$(cat {{ tailscale_auth_key_env_file }} | grep TAILSCALE_AUTHKEY | cut -d= -f2)
       - Or use interactive auth: sudo tailscale up --hostname={{ tailscale_hostname }}
 
-# Note: Actual tailscale up with auth key is typically done manually or via
-# a separate secrets-aware playbook that sources from AKV. We don't put
-# auth keys in Ansible directly.
+# Auth key join: When tailscale_join_enabled is true (and secrets-sync has run),
+# this role can perform a non-interactive join using the auth key from AKV.
+# This eliminates manual 'tailscale up' commands.
+
+- name: Include non-interactive join tasks (if enabled)
+  ansible.builtin.include_tasks: join.yml
+  when: tailscale_join_enabled | default(false)
+  tags: [tailscale, join]
 
 - name: Create secrets directory for tailscale auth key
   ansible.builtin.file:

@@ -5,34 +5,45 @@
 # ATOM HOST CONFIGURATION
 # =============================================================================
 #
-# Fedora Workstation - Resilience Node (Battery-Backed)
+# Fedora Server - Headless Resilience/Lab Node (Battery-Backed)
 #
-# OS:       Fedora Workstation 43 (GNOME)
+# OS:       Fedora Server 43 (Headless - multi-user.target)
 # Hardware: Lenovo ThinkPad X1 Carbon (2012)
 # CPU:      Intel Core i7-3667U
 # RAM:      8GB
 # Storage:  224GB SSD
-# GPU:      Intel HD Graphics 4000 (integrated)
+# GPU:      Intel HD Graphics 4000 (integrated, unused)
 #
-# Role:     Resilience Node
+# Role:     Headless Resilience Node / Lab Server
 #           Last device standing when power fails
 #           Battery-backed = implicit UPS
+#           100% managed via IaC - no manual commands allowed
 #
 # Purpose:
 #   - Prove the network still exists (node_exporter metrics)
 #   - Maintain SSH foothold for recovery operations
+#   - Lab/automation node for testing and experimentation
 #   - Optionally: send alerts when infrastructure is down
 #
 # Design:   Simplicity and reliability over features
 #           Minimal services = fewer failure points
+#           Headless operation = no GUI, no display manager
+#           All management via Tailscale SSH
+#
+# Migration: Converted from Fedora Workstation 2025-12
+#            See playbooks/atom/convert-to-headless.yml
 #
 # =============================================================================
 
 # ========================================
 # Device Identity
 # ========================================
-device_role: resilience-node
-device_description: "Battery-backed resilience node for infrastructure continuity"
+device_role: lab_server
+device_description: "Battery-backed headless resilience/lab node for infrastructure continuity"
+
+# Headless operation flag - triggers headless_fedora_server role
+headless: true
+headless_desktop: true  # Was a desktop, now headless
 
 # Tailscale identity (from miket-infra)
 tailscale_ip: 100.120.122.13
@@ -51,7 +62,7 @@ ansible_python_interpreter: /usr/bin/python3
 ansible_password: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name atom-ansible-password --query value -o tsv') | trim }}"
 
 # ========================================
-# Resilience Node Configuration
+# Headless Server Configuration
 # ========================================
 # Power management - critical for resilience role
 
@@ -60,8 +71,11 @@ resilience_node_low_battery_warning: 5
 resilience_node_critical_battery_percent: 2
 resilience_node_critical_battery_action: shutdown
 
-# Boot target - keep GNOME (user's choice)
-resilience_node_boot_target: graphical.target
+# Boot target - headless server (no GUI)
+resilience_node_boot_target: multi-user.target
+
+# Headless role configuration
+headless_fedora_server_install_cockpit: false  # Not needed for this minimal node
 
 # ========================================
 # Monitoring Configuration
@@ -94,13 +108,13 @@ atom_services:
   - firewalld                  # Firewall
 
 # ========================================
-# Workstation GUI Tools
+# Workstation GUI Tools (DISABLED - Headless)
 # ========================================
-# atom is a workstation too - needs GUI tools
-workstation_gui_tools_enabled: true
-vscode_enabled: true
-cursor_enabled: true
-warp_enabled: true
+# atom is now headless - no GUI tools needed
+workstation_gui_tools_enabled: false
+vscode_enabled: false
+cursor_enabled: false
+warp_enabled: false
 
 # ========================================
 # Network Shares - REMOVED (Resilience Hardening)
@@ -161,10 +175,17 @@ selinux_notes: |
 # Tags (defined in miket-infra)
 # ========================================
 # Reference only - tags applied via Tailscale API in miket-infra
+# Initial enrollment uses tag:server,tag:linux (from auth key)
+# Post-enrollment, miket-infra applies tag:lab-server,tag:headless
 tailscale_tags:
   - tag:server
   - tag:linux
-  - tag:workstation
+  - tag:lab-server
+  - tag:headless
+
+# Tailscale join configuration (for automated enrollment)
+tailscale_auth_key_akv_secret: tailscale-auth-key-atom
+tailscale_join_tags: "tag:server,tag:linux"  # Initial tags from auth key
 
 # ========================================
 # Netdata Monitoring Configuration

@@ -1,0 +1,24 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# roles/headless_fedora_server/meta/main.yml
+---
+galaxy_info:
+  role_name: headless_fedora_server
+  author: MikeT LLC
+  description: |
+    Convert a Fedora Workstation to a headless server.
+    Strips GUI, enforces multi-user.target, configures tailnet-only SSH.
+  company: MikeT LLC
+  license: proprietary
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Fedora
+      versions:
+        - 43
+        - all
+
+dependencies:
+  - role: fedora_headless_base
+    when: not headless_skip_gui_removal
+  - role: firewalld_tailnet
+
+

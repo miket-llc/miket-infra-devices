@@ -1,0 +1,254 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# =============================================================================
+# ATOM HEADLESS SERVER CONVERSION PLAYBOOK
+# =============================================================================
+#
+# This playbook is the ONLY approved pathway to convert atom from a Fedora
+# Workstation into a headless Fedora server.
+#
+# NO MANUAL ON-BOX CHANGES ARE PERMITTED.
+# All edits must flow through Ansible, consistent with IaC/CaC principles.
+#
+# USAGE:
+#   Full conversion (safe cutover first, then complete):
+#
+#     # Step 1: Safe cutover - verify connectivity before removing GUI
+#     ansible-playbook playbooks/atom/convert-to-headless.yml --tags safe_headless_cutover
+#
+#     # Step 2: Verify SSH works via Tailscale
+#     ssh atom.pangolin-vega.ts.net
+#
+#     # Step 3: Complete conversion (remove GUI packages)
+#     ansible-playbook playbooks/atom/convert-to-headless.yml
+#
+#   Or do it all at once (confident mode):
+#     ansible-playbook playbooks/atom/convert-to-headless.yml
+#
+# WHAT THIS PLAYBOOK DOES:
+#   1. Runs standardize_users to ensure mdt account is properly configured
+#   2. Runs secrets-sync to pull tailscale-auth-key-atom from AKV
+#   3. Runs tailscale_node to install Tailscale and join the tailnet
+#   4. Runs headless_fedora_server to:
+#      - Set boot target to multi-user.target
+#      - Mask graphical targets
+#      - Remove desktop packages (GNOME/KDE/X11)
+#      - Configure tailnet-only SSH firewall
+#
+# RECOVERY:
+#   If something goes wrong, see the RECOVERY NOTES section below.
+#
+# PREREQUISITES:
+#   - atom must be reachable (currently has GNOME with SSH/Tailscale)
+#   - tailscale-auth-key-atom must exist in kv-miket-ops
+#   - You must have az CLI authenticated to access AKV
+#
+# DESIGN:
+#   - Idempotent: safe to re-run
+#   - Safe cutover mode: skip GUI removal until connectivity verified
+#   - No secrets in this file: all secrets from AKV via secrets-sync
+#
+# =============================================================================
+
+- name: Convert Atom to Headless Fedora Server
+  hosts: atom
+  become: true
+  gather_facts: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    # Enable Tailscale non-interactive join
+    tailscale_join_enabled: true
+    tailscale_auth_key_akv_secret: tailscale-auth-key-atom
+    tailscale_auth_key_env_file: /etc/tailscale/auth.env
+
+  pre_tasks:
+    - name: Display conversion banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ATOM HEADLESS SERVER CONVERSION
+          ═══════════════════════════════════════════════════════════════
+
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+
+          This playbook will convert atom from a Fedora Workstation
+          to a headless Fedora server with NO graphical interface.
+
+          ╔═══════════════════════════════════════════════════════════════╗
+          ║  WARNING: This will REMOVE the desktop environment!          ║
+          ║  After completion, access is via Tailscale SSH only.         ║
+          ╚═══════════════════════════════════════════════════════════════╝
+
+          Execution Order:
+            1. standardize_users    → Ensure mdt account configured
+            2. secrets_sync         → Pull Tailscale auth key from AKV
+            3. tailscale_node       → Join tailnet (non-interactive)
+            4. headless_fedora_server → Strip GUI, harden firewall
+
+          Safe Cutover Mode:
+            Use --tags safe_headless_cutover to:
+            - Configure boot target and Tailscale
+            - SKIP GUI removal
+            - Verify SSH connectivity before full conversion
+
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+    - name: Verify Fedora distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+        fail_msg: "This playbook requires Fedora (found: {{ ansible_distribution }})"
+        success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+      tags: [always]
+
+    - name: Check if this is a dry run
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          CHECK MODE (DRY RUN)
+          ═══════════════════════════════════════════════════════════════
+
+          No changes will be made. Use this to preview what would happen.
+          Remove --check to apply changes.
+
+          ═══════════════════════════════════════════════════════════════
+      when: ansible_check_mode
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Standardize Users
+    # ========================================
+    # Ensure mdt automation account is properly configured
+    # - SSH key auth
+    # - Passwordless sudo
+    # - Proper group membership
+    - role: standardize_users
+      tags: [users, safe_headless_cutover]
+
+    # ========================================
+    # Phase 2: Sync Tailscale Auth Key
+    # ========================================
+    # Pull tailscale-auth-key-atom from Azure Key Vault
+    # Write to /etc/tailscale/auth.env
+    - role: secrets_sync
+      vars:
+        secrets_map_file: "{{ playbook_dir }}/../../secrets-map.yml"
+      tags: [secrets, tailscale, safe_headless_cutover]
+
+    # ========================================
+    # Phase 3: Tailscale Join
+    # ========================================
+    # - Install Tailscale if needed
+    # - Join tailnet using auth key (non-interactive)
+    # - Verify connectivity
+    - role: tailscale_node
+      tags: [tailscale, safe_headless_cutover]
+
+    # ========================================
+    # Phase 4: Headless Server Conversion
+    # ========================================
+    # - Set boot target to multi-user.target
+    # - Mask graphical targets
+    # - Remove desktop packages (unless safe_headless_cutover tag)
+    # - Configure tailnet-only SSH firewall
+    - role: headless_fedora_server
+      vars:
+        # When running with safe_headless_cutover tag, skip GUI removal
+        headless_skip_gui_removal: "{{ 'safe_headless_cutover' in ansible_run_tags }}"
+      tags: [headless]
+
+  post_tasks:
+    - name: Get Tailscale IP
+      ansible.builtin.command: tailscale ip -4
+      register: final_tailscale_ip
+      changed_when: false
+      failed_when: false
+      tags: [always]
+
+    - name: Get current boot target
+      ansible.builtin.command: systemctl get-default
+      register: final_boot_target
+      changed_when: false
+      tags: [always]
+
+    - name: Display conversion complete summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          ATOM HEADLESS SERVER CONVERSION COMPLETE
+          ═══════════════════════════════════════════════════════════════
+
+          ✅ Users
+             - mdt: automation account ready
+
+          ✅ Tailscale
+             - IP: {{ final_tailscale_ip.stdout | default('see tailscale status') }}
+             - DNS: atom.pangolin-vega.ts.net
+             - SSH: tailscale ssh atom.pangolin-vega.ts.net
+
+          ✅ Boot Target
+             - Default: {{ final_boot_target.stdout | default('multi-user.target') }}
+
+          {% if 'safe_headless_cutover' in ansible_run_tags %}
+          ⚠️  Safe Cutover Mode
+             - Desktop packages PRESERVED
+             - Verify SSH works, then run full conversion:
+               ansible-playbook playbooks/atom/convert-to-headless.yml
+          {% else %}
+          ✅ Desktop Packages
+             - Removed (GNOME/KDE/X11)
+          {% endif %}
+
+          ✅ Firewall
+             - SSH: tailnet only (100.64.0.0/10)
+             - Public: no services
+
+          ═══════════════════════════════════════════════════════════════
+
+          NEXT STEPS:
+            1. Verify SSH: ssh atom.pangolin-vega.ts.net
+            2. Reboot: ssh atom.pangolin-vega.ts.net 'sudo systemctl reboot'
+            3. Verify headless: ssh atom.pangolin-vega.ts.net 'systemctl get-default'
+
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+# =============================================================================
+# RECOVERY NOTES
+# =============================================================================
+#
+# If you lose access to atom after running this playbook:
+#
+# 1. PHYSICAL CONSOLE ACCESS
+#    - Connect monitor and keyboard directly to atom
+#    - Boot and login at the console (if credentials work)
+#    - Run: sudo systemctl set-default graphical.target
+#    - Run: sudo systemctl unmask gdm
+#    - Run: sudo dnf install @gnome-desktop
+#    - Run: sudo systemctl reboot
+#
+# 2. RECOVERY VIA LIVE USB
+#    - Boot from Fedora Live USB
+#    - Mount atom's root filesystem
+#    - Chroot and fix configuration
+#
+# 3. ROLLBACK VIA ANSIBLE (if SSH still works)
+#    - Re-run the resilience_node playbook to restore GUI:
+#      ansible-playbook playbooks/atom/site.yml
+#
+# 4. RE-ENABLE GRAPHICAL TARGET
+#    If you can SSH but want to restore graphical boot:
+#      sudo systemctl set-default graphical.target
+#      sudo systemctl unmask gdm
+#      sudo systemctl enable gdm
+#      sudo dnf install @gnome-desktop
+#      sudo systemctl reboot
+#
+# =============================================================================
+
+

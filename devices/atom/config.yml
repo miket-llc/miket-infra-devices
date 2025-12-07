@@ -1,0 +1,173 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# devices/atom/config.yml
+# Device configuration for atom - Headless Fedora Resilience/Lab Node
+#
+# Converted from Fedora Workstation 2025-12
+# Migration playbook: ansible/playbooks/atom/convert-to-headless.yml
+
+device:
+  hostname: atom
+  fqdn: atom.pangolin-vega.ts.net
+  os: Fedora 43 Server
+  codename: headless
+  desktop_environment: none  # Headless - no GUI
+  type: Headless Resilience/Lab Node
+  
+  roles:
+    - lab_server
+    - headless
+    - resilience_node
+  
+  flags:
+    lab_server: true
+    headless: true
+    resilience_node: true
+    battery_backed: true
+  
+  hardware:
+    manufacturer: Lenovo
+    model: ThinkPad X1 Carbon (1st Gen, 2012)
+    cpu: Intel Core i7-3667U
+    cpu_cores: 2
+    cpu_threads: 4
+    gpu: Intel HD Graphics 4000 (integrated, unused)
+    gpu_compute_capable: false
+    memory_gb: 8
+    storage:
+      - device: sda
+        model: Internal SSD
+        size_gb: 224
+        type: SSD
+        purpose: Boot + OS
+        partitions:
+          - mount: /
+            filesystem: ext4
+    battery: true
+    # Battery provides implicit UPS - this is the core resilience feature
+    battery_notes: |
+      The battery is the reason this device exists as a resilience node.
+      When all other infrastructure fails (power outage), atom stays alive.
+
+  operating_system:
+    os: Fedora
+    version: "43"
+    codename: server
+    kernel: "6.x"
+    desktop_environment: none
+    display_server: none
+    display_manager: none
+    boot_target: multi-user.target
+
+  network:
+    tailscale:
+      enabled: true
+      hostname: atom
+      ip: 100.120.122.13
+      tags:
+        - tag:server
+        - tag:linux
+        - tag:lab-server
+        - tag:headless
+      auth_key_akv_secret: tailscale-auth-key-atom
+    ssh:
+      enabled: true
+      auth: key_only
+      tailnet_only: true  # SSH ONLY via Tailscale, not LAN
+      port: 22
+    firewall: firewalld
+    firewall_policy: tailnet-only
+
+  services:
+    - tailscaled          # Tailscale daemon
+    - firewalld           # Firewall
+    - prometheus-node-exporter  # Metrics for Prometheus
+    - sshd                # SSH server
+    # NOT running:
+    # - gdm/sddm (headless)
+    # - podman/docker (not a container host)
+    # - vllm/litellm (no GPU compute)
+
+  monitoring:
+    node_exporter:
+      enabled: true
+      port: 9100
+    netdata:
+      enabled: true
+      lightweight_mode: true  # Minimal resource usage
+
+  power:
+    battery:
+      low_warning_percent: 5
+      critical_percent: 2
+      critical_action: shutdown
+    lid_switch: ignore      # Keep running with lid closed
+    idle_action: ignore     # Never sleep
+    suspend: masked         # Prevent all suspend/hibernate
+    
+  filesystem:
+    # Minimal filesystem - no /space, /flux, /time mounts
+    # This is a resilience node - zero external dependencies
+    notes: |
+      IMPORTANT: atom does NOT mount /space, /flux, or /time.
+      This is intentional - resilience nodes have ZERO dependencies on motoko.
+      
+      INCIDENT (2024-12-01): CIFS mounts caused kernel panic when motoko
+      was unreachable. A resilience node that fails when the server fails
+      defeats its entire purpose.
+      
+      If you need data from motoko, use SSH/SCP on-demand.
+
+  selinux:
+    mode: enforcing
+    permissive_domains:
+      - sshd_t  # Technical debt: Tailscale SSH workaround
+
+  accounts:
+    automation: mdt
+    interactive: []  # No interactive users - headless
+
+  security:
+    ssh_tailnet_only: true
+    no_lan_ssh: true
+    firewall_zones:
+      public: []  # No services on public zone
+      tailnet:
+        - ssh
+        - node-exporter
+
+notes: |
+  atom - Battery-backed Headless Resilience/Lab Node
+  
+  ═══════════════════════════════════════════════════════════════
+  CORE MISSION: Last device standing when power fails
+  ═══════════════════════════════════════════════════════════════
+  
+  Design Principles:
+    - Simplicity over features (minimal services)
+    - Reliability over capability (fewer failure points)
+    - Zero external dependencies (no mounts to other servers)
+    - All management via Tailscale (no direct LAN access)
+    - 100% IaC/CaC (no manual commands on device)
+  
+  Conversion History:
+    - 2025-12: Converted from Fedora Workstation 43 (GNOME) to headless
+    - Migration playbook: playbooks/atom/convert-to-headless.yml
+  
+  What This Device DOES:
+    ✓ Proves the network exists (node_exporter metrics)
+    ✓ Provides SSH foothold for recovery operations
+    ✓ Stays alive during power outages (battery)
+    ✓ Sends alerts when infrastructure is down (optional)
+  
+  What This Device Does NOT Do:
+    ✗ Container hosting (not enough RAM)
+    ✗ AI/LLM workloads (no GPU compute)
+    ✗ Storage (no mounts, no SoR responsibilities)
+    ✗ Interactive workstation use (headless)
+  
+  Access:
+    - SSH: ssh atom.pangolin-vega.ts.net (tailnet only)
+    - Metrics: http://atom.pangolin-vega.ts.net:9100/metrics
+    - No remote desktop (headless)
+
+
