@@ -28,7 +28,7 @@
 - name: Generate archive timestamp
   ansible.builtin.set_fact:
     gnome_archive_timestamp: "{{ lookup('pipe', 'date +' + gnome_archive_timestamp_format) }}"
-  tags: [gnome-archive]
+  tags: [gnome-archive, always]
 
 - name: Process each user's GNOME configuration
   ansible.builtin.include_tasks: archive_user.yml
@@ -45,17 +45,21 @@
       GNOME CONFIG ARCHIVE COMPLETE
       ═══════════════════════════════════════════════════════════════
       
-      Processed users: {{ gnome_archive_users | join(', ') }}
-      Archive timestamp: {{ gnome_archive_timestamp }}
+      Processed users: {{ gnome_archive_users | join(', ') if gnome_archive_users | length > 0 else 'none (no users configured)' }}
+      Archive timestamp: {{ gnome_archive_timestamp | default('N/A') }}
+      {% if gnome_archive_timestamp is defined %}
       Archive location: ~/.mkt/archives/gnome-config-{{ gnome_archive_timestamp }}/
+      {% endif %}
       
       {% if gnome_archive_dry_run %}
       [DRY RUN] This was a dry run. No files were moved.
       {% endif %}
       
+      {% if gnome_archive_users | length > 0 %}
       To restore GNOME configs later:
         1. Copy directories back from archive to original locations
         2. Run: dconf load / < ~/.mkt/archives/gnome-config-*/dconf-backup.ini
+      {% endif %}
       
       ═══════════════════════════════════════════════════════════════
   tags: [gnome-archive, always]

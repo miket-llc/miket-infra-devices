@@ -9,6 +9,17 @@
 #   - gnome_config_archive role should run BEFORE this one
 ---
 
+- name: Initialize GNOME installed packages list
+  ansible.builtin.set_fact:
+    gnome_installed_packages: []
+  tags: [gnome-removal, always]
+
+- name: Initialize GDM check result
+  ansible.builtin.set_fact:
+    gdm_check:
+      rc: 1
+  tags: [gnome-removal, always]
+
 - name: Display GNOME removal banner
   ansible.builtin.debug:
     msg: |
@@ -111,9 +122,9 @@
       GNOME REMOVAL COMPLETE
       ═══════════════════════════════════════════════════════════════
       
-      Packages removed: {{ gnome_installed_packages | length }}
-      GDM status: {{ 'removed' if gdm_check.rc != 0 else 'was installed' }}
-      Current display manager: {{ current_dm.stdout | default('not set') }}
+      Packages removed: {{ gnome_installed_packages | default([]) | length }}
+      GDM status: {{ 'removed' if (gdm_check.rc | default(1)) != 0 else 'was installed' }}
+      Current display manager: {{ current_dm.stdout | default('not set') if current_dm is defined else 'not set' }}
       
       {% if gnome_removal_dry_run %}
       [DRY RUN] This was a dry run. No changes were made.
