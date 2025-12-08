@@ -15,9 +15,10 @@
     secrets_sync_services: "{{ secrets_sync_services + [item] }}"
   loop: "{{ secrets_map.services | default({}) | dict2items }}"
   when: >
-    (item.value.hosts is not defined and item.value.groups is not defined) or
+    (item.value.enabled | default(true)) and
+    ((item.value.hosts is not defined and item.value.groups is not defined) or
     (item.value.hosts is defined and inventory_hostname in item.value.hosts) or
-    (item.value.groups is defined and (group_names | intersect(item.value.groups)) | length > 0)
+    (item.value.groups is defined and (group_names | intersect(item.value.groups)) | length > 0))
 
 - name: Skip when no secrets are mapped for this host
   ansible.builtin.debug:
