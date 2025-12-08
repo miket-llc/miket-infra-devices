@@ -39,9 +39,9 @@
         mode: "0700"
 
   roles:
-    - role: akira_space          # ensures /space dirs & SELinux contexts for Nextcloud
-    - role: secrets_sync         # pulls AKV secrets into /flux/runtime/secrets/nextcloud.env
-    - role: nextcloud_server     # deploys Nextcloud stack on /flux with /space as SoR
+    - role: ../roles/akira_space          # ensures /space dirs & SELinux contexts for Nextcloud
+    - role: ../roles/secrets_sync         # pulls AKV secrets into /flux/runtime/secrets/nextcloud.env
+    - role: ../roles/nextcloud_server     # deploys Nextcloud stack on /flux with /space as SoR
 
   post_tasks:
     - name: Display deployment summary
