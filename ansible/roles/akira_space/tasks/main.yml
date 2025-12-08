@@ -43,20 +43,22 @@
     - device_uuid.rc != 0
     - device_fstype.rc != 0
     - akira_space_format_if_missing | bool
-  block:
-    - name: Create btrfs filesystem on /space device
-      ansible.builtin.command: >
-        mkfs.btrfs -f -L {{ akira_space_label }} -U {{ akira_space_uuid }} {{ akira_space_device }}
-      register: mkfs_result
-      changed_when: true
-    - name: Refresh device UUID after format
-      ansible.builtin.command: blkid -s UUID -o value {{ akira_space_device }}
-      register: device_uuid
-      changed_when: false
-    - name: Refresh filesystem type after format
-      ansible.builtin.command: blkid -s TYPE -o value {{ akira_space_device }}
-      register: device_fstype
-      changed_when: false
+  ansible.builtin.command: >
+    mkfs.btrfs -f -L {{ akira_space_label }} -U {{ akira_space_uuid }} {{ akira_space_device }}
+  register: mkfs_result
+  changed_when: true
+
+- name: Refresh device UUID after format
+  ansible.builtin.command: blkid -s UUID -o value {{ akira_space_device }}
+  register: device_uuid
+  changed_when: false
+  when: mkfs_result is defined and mkfs_result.changed | default(false)
+
+- name: Refresh filesystem type after format
+  ansible.builtin.command: blkid -s TYPE -o value {{ akira_space_device }}
+  register: device_fstype
+  changed_when: false
+  when: mkfs_result is defined and mkfs_result.changed | default(false)
 
 - name: Verify device UUID matches expected
   ansible.builtin.assert:
@@ -66,7 +68,7 @@
       UUID mismatch! Expected {{ akira_space_uuid }} but got {{ device_uuid.stdout }}.
       This may indicate a different drive is connected or the drive was reformatted.
     success_msg: "Device UUID verified: {{ akira_space_uuid }}"
-  when: device_uuid.rc == 0
+  when: device_uuid.rc | default(1) == 0
 
 - name: Verify filesystem type matches expected
   ansible.builtin.assert:
@@ -76,7 +78,7 @@
       Filesystem type mismatch! Expected {{ akira_space_filesystem }} but got {{ device_fstype.stdout }}.
       Set akira_space_format_if_missing=true only on fresh disks if formatting is intended.
     success_msg: "Filesystem type verified: {{ akira_space_filesystem }}"
-  when: device_fstype.rc == 0
+  when: device_fstype.rc | default(1) == 0
 
 # =============================================================================
 # Mount Point Setup
