@@ -65,17 +65,29 @@ container_runtime: podman
 container_gpu_args: "--device=/dev/kfd --device=/dev/dri --security-opt seccomp=unconfined"
 
 # =============================================================================
-# Nextcloud (Akira)
+# Nextcloud (Akira) - Per ADR-0010
 # =============================================================================
+# Nextcloud is a pure façade over /space (SoR), runtime on /flux
 nextcloud_internal_hostname: akira.pangolin-vega.ts.net
+nextcloud_external_hostname: nextcloud.miket.io
 nextcloud_trusted_domains:
   - akira.pangolin-vega.ts.net
   - nextcloud.miket.io
   - localhost
+  - 127.0.0.1
+
+# Runtime paths (all on /flux NVMe for performance)
 nextcloud_workdir: /flux/apps/nextcloud
+nextcloud_data_path: /flux/apps/nextcloud/data
 nextcloud_db_path: /flux/dbs/nextcloud
 nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
+nextcloud_config_path: /flux/apps/nextcloud/config
+nextcloud_bin_path: /flux/apps/nextcloud/bin
+
+# Backup paths (on /space SoR for durability)
 nextcloud_db_backup_path: /space/_services/nextcloud/db-snapshots
+nextcloud_config_backup_dir: /space/_services/nextcloud/config
+nextcloud_log_path: /space/_ops/logs/nextcloud
 
 # =============================================================================
 # Filesystem Layout (optimized 2025-12-05)

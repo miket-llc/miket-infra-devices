@@ -1,0 +1,212 @@
+# SPDX-FileCopyrightText: 2025 Miket LLC
+# SPDX-License-Identifier: MIT
+---
+# Validate Nextcloud deployment on akira
+# Usage: ansible-playbook ansible/playbooks/validate-nextcloud.yml
+#
+# Smoke tests:
+# 1. Mount verification (/flux, /space)
+# 2. Directory structure exists with correct SELinux contexts
+# 3. Secrets env file present and readable
+# 4. Containers running (nextcloud, nextcloud-db, nextcloud-redis)
+# 5. HTTP status endpoint responding
+# 6. External storage paths accessible
+
+- name: Validate Nextcloud deployment on akira
+  hosts: akira
+  become: true
+  gather_facts: true
+  vars:
+    nextcloud_workdir: /flux/apps/nextcloud
+    nextcloud_db_path: /flux/dbs/nextcloud
+    nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
+    nextcloud_url: "https://akira.pangolin-vega.ts.net"
+    external_storage_paths:
+      - /space/mike/documents
+      - /space/mike/photos
+      - /space/mike/music
+      - /space/mike/videos
+      - /space/mike/downloads
+      - /space/mike/archive
+
+  tasks:
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 1: Mount verification
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "Mount check: /flux is mounted"
+      ansible.builtin.command: mountpoint -q /flux
+      changed_when: false
+      register: flux_mount
+      failed_when: flux_mount.rc != 0
+      tags: [mounts]
+
+    - name: "Mount check: /space is mounted"
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+      register: space_mount
+      failed_when: space_mount.rc != 0
+      tags: [mounts]
+
+    - name: "Mount check: /time is mounted"
+      ansible.builtin.command: mountpoint -q /time
+      changed_when: false
+      register: time_mount
+      failed_when: time_mount.rc != 0
+      tags: [mounts]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 2: Directory structure
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "Dir check: Nextcloud workdir exists"
+      ansible.builtin.stat:
+        path: "{{ nextcloud_workdir }}"
+      register: workdir_stat
+      failed_when: not workdir_stat.stat.exists or not workdir_stat.stat.isdir
+      tags: [dirs]
+
+    - name: "Dir check: Nextcloud DB path exists"
+      ansible.builtin.stat:
+        path: "{{ nextcloud_db_path }}"
+      register: db_stat
+      failed_when: not db_stat.stat.exists or not db_stat.stat.isdir
+      tags: [dirs]
+
+    - name: "Dir check: Secrets directory exists"
+      ansible.builtin.stat:
+        path: "{{ nextcloud_env_path | dirname }}"
+      register: secrets_dir_stat
+      failed_when: not secrets_dir_stat.stat.exists or not secrets_dir_stat.stat.isdir
+      tags: [dirs]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 3: SELinux contexts (Fedora)
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "SELinux check: Nextcloud workdir context"
+      ansible.builtin.command: >
+        ls -Zd {{ nextcloud_workdir }}
+      changed_when: false
+      register: workdir_selinux
+      failed_when: "'container_file_t' not in workdir_selinux.stdout"
+      when: ansible_selinux.status == 'enabled'
+      tags: [selinux]
+
+    - name: "SELinux check: Nextcloud DB path context"
+      ansible.builtin.command: >
+        ls -Zd {{ nextcloud_db_path }}
+      changed_when: false
+      register: db_selinux
+      failed_when: "'container_file_t' not in db_selinux.stdout"
+      when: ansible_selinux.status == 'enabled'
+      tags: [selinux]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 4: Secrets file
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "Secrets check: Env file exists"
+      ansible.builtin.stat:
+        path: "{{ nextcloud_env_path }}"
+      register: env_stat
+      failed_when: not env_stat.stat.exists
+      tags: [secrets]
+
+    - name: "Secrets check: Env file has required vars"
+      ansible.builtin.shell: |
+        grep -q 'NEXTCLOUD_DB_PASSWORD=' {{ nextcloud_env_path }} && \
+        grep -q 'NEXTCLOUD_ADMIN_PASSWORD=' {{ nextcloud_env_path }} && \
+        grep -q 'POSTGRES_PASSWORD=' {{ nextcloud_env_path }}
+      changed_when: false
+      tags: [secrets]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 5: Container health
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "Container check: List Nextcloud containers"
+      ansible.builtin.command: podman ps --filter name=nextcloud --format "{{ '{{' }}.Names{{ '}}' }}"
+      changed_when: false
+      register: container_list
+      tags: [containers]
+
+    - name: "Container check: nextcloud app running"
+      ansible.builtin.assert:
+        that:
+          - "'nextcloud' in container_list.stdout or 'nextcloud-app' in container_list.stdout"
+        fail_msg: "Nextcloud app container not running"
+        success_msg: "Nextcloud app container is running"
+      tags: [containers]
+
+    - name: "Container check: nextcloud-db running"
+      ansible.builtin.assert:
+        that:
+          - "'nextcloud-db' in container_list.stdout"
+        fail_msg: "Nextcloud DB container not running"
+        success_msg: "Nextcloud DB container is running"
+      tags: [containers]
+
+    - name: "Container check: nextcloud-redis running"
+      ansible.builtin.assert:
+        that:
+          - "'nextcloud-redis' in container_list.stdout"
+        fail_msg: "Nextcloud Redis container not running"
+        success_msg: "Nextcloud Redis container is running"
+      tags: [containers]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 6: HTTP endpoint
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "HTTP check: status.php responding"
+      ansible.builtin.uri:
+        url: "{{ nextcloud_url }}/status.php"
+        method: GET
+        validate_certs: false
+        return_content: true
+        status_code: [200]
+      register: status_response
+      retries: 3
+      delay: 5
+      until: status_response.status == 200
+      tags: [http]
+
+    - name: "HTTP check: Validate status response"
+      ansible.builtin.assert:
+        that:
+          - "status_response.json.installed == true"
+          - "status_response.json.maintenance == false"
+        fail_msg: "Nextcloud status check failed: {{ status_response.json | default('no response') }}"
+        success_msg: "Nextcloud is installed and not in maintenance mode"
+      tags: [http]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Phase 7: External storage paths (SoR)
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "SoR check: External storage paths exist"
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: storage_paths
+      loop: "{{ external_storage_paths }}"
+      failed_when: not storage_paths.stat.exists
+      tags: [storage]
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Summary
+    # ─────────────────────────────────────────────────────────────────────────
+    - name: "VALIDATION SUMMARY"
+      ansible.builtin.debug:
+        msg: |
+          ══════════════════════════════════════════════════════════════════
+          ✅ Nextcloud validation PASSED on akira
+          ══════════════════════════════════════════════════════════════════
+          
+          Mounts:     /flux ✓  /space ✓  /time ✓
+          Dirs:       {{ nextcloud_workdir }} ✓
+                      {{ nextcloud_db_path }} ✓
+          Secrets:    {{ nextcloud_env_path }} ✓
+          Containers: nextcloud ✓  nextcloud-db ✓  nextcloud-redis ✓
+          HTTP:       {{ nextcloud_url }}/status.php → 200 OK
+          
+          External Storage paths verified:
+          {% for path in external_storage_paths %}
+            - {{ path }} ✓
+          {% endfor %}
+          
+          ══════════════════════════════════════════════════════════════════
+      tags: [always]

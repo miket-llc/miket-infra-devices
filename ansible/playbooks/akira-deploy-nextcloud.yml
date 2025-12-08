@@ -1,11 +1,60 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 ---
+# =============================================================================
+# Deploy Nextcloud Stack on Akira
+# =============================================================================
+# Per ADR-0010: Nextcloud migrated from motoko to akira
+#
+# Prerequisites:
+# 1. /space synced from motoko (rsync complete)
+# 2. Azure CLI logged in for secrets sync
+# 3. Podman installed
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/akira-deploy-nextcloud.yml --limit akira
+#
+# Post-deploy:
+#   Run cutover playbook to migrate DB from motoko
+
 - name: Deploy Nextcloud stack on akira
   hosts: akira
   become: true
   gather_facts: true
 
+  pre_tasks:
+    - name: Verify /flux is mounted
+      ansible.builtin.command: mountpoint -q /flux
+      changed_when: false
+      
+    - name: Verify /space is mounted
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+      
+    - name: Ensure runtime secrets directory exists
+      ansible.builtin.file:
+        path: /flux/runtime/secrets
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
   roles:
-    - role: akira_space          # ensures /space exists and Nextcloud dirs/contexts are present
+    - role: akira_space          # ensures /space dirs & SELinux contexts for Nextcloud
     - role: secrets_sync         # pulls AKV secrets into /flux/runtime/secrets/nextcloud.env
     - role: nextcloud_server     # deploys Nextcloud stack on /flux with /space as SoR
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          ✅ Nextcloud stack deployed on akira
+          
+          Workdir: {{ nextcloud_workdir | default('/flux/apps/nextcloud') }}
+          DB path: {{ nextcloud_db_path | default('/flux/dbs/nextcloud') }}
+          Secrets: {{ nextcloud_env_path | default('/flux/runtime/secrets/nextcloud.env') }}
+          
+          Next steps:
+          1. Run cutover playbook to migrate DB from motoko:
+             ansible-playbook playbooks/nextcloud-motoko-to-akira-cutover.yml
+          2. Test: curl http://localhost:{{ nextcloud_port | default(8080) }}/status.php
+          3. Tailnet: https://akira.pangolin-vega.ts.net

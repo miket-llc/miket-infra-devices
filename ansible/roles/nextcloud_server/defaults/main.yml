@@ -8,26 +8,29 @@
 # Container runtime - standardized on podman
 nextcloud_container_runtime: podman
 
-# Stack deployment location
-# On Fedora: use /flux/apps/nextcloud (runtime config)
-# On Debian: use /flux for runtime, /mnt/data for app data
+# =============================================================================
+# Stack deployment location - ALL runtime on /flux (fast NVMe)
+# =============================================================================
+# Per PHC invariants: /flux is active workspace, /space is SoR (user files only)
+# Nextcloud is a pure façade over /space; app runtime lives on /flux
 nextcloud_workdir: /flux/apps/nextcloud
 nextcloud_compose_path: "{{ nextcloud_workdir }}/docker-compose.yml"
 nextcloud_config_path: "{{ nextcloud_workdir }}/config"
 nextcloud_bin_path: "{{ nextcloud_workdir }}/bin"
+nextcloud_data_path: "{{ nextcloud_workdir }}/data"
+
+# Database - PostgreSQL data on /flux for performance
+nextcloud_db_path: /flux/dbs/nextcloud
 
 # Secrets (generated from AKV via secrets_sync role)
 # This path must match the entry in secrets-map.yml
 nextcloud_env_path: /flux/runtime/secrets/nextcloud.env
 
-# Data locations
-# Runtime on /flux (fast NVMe); SoR remains /space via External Storage
-nextcloud_data_path: "{{ nextcloud_workdir }}/data"
-nextcloud_db_path: /flux/dbs/nextcloud
-# Backups on /space (System of Record) for durability
+# =============================================================================
+# Backup/durability paths - on /space (SoR)
+# =============================================================================
 nextcloud_db_backup_path: /space/_services/nextcloud/db-snapshots
-
-# Log location
+nextcloud_config_backup_dir: /space/_services/nextcloud/config
 nextcloud_log_path: /space/_ops/logs/nextcloud
 
 # M365 ingestion target (one-way sync FROM M365)

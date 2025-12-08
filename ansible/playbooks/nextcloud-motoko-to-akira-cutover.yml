@@ -1,0 +1,167 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# Nextcloud Cutover: motoko → akira
+# =============================================================================
+# Per ADR-0010: Migrate Nextcloud from motoko to akira
+# 
+# This playbook performs DB cutover ONLY. Assumes:
+# 1. /space is already synced (rsync complete)
+# 2. Nextcloud stack is deployed on akira (akira-deploy-nextcloud.yml ran)
+# 3. Secrets are synced to akira (secrets-sync.yml ran)
+#
+# Usage:
+#   ansible-playbook playbooks/nextcloud-motoko-to-akira-cutover.yml
+#
+# Rollback:
+#   - Stop akira Nextcloud: systemctl stop nextcloud
+#   - Start motoko Nextcloud: systemctl start nextcloud
+#   - Enable nextcloud_motoko_rollback in secrets-map.yml and re-sync secrets
+
+- name: Phase 1 - Stop Nextcloud on motoko and dump DB
+  hosts: motoko
+  become: true
+  gather_facts: false
+  vars:
+    dump_timestamp: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+    dump_file: "/space/_services/nextcloud/db-snapshots/nextcloud-cutover-{{ dump_timestamp }}.sql"
+    
+  tasks:
+    - name: Verify /space is mounted
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+      
+    - name: Check if Nextcloud is running on motoko
+      ansible.builtin.systemd:
+        name: nextcloud
+      register: nc_motoko_status
+      failed_when: false
+      
+    - name: Stop Nextcloud app container on motoko (keep DB for dump)
+      ansible.builtin.shell: |
+        cd /podman/apps/nextcloud && podman compose stop nextcloud-app
+      when: nc_motoko_status.status.ActiveState == "active"
+      ignore_errors: true
+      
+    - name: Dump Nextcloud DB on motoko
+      ansible.builtin.shell: |
+        cd /podman/apps/nextcloud && \
+        podman compose exec -T nextcloud-db pg_dump -U nextcloud -d nextcloud > {{ dump_file }}
+      register: pg_dump_result
+      
+    - name: Verify dump file exists and has content
+      ansible.builtin.stat:
+        path: "{{ dump_file }}"
+      register: dump_stat
+      failed_when: dump_stat.stat.size < 1000
+      
+    - name: Display dump file info
+      ansible.builtin.debug:
+        msg: "DB dump created: {{ dump_file }} ({{ dump_stat.stat.size | human_readable }})"
+        
+    - name: Stop full Nextcloud stack on motoko
+      ansible.builtin.systemd:
+        name: nextcloud
+        state: stopped
+      when: nc_motoko_status.status.ActiveState == "active"
+      
+    - name: Disable Nextcloud on motoko (prevent auto-start)
+      ansible.builtin.systemd:
+        name: nextcloud
+        enabled: false
+      ignore_errors: true
+      
+    - name: Set dump file fact for akira
+      ansible.builtin.set_fact:
+        cutover_dump_file: "{{ dump_file }}"
+        
+- name: Phase 2 - Restore DB and start Nextcloud on akira
+  hosts: akira
+  become: true
+  gather_facts: false
+  vars:
+    # Use latest dump from /space (shared SoR)
+    dump_dir: /space/_services/nextcloud/db-snapshots
+    
+  tasks:
+    - name: Verify /space is mounted on akira
+      ansible.builtin.command: mountpoint -q /space
+      changed_when: false
+      
+    - name: Find latest cutover dump file
+      ansible.builtin.shell: |
+        ls -t {{ dump_dir }}/nextcloud-cutover-*.sql 2>/dev/null | head -1
+      register: latest_dump
+      changed_when: false
+      
+    - name: Verify dump file exists
+      ansible.builtin.stat:
+        path: "{{ latest_dump.stdout }}"
+      register: akira_dump_stat
+      failed_when: not akira_dump_stat.stat.exists
+      
+    - name: Stop Nextcloud on akira if running
+      ansible.builtin.systemd:
+        name: nextcloud
+        state: stopped
+      ignore_errors: true
+      
+    - name: Start only PostgreSQL container on akira
+      ansible.builtin.shell: |
+        cd {{ nextcloud_workdir | default('/flux/apps/nextcloud') }} && \
+        podman compose up -d nextcloud-db && \
+        sleep 10
+      
+    - name: Drop existing Nextcloud database on akira
+      ansible.builtin.shell: |
+        cd {{ nextcloud_workdir | default('/flux/apps/nextcloud') }} && \
+        podman compose exec -T nextcloud-db psql -U nextcloud -c "DROP DATABASE IF EXISTS nextcloud;"
+      ignore_errors: true
+      
+    - name: Create fresh Nextcloud database on akira
+      ansible.builtin.shell: |
+        cd {{ nextcloud_workdir | default('/flux/apps/nextcloud') }} && \
+        podman compose exec -T nextcloud-db psql -U nextcloud -c "CREATE DATABASE nextcloud;"
+        
+    - name: Restore DB from dump
+      ansible.builtin.shell: |
+        cd {{ nextcloud_workdir | default('/flux/apps/nextcloud') }} && \
+        podman compose exec -T nextcloud-db psql -U nextcloud -d nextcloud < {{ latest_dump.stdout }}
+      register: pg_restore_result
+      
+    - name: Update trusted_domains in Nextcloud config
+      ansible.builtin.shell: |
+        cd {{ nextcloud_workdir | default('/flux/apps/nextcloud') }} && \
+        podman compose exec -T nextcloud-app php occ config:system:set trusted_domains 0 --value=localhost && \
+        podman compose exec -T nextcloud-app php occ config:system:set trusted_domains 1 --value=akira.pangolin-vega.ts.net && \
+        podman compose exec -T nextcloud-app php occ config:system:set trusted_domains 2 --value=nextcloud.miket.io
+      ignore_errors: true
+      
+    - name: Start full Nextcloud stack on akira
+      ansible.builtin.systemd:
+        name: nextcloud
+        state: started
+        enabled: true
+        
+    - name: Wait for Nextcloud to be healthy
+      ansible.builtin.uri:
+        url: "http://localhost:{{ nextcloud_port | default(8080) }}/status.php"
+        return_content: true
+      register: nc_status
+      until: nc_status.status == 200 and '"installed":true' in nc_status.content
+      retries: 30
+      delay: 10
+      
+    - name: Display cutover success
+      ansible.builtin.debug:
+        msg: |
+          ✅ Nextcloud cutover complete!
+          
+          Akira Nextcloud: https://akira.pangolin-vega.ts.net
+          Status: {{ nc_status.json | default('OK') }}
+          
+          Next steps:
+          1. Test login via Tailscale: https://akira.pangolin-vega.ts.net
+          2. Verify external storage mounts show /space/mike/* folders
+          3. Update Cloudflare tunnel in miket-infra to point to akira
+          4. After 7 days, remove nextcloud_motoko_rollback from secrets-map.yml
