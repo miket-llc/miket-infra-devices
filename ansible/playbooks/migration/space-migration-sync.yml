@@ -48,17 +48,24 @@
       - "Thumbs.db"
     
     # Rsync options
+    # CRITICAL: --checksum flag prevents re-copying already-synced files
+    # If interrupted, resume will verify byte-for-byte (slower) but avoids duplicate transfers
     rsync_base_opts:
       - "--archive"           # Preserve permissions, timestamps, etc.
       - "--hard-links"        # Preserve hard links
       - "--compress"          # Compress during transfer (helpful over Tailscale)
+      - "--compress-level=6"  # Balance speed vs compression (6 is good for mixed media)
       - "--partial"           # Keep partially transferred files (allows resume)
       - "--partial-dir=.rsync-partial"  # Store partial files in hidden dir
+      - "--checksum"          # Verify files by MD5 hash (not timestamp): prevents re-copies after resume
       - "--progress"          # Show progress
+      - "--info=progress2"    # Single-line rolling progress (better for logs)
       - "--human-readable"    # Human-readable sizes
       - "--stats"             # Show transfer stats
       - "--itemize-changes"   # Show what changed
       - "--log-file={{ log_file_path }}"  # Log to file for monitoring
+      - "--timeout=300"       # 5min timeout per file (prevents hangs)
+      - "--whole-file"        # Skip delta algorithm for Tailscale (faster on fast links)
     
     rsync_bulk_opts:
       - "--delete"            # Delete files on target not in source

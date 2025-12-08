@@ -372,27 +372,68 @@
     # ========================================
     - name: Phase 9 - Firewall Configuration
       block:
-        - name: Configure firewalld services
+        - name: Create tailnet zone if not exists
+          ansible.builtin.command: >
+            firewall-cmd --new-zone=tailnet --permanent
+          register: create_tailnet_zone
+          changed_when: "'SUCCESS' in create_tailnet_zone.stdout"
+          failed_when: create_tailnet_zone.rc != 0 and 'ZONE_ALREADY_EXISTS' not in create_tailnet_zone.stderr
+
+        - name: Add tailnet CIDR to tailnet zone
+          ansible.builtin.command: >
+            firewall-cmd --permanent --zone=tailnet
+            --add-source=100.64.0.0/10
+          register: add_tailnet_source
+          changed_when: "'SUCCESS' in add_tailnet_source.stdout"
+          failed_when: add_tailnet_source.rc != 0 and 'ALREADY_ENABLED' not in add_tailnet_source.stderr
+
+        - name: Allow SSH only from tailnet zone
+          ansible.builtin.command: >
+            firewall-cmd --permanent --zone=tailnet
+            --add-service=ssh
+          register: allow_ssh_tailnet
+          changed_when: "'SUCCESS' in allow_ssh_tailnet.stdout"
+          failed_when: allow_ssh_tailnet.rc != 0 and 'ALREADY_ENABLED' not in allow_ssh_tailnet.stderr
+
+        - name: Remove SSH from public zone (enforce tailnet-only access)
+          ansible.builtin.command: >
+            firewall-cmd --permanent --zone=public
+            --remove-service=ssh
+          register: remove_ssh_public
+          changed_when: "'SUCCESS' in remove_ssh_public.stdout"
+          failed_when: remove_ssh_public.rc != 0 and 'NOT_ENABLED' not in remove_ssh_public.stderr
+
+        - name: Remove SSH from FedoraServer zone (enforce tailnet-only access)
+          ansible.builtin.command: >
+            firewall-cmd --permanent --zone=FedoraServer
+            --remove-service=ssh
+          register: remove_ssh_fedora
+          changed_when: "'SUCCESS' in remove_ssh_fedora.stdout"
+          failed_when: remove_ssh_fedora.rc != 0 and 'NOT_ENABLED' not in remove_ssh_fedora.stderr
+
+        - name: Allow Samba from any zone (file sharing)
           ansible.posix.firewalld:
-            service: "{{ item }}"
+            service: samba
             permanent: true
             state: enabled
-          loop:
-            - ssh
-            - samba
           notify: reload firewalld
 
-        - name: Configure firewalld ports
-          ansible.posix.firewalld:
-            port: "{{ item }}"
-            permanent: true
-            state: enabled
+        - name: Allow tailnet-only services
+          ansible.builtin.command: >
+            firewall-cmd --permanent --zone=tailnet
+            --add-port={{ item }}
           loop:
             - 4000/tcp  # NoMachine
             - 8000/tcp  # LiteLLM
             - 8001/tcp  # vLLM reasoning
             - 8200/tcp  # vLLM embeddings
-          notify: reload firewalld
+          register: add_tailnet_ports
+          changed_when: "'SUCCESS' in add_tailnet_ports.stdout"
+          failed_when: add_tailnet_ports.rc != 0 and 'ALREADY_ENABLED' not in add_tailnet_ports.stderr
+
+        - name: Reload firewalld to apply all changes
+          ansible.builtin.command: firewall-cmd --reload
+          changed_when: false
 
       tags: [firewall, security]
 

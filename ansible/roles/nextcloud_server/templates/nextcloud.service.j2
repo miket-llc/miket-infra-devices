@@ -16,7 +16,10 @@ RemainAfterExit=yes
 WorkingDirectory={{ nextcloud_workdir }}
 EnvironmentFile={{ nextcloud_env_path }}
 
-# Pre-start: ensure clean state and pull images
+# Pre-start: clean stale containers/pods, verify storage, and pull images
+ExecStartPre=-/usr/bin/podman rm -f nextcloud-app nextcloud-db nextcloud-redis
+ExecStartPre=-/usr/bin/podman pod rm -f nextcloud-pod
+ExecStartPre=/usr/bin/test -w {{ nextcloud_workdir }}
 ExecStartPre=/usr/bin/podman compose pull
 
 # Start the stack

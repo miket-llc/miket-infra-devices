@@ -153,6 +153,39 @@
   loop: "{{ akira_space_ops_dirs }}"
   when: akira_space_ops_dirs is defined
 
+- name: Ensure Nextcloud runtime directories exist
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode | default('0750') }}"
+  loop:
+    - { path: '/flux/apps/nextcloud' }
+    - { path: '/flux/dbs/nextcloud' }
+    - { path: '/flux/runtime/secrets' }
+    - { path: '/space/_services/nextcloud/config' }
+    - { path: '/space/_services/nextcloud/db-snapshots' }
+    - { path: '/space/_ops/logs/nextcloud', mode: '0755' }
+
+- name: Label Nextcloud app dir for containers
+  community.general.sefcontext:
+    target: '/flux/apps/nextcloud(/.*)?'
+    setype: container_file_t
+    state: present
+
+- name: Label Nextcloud DB dir for containers
+  community.general.sefcontext:
+    target: '/flux/dbs/nextcloud(/.*)?'
+    setype: container_file_t
+    state: present
+
+- name: Apply SELinux contexts to Nextcloud directories
+  ansible.builtin.command: restorecon -Rv /flux/apps/nextcloud /flux/dbs/nextcloud
+  args:
+    warn: false
+  changed_when: false
+
 # =============================================================================
 # User Symlinks
 # =============================================================================

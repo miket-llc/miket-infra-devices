@@ -1,0 +1,11 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+- name: Deploy Nextcloud stack on akira
+  hosts: akira
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: akira_space          # ensures /space exists and Nextcloud dirs/contexts are present
+    - role: secrets_sync         # pulls AKV secrets into /flux/runtime/secrets/nextcloud.env
+    - role: nextcloud_server     # deploys Nextcloud stack on /flux with /space as SoR

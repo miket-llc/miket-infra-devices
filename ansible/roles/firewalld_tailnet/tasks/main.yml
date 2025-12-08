@@ -71,6 +71,14 @@
   changed_when: "'NOT_ENABLED' not in remove_ssh.stderr"
   failed_when: remove_ssh.rc != 0 and 'NOT_ENABLED' not in remove_ssh.stderr
 
+- name: Remove SSH from FedoraServer zone (modern Fedora default)
+  ansible.builtin.command: >
+    firewall-cmd --permanent --zone=FedoraServer
+    --remove-service=ssh
+  register: remove_ssh_fedora
+  changed_when: "'NOT_ENABLED' not in remove_ssh_fedora.stderr"
+  failed_when: remove_ssh_fedora.rc != 0 and 'NOT_ENABLED' not in remove_ssh_fedora.stderr
+
 - name: Apply firewall changes
   ansible.builtin.command: firewall-cmd --reload
   changed_when: true
