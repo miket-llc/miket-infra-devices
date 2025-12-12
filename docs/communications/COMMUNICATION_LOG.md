@@ -1,3 +1,69 @@
+## 2025-12-12 – Akira Infrastructure Health Review & Label Correction {#2025-12-12-akira-health-review}
+
+### Context
+New primary server (akira) health review following ADR-0010 migration. User reported concern about /time volume activity and noted "akira-space" naming was unnecessary now that akira is the only /space host.
+
+### Investigation Findings
+
+**Persona: Codex-SRE-005 (SRE & Observability)**
+
+1. **/time Volume Status:** NOT busy - essentially empty with no active processes
+   - Only created directories (backups/, snapshots/, restic/, timemachine/)
+   - 2.1MB used of 18TB capacity
+   - No backup timers deployed yet (space-mirror.timer, flux-backup.timer not installed)
+
+2. **Filesystem Label Issues Identified:**
+   - `/space` (sda1): labeled "akira-space" → should be "space"
+   - `/flux` (nvme2n1p1): labeled "akira-time" → should be "flux" (wrong label!)
+   - `/matter` (nvme1n1p1): labeled "akira-flux" → should be "matter" (wrong label!)
+   - `/time` (sdb1): correctly labeled "time"
+
+3. **Mesh Connectivity:**
+   - akira: ONLINE (local, primary)
+   - count-zero: ONLINE (active)
+   - motoko: OFFLINE (2 days)
+   - armitage: OFFLINE (3 days)
+   - wintermute: OFFLINE (1 day)
+
+### Actions Taken
+
+**Persona: Codex-IAC-003 (IaC Engineer)**
+
+1. **Fixed filesystem labels on akira:**
+   ```bash
+   sudo btrfs filesystem label /space space
+   sudo e2label /dev/nvme2n1p1 flux
+   sudo e2label /dev/nvme1n1p1 matter
+   ```
+   All labels now match mount purposes.
+
+2. **Updated `ansible/files/akira-storage-setup.sh`:**
+   - Changed labels from "akira-space", "akira-flux", "akira-time" to "space", "flux", "time"
+   - Script now creates canonical labels for future rebuilds
+
+3. **Updated `docs/product/STATUS.md`:**
+   - Reflected akira as primary storage + Ansible control node
+   - Updated device inventory with current OS and roles
+   - Marked offline nodes appropriately
+   - Updated architecture version to v2.2
+
+### Pending Items
+- **space-mirror.timer** - B2 backup not yet deployed on akira
+- **Nextcloud health** - Needs verification on akira
+- **motoko decommission** - Review offline status and decide retention
+
+### Compliance
+- ✅ Filesystem Architecture: Labels now match v2.2 spec (space, flux, time, matter)
+- ✅ PHC Invariants: /space remains SoR, now on akira per ADR-0010
+- ✅ Documentation: STATUS.md and COMMUNICATION_LOG.md updated per protocol
+
+### Deliverables
+- `ansible/files/akira-storage-setup.sh` - Fixed label names
+- `docs/product/STATUS.md` - Updated for akira-primary architecture
+- Filesystem labels corrected on live system
+
+---
+
 ## 2025-12-04 – Nextcloud Dashboard Directory Fix & Autofs Deployment {#2025-12-04-nextcloud-dashboard-autofs}
 
 ### Context

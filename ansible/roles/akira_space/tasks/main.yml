@@ -184,8 +184,6 @@
 
 - name: Apply SELinux contexts to Nextcloud directories
   ansible.builtin.command: restorecon -Rv /flux/apps/nextcloud /flux/dbs/nextcloud
-  args:
-    warn: false
   changed_when: false
 
 # =============================================================================

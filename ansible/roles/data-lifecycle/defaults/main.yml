@@ -6,3 +6,22 @@ data_lifecycle_enable_space_mirror: true
 data_lifecycle_enable_flux_backup: true
 data_lifecycle_enable_flux_local: true
 data_lifecycle_enable_flux_graduate: true
+
+# Paths
+data_lifecycle_env_file: /etc/miket/storage-credentials.env
+data_lifecycle_markers_dir: /space/_ops/data-estate/markers
+data_lifecycle_logs_dir: /space/_ops/logs/data-lifecycle
+data_lifecycle_flux_path: /flux
+data_lifecycle_space_path: /space
+
+# Permissions for env file
+data_lifecycle_env_owner: root
+data_lifecycle_env_group: root
+data_lifecycle_env_mode: "0600"
+
+# B2 bucket targets
+data_lifecycle_b2_space_bucket: miket-space-mirror
+data_lifecycle_b2_flux_bucket: miket-backups-restic
+
+# Schedule (systemd timer OnCalendar format)
+data_lifecycle_space_mirror_schedule: "*-*-* 0/4:00:00"  # Every 4 hours

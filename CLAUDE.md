@@ -24,6 +24,7 @@ set -a && source /etc/ansible/windows-automation.env && set +a
 make deploy-nextcloud          # Nextcloud stack on akira
 make deploy-nomachine-servers  # NoMachine to Linux/Windows
 make deploy-proxy              # LiteLLM proxy to motoko
+make deploy-baseline-tools     # Common dev tools (Warp, Cursor, etc.)
 
 # Testing
 make test-context              # LiteLLM context window tests
@@ -33,6 +34,7 @@ python3 tests/nomachine_smoke.py
 
 # Validation
 ansible-playbook ansible/playbooks/validate-devices-infrastructure.yml
+make verify-tailscale          # E2E Tailscale mesh verification
 ```
 
 ## Architecture
@@ -78,9 +80,14 @@ Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
 
 ### Inventory Groups
 - `linux`, `windows`, `macos` - OS families
-- `gpu_8gb`, `gpu_12gb` - GPU capability
+- `gpu_8gb`, `gpu_12gb`, `gpu_unified_memory` - GPU capability tiers
+- `cuda_nodes`, `rocm_nodes` - GPU compute frameworks
+- `llm_workstations_ollama`, `llm_servers_vllm` - LLM runtime pattern (ADR-005)
+- `fedora_kde_workstations` - KDE Plasma desktops (ADR-004)
+- `headless_servers` - SSH-only nodes (no GUI)
 - `wol_enabled` - Wake-on-LAN capable
 - `netdata_nodes` - Monitoring targets
+- `container_hosts` - Nodes running Podman/Docker
 
 ### Service Dependencies
 Systemd services must declare storage dependencies:
@@ -103,3 +110,25 @@ After=<mount>.mount
 2. **New secrets:** Add to `secrets-map.yml`, provision in AKV (upstream), run `secrets-sync.yml`
 3. **New services:** Document storage paths, prove `/space` alignment, add systemd mount deps
 4. **Always validate:** `ansible-playbook ansible/playbooks/validate-*.yml`
+
+## Role Patterns
+
+Roles follow a consistent structure with OS-specific task files:
+```
+ansible/roles/<role_name>/
+├── tasks/
+│   ├── main.yml           # Entry point with OS dispatch
+│   ├── linux.yml          # or fedora.yml, ubuntu.yml
+│   ├── macos.yml
+│   └── windows.yml
+├── templates/             # Jinja2 templates
+├── files/                 # Static files
+└── defaults/main.yml      # Default variables
+```
+
+Common role categories:
+- `mount_shares_*` - Flux/Space/Time mounts per OS
+- `remote_*` - NoMachine server/client deployment
+- `llm_*` - LLM runtime (Ollama workstation, vLLM server)
+- `secrets_sync` - AKV → .env synchronization
+- `*_fedora`, `*_ubuntu`, `*_windows` - OS-specific variants

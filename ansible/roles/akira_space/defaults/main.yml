@@ -19,31 +19,32 @@ akira_space_run_scrub: false
 
 # Directory structure per FILESYSTEM_ARCHITECTURE.md
 # These are the canonical directories that must exist on /space
+# Note: On akira, the primary user is "mdt" (not "miket")
 akira_space_canonical_dirs:
   - path: /space/mike
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/work
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/media
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/finance
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/assets
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/camera
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/inbox
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/mike/inbox/ms365
-    owner: miket
-    group: miket
+    owner: mdt
+    group: mdt
   - path: /space/projects
     owner: mdt
     group: mdt
@@ -108,12 +109,9 @@ akira_space_ops_dirs:
 akira_space_user_symlinks:
   - user: mdt
     home: /home/mdt
-  - user: miket
-    home: /home/miket
 
 # SMB export configuration (for other PHC nodes)
 akira_space_smb_export: true
 akira_space_smb_share_name: space
 akira_space_smb_valid_users:
-  - miket
   - mdt

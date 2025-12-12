@@ -44,7 +44,7 @@
         mode: "0755"
 
   roles:
-    - role: data-lifecycle
+    - role: ../../roles/data-lifecycle
       vars:
         # Override paths for akira
         data_lifecycle_env_file: /etc/miket/storage-credentials.env

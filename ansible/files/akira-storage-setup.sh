@@ -163,15 +163,15 @@ fi
 
 # /space → btrfs with compression
 log_info "Formatting ${SPACE_PART} as btrfs (compressed, SoR)..."
-sudo mkfs.btrfs -f -L "akira-space" "${SPACE_PART}"
+sudo mkfs.btrfs -f -L "space" "${SPACE_PART}"
 
 # /flux → ext4
 log_info "Formatting ${FLUX_PART} as ext4 (runtime)..."
-sudo mkfs.ext4 -F -L "akira-flux" "${FLUX_PART}"
+sudo mkfs.ext4 -F -L "flux" "${FLUX_PART}"
 
 # /time → ext4
 log_info "Formatting ${TIME_PART} as ext4 (backups)..."
-sudo mkfs.ext4 -F -L "akira-time" "${TIME_PART}"
+sudo mkfs.ext4 -F -L "time" "${TIME_PART}"
 
 # =============================================================================
 # Stage 3: Create Mount Points

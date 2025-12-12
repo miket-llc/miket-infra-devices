@@ -1,29 +1,28 @@
-# 🎯 Device Infrastructure Status Dashboard
+# Device Infrastructure Status Dashboard
 
-**Date:** 2025-11-29
-**Architecture Version:** v1.2.3 (Windows mounts/OS cloud redeploy)
-**Status:** ✅ **PRODUCTION-READY - Comprehensive Review Complete**
-**Last Updated:** 2025-11-29 00:00 EST
+**Date:** 2025-12-12
+**Architecture Version:** v2.2 (ADR-0010: akira primary, Flux/Space/Time/Matter)
+**Status:** ✅ **OPERATIONAL - akira as Primary Storage + Ansible Control Node**
+**Last Updated:** 2025-12-12 16:00 EST
 
 ---
 
-## 📊 Current Status Summary
+## Current Status Summary
 
-**Latest Update (2025-11-29):** Documentation consolidated into canonical architecture set (`docs/architecture/PHC_VNEXT_ARCHITECTURE.md`, filesystem/devices docs, components) with redundant architecture notes archived. See `docs/communications/COMMUNICATION_LOG.md` for the refactor entry.
+**Latest Update (2025-12-12):** akira is now the primary server, hosting `/space` (SoR), Nextcloud, and serving as the Ansible control node. Filesystem labels corrected (space, flux, matter, time). motoko is offline pending decommissioning review.
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| **lite-llm-proxy** | ✅ GREEN | motoko:8000, routing to local models + OpenAI fallback |
-| **vllm-armitage** | ⚠️ YELLOW | armitage:8000, Qwen2.5-7B (workstation may be off) |
+| **akira (primary)** | ✅ GREEN | Primary storage host, Ansible control node, /space SoR (18TB), /time (20TB), Nextcloud |
+| **samba-file-sharing** | ✅ GREEN | akira SMB exports /space; clients mount via Tailscale MagicDNS |
+| **nomachine-server** | ✅ GREEN | akira/wintermute:4000, Cloudflare Access + MFA |
+| **vllm-akira** | ⚠️ PENDING | vLLM on akira AMD ROCm (not yet deployed) |
 | **vllm-wintermute** | ⚠️ YELLOW | wintermute:8000, Llama-3.1-8B (workstation may be off) |
-| **nomachine-server** | ✅ GREEN | motoko/wintermute/armitage:4000, Cloudflare Access + MFA |
-| **samba-file-sharing** | ✅ GREEN | motoko SMB, Flux/Space/Time mounts operational |
-| **tailscale-ssh** | ✅ GREEN | Bastion access via Tailscale SSH, MFA enforced |
-| **device-health-reporting** | ✅ GREEN | Centralized status files in /space/devices/ |
-| **Ansible WinRM (Windows)** | ✅ OPERATIONAL | wintermute and armitage responding perfectly |
-| **Tailscale Connectivity** | ✅ OPERATIONAL | All devices pingable, sub-4ms latency |
-| **Secrets Management** | ✅ STANDARDIZED | Azure Key Vault → env files (`secrets-sync.yml`); 1Password human-only; Ansible Vault deprecated |
-| **Documentation** | ✅ CLEANED | Standards established, ephemeral files removed, organized structure |
+| **ollama-armitage** | ⚠️ YELLOW | Fedora KDE workstation, Ollama LLM (may be off) |
+| **tailscale-mesh** | ✅ GREEN | akira, count-zero active; motoko/armitage/wintermute offline |
+| **Secrets Management** | ✅ STANDARDIZED | Azure Key Vault → env files (`secrets-sync.yml`); 1Password human-only |
+| **space-mirror** | ⚠️ PENDING | B2 backup timer not yet deployed on akira |
+| **motoko** | ⚠️ OFFLINE | Secondary host, offline pending review (was primary until Dec 2025) |
 
 ---
 
@@ -94,14 +93,15 @@ All infrastructure components are operational and follow IaC/CaC principles.
 
 ---
 
-## 📋 Device Inventory Status
+## Device Inventory Status
 
 | Device | OS | Role | Remote Access | AI Infrastructure | Issues |
 |--------|-----|------|---------------|-------------------|--------|
-| motoko | Ubuntu 24.04 | Ansible Control, LiteLLM | ✅ Tailscale (1.1ms RTT) | ✅ LiteLLM Running | None |
-| wintermute | Windows | Workstation, vLLM | ✅ Tailscale (1.1ms RTT) | ❌ Blocked (GPU passthrough) | Docker Desktop GPU config required |
-| armitage | Windows | Workstation, vLLM | ✅ Tailscale (3.8ms RTT) | ✅ vLLM Running (Qwen2.5-7B) | None |
-| count-zero | macOS | Workstation | ✅ Tailscale | N/A | Not tested in this session |
+| akira | Fedora 43 KDE | Primary Storage + Ansible Control | ✅ Tailscale (local) | ⚠️ vLLM pending (ROCm) | space-mirror timer not deployed |
+| motoko | Fedora 43 | Secondary (backup /time export) | ⚠️ Offline | N/A | Offline - pending decommission review |
+| wintermute | Windows 11 | Workstation, vLLM | ⚠️ Offline (1d ago) | ⚠️ vLLM (may need restart) | None when online |
+| armitage | Fedora 43 KDE | Workstation, Ollama | ⚠️ Offline (3d ago) | ✅ Ollama (RTX 4070) | None when online |
+| count-zero | macOS | Workstation | ✅ Tailscale (active) | N/A | Autofs mounts operational |
 
 ---
 

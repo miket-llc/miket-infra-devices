@@ -1,0 +1,27 @@
+[Unit]
+Description=Nextcloud Stack (Podman Compose)
+Requires=podman.socket
+After=podman.socket network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/flux/apps/nextcloud
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=-/flux/runtime/secrets/nextcloud.env
+
+# Start containers (--force-recreate ensures clean start)
+ExecStart=/usr/bin/podman compose up -d --force-recreate
+
+# Stop containers on service stop
+ExecStop=/usr/bin/podman compose down
+
+# Healthcheck after start (optional, non-fatal)
+ExecStartPost=-/bin/bash -c 'sleep 10 && /flux/apps/nextcloud/bin/nextcloud-healthcheck.sh check || true'
+
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
