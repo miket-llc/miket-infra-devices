@@ -59,6 +59,9 @@ common_dev_tools_install_claude_cli: false
 # Aider (AI pair programming)
 common_dev_tools_install_aider: false
 
+# Claude Code CLI (Anthropic AI assistant)
+common_dev_tools_install_claude_code: true
+
 # ========================================
 # Windows Packages (via Chocolatey)
 # ========================================

@@ -14,11 +14,11 @@ workstation_gui_tools_enabled: true
 vscode_enabled: true
 vscode_channel: stable
 
-# Cursor (AI code editor)
-cursor_enabled: true
+# Cursor (AI code editor) - disabled, using VS Code + Claude Code instead
+cursor_enabled: false
 
-# Warp Terminal (Linux/macOS only - Windows gets Windows Terminal)
-warp_enabled: true
+# Warp Terminal - disabled (2025-12)
+warp_enabled: false
 
 # Create desktop entries on Linux
 workstation_create_desktop_entries: true

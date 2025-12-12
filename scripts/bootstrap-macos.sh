@@ -5,8 +5,22 @@
 # macOS Bootstrap Script for Tailscale + Remote Management
 # ============================================================================
 # Purpose: Complete macOS device onboarding for miket-infra-devices
-# Usage: curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-macos.sh | bash
-# Or: ./scripts/bootstrap-macos.sh
+#
+# PREREQUISITES (manual):
+#   1. User account created (e.g., "miket") with admin privileges
+#   2. Homebrew installed: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+#
+# Usage: ./scripts/bootstrap-macos.sh
+#
+# This script handles:
+#   - Tailscale installation and configuration (via Homebrew)
+#   - MagicDNS resolver setup for *.pangolin-vega.ts.net
+#   - SSH Remote Login enablement (required for Tailscale SSH)
+#   - Basic SSH directory setup
+#
+# After bootstrap, run Ansible playbooks for remaining tools:
+#   - ansible-playbook playbooks/common/dev-tools.yml --limit count-zero
+#   - ansible-playbook playbooks/deploy-baseline-tools.yml --limit count-zero
 # ============================================================================
 
 set -e
@@ -40,18 +54,18 @@ echo -e "${CYAN}[1/6] Checking Tailscale installation...${NC}"
 
 if ! command -v tailscale &> /dev/null; then
     echo -e "${YELLOW}Tailscale not found. Installing via Homebrew...${NC}"
-    
-    # Check Homebrew
+
+    # Check Homebrew (REQUIRED - must be installed manually first)
     if ! command -v brew &> /dev/null; then
-        echo -e "${RED}Homebrew not installed. Installing Homebrew first...${NC}"
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        
-        # Add Homebrew to PATH for M1/M2 Macs
-        if [[ $(uname -m) == 'arm64' ]]; then
-            eval "$(/opt/homebrew/bin/brew shellenv)"
-        fi
+        echo -e "${RED}ERROR: Homebrew is not installed.${NC}"
+        echo -e "${YELLOW}Please install Homebrew first:${NC}"
+        echo -e "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        echo -e ""
+        echo -e "${YELLOW}For Apple Silicon Macs, also run:${NC}"
+        echo -e "  eval \"\$(/opt/homebrew/bin/brew shellenv)\""
+        exit 1
     fi
-    
+
     # Install Tailscale
     brew install tailscale
     
@@ -227,9 +241,12 @@ sudo systemsetup -getremotelogin
 
 echo -e "\n${CYAN}Next Steps:${NC}"
 echo "1. Test MagicDNS: ping motoko.$TAILNET_DOMAIN"
-echo "2. Add this device to miket-infra-devices Ansible inventory if not already present"
-echo "3. Test Ansible: ansible count-zero -m ping"
-echo "4. Install Microsoft Remote Desktop from Mac App Store (if needed for RDP to Windows)"
+echo "2. From Ansible control node (motoko), test connectivity:"
+echo "   ansible count-zero -m ping"
+echo "3. Run baseline tools playbook:"
+echo "   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --limit count-zero"
+echo "4. Run common dev-tools playbook (installs Claude Code, neovim, etc.):"
+echo "   ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml --limit count-zero"
 
 echo -e "\n${GREEN}✅ macOS device ready for management via Tailscale${NC}"
 

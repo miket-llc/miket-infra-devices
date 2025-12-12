@@ -21,13 +21,12 @@ ai_node_roles:
 # ========================================
 # Ollama Configuration (PHC AI Fabric)
 # ========================================
-# NOTE: Ollama must be manually installed by user
-# Install via: brew install ollama
-# Or download from: https://ollama.com/download/mac
-ollama_enabled: true
-ollama_models:
-  - name: yarn-llama2:7b-128k    # Fast 128k context model for longcontext role
-    context: 131072
+# Ollama disabled on count-zero (2025-12)
+# Using Claude Code CLI instead for AI assistance
+ollama_enabled: false
+# ollama_models:
+#   - name: yarn-llama2:7b-128k
+#     context: 131072
 
 # ========================================
 # Netdata Monitoring Configuration

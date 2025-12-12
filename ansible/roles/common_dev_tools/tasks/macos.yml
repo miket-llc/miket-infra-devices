@@ -43,10 +43,9 @@
     - curl
     - wget
     - jq
-    - htop
     - btop
     - tmux
-    - vim
+    - neovim
     - tree
     - python3
     - node
@@ -73,6 +72,20 @@
     - homebrew_check.stat.exists or (homebrew_check_intel.stat.exists | default(false))
   become: false
   tags: [dev_tools, az]
+
+# ========================================
+# Claude Code CLI (AI assistant)
+# ========================================
+- name: Install Claude Code CLI (macOS)
+  community.general.npm:
+    name: "@anthropic-ai/claude-code"
+    global: true
+    state: present
+  when:
+    - common_dev_tools_install_claude_code | default(true) | bool
+    - homebrew_check.stat.exists or (homebrew_check_intel.stat.exists | default(false))
+  become: false
+  tags: [dev_tools, ai_cli, claude]
 
 # ========================================
 # Verification
