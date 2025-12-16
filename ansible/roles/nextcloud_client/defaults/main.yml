@@ -5,10 +5,11 @@
 # Configuration for desktop client installation and setup
 
 # Server URL
-# For Tailscale devices: use motoko.pangolin-vega.ts.net (direct tailnet access)
+# For Tailscale devices: use akira.pangolin-vega.ts.net (direct tailnet access)
 # For external devices: use nextcloud.miket.io (Cloudflare Access)
 # Default to Tailscale URL for tailnet devices (can be overridden per host)
-nextcloud_server_url: https://motoko.pangolin-vega.ts.net
+# NOTE: Nextcloud migrated from motoko to akira per ADR-0010 (Dec 2025)
+nextcloud_server_url: https://akira.pangolin-vega.ts.net
 
 # Local sync root
 # Must NOT be:

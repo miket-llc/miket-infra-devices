@@ -5,17 +5,8 @@
 # Configures local mounts to /space/mike directories
 # Uses Nextcloud OCC (command line interface)
 
-# Ensure filesystem permissions allow www-data (uid 33) to write
-# This is critical - without this, uploads will fail with 403 Forbidden
-- name: Ensure external storage directories are writable by www-data
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: directory
-    group: "33"
-    mode: "g+rwX"
-    recurse: yes
-  loop: "{{ nextcloud_external_mounts }}"
-  become: true
+# NOTE: Filesystem permissions (group 33, g+rwX) are now set in directories.yml
+# before the container starts, to ensure uploads work immediately.
 
 - name: Skip external storage if Nextcloud not ready
   ansible.builtin.debug:

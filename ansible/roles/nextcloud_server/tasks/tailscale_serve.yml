@@ -1,0 +1,33 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Tailscale Serve Configuration for Nextcloud
+# Configures HTTPS termination via Tailscale for internal tailnet access
+# External access uses Cloudflare Tunnel (configured separately)
+
+- name: Check Tailscale Serve status
+  ansible.builtin.command: tailscale serve status
+  register: tailscale_serve_status
+  changed_when: false
+  failed_when: false
+  become: true
+
+- name: Configure Tailscale Serve for Nextcloud HTTPS
+  ansible.builtin.command: >
+    tailscale serve --bg http://localhost:{{ nextcloud_port }}
+  register: tailscale_serve_result
+  changed_when: "'Serve started' in tailscale_serve_result.stdout"
+  when: "'No serve config' in tailscale_serve_status.stdout or tailscale_serve_status.rc != 0"
+  become: true
+
+- name: Report Tailscale Serve configuration
+  ansible.builtin.debug:
+    msg: |
+      Tailscale Serve configured for Nextcloud:
+      - HTTPS URL: https://{{ inventory_hostname }}.pangolin-vega.ts.net/
+      - Proxies to: http://localhost:{{ nextcloud_port }}
+      {% if tailscale_serve_result is defined and tailscale_serve_result.changed %}
+      - Status: NEWLY CONFIGURED
+      {% else %}
+      - Status: ALREADY CONFIGURED
+      {% endif %}

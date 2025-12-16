@@ -15,6 +15,9 @@
 - name: Include Docker/Compose deployment tasks
   ansible.builtin.include_tasks: deploy.yml
 
+- name: Include Tailscale Serve configuration
+  ansible.builtin.include_tasks: tailscale_serve.yml
+
 - name: Include OIDC/SSO configuration tasks
   ansible.builtin.include_tasks: oidc.yml
   when: nextcloud_oidc_enabled | default(true)

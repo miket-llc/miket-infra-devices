@@ -36,7 +36,7 @@ ls -la ~/Library/Preferences/Nextcloud/ && echo "✅ Config exists" || echo "❌
 test -d ~/nc && echo "✅ Sync root exists" || echo "❌ Sync root missing"
 
 # 5. Test server connectivity (try both URLs)
-curl -I https://motoko.pangolin-vega.ts.net 2>&1 | head -1  # Tailscale URL
+curl -I https://akira.pangolin-vega.ts.net 2>&1 | head -1  # Tailscale URL
 curl -I https://nextcloud.miket.io 2>&1 | head -1          # Cloudflare URL
 
 # 6. Check Tailscale connectivity
@@ -53,12 +53,12 @@ tailscale status | grep -q "online" && echo "✅ Tailscale online" || echo "❌ 
 - Container shows as "unhealthy"
 - Logs show repeated 500 errors
 
-**This is a server-side issue on motoko, not a client configuration problem.**
+**This is a server-side issue on akira, not a client configuration problem.**
 
 **Diagnosis:**
 ```bash
-# On motoko, check Nextcloud status
-docker exec nextcloud-app php occ status
+# On akira, check Nextcloud status
+sudo podman exec -u 33 nextcloud-app php occ status
 
 # Check container health
 docker ps | grep nextcloud
@@ -141,10 +141,12 @@ If issues persist, see: [Nextcloud on Motoko Guide](../guides/nextcloud_on_motok
 
 | Endpoint | URL | Use Case |
 |----------|-----|----------|
-| **Tailscale (Internal)** | `https://motoko.pangolin-vega.ts.net` | Devices on Tailscale network (preferred for tailnet devices) |
+| **Tailscale (Internal)** | `https://akira.pangolin-vega.ts.net` | Devices on Tailscale network (preferred for tailnet devices) |
 | **Cloudflare (External)** | `https://nextcloud.miket.io` | External access via Cloudflare Access |
 
-**For count-zero (on Tailscale):** Use `https://motoko.pangolin-vega.ts.net` for direct tailnet access.
+**For count-zero (on Tailscale):** Use `https://akira.pangolin-vega.ts.net` for direct tailnet access.
+
+> **NOTE:** Nextcloud migrated from motoko to akira per ADR-0010 (December 2025).
 
 **Symptoms:**
 - Nextcloud client shows disconnected or connection errors
@@ -159,7 +161,7 @@ If issues persist, see: [Nextcloud on Motoko Guide](../guides/nextcloud_on_motok
 # 3. Click "Account" tab
 # 4. Click "Remove account" or "Log out"
 # 5. Click "Add account" or "Log in to your Nextcloud"
-# 6. Enter: https://motoko.pangolin-vega.ts.net (for Tailscale devices)
+# 6. Enter: https://akira.pangolin-vega.ts.net (for Tailscale devices)
 #    OR: https://nextcloud.miket.io (for external access)
 # 7. Authenticate via OIDC/Entra ID
 # 8. Set sync root: ~/nc

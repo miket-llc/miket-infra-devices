@@ -33,7 +33,27 @@
   register: firstrun_config
   changed_when: "'Config value show for app firstrunwizard set' in firstrun_config.stdout"
   failed_when: false
-  when: 
+  when:
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Disable firstrunwizard app completely
+  ansible.builtin.command: >
+    podman exec -u 33 nextcloud-app php occ app:disable firstrunwizard
+  register: firstrun_disable
+  changed_when: "'disabled' in firstrun_disable.stdout"
+  failed_when: false
+  when:
+    - nextcloud_is_ready | default(false)
+    - occ_status.rc | default(1) == 0
+
+- name: Disable rate limiting for internal/tailnet access
+  ansible.builtin.command: >
+    podman exec -u 33 nextcloud-app php occ config:system:set ratelimit.protection.enabled --value=false
+  register: ratelimit_config
+  changed_when: "'set' in ratelimit_config.stdout"
+  failed_when: false
+  when:
     - nextcloud_is_ready | default(false)
     - occ_status.rc | default(1) == 0
 
@@ -73,9 +93,10 @@
       Nextcloud Pure Façade Configuration Applied:
       - Skeleton directory: {{ 'DISABLED' if nextcloud_skeleton_directory == '' else nextcloud_skeleton_directory }}
       - First-run wizard: DISABLED
+      - Rate limiting: DISABLED (for tailnet sync clients)
       - Cleared skeleton dirs: {{ skeleton_dirs.stdout_lines | default(['none found']) | join(', ') }}
       - Managed users: {{ nextcloud_managed_users | join(', ') }}
-  when: 
+  when:
     - nextcloud_is_ready | default(false)
     - occ_status.rc | default(1) == 0
 

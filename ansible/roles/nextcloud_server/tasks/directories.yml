@@ -110,3 +110,17 @@
   loop: "{{ mount_paths.results }}"
   when: not item.stat.exists
 
+# Set permissions on external mount directories BEFORE container starts
+# www-data (uid 33) needs write access for uploads via Nextcloud
+# This is critical for external storage to work correctly
+- name: Set external storage directory group to www-data
+  ansible.builtin.file:
+    path: "{{ item.item.path }}"
+    state: directory
+    group: "33"
+    mode: "g+rwX"
+    recurse: yes
+  loop: "{{ mount_paths.results }}"
+  when: item.stat.exists
+  become: true
+
