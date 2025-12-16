@@ -35,6 +35,10 @@ python3 tests/nomachine_smoke.py
 # Validation
 ansible-playbook ansible/playbooks/validate-devices-infrastructure.yml
 make verify-tailscale          # E2E Tailscale mesh verification
+
+# Device bootstrap (initial setup only)
+scripts/bootstrap-macos.sh     # macOS: autofs, CLI tools, Tailscale
+scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 ```
 
 ## Architecture
@@ -42,11 +46,11 @@ make verify-tailscale          # E2E Tailscale mesh verification
 ### Device Inventory
 | Device | Role | Key Services |
 |--------|------|--------------|
-| **motoko** | Server/control node | Ansible control, LiteLLM proxy, `/time` export |
-| **akira** | Storage SoR + AI | `/space` (18TB), Nextcloud, vLLM |
-| **armitage** | Workstation | Ollama (RTX 4070), NoMachine |
+| **motoko** | Server/control node | Ansible control, LiteLLM proxy, `/time` export, Netdata |
+| **akira** | Storage SoR + AI workstation | `/space` SoR (18TB WD Red), Nextcloud, vLLM, space-mirror |
+| **armitage** | Workstation + Ollama | Ollama (RTX 4070), NoMachine, KDE Plasma |
 | **wintermute** | Windows workstation | vLLM (RTX 4070 Super), NoMachine |
-| **atom** | Resilience node | Battery-backed SSH foothold |
+| **atom** | Resilience node | Battery-backed SSH foothold, minimal services |
 | **count-zero** | macOS client | Autofs mounts, OS cloud ingestion |
 
 ### Storage Model (Flux/Space/Time)
@@ -96,6 +100,13 @@ Requires=<mount>.mount
 After=<mount>.mount
 ```
 
+### Monitoring (Netdata Cloud)
+- Standalone agents on all nodes claimed to Netdata Cloud (Homelab subscription)
+- **NO parent/child streaming** - Cloud handles aggregation and retention
+- Primary UI: https://app.netdata.cloud (unified view, historical data, alerting)
+- Local dashboards: `http://<hostname>.pangolin-vega.ts.net:19999` (break-glass only)
+- Deployment: `ansible-playbook ansible/playbooks/deploy-netdata.yml`
+
 ## Critical Invariants
 
 1. **`/space` is the only SoR** - Never mirror FROM `/space` to external clouds
@@ -103,6 +114,12 @@ After=<mount>.mount
 3. **Secrets from AKV** - Never hardcode; always use `secrets-sync`
 4. **Tailscale hostnames** - Always use MagicDNS (`*.pangolin-vega.ts.net`), never IPs
 5. **OS cloud loop prevention** - iCloud/OneDrive must NOT sync back from network mounts
+6. **systemd mount dependencies** - Services must declare `Requires=<mount>.mount` and `After=<mount>.mount`
+
+**ADRs in effect:**
+- ADR-004: KDE Plasma is the standard Linux desktop for all UI nodes
+- ADR-005: Workstations use Ollama; servers use vLLM
+- ADR-0010: `/space` and Nextcloud migrated from motoko → akira (Dec 2025)
 
 ## When Making Changes
 
@@ -132,3 +149,12 @@ Common role categories:
 - `llm_*` - LLM runtime (Ollama workstation, vLLM server)
 - `secrets_sync` - AKV → .env synchronization
 - `*_fedora`, `*_ubuntu`, `*_windows` - OS-specific variants
+
+## Common Pitfalls
+
+1. **Don't mirror FROM `/space`** - `/space` is the destination, not a source for external clouds
+2. **Don't use IPs in mount scripts** - Always use MagicDNS hostnames (ACL changes may reassign IPs)
+3. **Don't expose prohibited paths via Nextcloud** - External storage limited to `/space/mike/*` (no `/space/projects/**`, `/space/code/**`)
+4. **macOS autofs loop prevention** - Use `--no-links` with rsync to avoid following symlinks back into autofs mounts
+5. **Windows WinRM env vars** - Must source `/etc/ansible/windows-automation.env` before running Windows playbooks
+6. **Nextcloud prohibited paths** - Don't expose `/space/projects`, `/space/code`, `/space/dev` via external storage
