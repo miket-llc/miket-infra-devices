@@ -28,7 +28,7 @@
 ## 4) Operational guardrails
 - **No circular syncs:** Do not connect Nextcloud to upstream cloud drives that already ingest into `/space`.
 - **Service dependencies:** Nextcloud stack requires storage mounts ready before container start and AKV-sourced env files present.
-- **Client guidance:** Clients sync against Nextcloud, which surfaces `/space`; caches belong under `~/nc` (user-local) and must not be treated as SoR.
+- **Client guidance:** Clients sync against Nextcloud, which surfaces `/space`; caches belong under `~/Cloud` (user-local) and must not be treated as SoR.
 
 ## 5) Related assets
 - Deployment role: `ansible/roles/nextcloud_server/`

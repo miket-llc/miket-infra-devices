@@ -16,7 +16,8 @@ nextcloud_server_url: https://akira.pangolin-vega.ts.net
 # - User's home directory
 # - Any OS cloud directory (iCloud, OneDrive, Dropbox)
 # - Any directory mapped to /space over SMB
-nextcloud_sync_root: "{{ ansible_user_dir }}/nc"
+# Named "Cloud" for clarity (user-friendly name for Nextcloud sync folder)
+nextcloud_sync_root: "{{ ansible_user_dir }}/Cloud"
 
 # User to configure
 nextcloud_user: "{{ ansible_user | default('miket') }}"

@@ -20,7 +20,7 @@ This document defines the contract between the PHC Nextcloud platform (motoko), 
 │         │                     │                     │          │
 │         │                     │                     │          │
 │    ┌────▼────┐          ┌─────▼─────┐         ┌────▼────┐      │
-│    │ /space  │◄────────►│  ~/cloud  │◄───────►│  ~/nc   │      │
+│    │ /space  │◄────────►│  ~/Cloud  │◄───────►│ ~/Cloud │      │
 │    │  (SoR)  │   sync   │  (local)  │  sync   │ (local) │      │
 │    └─────────┘          └───────────┘         └─────────┘      │
 │         ▲                                                       │
@@ -73,7 +73,7 @@ The directory structure of `/space` must never be altered by external tooling:
 ### Invariant 3: Device-Side Changes are Local Only
 
 Device-side tooling (scripts, LaunchAgents, scheduled tasks) may only operate on:
-- Local sync directories (e.g., `~/cloud`, `~/nc`)
+- Local sync directories (e.g., `~/Cloud`)
 - Device configuration files
 - Local logs and caches
 
@@ -143,7 +143,7 @@ When adding new device-side tooling that interacts with Nextcloud sync:
 
 ### ✅ DO
 
-1. **Operate on local paths only** - Use `~/cloud`, `~/nc`, or equivalent
+1. **Operate on local paths only** - Use `~/Cloud` (Nextcloud sync root)
 2. **Follow IaC/CaC principles** - All tooling via Ansible, version controlled
 3. **Include safety checks** - Validate paths before operations
 4. **Log operations** - Write to local logs for debugging

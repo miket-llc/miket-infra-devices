@@ -56,7 +56,7 @@ This means the folders you see in Nextcloud (work, media, finance, etc.) are act
 
 ### 3. Choose Sync Folder
 
-Use the default: `~/nc`
+Use the default: `~/Cloud`
 
 **⚠️ DO NOT use:**
 - Your home folder (`~`)
@@ -82,7 +82,7 @@ Use the default: `~/nc`
 
 ## Sync Root Safety
 
-Your sync folder (`~/nc`) is a local cache of files from Nextcloud. It must be:
+Your sync folder (`~/Cloud`) is a local cache of files from Nextcloud. It must be:
 
 | ✅ Safe | ❌ Dangerous |
 |---------|-------------|
@@ -151,10 +151,10 @@ These file types cause sync issues, consume massive bandwidth, or corrupt projec
 ### For Documents
 
 ```
-Local (~/nc/work) ←→ Nextcloud ←→ /space/mike/work
+Local (~/Cloud/work) ←→ Nextcloud ←→ /space/mike/work
 ```
 
-Work normally in `~/nc/work`. Changes sync automatically.
+Work normally in `~/Cloud/work`. Changes sync automatically.
 
 ### For Media Projects
 

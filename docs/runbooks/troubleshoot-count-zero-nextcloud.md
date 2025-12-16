@@ -33,7 +33,7 @@ ps aux | grep -i nextcloud | grep -v grep && echo "✅ Process running" || echo 
 ls -la ~/Library/Preferences/Nextcloud/ && echo "✅ Config exists" || echo "❌ Config missing"
 
 # 4. Check sync root directory
-test -d ~/nc && echo "✅ Sync root exists" || echo "❌ Sync root missing"
+test -d ~/Cloud && echo "✅ Sync root exists" || echo "❌ Sync root missing"
 
 # 5. Test server connectivity (try both URLs)
 curl -I https://akira.pangolin-vega.ts.net 2>&1 | head -1  # Tailscale URL
@@ -42,6 +42,78 @@ curl -I https://nextcloud.miket.io 2>&1 | head -1          # Cloudflare URL
 # 6. Check Tailscale connectivity
 tailscale status | grep -q "online" && echo "✅ Tailscale online" || echo "❌ Tailscale offline"
 ```
+
+---
+
+## Fresh Setup (Manual)
+
+count-zero requires password authentication for SSH, so Ansible automation isn't available. Follow these steps **on count-zero** to set up Nextcloud client from scratch.
+
+### Prerequisites
+
+- Tailscale connected and authenticated
+- Homebrew installed
+- Admin access to macOS
+
+### Step 1: Install Nextcloud Client
+
+```bash
+# Install via Homebrew
+brew install --cask nextcloud
+
+# Verify installation
+test -d /Applications/Nextcloud.app && echo "✅ Installed" || echo "❌ Failed"
+```
+
+### Step 2: Create Sync Root Directory
+
+```bash
+# Create the sync directory
+mkdir -p ~/Cloud
+chmod 755 ~/Cloud
+
+# Verify
+ls -ld ~/Cloud
+```
+
+### Step 3: Configure Nextcloud Client
+
+1. Launch Nextcloud: `open -a Nextcloud`
+2. Click **"Log in to your Nextcloud"**
+3. Enter server URL: `https://akira.pangolin-vega.ts.net` (Tailscale, preferred)
+   - Alternative: `https://nextcloud.miket.io` (Cloudflare Access)
+4. Browser opens for OIDC authentication → Use Entra ID credentials
+5. Grant access when prompted
+6. **Local folder:** Set to `~/Cloud`
+7. **Select folders to sync:**
+   - ✅ `work`
+   - ✅ `media`
+   - ✅ `finance`
+   - ✅ `inbox`
+   - ✅ `assets`
+   - ✅ `camera`
+   - ⚡ `ms365` (optional, online-only recommended)
+   - ⚡ `Dashboard` (system use, online-only)
+
+### Step 4: Verify Sync
+
+```bash
+# Check Nextcloud is running
+ps aux | grep -i nextcloud | grep -v grep
+
+# Verify menu bar icon shows (should be green checkmark when synced)
+
+# Test sync with a file
+echo "count-zero sync test $(date)" > ~/Cloud/work/count-zero-test.txt
+
+# Check file appears on server (from any machine with /space access)
+# cat /space/mike/work/count-zero-test.txt
+```
+
+### Step 5: Configure Auto-Start (Optional)
+
+1. System Preferences → Users & Groups → Login Items
+2. Add `/Applications/Nextcloud.app`
 
 ---
 
@@ -164,7 +236,7 @@ If issues persist, see: [Nextcloud on Motoko Guide](../guides/nextcloud_on_motok
 # 6. Enter: https://akira.pangolin-vega.ts.net (for Tailscale devices)
 #    OR: https://nextcloud.miket.io (for external access)
 # 7. Authenticate via OIDC/Entra ID
-# 8. Set sync root: ~/nc
+# 8. Set sync root: ~/Cloud
 # 9. Select folders to sync
 ```
 
@@ -299,9 +371,9 @@ open -a Nextcloud
 ```
 
 **Reconfigure:**
-1. Enter server: `https://nextcloud.miket.io`
-2. Authenticate via Cloudflare Access
-3. Set sync root: `~/nc`
+1. Enter server: `https://akira.pangolin-vega.ts.net` (Tailscale) or `https://nextcloud.miket.io` (external)
+2. Authenticate via OIDC/Entra ID
+3. Set sync root: `~/Cloud`
 4. Select folders to sync: `work`, `media`, `finance`, `inbox`, `assets`, `camera`
 
 ---
@@ -309,22 +381,22 @@ open -a Nextcloud
 ### 5. Sync Root Directory Issues
 
 **Symptoms:**
-- Sync root (`~/nc`) missing or inaccessible
+- Sync root (`~/Cloud`) missing or inaccessible
 - Permission errors
 - Files not syncing
 
 **Fix:**
 ```bash
 # On count-zero, recreate sync root
-mkdir -p ~/nc
-chmod 755 ~/nc
+mkdir -p ~/Cloud
+chmod 755 ~/Cloud
 
 # Verify ownership
-ls -ld ~/nc
+ls -ld ~/Cloud
 # Should show: drwxr-xr-x  miket  staff  ...
 
 # If wrong owner, fix:
-chown -R miket:staff ~/nc
+chown -R miket:staff ~/Cloud
 ```
 
 ---
@@ -366,8 +438,8 @@ If nothing else works, perform a full reset:
 killall Nextcloud 2>/dev/null
 
 # 2. Backup existing data
-mkdir -p ~/nc.backup
-cp -r ~/nc/* ~/nc.backup/ 2>/dev/null
+mkdir -p ~/Cloud.backup
+cp -r ~/Cloud/* ~/Cloud.backup/ 2>/dev/null
 
 # 3. Remove all Nextcloud configuration
 rm -rf ~/Library/Preferences/Nextcloud/
@@ -384,7 +456,7 @@ open -a Nextcloud
 # Follow setup wizard:
 # - Server: https://nextcloud.miket.io
 # - Auth: Cloudflare Access (Entra ID)
-# - Sync root: ~/nc
+# - Sync root: ~/Cloud
 # - Folders: work, media, finance, inbox, assets, camera
 ```
 
@@ -401,7 +473,7 @@ ps aux | grep -i nextcloud | grep -v grep
 # 2. Check menu bar icon (should show green checkmark when synced)
 
 # 3. Test sync by creating a file
-echo "test" > ~/nc/work/test_connection.txt
+echo "test" > ~/Cloud/work/test_connection.txt
 
 # 4. Check if file appears in Nextcloud web UI
 # Visit: https://nextcloud.miket.io
