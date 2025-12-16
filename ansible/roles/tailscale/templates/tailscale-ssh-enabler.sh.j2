@@ -1,0 +1,77 @@
+#!/bin/bash
+# Tailscale SSH Enabler for macOS
+# Managed by Ansible - DO NOT EDIT MANUALLY
+#
+# This script ensures Tailscale SSH is enabled after every boot.
+# On macOS, the --ssh flag does not persist across reboots.
+#
+# Usage: Run via LaunchDaemon at boot
+
+set -euo pipefail
+
+LOG_PREFIX="[tailscale-ssh-enabler]"
+MAX_WAIT_SECONDS=120
+POLL_INTERVAL=5
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') ${LOG_PREFIX} $1"
+}
+
+# Find tailscale binary (Homebrew ARM or Intel)
+TAILSCALE=""
+if [[ -x /opt/homebrew/bin/tailscale ]]; then
+    TAILSCALE="/opt/homebrew/bin/tailscale"
+elif [[ -x /usr/local/bin/tailscale ]]; then
+    TAILSCALE="/usr/local/bin/tailscale"
+else
+    log "ERROR: tailscale binary not found"
+    exit 1
+fi
+
+log "Starting Tailscale SSH enabler (binary: ${TAILSCALE})"
+
+# Wait for Tailscale to be connected
+waited=0
+while [[ $waited -lt $MAX_WAIT_SECONDS ]]; do
+    if ${TAILSCALE} status --json 2>/dev/null | grep -q '"BackendState":"Running"'; then
+        log "Tailscale is connected"
+        break
+    fi
+    log "Waiting for Tailscale to connect... (${waited}s/${MAX_WAIT_SECONDS}s)"
+    sleep $POLL_INTERVAL
+    waited=$((waited + POLL_INTERVAL))
+done
+
+if [[ $waited -ge $MAX_WAIT_SECONDS ]]; then
+    log "ERROR: Tailscale did not connect within ${MAX_WAIT_SECONDS} seconds"
+    exit 1
+fi
+
+# Check if SSH is already enabled
+if ${TAILSCALE} status --json 2>/dev/null | grep -q '"SSH":true'; then
+    log "Tailscale SSH is already enabled"
+    exit 0
+fi
+
+# Enable Tailscale SSH with proper tags
+log "Enabling Tailscale SSH..."
+${TAILSCALE} up \
+    --advertise-tags={{ tailscale_tags }} \
+{% if tailscale_accept_dns %}
+    --accept-dns \
+{% endif %}
+{% if tailscale_accept_routes %}
+    --accept-routes \
+{% endif %}
+    --ssh
+
+# Verify SSH is now enabled
+sleep 2
+if ${TAILSCALE} status --json 2>/dev/null | grep -q '"SSH":true'; then
+    log "SUCCESS: Tailscale SSH is now enabled"
+    exit 0
+else
+    log "WARNING: SSH may not be fully enabled, checking status..."
+    ${TAILSCALE} status
+    exit 0
+fi

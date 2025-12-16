@@ -100,3 +100,57 @@
       - "Resolver file: /etc/resolver/{{ magicdns_suffix | default('N/A') }}"
       - "SSH: {{ 'Enabled' if tailscale_ssh_enabled else 'Disabled' }}"
 
+# ========================================
+# Tailscale SSH Persistence (LaunchDaemon)
+# ========================================
+# On macOS, the --ssh flag does NOT persist across reboots.
+# This LaunchDaemon ensures SSH is re-enabled after every boot.
+
+- name: Deploy Tailscale SSH enabler script
+  ansible.builtin.template:
+    src: tailscale-ssh-enabler.sh.j2
+    dest: /usr/local/bin/tailscale-ssh-enabler.sh
+    mode: '0755'
+    owner: root
+    group: wheel
+  become: true
+  when: tailscale_ssh_enabled
+
+- name: Deploy Tailscale SSH LaunchDaemon
+  ansible.builtin.template:
+    src: com.miket.tailscale-ssh.plist.j2
+    dest: /Library/LaunchDaemons/com.miket.tailscale-ssh.plist
+    mode: '0644'
+    owner: root
+    group: wheel
+  become: true
+  when: tailscale_ssh_enabled
+  register: tailscale_ssh_daemon
+
+- name: Load Tailscale SSH LaunchDaemon
+  ansible.builtin.command: launchctl load -w /Library/LaunchDaemons/com.miket.tailscale-ssh.plist
+  become: true
+  when:
+    - tailscale_ssh_enabled
+    - tailscale_ssh_daemon.changed
+  register: launchctl_load
+  failed_when: false
+  changed_when: launchctl_load.rc == 0
+
+- name: Ensure Tailscale SSH is enabled now
+  ansible.builtin.command: "{{ tailscale_cmd }}"
+  become: true
+  when: tailscale_ssh_enabled
+  register: tailscale_ssh_now
+  changed_when: false
+  failed_when: false
+
+- name: Display Tailscale SSH persistence status
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale SSH persistence configured"
+      - "LaunchDaemon: /Library/LaunchDaemons/com.miket.tailscale-ssh.plist"
+      - "Enabler script: /usr/local/bin/tailscale-ssh-enabler.sh"
+      - "Log file: /var/log/tailscale-ssh-enabler.log"
+  when: tailscale_ssh_enabled
+

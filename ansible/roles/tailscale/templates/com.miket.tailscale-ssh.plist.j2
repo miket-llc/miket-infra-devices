@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Tailscale SSH Enabler LaunchDaemon
+  Managed by Ansible - DO NOT EDIT MANUALLY
+
+  This daemon ensures Tailscale SSH is enabled after every boot.
+  On macOS, the --ssh flag does not persist across reboots, so this
+  daemon waits for Tailscale to connect and then enables SSH.
+
+  See: ansible/roles/tailscale/tasks/darwin.yml
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.miket.tailscale-ssh</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/tailscale-ssh-enabler.sh</string>
+    </array>
+
+    <!-- Run at system boot -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Don't keep running - just run once at boot -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <!-- Log output for debugging -->
+    <key>StandardOutPath</key>
+    <string>/var/log/tailscale-ssh-enabler.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/tailscale-ssh-enabler.log</string>
+
+    <!-- Run with lower priority -->
+    <key>Nice</key>
+    <integer>5</integer>
+
+    <!-- Prevent rapid re-execution -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+</dict>
+</plist>
