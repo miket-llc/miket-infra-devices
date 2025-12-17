@@ -1,0 +1,73 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY STACK VERIFICATION
+# =============================================================================
+
+- name: Wait for Prometheus to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ prometheus_port }}/-/ready"
+    method: GET
+    status_code: 200
+  register: prometheus_ready
+  until: prometheus_ready.status == 200
+  retries: 12
+  delay: 5
+  failed_when: false
+  tags: [observability, stack, verify]
+
+- name: Wait for Grafana to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_port }}/api/health"
+    method: GET
+    status_code: 200
+  register: grafana_ready
+  until: grafana_ready.status == 200
+  retries: 12
+  delay: 5
+  failed_when: false
+  tags: [observability, stack, verify]
+
+- name: Wait for Blackbox Exporter to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ blackbox_port }}/metrics"
+    method: GET
+    status_code: 200
+  register: blackbox_ready
+  until: blackbox_ready.status == 200
+  retries: 6
+  delay: 5
+  failed_when: false
+  tags: [observability, stack, verify]
+
+- name: Check Prometheus targets
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ prometheus_port }}/api/v1/targets"
+    method: GET
+    return_content: true
+  register: prometheus_targets
+  failed_when: false
+  changed_when: false
+  tags: [observability, stack, verify]
+
+- name: Display observability stack status
+  ansible.builtin.debug:
+    msg: |
+      ========================================
+      Observability Stack Status
+      ========================================
+
+      Prometheus: {{ 'READY' if prometheus_ready.status | default(0) == 200 else 'NOT READY' }}
+        - URL: http://akira.pangolin-vega.ts.net:{{ prometheus_port }}
+        - Targets: http://akira.pangolin-vega.ts.net:{{ prometheus_port }}/targets
+
+      Grafana: {{ 'READY' if grafana_ready.status | default(0) == 200 else 'NOT READY' }}
+        - URL: http://akira.pangolin-vega.ts.net:{{ grafana_port }}
+        - Login: admin / (from AKV)
+
+      Blackbox Exporter: {{ 'READY' if blackbox_ready.status | default(0) == 200 else 'NOT READY' }}
+        - URL: http://akira.pangolin-vega.ts.net:{{ blackbox_port }}
+
+      ========================================
+  tags: [observability, stack, verify]

@@ -1,0 +1,47 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+#
+# Blackbox Exporter Configuration
+
+modules:
+  http_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 204, 301, 302, 401]
+      method: GET
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      tls_config:
+        insecure_skip_verify: false
+
+  http_2xx_insecure:
+    prober: http
+    timeout: 10s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 204, 301, 302]
+      method: GET
+      follow_redirects: true
+      tls_config:
+        insecure_skip_verify: true
+
+  http_post_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: POST
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 204]
+
+  tcp_connect:
+    prober: tcp
+    timeout: 10s
+
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4

@@ -1,0 +1,80 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+#
+# Prometheus Configuration for PHC Monitoring
+
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+  evaluation_interval: {{ prometheus_evaluation_interval }}
+  external_labels:
+    monitor: 'phc-monitoring'
+    environment: 'production'
+
+# Alertmanager configuration
+{% if alertmanager_enabled | bool %}
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:{{ alertmanager_port }}
+{% endif %}
+
+# Rule files
+rule_files: []
+
+# Scrape configurations
+scrape_configs:
+  # ========================================
+  # Prometheus self-monitoring
+  # ========================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'akira'
+
+  # ========================================
+  # Node Exporter - Linux host metrics
+  # ========================================
+  - job_name: 'node_exporter'
+    static_configs:
+{% for target in prometheus_node_exporter_targets %}
+      - targets: ['{{ target.address }}']
+        labels:
+          instance: '{{ target.name }}'
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [instance]
+        target_label: instance
+
+  # ========================================
+  # Blackbox Exporter - HTTP probes
+  # ========================================
+  - job_name: 'blackbox_http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+{% for target in blackbox_http_targets %}
+      - targets: ['{{ target.url }}']
+        labels:
+          name: '{{ target.name }}'
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:{{ blackbox_port }}
+
+  # ========================================
+  # Blackbox Exporter self-monitoring
+  # ========================================
+  - job_name: 'blackbox'
+    static_configs:
+      - targets: ['localhost:{{ blackbox_port }}']
+        labels:
+          instance: 'akira'

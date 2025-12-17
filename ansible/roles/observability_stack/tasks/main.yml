@@ -1,0 +1,33 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY STACK - MAIN TASKS
+# =============================================================================
+#
+# Deploys Prometheus + Grafana + Blackbox Exporter on Akira
+# Uses Podman Compose with systemd management
+#
+# =============================================================================
+
+- name: Validate observability stack is enabled
+  ansible.builtin.debug:
+    msg: "Observability stack deployment enabled: {{ observability_enabled }}"
+  tags: [observability, stack]
+
+- name: Include deployment tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: observability_enabled | bool
+  tags: [observability, stack]
+
+- name: Include firewall tasks
+  ansible.builtin.include_tasks: firewall.yml
+  when:
+    - observability_enabled | bool
+    - observability_configure_firewall | bool
+  tags: [observability, stack, firewall]
+
+- name: Include verification tasks
+  ansible.builtin.include_tasks: verify.yml
+  when: observability_enabled | bool
+  tags: [observability, stack, verify]

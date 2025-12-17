@@ -1,0 +1,110 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY STACK FIREWALL CONFIGURATION
+# =============================================================================
+# Defense in depth: Restrict monitoring ports to Tailscale subnet only
+# =============================================================================
+
+- name: Check if firewalld is active
+  ansible.builtin.systemd:
+    name: firewalld
+  register: firewalld_status
+  failed_when: false
+  changed_when: false
+  tags: [observability, stack, firewall]
+
+- name: Get default firewalld zone
+  ansible.builtin.command: firewall-cmd --get-default-zone
+  register: default_zone
+  changed_when: false
+  when:
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, stack, firewall]
+
+# ========================================
+# Prometheus Port (9090)
+# ========================================
+
+- name: Add rich rule for Tailscale access to Prometheus
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='{{ observability_tailnet_cidr }}' port port='{{ prometheus_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, stack, firewall]
+
+# ========================================
+# Grafana Port (3000)
+# ========================================
+
+- name: Add rich rule for Tailscale access to Grafana
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='{{ observability_tailnet_cidr }}' port port='{{ grafana_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, stack, firewall]
+
+# ========================================
+# Blackbox Exporter Port (9115)
+# ========================================
+
+- name: Add rich rule for Tailscale access to Blackbox Exporter
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='{{ observability_tailnet_cidr }}' port port='{{ blackbox_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, stack, firewall]
+
+# ========================================
+# Alertmanager Port (9093) - if enabled
+# ========================================
+
+- name: Add rich rule for Tailscale access to Alertmanager
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='{{ observability_tailnet_cidr }}' port port='{{ alertmanager_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+    - alertmanager_enabled | bool
+  tags: [observability, stack, firewall]
+
+# ========================================
+# Localhost Access (for internal routing)
+# ========================================
+
+- name: Add localhost access rules
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='127.0.0.1' port port='{{ item }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - "{{ prometheus_port }}"
+    - "{{ grafana_port }}"
+    - "{{ blackbox_port }}"
+  when:
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, stack, firewall]

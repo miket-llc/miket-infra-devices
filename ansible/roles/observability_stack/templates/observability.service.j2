@@ -1,0 +1,30 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+#
+# Systemd service for Observability Stack (Prometheus + Grafana + Blackbox)
+
+[Unit]
+Description=PHC Observability Stack (Prometheus, Grafana, Blackbox)
+Documentation=https://prometheus.io/docs/ https://grafana.com/docs/
+After=network-online.target podman.socket
+Wants=network-online.target
+Requires=podman.socket
+
+[Service]
+Type=simple
+WorkingDirectory={{ observability_workdir }}
+ExecStartPre=-{{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml down
+ExecStart={{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml up
+ExecStop={{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml down
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+# Environment
+{% if grafana_env_path is defined %}
+EnvironmentFile=-{{ grafana_env_path }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

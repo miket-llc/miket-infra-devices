@@ -1,0 +1,75 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+#
+# Observability Stack: Prometheus + Grafana + Blackbox Exporter
+# Deployed on Akira via Podman Compose
+
+services:
+  prometheus:
+    image: docker.io/prom/prometheus:{{ prometheus_version }}
+    container_name: prometheus
+    restart: unless-stopped
+    # Host networking required to reach node_exporter on Tailscale hosts
+    network_mode: host
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time={{ prometheus_retention_time }}'
+      - '--storage.tsdb.retention.size={{ prometheus_retention_size }}'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - {{ observability_workdir }}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - {{ observability_workdir }}/prometheus/data:/prometheus
+
+  grafana:
+    image: docker.io/grafana/grafana-oss:{{ grafana_version }}
+    container_name: grafana
+    restart: unless-stopped
+    # Host networking for consistent access to Prometheus on localhost
+    network_mode: host
+    environment:
+      - GF_SECURITY_ADMIN_USER={{ grafana_admin_user }}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_AUTH_ANONYMOUS_ENABLED={{ grafana_anonymous_enabled | lower }}
+      - GF_AUTH_ANONYMOUS_ORG_ROLE={{ grafana_anonymous_org_role }}
+      - GF_SERVER_ROOT_URL=http://akira.pangolin-vega.ts.net:{{ grafana_port }}
+      - GF_INSTALL_PLUGINS=
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/node-exporter.json
+    volumes:
+      - {{ observability_workdir }}/grafana/data:/var/lib/grafana
+      - {{ observability_workdir }}/grafana/provisioning:/etc/grafana/provisioning:ro
+      - {{ observability_workdir }}/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+{% if grafana_env_path is defined %}
+    env_file:
+      - {{ grafana_env_path }}
+{% endif %}
+
+  blackbox:
+    image: docker.io/prom/blackbox-exporter:{{ blackbox_version }}
+    container_name: blackbox
+    restart: unless-stopped
+    # Host networking for Prometheus to reach on localhost
+    network_mode: host
+    command:
+      - '--config.file=/config/blackbox.yml'
+    volumes:
+      - {{ observability_workdir }}/blackbox/blackbox.yml:/config/blackbox.yml:ro
+
+{% if alertmanager_enabled | bool %}
+  alertmanager:
+    image: docker.io/prom/alertmanager:{{ alertmanager_version }}
+    container_name: alertmanager
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - {{ observability_workdir }}/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - {{ observability_workdir }}/alertmanager/data:/alertmanager
+{% endif %}

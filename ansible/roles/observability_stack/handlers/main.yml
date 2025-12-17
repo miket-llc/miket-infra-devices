@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Restart observability stack
+  ansible.builtin.systemd:
+    name: "{{ observability_service_name }}"
+    state: restarted
+    daemon_reload: true
+  when: observability_enabled | bool
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Reload prometheus
+  ansible.builtin.command: "{{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml kill -s SIGHUP prometheus"
+  args:
+    chdir: "{{ observability_workdir }}"
+  failed_when: false

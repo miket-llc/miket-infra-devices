@@ -1,0 +1,127 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY STACK - DEFAULT VARIABLES
+# =============================================================================
+#
+# Deploys Prometheus + Grafana + Blackbox Exporter on Akira
+# All storage on /flux (runtime) with config backups to /space
+#
+# =============================================================================
+
+# ========================================
+# General Configuration
+# ========================================
+observability_enabled: true
+observability_workdir: /flux/apps/observability
+observability_config_backup_dir: /space/_services/observability
+
+# ========================================
+# Prometheus Configuration
+# ========================================
+prometheus_version: "v2.54.1"
+prometheus_port: 9090
+prometheus_retention_time: "15d"
+prometheus_retention_size: "10GB"
+
+# Scrape configuration
+prometheus_scrape_interval: "15s"
+prometheus_evaluation_interval: "15s"
+
+# Targets for node_exporter scraping
+prometheus_node_exporter_targets:
+  - name: motoko
+    address: "motoko.pangolin-vega.ts.net:9100"
+  - name: akira
+    address: "localhost:9100"
+  - name: atom
+    address: "atom.pangolin-vega.ts.net:9100"
+  - name: armitage
+    address: "armitage.pangolin-vega.ts.net:9100"
+
+# ========================================
+# Blackbox Exporter Configuration
+# ========================================
+blackbox_version: "v0.25.0"
+blackbox_port: 9115
+
+# HTTP probe targets
+# External (via Cloudflare Access) + Internal (via Tailscale) for redundancy
+blackbox_http_targets:
+  # External paths (through Cloudflare Access - expect 302 auth redirect)
+  - name: nextcloud_external
+    url: "https://nextcloud.miket.io/status.php"
+    module: http_2xx
+  - name: nextcloud_external_webdav
+    url: "https://nextcloud.miket.io/remote.php/dav/"
+    module: http_2xx
+  # Internal paths (direct to akira via Tailscale - no auth needed for status)
+  - name: nextcloud_internal_status
+    url: "http://akira.pangolin-vega.ts.net:8080/status.php"
+    module: http_2xx
+  - name: nextcloud_internal_webdav
+    url: "http://akira.pangolin-vega.ts.net:8080/remote.php/dav/"
+    module: http_2xx
+
+# ========================================
+# Grafana Configuration
+# ========================================
+grafana_version: "11.3.0"
+grafana_port: 3000
+
+# Authentication - anonymous read-only for tailnet access
+grafana_anonymous_enabled: true
+grafana_anonymous_org_role: "Viewer"
+
+# Admin credentials (stored in AKV, synced to env file)
+grafana_admin_user: "admin"
+grafana_admin_password_env: "GRAFANA_ADMIN_PASSWORD"
+
+# Grafana env file path
+grafana_env_path: "/flux/runtime/secrets/grafana.env"
+
+# Dashboard provisioning
+grafana_dashboards_enabled: true
+grafana_dashboards:
+  - name: node-exporter-full
+    title: "Node Exporter Full"
+    gnet_id: 1860
+    revision: 37
+  - name: prometheus-overview
+    title: "Prometheus Stats"
+    gnet_id: 2
+    revision: 2
+  - name: blackbox-exporter
+    title: "Blackbox Exporter"
+    gnet_id: 7587
+    revision: 3
+
+# ========================================
+# Alertmanager Configuration (optional)
+# ========================================
+alertmanager_enabled: false
+alertmanager_version: "v0.27.0"
+alertmanager_port: 9093
+
+# ========================================
+# Network / Security Configuration
+# ========================================
+# Tailnet CIDR for firewall rules
+observability_tailnet_cidr: "100.64.0.0/10"
+
+# Configure firewall (firewalld)
+observability_configure_firewall: true
+
+# ========================================
+# Container Runtime
+# ========================================
+# Use podman (Docker is banned per repo conventions)
+container_runtime: podman
+container_compose_cmd: "podman compose"
+
+# ========================================
+# Systemd Service
+# ========================================
+observability_service_name: "observability-stack"
+observability_service_enabled: true

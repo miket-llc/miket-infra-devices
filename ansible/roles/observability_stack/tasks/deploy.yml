@@ -1,0 +1,211 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY STACK DEPLOYMENT
+# =============================================================================
+
+# ========================================
+# Directory Structure
+# ========================================
+
+- name: Create observability directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ observability_workdir }}"
+    - "{{ observability_workdir }}/prometheus"
+    - "{{ observability_workdir }}/prometheus/data"
+    - "{{ observability_workdir }}/grafana"
+    - "{{ observability_workdir }}/grafana/data"
+    - "{{ observability_workdir }}/grafana/provisioning"
+    - "{{ observability_workdir }}/grafana/provisioning/datasources"
+    - "{{ observability_workdir }}/grafana/provisioning/dashboards"
+    - "{{ observability_workdir }}/grafana/dashboards"
+    - "{{ observability_workdir }}/blackbox"
+    - "{{ observability_config_backup_dir }}"
+  tags: [observability, stack, directories]
+
+# Fix ownership for container users
+- name: Set Prometheus data directory ownership
+  ansible.builtin.file:
+    path: "{{ observability_workdir }}/prometheus/data"
+    owner: 65534  # nobody user in Prometheus container
+    group: 65534
+    mode: '0755'
+    recurse: true
+  tags: [observability, stack, directories]
+
+- name: Set Grafana data directory ownership
+  ansible.builtin.file:
+    path: "{{ observability_workdir }}/grafana/data"
+    owner: 472  # grafana user in container
+    group: 472
+    mode: '0755'
+    recurse: true
+  tags: [observability, stack, directories]
+
+# ========================================
+# Configuration Files
+# ========================================
+
+- name: Deploy Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ observability_workdir }}/prometheus/prometheus.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload prometheus
+  tags: [observability, stack, configure]
+
+- name: Deploy Blackbox exporter configuration
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: "{{ observability_workdir }}/blackbox/blackbox.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, stack, configure]
+
+- name: Deploy Grafana datasource provisioning
+  ansible.builtin.template:
+    src: grafana-datasources.yml.j2
+    dest: "{{ observability_workdir }}/grafana/provisioning/datasources/datasources.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, stack, configure]
+
+- name: Deploy Grafana dashboard provisioning config
+  ansible.builtin.template:
+    src: grafana-dashboards.yml.j2
+    dest: "{{ observability_workdir }}/grafana/provisioning/dashboards/dashboards.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, stack, configure]
+
+- name: Deploy Node Exporter dashboard
+  ansible.builtin.template:
+    src: dashboards/node-exporter.json.j2
+    dest: "{{ observability_workdir }}/grafana/dashboards/node-exporter.json"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [observability, stack, dashboards]
+
+- name: Deploy Blackbox Exporter dashboard
+  ansible.builtin.template:
+    src: dashboards/blackbox-exporter.json.j2
+    dest: "{{ observability_workdir }}/grafana/dashboards/blackbox-exporter.json"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [observability, stack, dashboards]
+
+- name: Deploy Prometheus Stats dashboard
+  ansible.builtin.template:
+    src: dashboards/prometheus-stats.json.j2
+    dest: "{{ observability_workdir }}/grafana/dashboards/prometheus-stats.json"
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [observability, stack, dashboards]
+
+# ========================================
+# Docker Compose Deployment
+# ========================================
+
+- name: Deploy docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ observability_workdir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  tags: [observability, stack, deploy]
+
+- name: Check if Podman is installed
+  ansible.builtin.command: which podman
+  register: podman_check
+  changed_when: false
+  failed_when: false
+  tags: [observability, stack, deploy]
+
+- name: Install Podman
+  ansible.builtin.dnf:
+    name: podman
+    state: present
+  when: podman_check.rc != 0
+  tags: [observability, stack, deploy]
+
+- name: Enable Podman socket
+  ansible.builtin.systemd:
+    name: podman.socket
+    enabled: true
+    state: started
+  tags: [observability, stack, deploy]
+
+- name: Pull observability stack images
+  ansible.builtin.command: "{{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml pull"
+  args:
+    chdir: "{{ observability_workdir }}"
+  register: compose_pull
+  changed_when: "'Pull complete' in compose_pull.stdout or 'Downloaded' in compose_pull.stdout"
+  tags: [observability, stack, deploy]
+
+- name: Start observability stack
+  ansible.builtin.command: "{{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml up -d"
+  args:
+    chdir: "{{ observability_workdir }}"
+  register: compose_up
+  changed_when: "'Creating' in compose_up.stdout or 'Starting' in compose_up.stdout"
+  tags: [observability, stack, deploy]
+
+# ========================================
+# Systemd Service
+# ========================================
+
+- name: Deploy observability stack systemd service
+  ansible.builtin.template:
+    src: observability.service.j2
+    dest: "/etc/systemd/system/{{ observability_service_name }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload systemd
+  tags: [observability, stack, service]
+
+- name: Enable and start observability stack service
+  ansible.builtin.systemd:
+    name: "{{ observability_service_name }}"
+    enabled: "{{ observability_service_enabled }}"
+    state: started
+    daemon_reload: true
+  tags: [observability, stack, service]
+
+# ========================================
+# Backup Configuration
+# ========================================
+
+- name: Backup configuration to /space
+  ansible.builtin.copy:
+    src: "{{ observability_workdir }}/{{ item }}"
+    dest: "{{ observability_config_backup_dir }}/{{ item }}"
+    remote_src: true
+    mode: preserve
+  loop:
+    - docker-compose.yml
+    - prometheus/prometheus.yml
+    - blackbox/blackbox.yml
+  changed_when: false
+  tags: [observability, stack, backup]
