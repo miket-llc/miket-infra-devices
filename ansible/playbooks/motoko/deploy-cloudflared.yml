@@ -2,13 +2,24 @@
 ---
 # Deploy Cloudflare Tunnel connector on motoko
 #
-# This playbook installs and configures cloudflared to expose services
-# running on motoko to the internet via Cloudflare's network.
+# This playbook installs and configures cloudflared to proxy external traffic
+# to Nextcloud on akira via Tailscale.
+#
+# Architecture:
+#   Internet → Cloudflare → tunnel → motoko (cloudflared) → akira (Nextcloud)
+#                                           via Tailscale
+#
+# Why motoko as tunnel endpoint?
+# - After ADR-0010 (Nextcloud migration to akira), the tunnel-motoko IaC remained
+#   in place. Rather than re-point DNS, we proxy through motoko via Tailscale.
+# - This provides an extra network hop but leverages existing Cloudflare tunnel.
+# - Long-term: consider deploying tunnel-akira directly on akira.
 #
 # Prerequisites:
-# - Tunnel created in Cloudflare (via miket-infra Terraform)
-# - Tunnel credentials stored in AKV
+# - Tunnel created in Cloudflare (via miket-infra/infra/cloudflare/tunnel-motoko)
+# - Tunnel credentials stored in AKV (cloudflare-tunnel-motoko-credentials)
 # - Azure CLI authenticated
+# - Tailscale connected (motoko can reach akira.pangolin-vega.ts.net)
 #
 # Usage:
 #   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/motoko/deploy-cloudflared.yml
@@ -16,25 +27,28 @@
 - name: Deploy Cloudflare Tunnel connector on motoko
   hosts: motoko
   become: true
-  
+
   vars:
     # Tunnel configuration (from miket-infra/infra/cloudflare/tunnel-motoko)
     cloudflared_tunnel_id: "b8073aa7-29ce-4bd9-8e9a-186ba69575b3"
     cloudflared_tunnel_name: "motoko-phc"
     cloudflared_akv_secret_name: "cloudflare-tunnel-motoko-credentials"
-    
-    # Ingress rules - services exposed via tunnel
+
+    # Ingress rules - proxy to akira via Tailscale
+    # Nextcloud runs on akira:8080, accessed via Tailscale MagicDNS
     cloudflared_ingress_rules:
       - hostname: nextcloud.miket.io
-        service: http://localhost:8080
+        service: http://akira.pangolin-vega.ts.net:8080
+        originRequest:
+          noTLSVerify: true
 
   roles:
     - role: ../../roles/cloudflared
 
   post_tasks:
-    - name: Verify tunnel is running
+    - name: Verify tunnel can reach akira
       ansible.builtin.uri:
-        url: http://localhost:8080/status.php
+        url: http://akira.pangolin-vega.ts.net:8080/status.php
         return_content: false
         status_code: [200, 302]
       register: nextcloud_check
@@ -43,21 +57,27 @@
     - name: Display deployment summary
       ansible.builtin.debug:
         msg: |
-          
+
           ═══════════════════════════════════════════════════════════════
           Cloudflare Tunnel Deployment Complete
           ═══════════════════════════════════════════════════════════════
-          
+
           Tunnel ID:    {{ cloudflared_tunnel_id }}
           Tunnel Name:  {{ cloudflared_tunnel_name }}
           Service:      {{ 'Running' if cloudflared_service_status.status.ActiveState == 'active' else 'Not Running' }}
-          
+
+          Architecture:
+            Internet → Cloudflare Access → motoko (tunnel) → akira (Nextcloud)
+                                                via Tailscale
+
           Exposed Services:
           {% for rule in cloudflared_ingress_rules %}
             - https://{{ rule.hostname }} → {{ rule.service }}
           {% endfor %}
-          
-          Test: curl -I https://nextcloud.miket.io
-          
+
+          Verification:
+            External: curl -I https://nextcloud.miket.io (expect 302 to Access login)
+            Internal: curl http://akira.pangolin-vega.ts.net:8080/status.php
+
           ═══════════════════════════════════════════════════════════════
 
