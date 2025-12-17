@@ -94,14 +94,8 @@ ollama_models:
 # ansible_become_password: "{{ lookup('env', 'ANSIBLE_BECOME_PASS') | default(lookup('community.general.onepassword', 'op://Automation/wintermute/sudo', errors='ignore') | default(lookup('pipe', 'op read op://Automation/wintermute/sudo 2>/dev/null || echo'), true), true) | default('', true) }}"
 
 # ========================================
-# Netdata Monitoring Configuration
+# Monitoring Configuration
 # ========================================
-# wintermute is a Netdata CHILD node
-# Streams metrics to motoko parent
-netdata_role: child
-
-# Tailscale IP will be auto-detected during deployment
-# netdata_tailscale_ip: 100.x.x.x
-
-# Cloud connectivity DISABLED (self-hosted only)
-netdata_cloud_enabled: false
+# Windows monitoring via Prometheus is a future enhancement
+# Currently no node_exporter equivalent for Windows in this setup
+node_exporter_enabled: false  # Not applicable to Windows

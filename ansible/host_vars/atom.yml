@@ -5,45 +5,40 @@
 # ATOM HOST CONFIGURATION
 # =============================================================================
 #
-# Fedora Server - Headless Resilience/Lab Node (Battery-Backed)
+# Fedora Server - Basecamp / Hacker Node (Battery-Backed)
 #
-# OS:       Fedora Server 43 (Headless - multi-user.target)
+# OS:       Fedora Server 43 (graphical.target with Sway/i3)
 # Hardware: Lenovo ThinkPad X1 Carbon (2012)
-# CPU:      Intel Core i7-3667U
+# CPU:      Intel Core i7-3667U (2C/4T)
 # RAM:      8GB
 # Storage:  224GB SSD
-# GPU:      Intel HD Graphics 4000 (integrated, unused)
+# GPU:      Intel HD Graphics 4000 (integrated)
 #
-# Role:     Headless Resilience Node / Lab Server
-#           Last device standing when power fails
+# Role:     Basecamp / Hacker Node
+#           Lightweight tiling WM environment for:
+#           - Network analysis and security research
+#           - SDR and RF experimentation
+#           - Serial communication and LoRa development
+#           - Field-portable appliance mode
+#
+# Design:   Low-resource, stable, predictable, secure
+#           Both Sway (Wayland) and i3 (X11) available
 #           Battery-backed = implicit UPS
-#           100% managed via IaC - no manual commands allowed
+#           100% managed via IaC
 #
-# Purpose:
-#   - Prove the network still exists (node_exporter metrics)
-#   - Maintain SSH foothold for recovery operations
-#   - Lab/automation node for testing and experimentation
-#   - Optionally: send alerts when infrastructure is down
-#
-# Design:   Simplicity and reliability over features
-#           Minimal services = fewer failure points
-#           Headless operation = no GUI, no display manager
-#           All management via Tailscale SSH
-#
-# Migration: Converted from Fedora Workstation 2025-12
-#            See playbooks/atom/convert-to-headless.yml
+# Migration: Converted from headless resilience node 2025-12
 #
 # =============================================================================
 
 # ========================================
 # Device Identity
 # ========================================
-device_role: lab_server
-device_description: "Battery-backed headless resilience/lab node for infrastructure continuity"
+device_role: basecamp_node
+device_description: "Battery-backed basecamp/hacker node for field operations and security research"
 
-# Headless operation flag - triggers headless_fedora_server role
-headless: true
-headless_desktop: true  # Was a desktop, now headless
+# Basecamp operation flag - triggers graphical session
+basecamp: true
+headless: false
 
 # Tailscale identity (from miket-infra)
 tailscale_ip: 100.120.122.13
@@ -62,26 +57,45 @@ ansible_python_interpreter: /usr/bin/python3
 ansible_password: "{{ lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name atom-ansible-password --query value -o tsv') | trim }}"
 
 # ========================================
-# Headless Server Configuration
+# Basecamp User Configuration
 # ========================================
-# Power management - critical for resilience role
+basecamp_user: mdt
+basecamp_user_home: /home/mdt
+
+# ========================================
+# Basecamp UI Configuration
+# ========================================
+basecamp_ui_user: mdt
+basecamp_ui_user_home: /home/mdt
+
+# Display manager (greetd with SDDM fallback)
+basecamp_ui_display_manager: greetd
+basecamp_ui_greetd_vt: 1
+
+# Boot target
+basecamp_ui_boot_target: graphical.target
+
+# Touchscreen support
+basecamp_ui_touchscreen_enabled: true
+
+# ========================================
+# Power Management (Battery-Backed)
+# ========================================
+# Critical for basecamp role - never sleep unexpectedly
 
 # Battery thresholds
 resilience_node_low_battery_warning: 5
 resilience_node_critical_battery_percent: 2
 resilience_node_critical_battery_action: shutdown
 
-# Boot target - headless server (no GUI)
-resilience_node_boot_target: multi-user.target
+# Lid switch behavior - stay running
+resilience_node_lid_switch: ignore
+resilience_node_lid_switch_external_power: ignore
+resilience_node_lid_switch_docked: ignore
 
-# Headless role configuration
-headless_fedora_server_install_cockpit: false  # Not needed for this minimal node
-
-# ========================================
-# Monitoring Configuration
-# ========================================
-resilience_node_exporter_enabled: true
-resilience_node_exporter_port: 9100
+# Idle behavior - never sleep
+resilience_node_idle_action: ignore
+resilience_node_idle_action_sec: 0
 
 # ========================================
 # Hardware Constraints
@@ -94,53 +108,60 @@ gpu:
   model: HD Graphics 4000
   compute_capable: false
 
-# Low memory - not suited for heavy workloads
+# Low memory - be selective about running services
 memory_gb: 8
+cpu_cores: 2
+cpu_threads: 4
+
+# Performance targets
+basecamp_target_idle_ram_mb: 800
+basecamp_target_boot_time_sec: 30
+
+# ========================================
+# SDR Configuration
+# ========================================
+basecamp_tools_sdr_enabled: true
+# SDRangel disabled due to resource constraints
+basecamp_tools_install_sdrangel: false
+# Wireshark GUI disabled - use tshark CLI
+basecamp_tools_install_wireshark_gui: false
+
+# ========================================
+# Monitoring Configuration
+# ========================================
+node_exporter_enabled: true
+resilience_node_exporter_enabled: true
+resilience_node_exporter_port: 9100
+
+# ========================================
+# Firewall Configuration
+# ========================================
+resilience_node_firewall_ports:
+  - 9100/tcp    # node_exporter (Prometheus)
+
+# Firewalld tailnet configuration
+tailnet_cidr: "100.64.0.0/10"
+tailscale_interface: tailscale0
+firewalld_tailnet_zone: tailnet
+firewalld_default_zone: public
+tailnet_services:
+  - ssh
+tailnet_ports:
+  - port: 9100
+    protocol: tcp
 
 # ========================================
 # Services (Minimal by Design)
 # ========================================
-# Only essential services for resilience role
-
 atom_services:
   - prometheus-node-exporter   # Metrics for Prometheus
   - tailscaled                 # Tailscale daemon
   - firewalld                  # Firewall
+  - greetd                     # Display manager (or sddm as fallback)
 
 # ========================================
-# Workstation GUI Tools (DISABLED - Headless)
+# Disabled Features
 # ========================================
-# atom is now headless - no GUI tools needed
-workstation_gui_tools_enabled: false
-vscode_enabled: false
-cursor_enabled: false
-warp_enabled: false
-
-# ========================================
-# Network Shares - REMOVED (Resilience Hardening)
-# ========================================
-# CIFS mounts were removed on 2024-12-01 after a kernel bug caused a desktop freeze.
-#
-# INCIDENT: The CIFS kernel module (cfids_invalidation_worker) hit a
-# "scheduling while atomic" bug when the network to motoko hiccupped.
-# This cascaded to dbus failures and froze GNOME for hours.
-#
-# DECISION: Resilience nodes should have ZERO dependencies on other servers.
-# - Core function (node_exporter, SSH) doesn't need mounts
-# - Health reporting now uses SSH-based push (resilience-health.timer)
-# - If motoko is down, atom keeps working (that's the point!)
-#
-# To apply this change: ansible-playbook playbooks/atom/remove-cifs-mounts.yml
-#
-# smb_server: motoko.pangolin-vega.ts.net  # REMOVED
-# smb_username: mdt                         # REMOVED
-# smb_password: "..."                       # REMOVED
-
-# ========================================
-# Services NOT Running (by design)
-# ========================================
-# Document what we intentionally don't run
-
 # NOT a container host
 podman_enabled: false
 docker_enabled: false
@@ -153,58 +174,34 @@ litellm_enabled: false
 smb_enabled: false
 nfs_enabled: false
 
-# ========================================
-# Firewall Configuration
-# ========================================
-resilience_node_firewall_ports:
-  - 9100/tcp    # node_exporter (Prometheus)
+# NOT mounting network shares (resilience principle)
+# CIFS mounts removed per 2024-12-01 incident
+
+# Disable heavy workstation GUI tools (use basecamp UI instead)
+workstation_gui_tools_enabled: false
+vscode_enabled: false
+cursor_enabled: false
+warp_enabled: false
 
 # ========================================
-# SELinux Technical Debt
+# SELinux Configuration
 # ========================================
-# Document the workaround for Tailscale SSH
 selinux_notes: |
   sshd_t domain is in permissive mode for Tailscale SSH.
   This is accepted technical debt - Tailscale SSH uses a non-standard
   mechanism that SELinux's sshd_t policy doesn't anticipate.
-  
+
   Risk: Low - only accessible via tailnet
   Future: Create custom policy module if AVC denials cause issues
 
 # ========================================
 # Tags (defined in miket-infra)
 # ========================================
-# Reference only - tags applied via Tailscale API in miket-infra
-# Initial enrollment uses tag:server,tag:linux (from auth key)
-# Post-enrollment, miket-infra applies tag:lab-server,tag:headless
 tailscale_tags:
   - tag:server
   - tag:linux
-  - tag:lab-server
-  - tag:headless
+  - tag:basecamp
+  - tag:portable
 
-# Tailscale join configuration (for automated enrollment)
 tailscale_auth_key_akv_secret: tailscale-auth-key-atom
-tailscale_join_tags: "tag:server,tag:linux"  # Initial tags from auth key
-
-# ========================================
-# Netdata Monitoring Configuration
-# ========================================
-# Cloud-centric model: standalone agent claimed to Netdata Cloud
-
-# Use pre-defined Tailscale IP from above
-netdata_tailscale_ip: "{{ tailscale_ip }}"
-
-# LIGHTWEIGHT MODE: Reduce resource usage on this constrained node
-# Disables heavy plugins (apps, cgroups, tc, idlejitter, perf)
-netdata_lightweight_mode: true
-
-# Collector settings for atom (minimal - resilience node)
-# - Containers: Disabled (no Podman on this node)
-# - LiteLLM: Disabled (not running on this node)
-# - Nvidia GPU: Disabled (Intel integrated only)
-# - Linux Sensors: Enabled (battery monitoring is important!)
-netdata_enable_containers: false
-netdata_enable_litellm_prometheus: false
-netdata_enable_nvidia_gpu: false
-netdata_enable_linux_sensors: true
+tailscale_join_tags: "tag:server,tag:linux"

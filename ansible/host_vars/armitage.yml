@@ -244,11 +244,11 @@ interactive_users:
   - miket
 
 # =============================================================================
-# Monitoring
+# Monitoring (node_exporter)
 # =============================================================================
-netdata_enabled: true
-netdata_cloud_claim: true
-netdata_role: child  # Streams metrics to motoko parent
+# Prometheus node_exporter for metrics collection
+# Scraped by Prometheus on akira
+node_exporter_enabled: true
 
 # =============================================================================
 # SELinux

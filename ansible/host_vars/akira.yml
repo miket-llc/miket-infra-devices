@@ -262,10 +262,12 @@ interactive_users: []
   # - miket  # Not created yet
 
 # =============================================================================
-# Monitoring
+# Monitoring (Prometheus/Grafana Stack)
 # =============================================================================
-netdata_enabled: true
-netdata_cloud_claim: true
+# Akira hosts the observability stack (Prometheus + Grafana + Blackbox)
+# Also runs node_exporter for self-monitoring
+observability_stack_enabled: true
+node_exporter_enabled: true
 
 # =============================================================================
 # Power Management (Wake-on-LAN)

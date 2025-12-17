@@ -8,6 +8,11 @@ Personal Hybrid Cloud (PHC) endpoint automation using Ansible. Manages Linux/Win
 
 **Subordination:** Platform-level resources (Tailscale ACLs, DNS, Entra ID, Azure Key Vault provisioning) are owned by `miket-infra` (Terraform). This repo consumes those contracts via Ansible.
 
+**Key ADRs:**
+- ADR-004: KDE Plasma is the standard Linux desktop for all UI nodes
+- ADR-005: Workstations use Ollama; servers use vLLM
+- ADR-0010: `/space` and Nextcloud migrated from motoko → akira (Dec 2025)
+
 ## Common Commands
 
 ```bash
@@ -25,6 +30,11 @@ make deploy-nextcloud          # Nextcloud stack on akira
 make deploy-nomachine-servers  # NoMachine to Linux/Windows
 make deploy-proxy              # LiteLLM proxy to motoko
 make deploy-baseline-tools     # Common dev tools (Warp, Cursor, etc.)
+
+# Master orchestration playbooks (call sub-playbooks via import_playbook)
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-devices-infrastructure.yml
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-nomachine.yml
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-observability.yml
 
 # Testing
 make test-context              # LiteLLM context window tests
@@ -44,14 +54,14 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 ## Architecture
 
 ### Device Inventory
-| Device | Role | Key Services |
-|--------|------|--------------|
-| **motoko** | Server/control node | Ansible control, LiteLLM proxy, `/time` export, Netdata |
-| **akira** | Storage SoR + AI workstation | `/space` SoR (18TB WD Red), Nextcloud, vLLM, space-mirror |
-| **armitage** | Workstation + Ollama | Ollama (RTX 4070), NoMachine, KDE Plasma |
-| **wintermute** | Windows workstation | vLLM (RTX 4070 Super), NoMachine |
-| **atom** | Resilience node | Battery-backed SSH foothold, minimal services |
-| **count-zero** | macOS client | Autofs mounts, OS cloud ingestion |
+| Device | Role | OS | Key Services |
+|--------|------|----|--------------|
+| **motoko** | Server/control node | Fedora | Ansible control, LiteLLM proxy, cloudflared tunnel |
+| **akira** | Storage SoR + AI workstation | Fedora 43 KDE | `/space` (18TB), Nextcloud, vLLM (AMD Strix Point), Prometheus/Grafana |
+| **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
+| **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |
+| **atom** | Resilience node | Fedora | Battery-backed SSH foothold, headless |
+| **count-zero** | macOS client | macOS | Autofs mounts, OS cloud ingestion |
 
 ### Storage Model (Flux/Space/Time)
 - **`/space`** - ONLY Source of Record. All data flows INTO `/space`; never mirror FROM it.
@@ -90,7 +100,8 @@ Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
 - `fedora_kde_workstations` - KDE Plasma desktops (ADR-004)
 - `headless_servers` - SSH-only nodes (no GUI)
 - `wol_enabled` - Wake-on-LAN capable
-- `netdata_nodes` - Monitoring targets
+- `monitoring_exporters` - Hosts running node_exporter
+- `monitoring_stack` - Host running Prometheus/Grafana (akira)
 - `container_hosts` - Nodes running Podman/Docker
 
 ### Service Dependencies
@@ -100,12 +111,13 @@ Requires=<mount>.mount
 After=<mount>.mount
 ```
 
-### Monitoring (Netdata Cloud)
-- Standalone agents on all nodes claimed to Netdata Cloud (Homelab subscription)
-- **NO parent/child streaming** - Cloud handles aggregation and retention
-- Primary UI: https://app.netdata.cloud (unified view, historical data, alerting)
-- Local dashboards: `http://<hostname>.pangolin-vega.ts.net:19999` (break-glass only)
-- Deployment: `ansible-playbook ansible/playbooks/deploy-netdata.yml`
+### Monitoring (Prometheus/Grafana)
+- **Architecture:** Prometheus + Grafana + Blackbox on akira; node_exporter on Linux servers
+- **Tailnet-only access** - All monitoring ports restricted to 100.64.0.0/10
+- **Grafana UI:** `http://akira.pangolin-vega.ts.net:3000` (dashboards, visualization)
+- **Prometheus UI:** `http://akira.pangolin-vega.ts.net:9090` (queries, targets)
+- **Deployment:** `make deploy-observability` or `ansible-playbook ansible/playbooks/deploy-observability.yml`
+- **Runbook:** `docs/runbooks/monitoring-prometheus-grafana.md`
 
 ## Critical Invariants
 
@@ -120,6 +132,15 @@ After=<mount>.mount
 - ADR-004: KDE Plasma is the standard Linux desktop for all UI nodes
 - ADR-005: Workstations use Ollama; servers use vLLM
 - ADR-0010: `/space` and Nextcloud migrated from motoko → akira (Dec 2025)
+
+## Common Pitfalls
+
+- **Don't mirror FROM `/space`** - `/space` is the destination, not a source for external clouds
+- **Don't skip AKV for secrets** - Hardcoded passwords will break; use `secrets-sync`
+- **Don't use IPs in mount scripts** - Always use MagicDNS hostnames (ACL changes may reassign IPs)
+- **macOS autofs loop prevention** - Use `--no-links` with rsync to avoid following symlinks back into autofs mounts
+- **Windows WinRM env vars** - Must source `/etc/ansible/windows-automation.env` before running Windows playbooks
+- **systemd mount dependencies** - Always add `Requires=` and `After=` for storage-dependent services
 
 ## When Making Changes
 

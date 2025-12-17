@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -34,6 +34,15 @@ help:
 	@echo "  deploy-nextcloud           - Deploy Nextcloud stack on motoko"
 	@echo "  validate-nextcloud         - Validate Nextcloud pure façade compliance"
 	@echo "  test-nextcloud             - Run Nextcloud smoke tests"
+	@echo ""
+	@echo "Monitoring (Prometheus/Grafana):"
+	@echo "  deploy-observability       - Deploy node_exporter + Prometheus/Grafana stack"
+	@echo "  uninstall-netdata          - Remove Netdata from all hosts"
+	@echo "  validate-observability     - Verify monitoring stack is healthy"
+	@echo ""
+	@echo "Basecamp (atom):"
+	@echo "  deploy-basecamp            - Deploy basecamp/hacker node to atom (Sway/i3)"
+	@echo "  validate-basecamp          - Validate basecamp deployment on atom"
 	@echo ""
 	@echo "Tailscale & SSH:"
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
@@ -382,4 +391,117 @@ deploy-ssh-config:
 	fi
 	@echo ""
 	@echo "✅ SSH config deployed!"
+
+# ========================================
+# Monitoring (Prometheus/Grafana)
+# ========================================
+
+# Deploy full observability stack (node_exporter + Prometheus/Grafana)
+deploy-observability:
+	@echo "========================================"
+	@echo "Observability Stack Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will:"
+	@echo "  ✓ Deploy node_exporter to all Linux servers"
+	@echo "  ✓ Deploy Prometheus + Grafana + Blackbox to Akira"
+	@echo "  ✓ Configure firewall rules for Tailscale-only access"
+	@echo "  ✓ Provision dashboards automatically"
+	@echo ""
+	@read -p "Continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "Deploying observability stack..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-observability.yml; \
+	else \
+		echo "Deployment cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Observability stack deployed!"
+	@echo ""
+	@echo "Access (Tailnet only):"
+	@echo "  Grafana:    http://akira.pangolin-vega.ts.net:3000"
+	@echo "  Prometheus: http://akira.pangolin-vega.ts.net:9090"
+
+# Uninstall Netdata from all hosts
+uninstall-netdata:
+	@echo "========================================"
+	@echo "⚠️  Netdata Uninstall"
+	@echo "========================================"
+	@echo ""
+	@echo "This will remove Netdata from all managed hosts:"
+	@echo "  - Stop and disable netdata service"
+	@echo "  - Unclaim from Netdata Cloud"
+	@echo "  - Remove packages and configuration"
+	@echo "  - Clean up firewall rules for port 19999"
+	@echo ""
+	@read -p "Are you sure? (yes/N): " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		echo "Uninstalling Netdata..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/uninstall-netdata.yml; \
+	else \
+		echo "Uninstall cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Netdata removed from all hosts"
+
+# Validate observability stack
+validate-observability:
+	@echo "========================================"
+	@echo "Observability Stack Validation"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-observability.yml --tags verify
+	@echo ""
+	@echo "✅ Validation complete!"
+
+# ========================================
+# Basecamp (atom) Deployment
+# ========================================
+
+# Deploy basecamp/hacker node to atom
+deploy-basecamp:
+	@echo "========================================"
+	@echo "Basecamp Node Deployment (atom)"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy the basecamp/hacker node configuration to atom:"
+	@echo "  ✓ Sway (Wayland) + i3 (X11) tiling window managers"
+	@echo "  ✓ greetd/SDDM session selection"
+	@echo "  ✓ Networking tools (tcpdump, nmap, wireshark-cli)"
+	@echo "  ✓ SDR tools (gqrx, rtl-sdr)"
+	@echo "  ✓ Serial tools (screen, minicom)"
+	@echo "  ✓ ~/basecamp directory with helper scripts"
+	@echo "  ✓ SSH hardening (key-only, no root)"
+	@echo "  ✓ Tailnet-only firewall"
+	@echo ""
+	@echo "Hardware: ThinkPad X1 Carbon (2C/4T, 8GB RAM)"
+	@echo "Note: SDRangel omitted due to resource constraints"
+	@echo ""
+	@read -p "Continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		echo "Deploying basecamp..."; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/atom/deploy-basecamp.yml; \
+	else \
+		echo "Deployment cancelled."; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "✅ Basecamp deployed to atom!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Reboot atom: ssh atom.pangolin-vega.ts.net 'sudo reboot'"
+	@echo "  2. Select Sway or i3 at login screen"
+	@echo "  3. Run: basecamp-status"
+
+# Validate basecamp deployment
+validate-basecamp:
+	@echo "========================================"
+	@echo "Basecamp Deployment Validation"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/atom/validate-basecamp.yml
+	@echo ""
+	@echo "✅ Validation complete!"
 

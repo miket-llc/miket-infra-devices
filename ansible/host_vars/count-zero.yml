@@ -29,17 +29,11 @@ ollama_enabled: false
 #     context: 131072
 
 # ========================================
-# Netdata Monitoring Configuration
+# Monitoring Configuration
 # ========================================
-# count-zero is a Netdata CHILD node
-# Streams metrics to motoko parent (installed via Homebrew)
-netdata_role: child
-
-# Tailscale IP will be auto-detected during deployment
-# netdata_tailscale_ip: 100.x.x.x
-
-# Cloud connectivity DISABLED (self-hosted only)
-netdata_cloud_enabled: false
+# macOS monitoring via Prometheus is a future enhancement
+# Currently no node_exporter in this setup for macOS
+node_exporter_enabled: false  # Not applicable to macOS
 
 # ========================================
 # Nextcloud Permissions Guard

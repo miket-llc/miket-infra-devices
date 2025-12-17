@@ -1,3 +1,157 @@
+## 2025-12-17 – Atom Basecamp/Hacker Node Configuration {#2025-12-17-atom-basecamp}
+
+### Context
+Atom's role changed from headless resilience node to a **basecamp/hacker node** - a lightweight, portable appliance for network analysis, SDR experimentation, and field operations. Pi-hole functionality is no longer required on atom.
+
+### Design Decisions
+
+**UI Choice: Sway + i3 (NOT KDE/GNOME)**
+- Atom has limited resources (2C/4T, 8GB RAM)
+- KDE Plasma would be too heavy
+- Sway (Wayland) and i3 (X11) provide keyboard-efficient tiling WM
+- Both sessions selectable at login via greetd (or SDDM fallback)
+
+**Display Manager: greetd with SDDM fallback**
+- greetd + tuigreet is lighter than GDM/SDDM
+- Falls back to SDDM if greetd not available in repos
+
+**SDRangel Omitted**
+- Too resource-intensive for 8GB system
+- gqrx provides sufficient SDR functionality
+- Can be installed manually if needed: `sudo dnf install sdrangel`
+
+### Architecture
+
+**New Roles Created:**
+1. `basecamp_common` - User groups, base packages, directory structure, helper scripts
+2. `basecamp_ui` - greetd/SDDM + Sway (Wayland) + i3 (X11)
+3. `basecamp_tools` - Networking, SDR, and serial tools
+
+**Inventory Changes:**
+- atom moved from `headless_servers` to new `basecamp_nodes` group
+- atom remains in `resilience_nodes` and `lab_servers`
+
+**Basecamp Workspaces:**
+- 1-term: Terminal/CLI
+- 2-rf: RF/SDR tools (gqrx)
+- 3-net: Network tools (nmap, wireshark)
+- 4-lora: Serial/LoRa
+- 5-notes: Documentation
+
+### Tools Installed
+
+**Networking:** tcpdump, tshark, nmap, mtr, iperf3, socat
+**SDR:** gqrx, rtl-sdr, gnuradio
+**Serial:** screen, minicom, picocom
+**Terminal:** alacritty
+**Browser:** firefox (single, lightweight choice)
+
+### Security Configuration
+
+- SSH: Key-only auth, no root login, Tailnet-only access
+- Firewall: Default deny, SSH via Tailnet (100.64.0.0/10), node_exporter port 9100
+- SELinux: Enforcing (sshd_t permissive for Tailscale SSH)
+- udev rules: Non-root access to RTL-SDR and USB serial devices
+
+### Helper Scripts
+
+Located in `~/basecamp/bin/`:
+- `basecamp-status` - System overview
+- `basecamp-serial-console` - Interactive serial console
+- `basecamp-net-scan` - Safe local network scanning
+- `basecamp-sdr-gqrx` - Launch GQRX
+
+### Deployment
+
+```bash
+make deploy-basecamp
+# or
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/atom/deploy-basecamp.yml
+```
+
+### Validation
+
+```bash
+make validate-basecamp
+```
+
+### Performance Targets
+
+- Idle RAM: < 800MB
+- Boot to login: < 30s
+- Battery idle: 4-5 hours
+
+### Compliance
+
+- ✅ Tailnet-only access for all services
+- ✅ SSH hardening (key-only, no root)
+- ✅ SELinux enforcing
+- ✅ No network mount dependencies (resilience principle maintained)
+- ✅ All configuration via IaC
+
+### Documentation
+
+- Runbook: `docs/runbooks/basecamp-atom-hacker-node.md`
+- host_vars: `ansible/host_vars/atom.yml`
+- Playbook: `ansible/playbooks/atom/deploy-basecamp.yml`
+
+---
+
+## 2025-12-16 – Motoko Headless Server Setup & Primary Pi-hole Deployment {#2025-12-16-motoko-pihole}
+
+### Context
+Motoko was brought back online as a headless server. Previously configured with `ansible_connection: local` (control node), it needed to be reconfigured for remote Ansible management from akira. Additionally, motoko was designated as the new primary Pi-hole DNS server for the tailnet.
+
+### Actions Taken
+
+**Infrastructure Setup:**
+1. Fixed Ansible inventory for motoko - changed from local connection to SSH via Tailscale
+2. Configured `ansible_become_password` using `motoko-smb-password` from Azure Key Vault
+3. Applied `firewalld_tailnet` role - created tailnet zone with tailscale0 in trusted zone
+4. Applied `wake_on_lan` role - WoL enabled on enp62s0 (MAC: 34:48:ed:54:4c:a3)
+5. Applied `lid_configuration` - lid switch set to ignore, GRUB updated
+6. Installed node_exporter for Prometheus monitoring (port 9100)
+
+**Development Tools:**
+- Installed Claude Code v2.0.71 via official installer
+- Installed Codex CLI v0.73.0 via npm
+
+**Pi-hole Deployment:**
+1. Set SELinux to permissive mode (required for Pi-hole)
+2. Created `/etc/pihole/setupVars.conf` for unattended installation
+3. Installed Pi-hole v6.3 via official installer
+4. Configured `dns.listeningMode` to ALL (accept queries from tailnet)
+5. Opened firewall ports: 53/tcp, 53/udp, 80/tcp, 443/tcp on tailnet zone
+
+### Configuration Details
+
+**Pi-hole Settings:**
+- Interface: enp62s0
+- Upstream DNS: 1.1.1.1, 8.8.8.8
+- Blocking: Enabled (86,673 domains)
+- Web Interface: http://motoko.pangolin-vega.ts.net/admin
+
+**Firewall (tailnet zone):**
+- Ports: 53/tcp, 53/udp, 80/tcp, 443/tcp, 9100/tcp, 11434/tcp, 8000/tcp, 8080/tcp, 4000/tcp
+- tailscale0 interface in trusted zone
+
+### Verification
+- Pi-hole blocking verified: `doubleclick.net` returns 0.0.0.0
+- DNS resolution working via `dig @100.118.199.88 google.com`
+- Prometheus target UP: motoko node_exporter
+
+### Pending Items
+- Configure router/DHCP to use motoko (100.118.199.88) as primary DNS
+- Consider setting up atom as secondary Pi-hole for redundancy
+- Add Pi-hole monitoring to Grafana dashboards
+
+### Compliance
+- ✅ Tailnet-only access: All services restricted to 100.64.0.0/10
+- ✅ Monitoring: node_exporter deployed and scraped by Prometheus
+- ✅ Documentation: COMMUNICATION_LOG.md updated per protocol
+
+---
+
 ## 2025-12-12 – Akira Infrastructure Health Review & Label Correction {#2025-12-12-akira-health-review}
 
 ### Context
@@ -3120,3 +3274,28 @@ Deploy and integrate Nextcloud on motoko without changing /space layout, per PHC
 
 ---
 
+
+## 2025-12-17: Nextcloud P0 Outage - RCA
+
+**Incident:** Nextcloud unavailable for ~14 hours (Dec 16 17:36 - Dec 17 07:13)
+
+**Root Cause:** Systemd service used `Type=oneshot` which cannot detect or restart crashed containers. Service showed "active (exited)" while containers were dead.
+
+**Evidence:**
+- HTTP 500 errors starting 17:30 Dec 16
+- Containers received SIGTERM at 17:36 and shut down
+- Systemd showed `active (exited)` - thought service was healthy
+- `Restart=on-failure` never triggered because start command had succeeded
+
+**Fix Applied:**
+- Changed service to `Type=simple` with foreground `podman compose up`
+- Systemd now monitors podman process directly
+- `Restart=always` ensures recovery from any container exit
+- Added `StartLimitBurst=5` to prevent infinite crash loops
+
+**Commit:** 4ae8f16
+
+**Prevention:**
+- Systemd will auto-restart if containers die
+- Secrets validation at start (fail-fast if missing)
+- Monitoring via Prometheus/Grafana on akira

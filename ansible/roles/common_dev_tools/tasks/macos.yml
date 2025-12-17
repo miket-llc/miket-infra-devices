@@ -76,15 +76,30 @@
 # ========================================
 # Claude Code CLI (AI assistant)
 # ========================================
+- name: Check if Claude Code is already installed (macOS)
+  ansible.builtin.command: claude --version
+  register: claude_version_check
+  changed_when: false
+  failed_when: false
+  become: false
+  tags: [dev_tools, ai_cli, claude]
+
 - name: Install Claude Code CLI (macOS)
   community.general.npm:
     name: "@anthropic-ai/claude-code"
     global: true
-    state: present
+    state: latest
   when:
     - common_dev_tools_install_claude_code | default(true) | bool
     - homebrew_check.stat.exists or (homebrew_check_intel.stat.exists | default(false))
+    - claude_version_check.rc != 0
   become: false
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Display Claude Code version (macOS)
+  ansible.builtin.debug:
+    msg: "Claude Code: {{ claude_version_check.stdout | default('installed') }}"
+  when: claude_version_check.rc == 0
   tags: [dev_tools, ai_cli, claude]
 
 # ========================================
