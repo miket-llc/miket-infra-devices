@@ -1,6 +1,6 @@
 # Atom Playbooks
 
-Configuration and management playbooks for **atom** - a hacker/radio node for SDR and security research.
+Configuration and management playbooks for **atom** - a field hacker workstation and basecamp node.
 
 ## Device Overview
 
@@ -8,70 +8,55 @@ Configuration and management playbooks for **atom** - a hacker/radio node for SD
 |----------|-------|
 | Hostname | atom |
 | Tailscale IP | 100.120.122.13 |
-| OS | Fedora Server 43 (Sway/i3 UI) |
+| OS | Fedora Server 43 (Sway) |
 | Hardware | Lenovo ThinkPad X1 Carbon (2012) |
 | CPU | Intel Core i7-3667U |
 | RAM | 8GB |
 | Storage | 224GB SSD |
-| GPU | Intel HD Graphics 4000 (unused) |
-| Role | Hacker/Radio Lab Node |
+| GPU | Intel HD Graphics 4000 |
+| Role | Field Hacker Workstation (Basecamp) |
 | Boot Target | graphical.target |
+| Desktop | Sway (Wayland tiling compositor) |
 
-## Role: Hacker/Radio Node
+## Role: Field Hacker Workstation
 
-A hobby/hacker node for radio (SDR) and security research:
+A basecamp node is a portable, battery-backed workstation optimized for:
 
-1. **SDR and RF experimentation** - Software-defined radio, LoRa, RF analysis
-2. **Network analysis and security research** - Packet capture, pen testing tools
-3. **Serial communication** - LoRa development, embedded device work
-4. **Lab/automation** - Testing and experimentation node
+1. **SDR/RF Analysis** - RTL-SDR, gqrx, gnuradio
+2. **LoRa Development** - Packet sniffing and device hacking
+3. **Network Analysis** - wireshark, nmap, aircrack-ng
+4. **Serial/Embedded** - USB-to-serial for hardware hacking
+5. **Portable Pi-hole** - Local DNS filtering in the field
 
-### Headless Operation
+### Why ThinkPad X1 Carbon?
 
-As of December 2025, atom runs as a **headless server** with:
-- No desktop environment (GNOME removed)
-- Boot target: `multi-user.target`
-- Access: SSH via Tailscale only
-- No remote desktop (NoMachine removed)
+- **TrackPoint nub**: Precise control without leaving home row
+- **Legendary keyboard**: Essential for extended field sessions
+- **Battery-backed**: Hours of operation without wall power
+- **Lightweight**: Easy to carry in the field
+- **Robust**: Survives real-world conditions
+
+### Sway Desktop
+
+As of December 2025, atom runs **Sway** (Wayland tiling compositor):
+- Keyboard-driven workflow (perfect for ThinkPad)
+- Low resource usage (maximize battery life)
+- Boot target: `graphical.target`
+- Display manager: greetd
 
 ## Design Principles
 
-- **Simplicity over features** - Minimal services = fewer failure points
-- **Reliability over capability** - If it's not essential, don't run it
-- **Boring and bulletproof** - No experimental features
-- **Zero external dependencies** - No mounts to other servers
+- **Lightweight over features** - Sway, not KDE/GNOME
+- **Battery life priority** - Minimal services, efficient compositor
+- **Zero network dependencies** - Works offline/airgapped
+- **Keyboard-centric** - Optimized for ThinkPad keyboard + TrackPoint
 - **100% IaC/CaC** - No manual commands on the device
 
 ## Playbooks
 
-### `convert-to-headless.yml` - Headless Conversion ⚠️
+### `site.yml` - Basecamp Node Configuration
 
-**THE ONLY APPROVED PATHWAY** to convert atom to headless. No manual on-box changes permitted.
-
-#### Safe Cutover (Recommended)
-
-First, run with safe cutover to verify connectivity:
-
-```bash
-# Step 1: Configure Tailscale and boot target, but KEEP GUI
-ansible-playbook playbooks/atom/convert-to-headless.yml --tags safe_headless_cutover
-
-# Step 2: Verify SSH works via Tailscale
-ssh atom.pangolin-vega.ts.net
-
-# Step 3: Complete conversion (remove GUI packages)
-ansible-playbook playbooks/atom/convert-to-headless.yml
-```
-
-#### One-Shot Conversion (Confident Mode)
-
-```bash
-ansible-playbook playbooks/atom/convert-to-headless.yml
-```
-
-### `site.yml` - Resilience Node Configuration
-
-Applies resilience node configuration (power management, monitoring, etc.):
+Applies basecamp configuration (Sway, power management, hacker tools):
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/atom/site.yml
@@ -81,8 +66,8 @@ Tags available:
 - `power` - Power management configuration
 - `monitoring` - node_exporter setup
 - `firewall` - Firewall configuration
-- `selinux` - SELinux workarounds
-- `tailscale` - Tailscale verification
+- `sway` - Sway/Wayland configuration
+- `tools` - Hacker tools installation
 
 ### `validate-resilience.yml` - Validation
 
@@ -94,43 +79,10 @@ ansible-playbook -i inventory/hosts.yml playbooks/atom/validate-resilience.yml
 
 ### `remove-cifs-mounts.yml` - Mount Removal
 
-Removes any CIFS/SMB mounts (resilience nodes should have zero external dependencies):
+Removes any CIFS/SMB mounts (basecamp nodes should work offline):
 
 ```bash
 ansible-playbook -i inventory/hosts.yml playbooks/atom/remove-cifs-mounts.yml
-```
-
-## Recovery Procedures
-
-### If You Lose SSH Access
-
-1. **Physical console access**
-   - Connect monitor and keyboard directly to atom
-   - Login at TTY console (if credentials work)
-
-2. **Re-enable graphical desktop (if needed)**
-   ```bash
-   sudo systemctl set-default graphical.target
-   sudo systemctl unmask gdm
-   sudo dnf install @gnome-desktop
-   sudo systemctl reboot
-   ```
-
-3. **Recovery via Live USB**
-   - Boot from Fedora Live USB
-   - Mount atom's root filesystem
-   - Chroot and fix configuration
-
-### Re-enable Graphical Target via Ansible
-
-If SSH still works but you need to restore graphical boot temporarily:
-
-```bash
-# Create a one-off recovery playbook or run ad-hoc:
-ansible atom -m command -a "systemctl set-default graphical.target" -b
-ansible atom -m command -a "systemctl unmask gdm" -b
-ansible atom -m dnf -a "name=@gnome-desktop state=present" -b
-ansible atom -m reboot -b
 ```
 
 ## Power Policy
@@ -146,26 +98,31 @@ ansible atom -m reboot -b
 
 ## Services
 
-Minimal by design:
-
 | Service | Purpose | Port |
 |---------|---------|------|
 | sshd | SSH access | 22 |
 | prometheus-node-exporter | Metrics | 9100 |
 | tailscaled | Tailscale mesh | - |
 | firewalld | Firewall | - |
+| greetd | Display manager | - |
+
+## What atom DOES Run
+
+- ✅ Sway (Wayland tiling compositor)
+- ✅ SDR tools (rtl-sdr, gqrx)
+- ✅ Network tools (wireshark-cli, nmap)
+- ✅ Lightweight terminal apps
 
 ## What atom Does NOT Run
 
 By design, atom does NOT run:
 
-- ❌ Desktop environment (GNOME/KDE/X11)
-- ❌ Display manager (GDM/SDDM)
+- ❌ Heavy desktop environments (GNOME/KDE)
 - ❌ Container runtime (Podman/Docker)
 - ❌ AI workloads (no GPU compute capability)
 - ❌ Storage services (SMB/NFS mounts)
 - ❌ Remote desktop (NoMachine)
-- ❌ GUI development tools
+- ❌ Heavy GUI apps (VS Code, SDRangel)
 
 ## Firewall Configuration
 
@@ -193,7 +150,7 @@ Add to Prometheus scrape targets:
     - atom.pangolin-vega.ts.net:9100
   labels:
     device: atom
-    role: hacker-radio
+    role: resilience
     headless: "true"
 ```
 
