@@ -2,42 +2,47 @@
 # Managed by Ansible - do not edit directly
 #
 # Nextcloud Stack Service (Podman)
-# Includes post-start validation to handle podman DNS race conditions
+# Uses Type=simple with foreground compose so systemd can monitor and restart
+# Previous Type=oneshot couldn't detect container crashes (see RCA 2025-12-17)
 
 [Unit]
 Description=Nextcloud Stack (Podman Compose)
 Requires=podman.socket
 After=podman.socket network-online.target
 Wants=network-online.target
+# Alert on failure - creates signal for monitoring to pick up
+OnFailure=systemd-failure-handler@%n.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
+Type=simple
 WorkingDirectory={{ nextcloud_workdir }}
-EnvironmentFile={{ nextcloud_env_path }}
+Environment=PODMAN_SYSTEMD_UNIT=%n
+EnvironmentFile=-{{ nextcloud_env_path }}
 
-# Pre-start: clean stale containers/pods, verify storage, and pull images
+# Pre-start: validate secrets exist (fail-fast), clean stale containers
+ExecStartPre=/usr/bin/test -s {{ nextcloud_env_path }}
+ExecStartPre=-/usr/bin/podman compose down --remove-orphans
 ExecStartPre=-/usr/bin/podman rm -f nextcloud-app nextcloud-db nextcloud-redis
-ExecStartPre=-/usr/bin/podman pod rm -f nextcloud-pod
-ExecStartPre=/usr/bin/test -w {{ nextcloud_workdir }}
-ExecStartPre=/usr/bin/podman compose pull
 
-# Start the stack
-ExecStart=/usr/bin/podman compose up -d --remove-orphans
-
-# Post-start: wait for containers to be healthy, then validate DB connectivity
-# This catches the podman DNS race condition and auto-recovers
-ExecStartPost=/bin/bash -c 'sleep 15 && {{ nextcloud_bin_path }}/nextcloud-healthcheck.sh recover'
+# Start the stack in FOREGROUND (no -d) so systemd can monitor the process
+# podman compose up without -d keeps control, exits non-zero if containers die
+ExecStart=/usr/bin/podman compose up --remove-orphans
 
 ExecStop=/usr/bin/podman compose down
 ExecReload=/usr/bin/podman compose restart
 
-# Restart policy - auto-recover from failures
-Restart=on-failure
-RestartSec=30
+# Restart policy - auto-recover from ANY exit (containers dying = exit)
+Restart=always
+RestartSec=10
+RestartPreventExitStatus=
 
-# Give enough time for health check and recovery
-TimeoutStartSec=300
+# Limit restart burst to avoid infinite crash loops
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+# Give enough time for image pulls on first start
+TimeoutStartSec=600
+TimeoutStopSec=60
 
 # Logging
 StandardOutput=journal
