@@ -9,7 +9,7 @@
 tailscale_device_tags:
   motoko: "tag:server,tag:linux,tag:ansible"
   wintermute: "tag:workstation,tag:windows,tag:gaming"
-  armitage: "tag:workstation,tag:linux,tag:gpu,tag:llm_node"
+  armitage: "tag:linux,tag:gaming,tag:workstation"
   count-zero: "tag:workstation,tag:macos"
   atom: "tag:server,tag:linux,tag:lab-server,tag:headless"  # Headless resilience/lab node
 

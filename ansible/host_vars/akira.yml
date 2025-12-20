@@ -31,7 +31,7 @@ tailscale_tags:
   - "tag:ai-node"
   - "tag:workstation"
   - "tag:rocm"
-  - "tag:llm_node"
+  - "tag:llm-node"
 tailscale_auth_key_akv_secret: "akira-tailscale-authkey"
 tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
 

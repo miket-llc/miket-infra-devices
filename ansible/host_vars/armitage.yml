@@ -27,7 +27,7 @@ tailscale_hostname: armitage
 tailscale_tags:
   - "tag:linux"
   - "tag:gpu"
-  - "tag:llm_node"
+  - "tag:llm-node"
   - "tag:workstation"
 tailscale_auth_key_akv_secret: "armitage-tailscale-authkey"
 tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
