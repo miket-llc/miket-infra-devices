@@ -145,28 +145,39 @@ devices:
       
     armitage:
       hostname: armitage
-      os: Windows 11 Pro
+      fqdn: armitage.pangolin-vega.ts.net
+      os: Fedora 43 KDE
       type: Laptop Workstation
       hardware:
-        model: Alienware Gaming Laptop
+        model: Alienware m16 R2
         cpu: Intel Core i9-13900HX
-        gpu: NVIDIA GeForce RTX 4070
+        gpu: NVIDIA GeForce RTX 4070 Max-Q
+        gpu_driver: "580.119.02"
         memory_gb: 16
-        storage_tb: 3
+        storage_tb: 2
       network:
+        tailscale_ip: 100.88.153.51
         tailscale: enabled
-        remote_desktop: enabled
+        tailscale_ssh: enabled
+        tailscale_tags:
+          - tag:linux
+          - tag:gaming
+          - tag:workstation
+        remote_desktop: nomachine
         wake_on_lan: enabled
+      selinux:
+        mode: enforcing
+        tailscale_ssh_policy: installed  # Custom policy module for Tailscale SSH
       services:
-        - Podman Desktop  # Docker BANNED - purged 2025-12-03
+        - Podman
         - NVIDIA CUDA Toolkit
-        - WSL2 Ubuntu 22.04
-        - Windows Game Mode
-      notes: |  
-        High-performance Alienware laptop
-        Mobile development and gaming workstation
-        Supports CUDA development via WSL2
-        Docker purged 2025-12-03
+        - Ollama
+        - KDE Plasma
+      notes: |
+        High-performance Alienware m16 R2 laptop
+        Rebuilt from Fedora 43 GNOME to KDE (2025-12-20)
+        Mobile development, gaming, and LLM workstation
+        SELinux enforcing with custom Tailscale SSH policy
       
   macos:
     count-zero:

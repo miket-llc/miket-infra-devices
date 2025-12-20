@@ -1,0 +1,58 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# SELinux policy module for Tailscale SSH
+# Allows tailscaled to spawn SSH sessions while SELinux is enforcing
+#
+# This policy allows the tailscaled service (running as unconfined_service_t)
+# to transition to user contexts for SSH sessions.
+#
+# Installation:
+#   checkmodule -M -m -o tailscale-ssh.mod tailscale-ssh.te
+#   semodule_package -o tailscale-ssh.pp -m tailscale-ssh.mod
+#   semodule -i tailscale-ssh.pp
+#
+# Verification:
+#   semodule -l | grep tailscale
+#   tailscale status  # Should show no SELinux health warnings
+
+module tailscale-ssh 1.0;
+
+require {
+    type unconfined_service_t;
+    type unconfined_t;
+    type user_t;
+    type sshd_t;
+    type login_exec_t;
+    type shell_exec_t;
+    type user_home_t;
+    type user_home_dir_t;
+    type ptmx_t;
+    type devpts_t;
+    class process { transition setexec setrlimit noatsecure siginh rlimitinh };
+    class file { read execute open getattr map execute_no_trans };
+    class chr_file { read write open getattr ioctl };
+    class fd use;
+    class fifo_file { read write };
+    class dir { search getattr open read };
+}
+
+# Allow tailscaled to transition to user contexts
+allow unconfined_service_t unconfined_t:process transition;
+allow unconfined_service_t user_t:process transition;
+allow unconfined_service_t sshd_t:process transition;
+
+# Allow process attribute inheritance for session setup
+allow unconfined_service_t unconfined_t:process { setexec noatsecure siginh rlimitinh };
+allow unconfined_service_t user_t:process { setexec noatsecure siginh rlimitinh };
+
+# Allow execution of login and shell binaries
+allow unconfined_service_t login_exec_t:file { read execute open getattr map execute_no_trans };
+allow unconfined_service_t shell_exec_t:file { read execute open getattr map execute_no_trans };
+
+# Allow PTY allocation for SSH sessions
+allow unconfined_service_t ptmx_t:chr_file { read write open getattr ioctl };
+allow unconfined_service_t devpts_t:chr_file { read write open getattr ioctl };
+
+# Allow access to user home directories
+allow unconfined_service_t user_home_t:file { read open getattr };
+allow unconfined_service_t user_home_dir_t:dir { search getattr open read };

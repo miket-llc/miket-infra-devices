@@ -3,6 +3,94 @@
 ---
 # Linux Tailscale configuration
 
+# ========================================
+# SELinux Policy for Tailscale SSH
+# ========================================
+# Ensures Tailscale SSH works with SELinux enforcing
+# See: https://github.com/tailscale/tailscale/issues/4908
+
+- name: Check if SELinux is enabled
+  ansible.builtin.command: getenforce
+  register: selinux_status
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Check if Tailscale SELinux policy is installed
+  ansible.builtin.shell: semodule -l | grep -q tailscale-ssh
+  register: tailscale_selinux_check
+  changed_when: false
+  failed_when: false
+  become: true
+  when: selinux_status.stdout in ['Enforcing', 'Permissive']
+
+- name: Install SELinux policy tools (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name:
+      - policycoreutils-python-utils
+      - checkpolicy
+    state: present
+  become: true
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+    - ansible_os_family == "RedHat"
+
+- name: Copy Tailscale SELinux policy source
+  ansible.builtin.copy:
+    src: tailscale-ssh.te
+    dest: /tmp/tailscale-ssh.te
+    mode: '0644'
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+
+- name: Compile Tailscale SELinux policy module
+  ansible.builtin.command: checkmodule -M -m -o /tmp/tailscale-ssh.mod /tmp/tailscale-ssh.te
+  become: true
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+
+- name: Package Tailscale SELinux policy
+  ansible.builtin.command: semodule_package -o /tmp/tailscale-ssh.pp -m /tmp/tailscale-ssh.mod
+  become: true
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+
+- name: Install Tailscale SELinux policy
+  ansible.builtin.command: semodule -i /tmp/tailscale-ssh.pp
+  become: true
+  register: selinux_install
+  changed_when: selinux_install.rc == 0
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+
+- name: Clean up SELinux policy temp files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/tailscale-ssh.te
+    - /tmp/tailscale-ssh.mod
+    - /tmp/tailscale-ssh.pp
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+
+- name: Display SELinux policy status
+  ansible.builtin.debug:
+    msg: "✅ Tailscale SELinux policy installed - SSH will work with SELinux enforcing"
+  when:
+    - selinux_status.stdout in ['Enforcing', 'Permissive']
+    - tailscale_selinux_check.rc != 0
+
+# ========================================
+# Tailscale Installation Check
+# ========================================
+
 - name: Check if Tailscale is installed
   ansible.builtin.command: which tailscale
   register: tailscale_check

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 #
 # Armitage - Fedora KDE Workstation + Ollama LLM Node
-# Last Updated: 2025-12-06
+# Last Updated: 2025-12-20
 #
 # Architecture References:
 #   - ADR-004-kde-plasma-linux-ui-standard.md: KDE Plasma is the standard desktop
@@ -14,7 +14,7 @@ device:
   type: laptop
   location: mobile
   primary_user: mdt
-  
+
   # Device classification
   roles:
     - linux_workstation
@@ -22,29 +22,35 @@ device:
     - llm_node
     - cuda_development
     - kde_desktop
+    - gaming
 
 hardware:
   manufacturer: Alienware
-  model: Gaming Laptop
+  model: m16 R2
   cpu: Intel Core i9-13900HX (24 cores, 32 threads)
-  gpu: NVIDIA GeForce RTX 4070 (8GB VRAM, CUDA capable)
+  gpu: NVIDIA GeForce RTX 4070 Max-Q (8GB VRAM, CUDA capable)
+  gpu_driver: "580.119.02"
   memory: 16GB DDR5
   storage:
     - 2TB NVMe SSD (Primary - Fedora + data)
 
 operating_system:
   os: Fedora
-  version: "41"
+  version: "43"
   desktop: KDE Plasma       # ADR-004: KDE is the Linux UI standard
+  selinux: enforcing        # Proper SELinux policy for Tailscale SSH
   container_runtime: podman
   docker_desktop: false     # Docker is BANNED - Podman only
 
 network:
   tailscale_enabled: true
+  tailscale_ip: 100.88.153.51
+  tailscale_hostname: armitage.pangolin-vega.ts.net
   tailscale_tags:
     - linux
-    - gpu
-    - llm_node
+    - gaming
+    - workstation
+  tailscale_ssh: true
   remote_desktop: nomachine
   wake_on_lan: true
 
@@ -116,10 +122,11 @@ windows_partition:
   note: "Out-of-band utility partition. Boot into Windows ONLY for hardware diagnostics."
 
 notes:
-  - High-performance Alienware laptop with RTX 4070
-  - Migrated from Windows to Fedora KDE (2025-12)
+  - High-performance Alienware m16 R2 laptop with RTX 4070 Max-Q
+  - Rebuilt from Fedora 43 GNOME to Fedora 43 KDE (2025-12-20)
   - KDE Plasma desktop per ADR-004
   - Ollama LLM runtime per ADR-005 (not vLLM)
-  - Connected to Tailnet with llm_node tag
+  - Connected to Tailnet with linux/gaming/workstation tags
   - LLM ports 11434/8000 accessible via tailnet ACLs
-  - Small Windows partition retained for Dell support only (offline, not on tailnet)
+  - SELinux enforcing with custom policy for Tailscale SSH
+  - NVIDIA driver 580.119.02 via RPM Fusion akmod
