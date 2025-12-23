@@ -1,0 +1,46 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+
+[Unit]
+Description=Prometheus Node Exporter
+Documentation=https://prometheus.io/docs/guides/node-exporter/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ node_exporter_user }}
+Group={{ node_exporter_group }}
+ExecStart={{ node_exporter_binary_install_dir }}/node_exporter \
+    --web.listen-address={{ node_exporter_listen_address }}:{{ node_exporter_port }} \
+{% if node_exporter_textfile_enabled | bool %}
+    --collector.textfile.directory={{ node_exporter_textfile_dir }} \
+{% endif %}
+{% for collector in node_exporter_enabled_collectors %}
+    --collector.{{ collector }} \
+{% endfor %}
+{% for collector in node_exporter_disabled_collectors %}
+    --no-collector.{{ collector }} \
+{% endfor %}
+{% if node_exporter_extra_args %}
+    {{ node_exporter_extra_args }}
+{% endif %}
+
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ReadOnlyPaths=/
+{% if node_exporter_textfile_enabled | bool %}
+ReadWritePaths={{ node_exporter_textfile_dir }}
+{% endif %}
+
+# Allow access to /proc, /sys for system metrics
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

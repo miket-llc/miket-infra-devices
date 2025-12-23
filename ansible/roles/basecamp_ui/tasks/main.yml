@@ -1,0 +1,184 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP UI ROLE
+# =============================================================================
+#
+# Lightweight desktop environment:
+#   - greetd + tuigreet (session selection)
+#   - Sway (Wayland)
+#   - i3 (X11)
+#
+# =============================================================================
+
+- name: Display basecamp UI configuration banner
+  ansible.builtin.debug:
+    msg: |
+      ===============================================================
+      BASECAMP UI CONFIGURATION
+      ===============================================================
+
+      Host:           {{ inventory_hostname }}
+      Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+
+      Sessions:
+        - Sway (Wayland) - Primary
+        - i3 (X11) - Fallback
+
+      Display Manager: {{ basecamp_ui_display_manager }}
+      Terminal:        alacritty
+      Browser:         firefox
+
+      ===============================================================
+  tags: [always]
+
+- name: Verify Fedora distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role requires Fedora"
+    success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+  tags: [always]
+
+# ========================================
+# Package Installation
+# ========================================
+- name: Install font packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_ui_font_packages }}"
+    state: present
+  tags: [packages, fonts]
+
+- name: Enable COPR repo for Nerd Fonts
+  ansible.builtin.command: dnf copr enable -y {{ basecamp_ui_nerd_fonts_copr }}
+  args:
+    creates: /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:che:nerd-fonts.repo
+  tags: [packages, fonts, copr]
+
+- name: Install Nerd Fonts package
+  ansible.builtin.dnf:
+    name: "{{ basecamp_ui_nerd_fonts_package }}"
+    state: present
+  tags: [packages, fonts]
+
+- name: Refresh font cache
+  ansible.builtin.command: fc-cache -f
+  changed_when: false
+  tags: [packages, fonts]
+
+- name: Install common UI packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_ui_common_packages }}"
+    state: present
+  tags: [packages, ui]
+
+# ========================================
+# Alacritty Terminal Configuration
+# ========================================
+- name: Create alacritty config directory
+  ansible.builtin.file:
+    path: "{{ basecamp_ui_user_home }}/.config/alacritty"
+    state: directory
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [terminal, alacritty]
+
+- name: Deploy alacritty configuration
+  ansible.builtin.template:
+    src: alacritty.toml.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/alacritty/alacritty.toml"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0644'
+  tags: [terminal, alacritty]
+
+- name: Install Sway packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_ui_sway_packages }}"
+    state: present
+  tags: [packages, sway]
+
+- name: Install i3 packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_ui_i3_packages }}"
+    state: present
+  tags: [packages, i3]
+
+# ========================================
+# greetd Installation and Configuration
+# ========================================
+- name: Include greetd setup tasks
+  ansible.builtin.include_tasks: greetd.yml
+  tags: [greetd, display-manager]
+
+# ========================================
+# Sway Configuration
+# ========================================
+- name: Include Sway configuration tasks
+  ansible.builtin.include_tasks: sway.yml
+  tags: [sway, wayland]
+
+# ========================================
+# i3 Configuration
+# ========================================
+- name: Include i3 configuration tasks
+  ansible.builtin.include_tasks: i3.yml
+  tags: [i3, x11]
+
+# ========================================
+# Boot Target Configuration
+# ========================================
+- name: Unmask graphical target (if masked from headless conversion)
+  ansible.builtin.command: systemctl unmask graphical.target
+  changed_when: false
+  failed_when: false
+  tags: [boot]
+
+- name: Unmask sleep targets for graphical session
+  ansible.builtin.command: "systemctl unmask {{ item }}"
+  loop:
+    - graphical.target
+    - sleep.target
+  changed_when: false
+  failed_when: false
+  tags: [boot]
+
+- name: Set graphical boot target
+  ansible.builtin.command: systemctl set-default {{ basecamp_ui_boot_target }}
+  changed_when: false
+  tags: [boot]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display basecamp UI configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "==============================================================="
+      - "BASECAMP UI CONFIGURATION COMPLETE"
+      - "==============================================================="
+      - ""
+      - "Display Manager:"
+      - "  - greetd with tuigreet"
+      - "  - VT{{ basecamp_ui_greetd_vt }}"
+      - ""
+      - "Sessions Available:"
+      - "  - Sway (Wayland) - Modern, efficient"
+      - "  - i3 (X11) - Traditional, compatible"
+      - ""
+      - "Terminal: alacritty"
+      - "Browser:  firefox"
+      - "Launcher: wofi (Sway) / dmenu (i3)"
+      - ""
+      - "Keybindings (consistent across sessions):"
+      - "  - Mod+Enter: Terminal"
+      - "  - Mod+d:     Launcher"
+      - "  - Mod+Shift+q: Close window"
+      - "  - Mod+1-5:   Workspaces"
+      - ""
+      - "Boot target: {{ basecamp_ui_boot_target }}"
+      - ""
+      - "==============================================================="
+  tags: [always]

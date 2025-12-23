@@ -1,0 +1,132 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy LiteLLM Proxy to Akira
+# Routes requests to local vLLM backend on akira
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/akira/deploy-litellm.yml
+#
+# Prerequisites:
+#   1. vLLM must be running on akira:8000
+#   2. Secrets must be synced: ansible-playbook playbooks/secrets-sync.yml --limit akira
+#
+# Endpoint:
+#   http://akira.pangolin-vega.ts.net:4000/v1
+
+- name: Deploy LiteLLM Proxy to Akira
+  hosts: akira
+  become: yes
+  vars:
+    # ========================================
+    # LiteLLM Configuration for Akira
+    # ========================================
+    litellm_port: 4000
+    litellm_bind_host: "0.0.0.0"  # Bind to all interfaces (secured by firewall)
+    litellm_bind_tailnet: true
+    litellm_workdir: /flux/apps/litellm
+    litellm_env_path: /flux/apps/litellm/.env
+    litellm_require_secrets: false  # Allow deployment without secrets for testing
+
+    # llama.cpp Backend Configuration (OpenAI-compatible)
+    vllm_backends:
+      - name: "akira-local"
+        host: "127.0.0.1"
+        port: 8000
+        models:
+          - id: "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
+            alias: "akira/qwen2.5-7b"
+            max_model_len: 8192
+            max_input_tokens: 7000
+            max_output_tokens: 1024
+            rpm_limit: 30
+            max_concurrent_requests: 2
+
+    # Default model for clients that don't specify
+    litellm_default_model: "akira/qwen2.5-7b"
+
+    # Firewall: Allow tailnet only
+    litellm_firewall_enabled: true
+    litellm_firewall_source: "100.64.0.0/10"
+
+    # OpenAI fallback disabled by default
+    litellm_openai_fallback_enabled: false
+
+  pre_tasks:
+    - name: Verify vLLM backend is running
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:8000/health"
+        method: GET
+        timeout: 10
+      register: vllm_health
+      ignore_errors: true
+      tags: [verify]
+
+    - name: Warn if vLLM backend is not running
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  vLLM backend at 127.0.0.1:8000 is not responding.
+          LiteLLM will deploy but requests will fail until vLLM is started.
+
+          To check vLLM status:
+            systemctl status vllm
+            curl http://127.0.0.1:8000/health
+      when: vllm_health.failed | default(false)
+      tags: [verify]
+
+  roles:
+    - role: litellm_proxy
+      tags: [litellm]
+
+  post_tasks:
+    - name: Test chat completion (if vLLM is running)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ litellm_port }}/v1/chat/completions"
+        method: POST
+        body_format: json
+        body:
+          model: "{{ litellm_default_model }}"
+          messages:
+            - role: user
+              content: "Say 'LiteLLM is working' in exactly 4 words"
+          max_tokens: 20
+        headers:
+          Content-Type: "application/json"
+        timeout: 30
+      register: test_completion
+      ignore_errors: true
+      when: not (vllm_health.failed | default(false))
+      tags: [verify, test]
+
+    - name: Display test result
+      ansible.builtin.debug:
+        msg: |
+          Test completion result:
+          {{ test_completion.json.choices[0].message.content | default('No response') }}
+      when:
+        - test_completion is defined
+        - test_completion.json is defined
+      tags: [verify, test]
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "LITELLM DEPLOYMENT COMPLETE"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "Endpoint:      http://akira.pangolin-vega.ts.net:4000/v1"
+          - "Models API:    http://akira:4000/v1/models"
+          - "Health:        http://akira:4000/health"
+          - ""
+          - "Default Model: {{ litellm_default_model }}"
+          - ""
+          - "Client Configuration:"
+          - "  export ASK_BASE_URL=http://akira:4000"
+          - "  export ASK_MODEL={{ litellm_default_model }}"
+          - ""
+          - "Quick Test:"
+          - "  curl http://akira:4000/v1/models | jq '.data[].id'"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [always]

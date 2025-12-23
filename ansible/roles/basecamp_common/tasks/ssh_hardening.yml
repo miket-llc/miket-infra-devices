@@ -1,0 +1,86 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP SSH HARDENING
+# =============================================================================
+#
+# Verify and enforce SSH security settings:
+#   - Key-only authentication
+#   - Disable password authentication
+#   - Disable root login
+#   - Secure ciphers/KEX
+#
+# Note: Primary access is via Tailscale SSH; this hardens the underlying sshd
+#
+# =============================================================================
+
+- name: Ensure sshd_config.d directory exists
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d
+    state: directory
+    mode: '0755'
+  tags: [ssh, security]
+
+- name: Deploy basecamp SSH hardening config
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/50-basecamp-hardening.conf
+    content: |
+      # Managed by Ansible - basecamp_common role
+      # SSH hardening for basecamp node
+      #
+      # Primary access is via Tailscale SSH
+      # This config hardens the underlying sshd for defense in depth
+
+      # Authentication
+      PermitRootLogin {{ basecamp_ssh_permit_root_login }}
+      PasswordAuthentication {{ basecamp_ssh_password_auth }}
+      PubkeyAuthentication {{ basecamp_ssh_pubkey_auth }}
+      ChallengeResponseAuthentication no
+      UsePAM yes
+
+      # X11 forwarding (disabled - no GUI over SSH)
+      X11Forwarding {{ basecamp_ssh_x11_forwarding }}
+
+      # Only allow specific user
+      AllowUsers {{ basecamp_user }}
+
+      # Secure ciphers (NIST approved + ChaCha20)
+      Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+      # Secure MACs
+      MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+
+      # Secure key exchange
+      KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256
+
+      # Timeout settings
+      ClientAliveInterval 300
+      ClientAliveCountMax 3
+      LoginGraceTime 60
+
+      # Logging
+      LogLevel VERBOSE
+    mode: '0644'
+  notify: restart sshd
+  tags: [ssh, security]
+
+- name: Verify SSH configuration syntax
+  ansible.builtin.command: sshd -t
+  changed_when: false
+  register: sshd_test
+  failed_when: sshd_test.rc != 0
+  tags: [ssh, security, verify]
+
+- name: Display SSH hardening status
+  ansible.builtin.debug:
+    msg:
+      - "SSH Hardening Applied:"
+      - "  - Root login: {{ basecamp_ssh_permit_root_login }}"
+      - "  - Password auth: {{ basecamp_ssh_password_auth }}"
+      - "  - Pubkey auth: {{ basecamp_ssh_pubkey_auth }}"
+      - "  - X11 forwarding: {{ basecamp_ssh_x11_forwarding }}"
+      - "  - Allowed users: {{ basecamp_user }}"
+      - ""
+      - "Note: Primary access is via Tailscale SSH"
+  tags: [ssh, security]

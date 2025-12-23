@@ -1,0 +1,12 @@
+# Managed by Ansible - basecamp_ui role
+# greetd configuration for basecamp node
+
+[terminal]
+# Virtual terminal to use
+vt = {{ basecamp_ui_greetd_vt }}
+
+[default_session]
+# tuigreet provides a TUI session selector
+# Lists available Wayland and X11 sessions
+command = "tuigreet --time --remember --sessions /usr/share/wayland-sessions:/usr/share/xsessions"
+user = "greeter"

@@ -1,0 +1,6 @@
+# Power management defaults
+# Enable Wake-on-LAN (requires wol_mac and wol_interface in host_vars)
+power_wol_enabled: true
+
+# Disable sleep/suspend/hibernate
+power_disable_sleep: true

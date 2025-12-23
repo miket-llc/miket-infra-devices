@@ -1,0 +1,71 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP HELPER SCRIPTS
+# =============================================================================
+#
+# Deploy basecamp helper scripts to ~/basecamp/bin/:
+#   - basecamp-status: System status overview
+#   - basecamp-serial-console: Interactive serial console helper
+#   - basecamp-net-scan: Safe local network scan
+#   - basecamp-sdr-gqrx: Launch GQRX with default settings
+#
+# =============================================================================
+
+- name: Deploy basecamp-status script
+  ansible.builtin.template:
+    src: basecamp-status.sh.j2
+    dest: "{{ basecamp_user_home }}/basecamp/bin/basecamp-status"
+    owner: "{{ basecamp_user }}"
+    group: "{{ basecamp_user }}"
+    mode: '0755'
+  tags: [scripts]
+
+- name: Deploy basecamp-serial-console script
+  ansible.builtin.template:
+    src: basecamp-serial-console.sh.j2
+    dest: "{{ basecamp_user_home }}/basecamp/bin/basecamp-serial-console"
+    owner: "{{ basecamp_user }}"
+    group: "{{ basecamp_user }}"
+    mode: '0755'
+  tags: [scripts]
+
+- name: Deploy basecamp-net-scan script
+  ansible.builtin.template:
+    src: basecamp-net-scan.sh.j2
+    dest: "{{ basecamp_user_home }}/basecamp/bin/basecamp-net-scan"
+    owner: "{{ basecamp_user }}"
+    group: "{{ basecamp_user }}"
+    mode: '0755'
+  tags: [scripts]
+
+- name: Deploy basecamp-sdr-gqrx script
+  ansible.builtin.template:
+    src: basecamp-sdr-gqrx.sh.j2
+    dest: "{{ basecamp_user_home }}/basecamp/bin/basecamp-sdr-gqrx"
+    owner: "{{ basecamp_user }}"
+    group: "{{ basecamp_user }}"
+    mode: '0755'
+  tags: [scripts]
+
+- name: Add basecamp/bin to user PATH via profile.d
+  ansible.builtin.copy:
+    dest: /etc/profile.d/basecamp.sh
+    content: |
+      # Managed by Ansible - basecamp_common role
+      # Add basecamp scripts to PATH
+      export PATH="${PATH}:${HOME}/basecamp/bin"
+    mode: '0644'
+  tags: [scripts, path]
+
+- name: Verify scripts are executable
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: '0755'
+  loop:
+    - "{{ basecamp_user_home }}/basecamp/bin/basecamp-status"
+    - "{{ basecamp_user_home }}/basecamp/bin/basecamp-serial-console"
+    - "{{ basecamp_user_home }}/basecamp/bin/basecamp-net-scan"
+    - "{{ basecamp_user_home }}/basecamp/bin/basecamp-sdr-gqrx"
+  tags: [scripts]

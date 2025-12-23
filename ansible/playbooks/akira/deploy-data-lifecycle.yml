@@ -50,19 +50,30 @@
         data_lifecycle_env_file: /etc/miket/storage-credentials.env
         data_lifecycle_markers_dir: /space/_ops/data-estate/markers
         data_lifecycle_logs_dir: /space/_ops/logs/data-lifecycle
+        data_lifecycle_restore_test_dir: /space/_ops/backups/restore-tests
         data_lifecycle_flux_path: /flux
         data_lifecycle_space_path: /space
-        # Only space-mirror should run on akira
+        # Only space-mirror should run on akira (flux stays on motoko)
         data_lifecycle_enable_space_mirror: true
         data_lifecycle_enable_flux_backup: false
         data_lifecycle_enable_flux_local: false
         data_lifecycle_enable_flux_graduate: false
+        # Restic check disabled (no flux-backup on akira)
+        data_lifecycle_enable_restic_check: false
+        # Restore test enabled (validates B2 mirror is restorable)
+        data_lifecycle_enable_restore_test: true
       tags: [data-lifecycle]
 
   post_tasks:
     - name: Verify space-mirror timer
       ansible.builtin.command: systemctl is-enabled space-mirror.timer
-      register: timer_status
+      register: mirror_timer_status
+      changed_when: false
+      failed_when: false
+
+    - name: Verify restore-test timer
+      ansible.builtin.command: systemctl is-enabled restore-test.timer
+      register: restore_timer_status
       changed_when: false
       failed_when: false
 
@@ -72,12 +83,15 @@
           ============================================
           Data Lifecycle Services Deployed on akira
           ============================================
-          space-mirror.timer: {{ 'ENABLED' if timer_status.rc == 0 else 'NOT ENABLED' }}
-          
+          space-mirror.timer: {{ 'ENABLED' if mirror_timer_status.rc == 0 else 'NOT ENABLED' }}
+          restore-test.timer: {{ 'ENABLED' if restore_timer_status.rc == 0 else 'NOT ENABLED' }}
+
           B2 Target: miket-space-mirror
-          Schedule: Every 4 hours
-          
+          Mirror Schedule: Daily 4:00 AM
+          Restore Test: Weekly Saturday 7:00 AM
+
           Test with:
           sudo systemctl start space-mirror.service
+          sudo systemctl start restore-test.service
           journalctl -u space-mirror.service -f
           ============================================

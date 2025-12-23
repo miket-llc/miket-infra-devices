@@ -1,0 +1,111 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY EXPORTERS - DEFAULT VARIABLES
+# =============================================================================
+#
+# Deploys node_exporter for Prometheus metrics collection
+# Designed for low overhead and tailnet-only access
+#
+# =============================================================================
+
+# ========================================
+# node_exporter Configuration
+# ========================================
+node_exporter_enabled: true
+node_exporter_version: "1.8.2"
+node_exporter_port: 9100
+node_exporter_user: "node_exporter"
+node_exporter_group: "node_exporter"
+
+# Installation method: "package" (OS package manager) or "binary" (official release)
+# Prefer "package" for automatic updates via OS
+node_exporter_install_method: "package"
+
+# Binary download URL (used when install_method is "binary")
+node_exporter_binary_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+node_exporter_binary_install_dir: "/usr/local/bin"
+node_exporter_binary_checksum: ""  # Set for verification
+
+# ========================================
+# Network / Security Configuration
+# ========================================
+# Bind to specific interface/IP
+# Options: "0.0.0.0" (all), "127.0.0.1" (localhost only), or specific tailscale IP
+node_exporter_listen_address: "0.0.0.0"
+
+# Tailnet CIDR for firewall rules (defense in depth)
+node_exporter_tailnet_cidr: "100.64.0.0/10"
+
+# Configure firewall (firewalld on Fedora)
+node_exporter_configure_firewall: true
+
+# ========================================
+# Collector Configuration
+# ========================================
+# Collectors to explicitly enable (beyond defaults)
+node_exporter_enabled_collectors:
+  - systemd
+  - processes
+
+# Collectors to explicitly disable
+node_exporter_disabled_collectors:
+  - wifi        # Not needed on servers
+  - nfs         # Enable per-host if needed
+  - nfsd        # Enable per-host if needed
+  - zfs         # Enable per-host if needed
+  - infiniband  # Not applicable
+  - tapestats   # Not applicable
+
+# ========================================
+# Systemd Configuration
+# ========================================
+node_exporter_service_name: "node_exporter"
+node_exporter_service_enabled: true
+node_exporter_service_state: "started"
+
+# Extra arguments for node_exporter
+node_exporter_extra_args: ""
+
+# ========================================
+# Textfile Collector (for custom metrics)
+# ========================================
+node_exporter_textfile_enabled: true
+node_exporter_textfile_dir: "/var/lib/node_exporter/textfile_collector"
+
+# =============================================================================
+# WINDOWS EXPORTER CONFIGURATION
+# =============================================================================
+#
+# windows_exporter for Windows host metrics
+# https://github.com/prometheus-community/windows_exporter
+#
+# =============================================================================
+
+windows_exporter_enabled: true
+windows_exporter_version: "0.25.1"
+windows_exporter_port: 9182
+
+# MSI download URL
+windows_exporter_msi_url: "https://github.com/prometheus-community/windows_exporter/releases/download/v{{ windows_exporter_version }}/windows_exporter-{{ windows_exporter_version }}-amd64.msi"
+
+# Installation directory
+windows_exporter_install_dir: "C:\\Program Files\\windows_exporter"
+
+# Collectors to enable (comma-separated for CLI)
+windows_exporter_collectors:
+  - cpu
+  - cs
+  - logical_disk
+  - memory
+  - net
+  - os
+  - process
+  - service
+  - system
+  - tcp
+  - thermalzone
+
+# Tailnet CIDR for firewall rules
+windows_exporter_tailnet_cidr: "100.64.0.0/10"

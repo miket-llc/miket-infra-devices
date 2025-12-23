@@ -1,0 +1,248 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NODE_EXPORTER LINUX INSTALLATION
+# =============================================================================
+#
+# Installs node_exporter for Prometheus metrics
+# Prefers OS package (automatic updates) or official binary
+#
+# =============================================================================
+
+# ========================================
+# Package Installation (preferred)
+# ========================================
+
+- name: Check if node_exporter package is available
+  ansible.builtin.shell: |
+    dnf search node_exporter 2>/dev/null | grep -q node_exporter || \
+    dnf search golang-github-prometheus-node_exporter 2>/dev/null | grep -q node_exporter
+  register: package_available
+  changed_when: false
+  failed_when: false
+  when: node_exporter_install_method == 'package'
+  tags: [observability, node_exporter, install]
+
+- name: Install node_exporter from package manager
+  ansible.builtin.dnf:
+    name: golang-github-prometheus-node_exporter
+    state: present
+  when:
+    - node_exporter_install_method == 'package'
+    - package_available.rc == 0
+  tags: [observability, node_exporter, install]
+
+# ========================================
+# Binary Installation (fallback)
+# ========================================
+
+- name: Set binary install required fact
+  ansible.builtin.set_fact:
+    node_exporter_use_binary: "{{ node_exporter_install_method == 'binary' or (node_exporter_install_method == 'package' and package_available.rc != 0) }}"
+  tags: [observability, node_exporter, install]
+
+- name: Create node_exporter system group
+  ansible.builtin.group:
+    name: "{{ node_exporter_group }}"
+    system: true
+    state: present
+  when: node_exporter_use_binary | bool
+  tags: [observability, node_exporter, install]
+
+- name: Create node_exporter system user
+  ansible.builtin.user:
+    name: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    system: true
+    shell: /sbin/nologin
+    home: /var/lib/node_exporter
+    create_home: false
+  when: node_exporter_use_binary | bool
+  tags: [observability, node_exporter, install]
+
+- name: Check if node_exporter binary exists
+  ansible.builtin.stat:
+    path: "{{ node_exporter_binary_install_dir }}/node_exporter"
+  register: node_exporter_binary
+  when: node_exporter_use_binary | bool
+  tags: [observability, node_exporter, install]
+
+- name: Download and install node_exporter binary
+  when:
+    - node_exporter_use_binary | bool
+    - not node_exporter_binary.stat.exists | default(true)
+  block:
+    - name: Create temp directory for download
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: node_exporter
+      register: temp_dir
+
+    - name: Download node_exporter
+      ansible.builtin.get_url:
+        url: "{{ node_exporter_binary_url }}"
+        dest: "{{ temp_dir.path }}/node_exporter.tar.gz"
+        mode: '0644'
+      register: download_result
+
+    - name: Extract node_exporter
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/node_exporter.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install node_exporter binary
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: "{{ node_exporter_binary_install_dir }}/node_exporter"
+        owner: root
+        group: root
+        mode: '0755'
+        remote_src: true
+      notify: Restart node_exporter
+
+    - name: Clean up temp directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+  tags: [observability, node_exporter, install]
+
+# ========================================
+# Textfile Collector Directory
+# ========================================
+
+- name: Create textfile collector directory
+  ansible.builtin.file:
+    path: "{{ node_exporter_textfile_dir }}"
+    state: directory
+    owner: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_group }}"
+    mode: '0755'
+  when: node_exporter_textfile_enabled | bool
+  tags: [observability, node_exporter, configure]
+
+# ========================================
+# Systemd Service (Binary install only)
+# ========================================
+
+- name: Stop and disable package-provided node_exporter service (if using binary)
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    state: stopped
+    enabled: false
+  when: node_exporter_use_binary | bool
+  failed_when: false
+  tags: [observability, node_exporter, configure]
+
+- name: Deploy node_exporter systemd unit (binary install only)
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: '0644'
+  when: node_exporter_use_binary | bool
+  notify:
+    - Reload systemd
+    - Restart node_exporter
+  tags: [observability, node_exporter, configure]
+
+- name: Enable and start node_exporter service (binary install)
+  ansible.builtin.systemd:
+    name: "{{ node_exporter_service_name }}"
+    enabled: "{{ node_exporter_service_enabled }}"
+    state: "{{ node_exporter_service_state }}"
+    daemon_reload: true
+  when: node_exporter_use_binary | bool
+  tags: [observability, node_exporter, service]
+
+- name: Enable and start prometheus-node-exporter service (package install)
+  ansible.builtin.systemd:
+    name: prometheus-node-exporter
+    enabled: true
+    state: started
+  when: not (node_exporter_use_binary | bool)
+  tags: [observability, node_exporter, service]
+
+- name: Set node_exporter service name fact for verification
+  ansible.builtin.set_fact:
+    node_exporter_actual_service: "{{ 'node_exporter' if (node_exporter_use_binary | bool) else 'prometheus-node-exporter' }}"
+  tags: [observability, node_exporter, verify]
+
+# ========================================
+# Firewall Configuration (firewalld)
+# ========================================
+
+- name: Check if firewalld is active
+  ansible.builtin.systemd:
+    name: firewalld
+  register: firewalld_status
+  failed_when: false
+  changed_when: false
+  tags: [observability, node_exporter, firewall]
+
+- name: Get default firewalld zone
+  ansible.builtin.command: firewall-cmd --get-default-zone
+  register: default_zone
+  changed_when: false
+  when:
+    - node_exporter_configure_firewall | bool
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, node_exporter, firewall]
+
+- name: Add rich rule for Tailscale CIDR access to node_exporter
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='{{ node_exporter_tailnet_cidr }}' port port='{{ node_exporter_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - node_exporter_configure_firewall | bool
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, node_exporter, firewall]
+
+- name: Add rich rule for localhost access to node_exporter
+  ansible.posix.firewalld:
+    zone: "{{ default_zone.stdout | trim | default('public') }}"
+    rich_rule: "rule family='ipv4' source address='127.0.0.1' port port='{{ node_exporter_port }}' protocol='tcp' accept"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - node_exporter_configure_firewall | bool
+    - firewalld_status.status is defined
+    - firewalld_status.status.ActiveState == 'active'
+  tags: [observability, node_exporter, firewall]
+
+# ========================================
+# Verification
+# ========================================
+
+- name: Wait for node_exporter to be ready
+  ansible.builtin.wait_for:
+    port: "{{ node_exporter_port }}"
+    host: 127.0.0.1
+    timeout: 30
+  tags: [observability, node_exporter, verify]
+
+- name: Verify node_exporter metrics endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ node_exporter_port }}/metrics"
+    return_content: false
+    status_code: 200
+  register: metrics_check
+  failed_when: false
+  changed_when: false
+  tags: [observability, node_exporter, verify]
+
+- name: Display node_exporter status
+  ansible.builtin.debug:
+    msg: |
+      node_exporter Status: {{ 'RUNNING' if metrics_check.status == 200 else 'NOT RESPONDING' }}
+      Metrics endpoint: http://127.0.0.1:{{ node_exporter_port }}/metrics
+      Tailnet access: Restricted to {{ node_exporter_tailnet_cidr }}
+  tags: [observability, node_exporter, verify]

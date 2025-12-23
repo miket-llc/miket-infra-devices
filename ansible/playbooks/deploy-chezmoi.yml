@@ -1,0 +1,224 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy chezmoi and dotfiles to Linux servers
+# This installs chezmoi, initializes the dotfiles repo, and applies.
+# The chezmoi run_onchange scripts will install ask-cli automatically.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-chezmoi.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-chezmoi.yml --limit armitage
+
+- name: Deploy chezmoi and dotfiles
+  hosts: linux_servers
+  become: true
+
+  vars:
+    # Override defaults if needed
+    common_dev_tools_install_chezmoi: true
+    common_dev_tools_chezmoi_apply: true
+
+  tasks:
+    - name: Get user home directory
+      ansible.builtin.shell: "echo ~{{ ansible_user }}"
+      register: chezmoi_user_home
+      changed_when: false
+      check_mode: false
+
+    # Install packages that chezmoi run_once scripts would install
+    # This allows us to skip scripts during chezmoi apply
+    - name: Install shell environment packages (Fedora)
+      ansible.builtin.dnf:
+        name:
+          - zsh
+          - zsh-syntax-highlighting
+          - zsh-autosuggestions
+          - tmux
+          - git
+          - curl
+          - unzip
+          - neovim
+        state: present
+      when: ansible_os_family == 'RedHat'
+
+    - name: Check if starship is installed
+      ansible.builtin.shell: which starship || echo "not found"
+      register: starship_check
+      changed_when: false
+      check_mode: false
+
+    - name: Install starship (if not present)
+      ansible.builtin.shell: |
+        curl -sS https://starship.rs/install.sh | sh -s -- -y
+      when: "'not found' in starship_check.stdout"
+
+    - name: Check if chezmoi is installed
+      ansible.builtin.shell: which chezmoi || echo "not found"
+      register: chezmoi_check
+      changed_when: false
+
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ chezmoi_user_home.stdout }}/.local/bin"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      become: true
+      become_user: "{{ ansible_user }}"
+
+    - name: Install chezmoi
+      ansible.builtin.shell: |
+        sh -c "$(curl -fsLS get.chezmoi.io)" -- -b {{ chezmoi_user_home.stdout }}/.local/bin
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: "'not found' in chezmoi_check.stdout"
+
+    # Deploy GitHub SSH deploy key from AKV
+    - name: Ensure .ssh directory exists
+      ansible.builtin.file:
+        path: "{{ chezmoi_user_home.stdout }}/.ssh"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0700'
+      become: true
+      become_user: "{{ ansible_user }}"
+
+    - name: Check if GitHub deploy key exists
+      ansible.builtin.stat:
+        path: "{{ chezmoi_user_home.stdout }}/.ssh/github_deploy_key"
+      register: github_key_check
+
+    - name: Retrieve GitHub deploy key from AKV
+      ansible.builtin.command: >
+        az keyvault secret show
+        --vault-name kv-miket-ops
+        --name github-deploy-key
+        --query value -o tsv
+      register: github_key_secret
+      delegate_to: localhost
+      become: false
+      changed_when: false
+      when: not github_key_check.stat.exists
+
+    - name: Deploy GitHub SSH key
+      ansible.builtin.copy:
+        content: "{{ github_key_secret.stdout }}\n"
+        dest: "{{ chezmoi_user_home.stdout }}/.ssh/github_deploy_key"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: not github_key_check.stat.exists
+
+    - name: Configure SSH for GitHub
+      ansible.builtin.blockinfile:
+        path: "{{ chezmoi_user_home.stdout }}/.ssh/config"
+        create: true
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+        marker: "# {mark} ANSIBLE MANAGED - GitHub deploy key"
+        block: |
+          Host github.com
+              HostName github.com
+              User git
+              IdentityFile ~/.ssh/github_deploy_key
+              IdentitiesOnly yes
+      become: true
+      become_user: "{{ ansible_user }}"
+
+    - name: Check if chezmoi is initialized
+      ansible.builtin.stat:
+        path: "{{ chezmoi_user_home.stdout }}/.local/share/chezmoi/.git"
+      register: chezmoi_init_check
+
+    - name: Initialize chezmoi with dotfiles repo
+      ansible.builtin.shell: |
+        export PATH="{{ chezmoi_user_home.stdout }}/.local/bin:$PATH"
+        chezmoi init git@github.com:miket-llc/miket-dot-config.git
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: not chezmoi_init_check.stat.exists
+
+    - name: Update chezmoi to latest
+      ansible.builtin.shell: |
+        export PATH="{{ chezmoi_user_home.stdout }}/.local/bin:$PATH"
+        cd {{ chezmoi_user_home.stdout }}/.local/share/chezmoi
+        # Ensure SSH remote is set (uses deploy key from ~/.ssh/github_deploy_key)
+        git remote set-url origin git@github.com:miket-llc/miket-dot-config.git 2>/dev/null || true
+        git pull origin main
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: chezmoi_init_check.stat.exists
+      register: chezmoi_update
+      changed_when: "'Already up to date' not in chezmoi_update.stdout"
+
+    - name: Apply chezmoi (skip scripts, we install packages via Ansible)
+      ansible.builtin.shell: |
+        export PATH="{{ chezmoi_user_home.stdout }}/.local/bin:$PATH"
+        # Exclude all scripts - packages installed by Ansible, ask-cli installed below
+        chezmoi apply --no-tty --force --exclude=scripts 2>&1
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: chezmoi_apply
+      changed_when: chezmoi_apply.stdout | length > 10
+      async: 300
+      poll: 10
+
+    - name: Display chezmoi apply output
+      ansible.builtin.debug:
+        msg: "{{ chezmoi_apply.stdout_lines[-20:] | default(['No output']) }}"
+
+    # Install ask-cli manually since we skip chezmoi scripts
+    - name: Check if ask-cli repo exists
+      ansible.builtin.stat:
+        path: "{{ chezmoi_user_home.stdout }}/.local/share/ask-cli/.git"
+      register: ask_cli_check
+
+    - name: Clone ask-cli repository
+      ansible.builtin.git:
+        repo: https://github.com/miket-llc/ask-cli.git
+        dest: "{{ chezmoi_user_home.stdout }}/.local/share/ask-cli"
+        version: main
+        depth: 1
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: not ask_cli_check.stat.exists
+
+    - name: Update ask-cli repository
+      ansible.builtin.shell: |
+        cd {{ chezmoi_user_home.stdout }}/.local/share/ask-cli
+        git pull origin main
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: ask_cli_check.stat.exists
+      register: ask_update
+      changed_when: "'Already up to date' not in ask_update.stdout"
+
+    - name: Run ask-cli install script
+      ansible.builtin.shell: |
+        cd {{ chezmoi_user_home.stdout }}/.local/share/ask-cli
+        bash install.sh 2>&1
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: ask_install
+      changed_when: "'already installed' not in ask_install.stdout"
+
+    - name: Verify ask is installed
+      ansible.builtin.shell: |
+        export PATH="{{ chezmoi_user_home.stdout }}/.local/bin:$PATH"
+        ask --print-config 2>/dev/null | head -5 || echo "ask not found"
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: ask_verify
+      changed_when: false
+
+    - name: Display verification
+      ansible.builtin.debug:
+        msg:
+          - "Deployment complete on {{ inventory_hostname }}"
+          - "ask config:"
+          - "{{ ask_verify.stdout_lines }}"

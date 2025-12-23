@@ -1,0 +1,143 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP COMMON ROLE
+# =============================================================================
+#
+# Base configuration for atom basecamp/hacker node:
+#   - User group configuration
+#   - Base packages
+#   - Directory structure
+#   - udev rules for hardware access
+#   - SSH hardening verification
+#
+# =============================================================================
+
+- name: Display basecamp common configuration banner
+  ansible.builtin.debug:
+    msg: |
+      ===============================================================
+      BASECAMP COMMON CONFIGURATION
+      ===============================================================
+
+      Host:           {{ inventory_hostname }}
+      Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+      Kernel:         {{ ansible_kernel }}
+
+      Configuration:
+        - User: {{ basecamp_user }}
+        - User groups: {{ basecamp_user_groups | join(', ') }}
+        - Directory: ~/basecamp/
+        - udev rules: {{ 'enabled' if basecamp_udev_rules_enabled else 'disabled' }}
+
+      ===============================================================
+  tags: [always]
+
+- name: Verify Fedora distribution
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role requires Fedora (found: {{ ansible_distribution }})"
+    success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+  tags: [always]
+
+# ========================================
+# User Group Configuration
+# ========================================
+- name: Ensure required groups exist
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - dialout
+    - video
+    - input
+    - audio
+  failed_when: false  # Some groups may not exist on Fedora
+  tags: [users, groups]
+
+- name: Add user to basecamp groups
+  ansible.builtin.user:
+    name: "{{ basecamp_user }}"
+    groups: "{{ basecamp_user_groups }}"
+    append: yes
+  tags: [users, groups]
+
+# ========================================
+# Package Installation
+# ========================================
+- name: Install basecamp system packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_packages_system }}"
+    state: present
+  tags: [packages]
+
+- name: Install basecamp Python packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_packages_python }}"
+    state: present
+  tags: [packages, python]
+
+# ========================================
+# Directory Structure
+# ========================================
+- name: Create basecamp directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ basecamp_user }}"
+    group: "{{ basecamp_user }}"
+    mode: '0755'
+  loop: "{{ basecamp_directories }}"
+  tags: [directories]
+
+# ========================================
+# udev Rules for Hardware Access
+# ========================================
+- name: Include udev rules configuration
+  ansible.builtin.include_tasks: udev.yml
+  when: basecamp_udev_rules_enabled
+  tags: [udev, hardware]
+
+# ========================================
+# SSH Hardening Verification
+# ========================================
+- name: Include SSH hardening tasks
+  ansible.builtin.include_tasks: ssh_hardening.yml
+  tags: [ssh, security]
+
+# ========================================
+# Helper Scripts
+# ========================================
+- name: Include basecamp scripts deployment
+  ansible.builtin.include_tasks: scripts.yml
+  tags: [scripts]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display basecamp common configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "==============================================================="
+      - "BASECAMP COMMON CONFIGURATION COMPLETE"
+      - "==============================================================="
+      - ""
+      - "User Configuration:"
+      - "  User: {{ basecamp_user }}"
+      - "  Groups: {{ basecamp_user_groups | join(', ') }}"
+      - ""
+      - "Packages Installed:"
+      - "  System: {{ basecamp_packages_system | length }} packages"
+      - "  Python: {{ basecamp_packages_python | length }} packages"
+      - ""
+      - "Directory Structure:"
+      - "  ~/basecamp/bin/      - Helper scripts"
+      - "  ~/basecamp/logs/     - Rotated logs"
+      - "  ~/basecamp/captures/ - pcaps, RF captures"
+      - "  ~/basecamp/notes/    - Documentation"
+      - "  ~/basecamp/configs/  - Local overrides"
+      - ""
+      - "==============================================================="
+  tags: [always]

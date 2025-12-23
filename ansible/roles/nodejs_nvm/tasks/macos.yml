@@ -1,0 +1,132 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS tasks for nodejs_nvm role
+# Installs nvm and Node.js in user space - no sudo required for npm global packages
+
+- name: Get user home directory
+  ansible.builtin.shell: "echo ~{{ nodejs_nvm_user }}"
+  register: nvm_user_home
+  changed_when: false
+
+- name: Set nvm paths
+  ansible.builtin.set_fact:
+    nvm_home: "{{ nvm_user_home.stdout }}"
+    nvm_dir: "{{ nvm_user_home.stdout }}/{{ nodejs_nvm_dir }}"
+
+# ========================================
+# Install nvm
+# ========================================
+- name: Check if nvm is already installed
+  ansible.builtin.stat:
+    path: "{{ nvm_dir }}/nvm.sh"
+  register: nvm_installed
+
+- name: Download and install nvm
+  ansible.builtin.shell: |
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v{{ nodejs_nvm_version }}/install.sh | bash
+  args:
+    creates: "{{ nvm_dir }}/nvm.sh"
+  become: false
+  environment:
+    HOME: "{{ nvm_home }}"
+    NVM_DIR: "{{ nvm_dir }}"
+  when: not nvm_installed.stat.exists
+
+- name: Verify nvm installation
+  ansible.builtin.stat:
+    path: "{{ nvm_dir }}/nvm.sh"
+  register: nvm_verify
+  failed_when: not nvm_verify.stat.exists
+
+# ========================================
+# Shell integration
+# ========================================
+- name: Ensure nvm is sourced in shell profiles
+  ansible.builtin.blockinfile:
+    path: "{{ nvm_home }}/{{ item }}"
+    block: |
+      # nvm (Node Version Manager)
+      export NVM_DIR="{{ nvm_dir }}"
+      [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+      [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - nvm"
+    create: true
+    mode: '0644'
+  loop: "{{ nodejs_shell_profiles }}"
+  ignore_errors: true
+
+# ========================================
+# Install Node.js via nvm
+# ========================================
+- name: Install Node.js via nvm
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    nvm install {{ nodejs_version }}
+  args:
+    executable: /bin/bash
+  become: false
+  register: node_install
+  changed_when: "'is already installed' not in node_install.stderr"
+
+- name: Set default Node.js version
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    nvm alias default {{ nodejs_version }}
+  args:
+    executable: /bin/bash
+  become: false
+  when: nodejs_set_default | bool
+  changed_when: false
+
+# ========================================
+# Install global npm packages (no sudo!)
+# ========================================
+- name: Install global npm packages via nvm
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    npm install -g {{ item }}
+  args:
+    executable: /bin/bash
+  become: false
+  loop: "{{ nodejs_global_packages }}"
+  register: npm_install
+  changed_when: "'added' in npm_install.stdout or 'up to date' not in npm_install.stderr"
+  when: nodejs_global_packages | length > 0
+
+# ========================================
+# Verification
+# ========================================
+- name: Get installed Node.js version
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    node --version
+  args:
+    executable: /bin/bash
+  become: false
+  register: node_version
+  changed_when: false
+
+- name: Get installed npm version
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    npm --version
+  args:
+    executable: /bin/bash
+  become: false
+  register: npm_version
+  changed_when: false
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "Node.js (nvm) installed on {{ inventory_hostname }}"
+      - "nvm directory: {{ nvm_dir }}"
+      - "Node.js: {{ node_version.stdout }}"
+      - "npm: {{ npm_version.stdout }}"
+      - "No sudo required for: npm install -g <package>"

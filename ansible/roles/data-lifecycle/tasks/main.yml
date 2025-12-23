@@ -116,6 +116,8 @@
     - { name: space-mirror.sh,   when: "{{ data_lifecycle_enable_space_mirror | bool }}" }
     - { name: flux-backup.sh,    when: "{{ data_lifecycle_enable_flux_backup | bool }}" }
     - { name: flux-local-snap.sh, when: "{{ data_lifecycle_enable_flux_local | bool }}" }
+    - { name: restic-check.sh,   when: "{{ data_lifecycle_enable_restic_check | default(data_lifecycle_enable_flux_backup) | bool }}" }
+    - { name: restore-test.sh,   when: "{{ data_lifecycle_enable_restore_test | default(true) | bool }}" }
     - { name: backblaze-trigger.sh, when: "true" }
     - { name: failure-notify.sh, when: "true" }
   when: item.when | default(false) | bool
@@ -185,6 +187,55 @@
   when: data_lifecycle_enable_flux_local | bool
 
 # =============================================================================
+# Restic Integrity Check (runs after flux-backup)
+# =============================================================================
+
+- name: Deploy Restic Check Service
+  template:
+    src: restic-check.service.j2
+    dest: /etc/systemd/system/restic-check.service
+    mode: '0644'
+  notify: Reload Systemd
+  when: data_lifecycle_enable_restic_check | default(data_lifecycle_enable_flux_backup) | bool
+
+- name: Deploy Restic Check Timer
+  template:
+    src: restic-check.timer.j2
+    dest: /etc/systemd/system/restic-check.timer
+    mode: '0644'
+  notify: Reload Systemd
+  when: data_lifecycle_enable_restic_check | default(data_lifecycle_enable_flux_backup) | bool
+
+# =============================================================================
+# Automated Restore Testing (weekly drill)
+# =============================================================================
+
+- name: Ensure restore test results directory exists
+  ansible.builtin.file:
+    path: "{{ data_lifecycle_restore_test_dir | default('/space/_ops/backups/restore-tests') }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: data_lifecycle_enable_restore_test | default(true) | bool
+
+- name: Deploy Restore Test Service
+  template:
+    src: restore-test.service.j2
+    dest: /etc/systemd/system/restore-test.service
+    mode: '0644'
+  notify: Reload Systemd
+  when: data_lifecycle_enable_restore_test | default(true) | bool
+
+- name: Deploy Restore Test Timer
+  template:
+    src: restore-test.timer.j2
+    dest: /etc/systemd/system/restore-test.timer
+    mode: '0644'
+  notify: Reload Systemd
+  when: data_lifecycle_enable_restore_test | default(true) | bool
+
+# =============================================================================
 # Failure Notification Service
 # =============================================================================
 
@@ -210,8 +261,12 @@
     - space-mirror.timer
     - flux-backup.timer
     - flux-local.timer
+    - restic-check.timer
+    - restore-test.timer
   when:
     - (item == 'flux-graduate.timer' and data_lifecycle_enable_flux_graduate | bool) or
       (item == 'space-mirror.timer' and data_lifecycle_enable_space_mirror | bool) or
       (item == 'flux-backup.timer' and data_lifecycle_enable_flux_backup | bool) or
-      (item == 'flux-local.timer' and data_lifecycle_enable_flux_local | bool)
+      (item == 'flux-local.timer' and data_lifecycle_enable_flux_local | bool) or
+      (item == 'restic-check.timer' and (data_lifecycle_enable_restic_check | default(data_lifecycle_enable_flux_backup)) | bool) or
+      (item == 'restore-test.timer' and (data_lifecycle_enable_restore_test | default(true)) | bool)

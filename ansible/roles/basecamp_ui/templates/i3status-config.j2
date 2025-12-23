@@ -1,0 +1,53 @@
+# Managed by Ansible - basecamp_ui role
+# i3status configuration for basecamp node
+
+general {
+    colors = true
+    interval = 5
+    color_good = "#26A65B"
+    color_degraded = "#f39c12"
+    color_bad = "#e74c3c"
+}
+
+order += "wireless _first_"
+order += "ethernet _first_"
+order += "cpu_usage"
+order += "memory"
+order += "battery all"
+order += "tztime local"
+
+wireless _first_ {
+    format_up = "WIFI %quality"
+    format_down = "WIFI down"
+}
+
+ethernet _first_ {
+    format_up = "ETH %ip"
+    format_down = "ETH down"
+}
+
+cpu_usage {
+    format = "CPU %usage"
+}
+
+memory {
+    format = "MEM %percentage_used"
+    threshold_degraded = "20%"
+    threshold_critical = "10%"
+}
+
+battery all {
+    format = "%status %percentage"
+    format_down = "No battery"
+    status_chr = "CHG"
+    status_bat = "BAT"
+    status_unk = "UNK"
+    status_full = "FULL"
+    path = "/sys/class/power_supply/BAT%d/uevent"
+    low_threshold = 20
+    threshold_type = "percentage"
+}
+
+tztime local {
+    format = "%H:%M"
+}

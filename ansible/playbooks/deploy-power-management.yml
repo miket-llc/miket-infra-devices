@@ -1,0 +1,8 @@
+# Deploy power management settings (WoL + no-sleep)
+# Usage: ansible-playbook ansible/playbooks/deploy-power-management.yml
+---
+- name: Configure power management on WoL-enabled hosts
+  hosts: wol_enabled
+  gather_facts: true
+  roles:
+    - power_management

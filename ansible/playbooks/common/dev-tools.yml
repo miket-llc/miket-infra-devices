@@ -31,8 +31,10 @@
 
 - name: Install Common Dev Tools
   hosts: all
-  become: "{{ 'false' if ansible_os_family == 'Darwin' else 'true' }}"
   gather_facts: true
+
+  # NOTE: become is set per-task in the role based on OS
+  # macOS tasks use become: false, Linux/Windows use become: true
 
   pre_tasks:
     - name: Display banner

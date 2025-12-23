@@ -117,3 +117,15 @@ tailnet_domain: "pangolin-vega.ts.net"
 common_dev_tools_generate_ssh_key: true
 common_dev_tools_ssh_key_type: ed25519
 
+# ========================================
+# Chezmoi (Dotfile Manager)
+# ========================================
+# Install chezmoi and apply dotfiles
+common_dev_tools_install_chezmoi: true
+
+# Chezmoi source repository (SSH URL)
+common_dev_tools_chezmoi_repo: "git@github.com:miket-llc/miket-dot-config.git"
+
+# Apply chezmoi after init (installs ask-cli via run_onchange script)
+common_dev_tools_chezmoi_apply: true
+

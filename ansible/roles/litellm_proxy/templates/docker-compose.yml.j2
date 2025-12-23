@@ -9,8 +9,13 @@ services:
     container_name: litellm
     env_file:
       - {{ litellm_env_path }}
-    command: --config /app/config/config.yaml --port {{ litellm_port }}
+    command: --config /app/config/config.yaml --host {{ litellm_bind_host }} --port {{ litellm_port }}
+{% if litellm_bind_host == '0.0.0.0' or litellm_bind_tailnet | default(false) %}
     network_mode: host
+{% else %}
+    ports:
+      - "{{ litellm_bind_host }}:{{ litellm_port }}:{{ litellm_port }}"
+{% endif %}
     volumes:
       - {{ litellm_config_path }}:/app/config/config.yaml:ro,Z
     restart: unless-stopped
@@ -20,4 +25,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-

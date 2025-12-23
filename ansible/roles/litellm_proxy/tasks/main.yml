@@ -14,7 +14,8 @@
       - ""
       - "Container Runtime: {{ litellm_container_runtime }}"
       - "Work Directory:    {{ litellm_workdir }}"
-      - "Port:              {{ litellm_port }}"
+      - "Bind Address:      {{ litellm_bind_host }}:{{ litellm_port }}"
+      - "Backend Type:      {{ litellm_backend_type | default('vllm') }}"
       - ""
       - "═══════════════════════════════════════════════════════════"
   tags: [litellm]
@@ -55,24 +56,24 @@
   ansible.builtin.debug:
     msg: |
       ⚠️  {{ litellm_env_path }} is missing.
-      
+
       To generate secrets, run:
         ansible-playbook playbooks/secrets-sync.yml --limit {{ inventory_hostname }}
-      
+
       Or create a minimal .env file with:
-        LITELLM_TOKEN=your-secret-token
+        LITELLM_MASTER_KEY=your-secret-token
   when:
     - not litellm_env_stat.stat.exists
     - litellm_require_secrets | bool
   tags: [litellm, secrets]
 
-- name: Create placeholder env file if missing (for testing)
+- name: Create minimal env file if missing (no auth - tailnet provides security)
   ansible.builtin.copy:
     dest: "{{ litellm_env_path }}"
     content: |
-      # LiteLLM environment - placeholder
-      # Replace with secrets from Azure Key Vault
-      LITELLM_TOKEN=placeholder-token
+      # LiteLLM environment
+      # No LITELLM_MASTER_KEY - tailnet provides access control
+      # To enable auth, add: LITELLM_MASTER_KEY=your-secret-token
     mode: "0600"
   when:
     - not litellm_env_stat.stat.exists
@@ -88,6 +89,18 @@
     mode: "0644"
   notify: restart litellm
   tags: [litellm, config]
+
+# ========================================
+# Runtime Setup - Fedora/Podman
+# ========================================
+- name: Ensure Podman and podman-compose are installed (Fedora)
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - podman-compose
+    state: present
+  when: ansible_distribution == "Fedora"
+  tags: [litellm, packages]
 
 # ========================================
 # Runtime Setup - Debian/Docker
@@ -121,7 +134,7 @@
   tags: [litellm, runtime]
 
 # ========================================
-# Security
+# Security - File Permissions
 # ========================================
 - name: Ensure LiteLLM env file permissions are restrictive
   ansible.builtin.file:
@@ -133,9 +146,59 @@
   tags: [litellm, security]
 
 # ========================================
+# Firewall Configuration (firewalld)
+# ========================================
+- name: Open LiteLLM port in firewalld (tailnet only)
+  ansible.posix.firewalld:
+    port: "{{ litellm_port }}/tcp"
+    zone: "{{ litellm_firewall_zone }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - litellm_firewall_enabled | default(true)
+    - ansible_distribution == "Fedora"
+    - litellm_bind_host != '127.0.0.1'
+  tags: [litellm, firewall]
+
+- name: Add rich rule to restrict LiteLLM to tailnet
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ litellm_firewall_source }}" port port="{{ litellm_port }}" protocol="tcp" accept'
+    zone: "{{ litellm_firewall_zone }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  when:
+    - litellm_firewall_enabled | default(true)
+    - ansible_distribution == "Fedora"
+    - litellm_bind_host != '127.0.0.1'
+  tags: [litellm, firewall]
+
+# ========================================
+# SELinux Configuration
+# ========================================
+- name: Allow container to bind to LiteLLM port (SELinux)
+  community.general.seport:
+    ports: "{{ litellm_port }}"
+    proto: tcp
+    setype: http_port_t
+    state: present
+  when:
+    - ansible_distribution == "Fedora"
+    - ansible_selinux.status == "enabled"
+  ignore_errors: true  # May already be allowed
+  tags: [litellm, selinux]
+
+# ========================================
 # Deploy Container
 # ========================================
-- name: Pull and start LiteLLM
+- name: Pull LiteLLM image
+  ansible.builtin.command: "{{ litellm_container_runtime }} pull {{ litellm_image }}"
+  register: pull_result
+  changed_when: "'Downloaded' in pull_result.stdout or 'Pulling' in pull_result.stdout"
+  tags: [litellm, deploy]
+
+- name: Start LiteLLM via compose
   ansible.builtin.command: "{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} up -d"
   args:
     chdir: "{{ litellm_workdir }}"
@@ -174,6 +237,55 @@
     timeout: 60
   tags: [litellm, verify]
 
+- name: Verify LiteLLM health endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ litellm_port }}/health"
+    method: GET
+    return_content: yes
+  register: health_check
+  retries: 3
+  delay: 5
+  until: health_check.status == 200
+  tags: [litellm, verify]
+
+- name: Verify LiteLLM models endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ litellm_port }}/v1/models"
+    method: GET
+    return_content: yes
+  register: models_response
+  tags: [litellm, verify]
+
+- name: Display available models
+  ansible.builtin.debug:
+    msg: "Available models: {{ models_response.json.data | map(attribute='id') | list }}"
+  when: models_response.json is defined
+  tags: [litellm, verify]
+
+# ========================================
+# Backend Health Verification
+# ========================================
+- name: Check vLLM backend health
+  ansible.builtin.uri:
+    url: "http://{{ item.host }}:{{ item.port }}/health"
+    method: GET
+    timeout: 10
+  loop: "{{ vllm_backends }}"
+  loop_control:
+    label: "{{ item.name }} ({{ item.host }}:{{ item.port }})"
+  register: backend_health
+  ignore_errors: true
+  tags: [litellm, verify, backends]
+
+- name: Report backend health status
+  ansible.builtin.debug:
+    msg: |
+      Backend Health Status:
+      {% for result in backend_health.results %}
+      - {{ result.item.name }}: {{ 'HEALTHY' if result.status == 200 else 'UNHEALTHY (' ~ (result.msg | default('unknown error')) ~ ')' }}
+      {% endfor %}
+  tags: [litellm, verify, backends]
+
 - name: Display LiteLLM deployment summary
   ansible.builtin.debug:
     msg:
@@ -181,8 +293,14 @@
       - "LiteLLM DEPLOYMENT COMPLETE"
       - "═══════════════════════════════════════════════════════════"
       - ""
-      - "Endpoint:    http://127.0.0.1:{{ litellm_port }}/v1"
-      - "Models API:  http://127.0.0.1:{{ litellm_port }}/v1/models"
+      - "Endpoint:    http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ litellm_port }}/v1"
+      - "Models API:  http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ litellm_port }}/v1/models"
+      - "Health:      http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ litellm_port }}/health"
+      - ""
+      - "Default Model: {{ litellm_default_model }}"
+      - ""
+      - "Test with:"
+      - "  curl http://{{ inventory_hostname }}:{{ litellm_port }}/v1/models"
       - ""
       - "Management:"
       - "  {{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} logs -f"

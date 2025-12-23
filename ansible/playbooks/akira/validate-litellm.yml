@@ -1,0 +1,196 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Validate LiteLLM Proxy on Akira
+# Comprehensive health checks for LiteLLM and vLLM backends
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/akira/validate-litellm.yml
+
+- name: Validate LiteLLM Proxy on Akira
+  hosts: akira
+  become: yes
+  gather_facts: no
+  vars:
+    litellm_port: 4000
+    vllm_port: 8000
+    litellm_default_model: "akira/qwen2.5-7b"
+
+  tasks:
+    - name: Display validation header
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "LITELLM VALIDATION - AKIRA"
+          - "═══════════════════════════════════════════════════════════"
+      tags: [always]
+
+    # ========================================
+    # Service Status Checks
+    # ========================================
+    - name: Check LiteLLM systemd service status
+      ansible.builtin.systemd:
+        name: litellm
+      register: litellm_service
+      ignore_errors: true
+      tags: [service]
+
+    - name: Report LiteLLM service status
+      ansible.builtin.debug:
+        msg: "LiteLLM service: {{ 'RUNNING' if litellm_service.status.ActiveState == 'active' else 'NOT RUNNING' }}"
+      when: litellm_service is succeeded
+      tags: [service]
+
+    - name: Check LiteLLM container status
+      ansible.builtin.command: podman ps --filter name=litellm --format "{{ '{{' }}.Status{{ '}}' }}"
+      register: litellm_container
+      changed_when: false
+      ignore_errors: true
+      tags: [container]
+
+    - name: Report container status
+      ansible.builtin.debug:
+        msg: "LiteLLM container: {{ litellm_container.stdout | default('NOT FOUND') }}"
+      tags: [container]
+
+    # ========================================
+    # vLLM Backend Health
+    # ========================================
+    - name: Check vLLM backend health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ vllm_port }}/health"
+        method: GET
+        timeout: 10
+      register: vllm_health
+      ignore_errors: true
+      tags: [backend, vllm]
+
+    - name: Report vLLM backend status
+      ansible.builtin.debug:
+        msg: "vLLM backend (port {{ vllm_port }}): {{ 'HEALTHY' if vllm_health.status == 200 else 'UNHEALTHY - ' ~ (vllm_health.msg | default('unknown')) }}"
+      tags: [backend, vllm]
+
+    - name: Get vLLM models
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ vllm_port }}/v1/models"
+        method: GET
+        timeout: 10
+      register: vllm_models
+      ignore_errors: true
+      when: vllm_health.status == 200
+      tags: [backend, vllm]
+
+    - name: Report vLLM available models
+      ansible.builtin.debug:
+        msg: "vLLM models: {{ vllm_models.json.data | map(attribute='id') | list }}"
+      when:
+        - vllm_models is defined
+        - vllm_models.json is defined
+      tags: [backend, vllm]
+
+    # ========================================
+    # LiteLLM Health Checks
+    # ========================================
+    - name: Check LiteLLM health endpoint
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ litellm_port }}/health"
+        method: GET
+        timeout: 10
+      register: litellm_health
+      ignore_errors: true
+      tags: [litellm, health]
+
+    - name: Report LiteLLM health status
+      ansible.builtin.debug:
+        msg: "LiteLLM health: {{ 'HEALTHY' if litellm_health.status == 200 else 'UNHEALTHY - ' ~ (litellm_health.msg | default('unknown')) }}"
+      tags: [litellm, health]
+
+    - name: Get LiteLLM models
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ litellm_port }}/v1/models"
+        method: GET
+        timeout: 10
+      register: litellm_models
+      ignore_errors: true
+      when: litellm_health.status == 200
+      tags: [litellm, models]
+
+    - name: Report LiteLLM available models
+      ansible.builtin.debug:
+        msg: "LiteLLM models: {{ litellm_models.json.data | map(attribute='id') | list }}"
+      when:
+        - litellm_models is defined
+        - litellm_models.json is defined
+      tags: [litellm, models]
+
+    # ========================================
+    # End-to-End Completion Test
+    # ========================================
+    - name: Test chat completion via LiteLLM
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ litellm_port }}/v1/chat/completions"
+        method: POST
+        body_format: json
+        body:
+          model: "{{ litellm_default_model }}"
+          messages:
+            - role: user
+              content: "Respond with exactly: LITELLM_OK"
+          max_tokens: 10
+          temperature: 0
+        headers:
+          Content-Type: "application/json"
+        timeout: 60
+      register: completion_test
+      ignore_errors: true
+      when: litellm_health.status == 200
+      tags: [litellm, e2e]
+
+    - name: Report completion test result
+      ansible.builtin.debug:
+        msg: |
+          E2E Test Result:
+            Status: {{ 'PASSED' if completion_test.status == 200 else 'FAILED' }}
+            Response: {{ completion_test.json.choices[0].message.content | default('No response') }}
+      when: completion_test is defined
+      tags: [litellm, e2e]
+
+    # ========================================
+    # Network/Firewall Validation
+    # ========================================
+    - name: Check if port {{ litellm_port }} is listening
+      ansible.builtin.command: ss -tlnp
+      register: listening_ports
+      changed_when: false
+      tags: [network]
+
+    - name: Verify LiteLLM port is open
+      ansible.builtin.debug:
+        msg: "Port {{ litellm_port }}: {{ 'LISTENING' if ':' ~ litellm_port | string in listening_ports.stdout else 'NOT LISTENING' }}"
+      tags: [network]
+
+    - name: Check firewall rules for LiteLLM port
+      ansible.builtin.command: firewall-cmd --list-all
+      register: firewall_rules
+      changed_when: false
+      ignore_errors: true
+      tags: [network, firewall]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Display validation summary
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "VALIDATION SUMMARY"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "vLLM Backend:    {{ 'OK' if vllm_health.status == 200 else 'FAILED' }}"
+          - "LiteLLM Proxy:   {{ 'OK' if litellm_health.status == 200 else 'FAILED' }}"
+          - "E2E Completion:  {{ 'OK' if completion_test.status | default(0) == 200 else 'FAILED' }}"
+          - ""
+          - "Endpoint: http://akira.pangolin-vega.ts.net:{{ litellm_port }}/v1"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [always]

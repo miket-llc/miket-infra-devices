@@ -1,0 +1,10 @@
+# Power management role - WoL and sleep prevention
+# Requires: wol_mac, wol_interface defined in inventory for WoL hosts
+---
+- name: Include Linux tasks
+  ansible.builtin.include_tasks: linux.yml
+  when: ansible_os_family in ['RedHat', 'Debian']
+
+- name: Include Windows tasks
+  ansible.builtin.include_tasks: windows.yml
+  when: ansible_os_family == 'Windows'

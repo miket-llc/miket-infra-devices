@@ -1,0 +1,213 @@
+# Managed by Ansible - basecamp_ui role
+# Sway configuration for basecamp node
+#
+# Basecamp workspaces:
+#   1-term: Terminal / command line
+#   2-rf:   RF / SDR tools
+#   3-net:  Network tools
+#   4-lora: LoRa / serial
+#   5-notes: Documentation / notes
+
+# ========================================
+# Variables
+# ========================================
+set $mod Mod4
+set $term alacritty
+set $menu wofi --show drun
+
+# Workspaces
+set $ws1 "1-term"
+set $ws2 "2-rf"
+set $ws3 "3-net"
+set $ws4 "4-lora"
+set $ws5 "5-notes"
+
+# ========================================
+# Output Configuration
+# ========================================
+# Default output (will use primary display)
+# Uncomment and customize for specific displays:
+# output * bg /usr/share/backgrounds/default.png fill
+output * bg #1a1a2e solid_color
+
+# ========================================
+# Input Configuration
+# ========================================
+# Touchscreen support
+input type:touch {
+    events enabled
+}
+
+# Touchpad configuration
+input type:touchpad {
+    tap enabled
+    natural_scroll enabled
+    dwt enabled
+}
+
+# Keyboard layout
+input type:keyboard {
+    xkb_layout us
+}
+
+# ========================================
+# Appearance
+# ========================================
+# Font for window titles and bar
+font pango:JetBrains Mono 10
+
+# Window borders
+default_border pixel 2
+default_floating_border pixel 2
+
+# Colors (dark theme)
+# class                 border  backgr. text    indicator child_border
+client.focused          #4c7899 #285577 #ffffff #2e9ef4   #4c7899
+client.focused_inactive #333333 #5f676a #ffffff #484e50   #5f676a
+client.unfocused        #333333 #222222 #888888 #292d2e   #222222
+client.urgent           #2f343a #900000 #ffffff #900000   #900000
+
+# Gaps (minimal for low-res display)
+gaps inner 4
+gaps outer 2
+
+# ========================================
+# Key Bindings
+# ========================================
+# Terminal
+bindsym $mod+Return exec $term
+
+# Application launcher
+bindsym $mod+d exec $menu
+
+# Kill focused window
+bindsym $mod+Shift+q kill
+
+# Reload configuration
+bindsym $mod+Shift+c reload
+
+# Exit sway
+bindsym $mod+Shift+e exec swaynag -t warning -m 'Exit sway?' -B 'Yes' 'swaymsg exit'
+
+# Lock screen
+bindsym $mod+l exec swaylock -c 1a1a2e
+
+# Caffeine toggle (prevent sleep)
+# Mod+Shift+c to toggle, shows notification
+bindsym $mod+Shift+s exec ~/.config/sway/scripts/caffeine-toggle.sh
+
+# ========================================
+# Navigation
+# ========================================
+# Move focus
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Vim-style navigation
+bindsym $mod+h focus left
+bindsym $mod+j focus down
+bindsym $mod+k focus up
+# Note: $mod+l is lock, use $mod+semicolon for right
+bindsym $mod+semicolon focus right
+
+# Move windows
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+bindsym $mod+Shift+h move left
+bindsym $mod+Shift+j move down
+bindsym $mod+Shift+k move up
+bindsym $mod+Shift+semicolon move right
+
+# ========================================
+# Workspaces
+# ========================================
+# Switch to workspace
+bindsym $mod+1 workspace $ws1
+bindsym $mod+2 workspace $ws2
+bindsym $mod+3 workspace $ws3
+bindsym $mod+4 workspace $ws4
+bindsym $mod+5 workspace $ws5
+
+# Move container to workspace
+bindsym $mod+Shift+1 move container to workspace $ws1
+bindsym $mod+Shift+2 move container to workspace $ws2
+bindsym $mod+Shift+3 move container to workspace $ws3
+bindsym $mod+Shift+4 move container to workspace $ws4
+bindsym $mod+Shift+5 move container to workspace $ws5
+
+# ========================================
+# Layout
+# ========================================
+# Split orientation
+bindsym $mod+b splith
+bindsym $mod+v splitv
+
+# Layout modes
+bindsym $mod+s layout stacking
+bindsym $mod+w layout tabbed
+bindsym $mod+e layout toggle split
+
+# Fullscreen
+bindsym $mod+f fullscreen toggle
+
+# Floating
+bindsym $mod+Shift+space floating toggle
+bindsym $mod+space focus mode_toggle
+
+# ========================================
+# Resize Mode
+# ========================================
+mode "resize" {
+    bindsym Left resize shrink width 10px
+    bindsym Down resize grow height 10px
+    bindsym Up resize shrink height 10px
+    bindsym Right resize grow width 10px
+
+    bindsym h resize shrink width 10px
+    bindsym j resize grow height 10px
+    bindsym k resize shrink height 10px
+    bindsym l resize grow width 10px
+
+    bindsym Return mode "default"
+    bindsym Escape mode "default"
+}
+bindsym $mod+r mode "resize"
+
+# ========================================
+# Status Bar
+# ========================================
+bar {
+    swaybar_command waybar
+}
+
+# ========================================
+# Autostart
+# ========================================
+# Notification daemon
+exec mako
+
+# Idle management (power-aware)
+# On AC: never lock/sleep (basecamp node stays awake)
+# On battery: lock after 20 min, dpms off after 25 min
+exec ~/.config/sway/scripts/swayidle-power-aware.sh
+
+# Start on terminal workspace
+exec swaymsg workspace $ws1
+
+# ========================================
+# Application Rules
+# ========================================
+# Assign applications to workspaces
+assign [app_id="gqrx"] workspace $ws2
+assign [class="Gqrx"] workspace $ws2
+assign [app_id="firefox"] workspace $ws5
+assign [class="Firefox"] workspace $ws5
+
+# Float specific windows
+for_window [app_id="pavucontrol"] floating enable
+for_window [app_id="nm-connection-editor"] floating enable

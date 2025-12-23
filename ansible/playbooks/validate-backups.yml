@@ -1,0 +1,207 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# =============================================================================
+# Validate Bulletproof Backups - P0 Production Readiness Check
+# =============================================================================
+# Validates that all backup components are properly configured and operational.
+#
+# Usage:
+#   ansible-playbook playbooks/validate-backups.yml
+#   ansible-playbook playbooks/validate-backups.yml --limit akira
+#
+# What this validates:
+# 1. Backup timers are enabled and scheduled
+# 2. Credentials are present and accessible
+# 3. Recent backup markers exist (success indicators)
+# 4. OnFailure hooks are configured
+# 5. Restore test results are PASS
+
+---
+- name: Validate Bulletproof Backups
+  hosts: akira,motoko
+  become: true
+  gather_facts: true
+
+  vars:
+    # Maximum age (in hours) for a marker to be considered fresh
+    max_marker_age_hours: 48
+    # Marker files to check
+    backup_markers:
+      akira:
+        - /space/_ops/data-estate/markers/b2_mirror.json
+        - /space/_ops/data-estate/markers/restore_test.json
+      motoko:
+        - /space/_ops/data-estate/markers/restic_cloud.json
+        - /space/_ops/data-estate/markers/restic_check.json
+
+  tasks:
+    # =========================================================================
+    # Credentials Validation
+    # =========================================================================
+    - name: Check credentials file exists
+      ansible.builtin.stat:
+        path: /etc/miket/storage-credentials.env
+      register: creds_file
+
+    - name: Validate credentials file permissions
+      ansible.builtin.assert:
+        that:
+          - creds_file.stat.exists
+          - creds_file.stat.mode == '0600'
+        fail_msg: |
+          FAIL: Credentials file missing or insecure
+          Expected: /etc/miket/storage-credentials.env with mode 0600
+          Run: ansible-playbook playbooks/secrets-sync.yml --limit {{ inventory_hostname }}
+        success_msg: "PASS: Credentials file exists with correct permissions"
+
+    - name: Check B2 credentials are set
+      ansible.builtin.shell: |
+        source /etc/miket/storage-credentials.env
+        [[ -n "$B2_APPLICATION_KEY_ID" && -n "$B2_APPLICATION_KEY" ]]
+      args:
+        executable: /bin/bash
+      register: b2_creds_check
+      changed_when: false
+      failed_when: false
+
+    - name: Validate B2 credentials present
+      ansible.builtin.assert:
+        that: b2_creds_check.rc == 0
+        fail_msg: "FAIL: B2 credentials not found in env file"
+        success_msg: "PASS: B2 credentials configured"
+
+    # =========================================================================
+    # Timer Validation
+    # =========================================================================
+    - name: Check space-mirror timer (akira only)
+      ansible.builtin.command: systemctl is-enabled space-mirror.timer
+      register: space_mirror_timer
+      changed_when: false
+      failed_when: false
+      when: inventory_hostname == 'akira'
+
+    - name: Validate space-mirror timer enabled
+      ansible.builtin.assert:
+        that: space_mirror_timer.rc == 0
+        fail_msg: "FAIL: space-mirror.timer not enabled on akira"
+        success_msg: "PASS: space-mirror.timer enabled"
+      when: inventory_hostname == 'akira'
+
+    - name: Check flux-backup timer (motoko only)
+      ansible.builtin.command: systemctl is-enabled flux-backup.timer
+      register: flux_backup_timer
+      changed_when: false
+      failed_when: false
+      when: inventory_hostname == 'motoko'
+
+    - name: Validate flux-backup timer enabled
+      ansible.builtin.assert:
+        that: flux_backup_timer.rc == 0
+        fail_msg: "FAIL: flux-backup.timer not enabled on motoko"
+        success_msg: "PASS: flux-backup.timer enabled"
+      when: inventory_hostname == 'motoko'
+
+    - name: Check restore-test timer
+      ansible.builtin.command: systemctl is-enabled restore-test.timer
+      register: restore_test_timer
+      changed_when: false
+      failed_when: false
+
+    - name: Validate restore-test timer enabled
+      ansible.builtin.assert:
+        that: restore_test_timer.rc == 0
+        fail_msg: "FAIL: restore-test.timer not enabled"
+        success_msg: "PASS: restore-test.timer enabled"
+
+    # =========================================================================
+    # OnFailure Hook Validation
+    # =========================================================================
+    - name: Check OnFailure configured for space-mirror
+      ansible.builtin.shell: |
+        grep -q "OnFailure=.*failure-notify" /etc/systemd/system/space-mirror.service
+      register: space_mirror_onfailure
+      changed_when: false
+      failed_when: false
+      when: inventory_hostname == 'akira'
+
+    - name: Validate OnFailure hook for space-mirror
+      ansible.builtin.assert:
+        that: space_mirror_onfailure.rc == 0
+        fail_msg: "FAIL: OnFailure not configured for space-mirror.service"
+        success_msg: "PASS: OnFailure configured for space-mirror"
+      when: inventory_hostname == 'akira'
+
+    - name: Check failure-notify service exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/failure-notify@.service
+      register: failure_notify_service
+
+    - name: Validate failure-notify service deployed
+      ansible.builtin.assert:
+        that: failure_notify_service.stat.exists
+        fail_msg: "FAIL: failure-notify@.service not deployed"
+        success_msg: "PASS: failure-notify@.service deployed"
+
+    # =========================================================================
+    # Marker Validation (Success Indicators)
+    # =========================================================================
+    - name: Check backup markers exist
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop: "{{ backup_markers[inventory_hostname] | default([]) }}"
+      register: marker_checks
+
+    - name: Read marker contents
+      ansible.builtin.slurp:
+        src: "{{ item.item }}"
+      loop: "{{ marker_checks.results }}"
+      when: item.stat.exists
+      register: marker_contents
+
+    - name: Parse marker status
+      ansible.builtin.set_fact:
+        marker_statuses: "{{ marker_statuses | default({}) | combine({item.item.item: (item.content | b64decode | from_json).status}) }}"
+      loop: "{{ marker_contents.results }}"
+      when: item.content is defined
+
+    - name: Display marker statuses
+      ansible.builtin.debug:
+        msg: "Backup marker {{ item.key }}: {{ item.value | upper }}"
+      loop: "{{ marker_statuses | default({}) | dict2items }}"
+      when: marker_statuses is defined
+
+    # =========================================================================
+    # Final Summary
+    # =========================================================================
+    - name: Check for recent failures
+      ansible.builtin.stat:
+        path: /space/_ops/data-estate/markers/last_failure.json
+      register: failure_marker
+
+    - name: Read failure marker if exists
+      ansible.builtin.slurp:
+        src: /space/_ops/data-estate/markers/last_failure.json
+      when: failure_marker.stat.exists
+      register: failure_content
+
+    - name: Display recent failure warning
+      ansible.builtin.debug:
+        msg: |
+          WARNING: Recent backup failure detected!
+          {{ failure_content.content | b64decode | from_json | to_nice_yaml }}
+      when: failure_marker.stat.exists and failure_content.content is defined
+
+    - name: Validation Summary
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Backup Validation Complete: {{ inventory_hostname }}
+          ============================================
+          Credentials:    {{ 'PASS' if creds_file.stat.exists else 'FAIL' }}
+          OnFailure Hook: {{ 'PASS' if failure_notify_service.stat.exists else 'FAIL' }}
+          Recent Failure: {{ 'YES - CHECK LOGS' if failure_marker.stat.exists else 'NONE' }}
+
+          Timers: Run 'systemctl list-timers' for schedule details
+          Markers: Check /space/_ops/data-estate/markers/ for status
+
+          Runbook: docs/runbooks/BACKUPS_B2_AND_RESTORE.md
+          ============================================

@@ -1,0 +1,72 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP TOOLS ROLE DEFAULTS
+# =============================================================================
+#
+# Curated toolset for basecamp/hacker node:
+#   - Networking tools (tcpdump, nmap, wireshark-cli)
+#   - SDR tools (gqrx, rtl-sdr)
+#   - Serial tools (screen, minicom)
+#
+# Design: Lean but powerful - each tool must justify its presence
+#
+# =============================================================================
+
+# ========================================
+# Networking Tools
+# ========================================
+basecamp_tools_networking_packages:
+  - NetworkManager            # Already present, ensure it's there
+  - NetworkManager-wifi       # WiFi support
+  - tcpdump                   # Packet capture
+  - wireshark-cli             # tshark - CLI packet analysis
+  - nmap                      # Network scanner
+  - nmap-ncat                 # netcat replacement
+  - mtr                       # Traceroute + ping combined
+  - traceroute                # Path tracing
+  - bind-utils                # dig, nslookup, host
+  - whois                     # Domain lookups
+  - net-tools                 # ifconfig, netstat (legacy but useful)
+  - iproute                   # ip command (modern networking)
+  - ethtool                   # NIC diagnostics
+  - iperf3                    # Network performance testing
+  - socat                     # Multipurpose relay
+
+# ========================================
+# SDR / RF Tools
+# ========================================
+basecamp_tools_sdr_enabled: true
+
+basecamp_tools_sdr_packages:
+  - gqrx                      # SDR GUI - primary tool
+  - rtl-sdr                   # RTL-SDR drivers and utilities
+  - gnuradio                  # Optional but useful for learning
+  # Note: SDRangel omitted due to high resource usage on 2C/8GB system
+  # If needed, install manually: sudo dnf install sdrangel
+
+# ========================================
+# Serial / LoRa Tools
+# ========================================
+basecamp_tools_serial_packages:
+  - screen                    # Terminal multiplexer with serial support
+  - minicom                   # Classic serial terminal
+  - picocom                   # Minimal serial terminal
+
+# ========================================
+# Documentation / Notes
+# ========================================
+basecamp_tools_docs_packages:
+  - man-db                    # Manual pages
+  - man-pages                 # Linux man pages
+
+# ========================================
+# Feature Flags
+# ========================================
+# SDRangel is heavy - disabled by default for 8GB systems
+basecamp_tools_install_sdrangel: false
+
+# Wireshark GUI - disabled for resource savings
+# Use tshark (CLI) instead
+basecamp_tools_install_wireshark_gui: false

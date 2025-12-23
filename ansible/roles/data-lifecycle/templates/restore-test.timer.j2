@@ -1,0 +1,14 @@
+[Unit]
+Description=Weekly Automated Restore Drill
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
+
+[Timer]
+# Run weekly on Saturday at 7:00 AM
+# After space-mirror (4am), flux-backup (5am), restic-check (6am)
+OnCalendar=Sat *-*-* 07:00:00
+# Randomize start within 15 minute window
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

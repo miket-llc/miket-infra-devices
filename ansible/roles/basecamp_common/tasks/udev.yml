@@ -1,0 +1,104 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP UDEV RULES
+# =============================================================================
+#
+# Configure udev rules for hardware access without root:
+#   - RTL-SDR USB dongles
+#   - USB serial adapters (FTDI, CP210x, CH340, etc.)
+#
+# =============================================================================
+
+- name: Deploy RTL-SDR udev rules
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/20-rtlsdr.rules
+    content: |
+      # Managed by Ansible - basecamp_common role
+      # RTL-SDR USB device permissions
+      #
+      # Allow non-root users in plugdev/video group to access RTL-SDR devices
+
+      # RTL2832U DVB-T dongles (commonly used as SDR)
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="video", MODE="0666"
+
+      # Generic RTL2832U (various brands)
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00a9", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b3", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b4", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b5", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b7", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b8", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00b9", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00c0", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00c6", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00d3", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00d7", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0ccd", ATTRS{idProduct}=="00e0", GROUP="video", MODE="0666"
+
+      # Realtek RTL2838UHIDIR (newer chipset)
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="video", MODE="0666"
+
+      # NooElec NESDR variants
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", GROUP="video", MODE="0666"
+
+      # HackRF
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="604b", GROUP="video", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="6089", GROUP="video", MODE="0666"
+    mode: '0644'
+  when: basecamp_udev_rtlsdr_enabled
+  notify: reload udev rules
+  tags: [udev, sdr]
+
+- name: Deploy USB serial udev rules
+  ansible.builtin.copy:
+    dest: /etc/udev/rules.d/50-usb-serial.rules
+    content: |
+      # Managed by Ansible - basecamp_common role
+      # USB serial adapter permissions
+      #
+      # Allow non-root users in dialout group to access serial adapters
+
+      # FTDI FT232/FT2232/FT4232 USB-Serial adapters
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", GROUP="dialout", MODE="0666"
+
+      # Silicon Labs CP210x USB-Serial adapters
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="10c4", GROUP="dialout", MODE="0666"
+
+      # WCH CH340/CH341 USB-Serial adapters (common Arduino clones)
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="1a86", GROUP="dialout", MODE="0666"
+
+      # Prolific PL2303 USB-Serial adapters
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="067b", GROUP="dialout", MODE="0666"
+
+      # Arduino boards (direct USB)
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="2341", GROUP="dialout", MODE="0666"
+
+      # ESP32/ESP8266 boards
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="303a", GROUP="dialout", MODE="0666"
+
+      # LoRa devices (SX1276/SX1278 typically via FTDI/CP210x, covered above)
+      # RAK boards (SPI/UART)
+      SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", GROUP="dialout", MODE="0666"
+      SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", GROUP="dialout", MODE="0666"
+    mode: '0644'
+  notify: reload udev rules
+  tags: [udev, serial]
+
+- name: Trigger udev reload now
+  ansible.builtin.command: udevadm control --reload-rules
+  changed_when: false
+  tags: [udev]
+
+- name: Trigger udev device re-scan
+  ansible.builtin.command: udevadm trigger
+  changed_when: false
+  tags: [udev]

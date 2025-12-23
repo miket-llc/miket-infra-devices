@@ -1,9 +1,11 @@
 # {{ ansible_managed }}
 # LiteLLM Proxy Service
 # Uses {{ litellm_container_runtime }}-compose for container management
+# Endpoint: http://{{ inventory_hostname }}.pangolin-vega.ts.net:{{ litellm_port }}/v1
 
 [Unit]
 Description=LiteLLM Proxy ({{ litellm_container_runtime | capitalize }})
+Documentation=https://docs.litellm.ai/
 After=network-online.target
 Wants=network-online.target
 {% if litellm_container_runtime == 'podman' %}
@@ -17,13 +19,18 @@ Requires=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory={{ litellm_workdir }}
+Environment=COMPOSE_PROJECT_NAME=litellm
 
-ExecStart=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} up -d
+ExecStartPre=-/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} pull
+ExecStart=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} up -d --remove-orphans
 ExecReload=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} restart
 ExecStop=/usr/bin/{{ litellm_container_runtime }}-compose -f {{ litellm_compose_path }} down
 
-TimeoutStartSec=120
+TimeoutStartSec=180
 TimeoutStopSec=60
+
+Restart=on-failure
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target

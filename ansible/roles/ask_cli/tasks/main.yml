@@ -1,0 +1,112 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# ask-cli Installation Tasks
+# Installs the ask binary via install.sh from the ask-cli repository.
+# Environment configuration (ASK_BASE_URL, ASK_MODEL) is managed by chezmoi.
+
+# ========================================
+# Prerequisites
+# ========================================
+- name: Ensure git is installed
+  ansible.builtin.package:
+    name: git
+    state: present
+  become: true
+  tags: [ask-cli, packages]
+
+- name: Ensure curl is installed
+  ansible.builtin.package:
+    name: curl
+    state: present
+  become: true
+  tags: [ask-cli, packages]
+
+- name: Ensure jq is installed
+  ansible.builtin.package:
+    name: jq
+    state: present
+  become: true
+  tags: [ask-cli, packages]
+
+# ========================================
+# Clone/Update Repository
+# ========================================
+- name: Ensure ask-cli clone directory exists
+  ansible.builtin.file:
+    path: "{{ ask_cli_clone_dir }}"
+    state: directory
+    owner: "{{ ask_cli_install_user }}"
+    group: "{{ ask_cli_install_user }}"
+    mode: "0755"
+  become: true
+  tags: [ask-cli, install]
+
+- name: Clone or update ask-cli repository
+  ansible.builtin.git:
+    repo: "{{ ask_cli_repo }}"
+    dest: "{{ ask_cli_clone_dir }}"
+    version: "{{ ask_cli_version }}"
+    force: false
+    update: true
+  become: true
+  become_user: "{{ ask_cli_install_user }}"
+  register: ask_cli_clone
+  tags: [ask-cli, install]
+
+# ========================================
+# Installation via install.sh
+# ========================================
+- name: Check if install.sh exists
+  ansible.builtin.stat:
+    path: "{{ ask_cli_clone_dir }}/install.sh"
+  register: ask_install_script
+  tags: [ask-cli, install]
+
+- name: Run install.sh (installs to /usr/local/bin or ~/.local/bin)
+  ansible.builtin.command:
+    cmd: bash install.sh
+    chdir: "{{ ask_cli_clone_dir }}"
+  become: true
+  when: ask_install_script.stat.exists
+  register: install_result
+  changed_when: "'installed to' in install_result.stdout"
+  tags: [ask-cli, install]
+
+- name: Display install.sh output
+  ansible.builtin.debug:
+    msg: "{{ install_result.stdout_lines | default(['install.sh not run']) }}"
+  when: install_result is defined
+  tags: [ask-cli, install]
+
+# ========================================
+# Verification
+# ========================================
+- name: Check if ask is in PATH
+  ansible.builtin.shell: which ask || echo "not found"
+  register: ask_which
+  changed_when: false
+  become: true
+  become_user: "{{ ask_cli_install_user }}"
+  tags: [ask-cli, verify]
+
+- name: Get ask version
+  ansible.builtin.shell: ask --version 2>/dev/null || echo "unknown"
+  register: ask_version
+  changed_when: false
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  become: true
+  become_user: "{{ ask_cli_install_user }}"
+  tags: [ask-cli, verify]
+
+- name: Display installation summary
+  ansible.builtin.debug:
+    msg:
+      - "ask-cli installed on {{ inventory_hostname }}"
+      - "Binary: {{ ask_which.stdout }}"
+      - "Version: {{ ask_version.stdout }}"
+      - ""
+      - "Note: Environment vars (ASK_BASE_URL, ASK_MODEL) are managed by chezmoi."
+      - "Run 'chezmoi apply' to configure shell environment."
+  tags: [ask-cli]

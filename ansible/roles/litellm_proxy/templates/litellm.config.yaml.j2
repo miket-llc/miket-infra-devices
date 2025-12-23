@@ -1,167 +1,59 @@
 # {{ ansible_managed }}
 # LiteLLM Proxy Configuration
-# Routes requests to logical AI Fabric roles (from miket-infra platform contract)
-# Physical backends: Armitage (chat-fast), Wintermute (chat-deep), Count-Zero (longcontext), Motoko (embeddings)
-# All workstations use Ollama (port 11434) for simpler management
+# Routes requests to vLLM backends on the tailnet
+# See: docs/runbooks/LITELLM_PROXY.md
 
 model_list:
+{% for backend in vllm_backends %}
+{% for model in backend.models %}
   # ============================================================================
-  # LOGICAL ROLE: chat-fast
+  # {{ model.alias }} → {{ backend.host }}:{{ backend.port }}
   # ============================================================================
-  # Fast, low-latency chat for default use cases
-  # Backend: Armitage (Ollama qwen2.5:7b, 8k context, RTX 3060)
-  - model_name: chat-fast
+  - model_name: {{ model.alias }}
     litellm_params:
-      model: {{ armitage_model_display }}
-      api_base: "{{ armitage_base_url }}"
+      model: openai/{{ model.id }}
+      api_base: "http://{{ backend.host }}:{{ backend.port }}/v1"
+      api_key: "not-needed"  # vLLM doesn't require API key
+{% if model.max_model_len is defined %}
     model_info:
       mode: chat
-      max_input_tokens: {{ armitage_max_input_tokens }}
-      max_output_tokens: {{ armitage_max_output_tokens }}
-      max_tokens: {{ armitage_max_model_len }}
-    tpm_limit: 80000
-    rpm_limit: 40
-    max_concurrent_requests: {{ armitage_max_concurrent_requests }}
+      max_input_tokens: {{ model.max_input_tokens | default(model.max_model_len - 2048) }}
+      max_output_tokens: {{ model.max_output_tokens | default(2048) }}
+      max_tokens: {{ model.max_model_len }}
+{% endif %}
+{% if model.tpm_limit is defined %}
+    tpm_limit: {{ model.tpm_limit }}
+{% endif %}
+{% if model.rpm_limit is defined %}
+    rpm_limit: {{ model.rpm_limit }}
+{% endif %}
+{% if model.max_concurrent_requests is defined %}
+    max_concurrent_requests: {{ model.max_concurrent_requests }}
+{% endif %}
 
-  # Legacy alias for backwards compatibility
-  - model_name: local/chat
+{% endfor %}
+{% endfor %}
+  # ============================================================================
+  # DEFAULT MODEL ALIAS
+  # ============================================================================
+  # Routes "default" to the primary model for clients that don't specify
+  - model_name: default
     litellm_params:
-      model: {{ armitage_model_display }}
-      api_base: "{{ armitage_base_url }}"
+      model: openai/{{ vllm_backends[0].models[0].id }}
+      api_base: "http://{{ vllm_backends[0].host }}:{{ vllm_backends[0].port }}/v1"
+      api_key: "not-needed"
+{% if vllm_backends[0].models[0].max_model_len is defined %}
     model_info:
       mode: chat
-      max_input_tokens: {{ armitage_max_input_tokens }}
-      max_output_tokens: {{ armitage_max_output_tokens }}
-      max_tokens: {{ armitage_max_model_len }}
-    tpm_limit: 80000
-    rpm_limit: 40
-    max_concurrent_requests: {{ armitage_max_concurrent_requests }}
+      max_input_tokens: {{ vllm_backends[0].models[0].max_input_tokens | default(vllm_backends[0].models[0].max_model_len - 2048) }}
+      max_output_tokens: {{ vllm_backends[0].models[0].max_output_tokens | default(2048) }}
+      max_tokens: {{ vllm_backends[0].models[0].max_model_len }}
+{% endif %}
 
+{% if litellm_openai_fallback_enabled | default(false) %}
   # ============================================================================
-  # LOGICAL ROLE: chat-deep
+  # UPSTREAM FALLBACK PROVIDERS (Optional)
   # ============================================================================
-  # Deeper reasoning with longer context
-  # Backend: Wintermute (Ollama llama3:8b, 8k context, RTX 3080)
-  - model_name: chat-deep
-    litellm_params:
-      model: {{ wintermute_model_display }}
-      api_base: "{{ wintermute_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ wintermute_max_input_tokens }}
-      max_output_tokens: {{ wintermute_max_output_tokens }}
-      max_tokens: {{ wintermute_max_model_len }}
-    tpm_limit: 80000
-    rpm_limit: 40
-    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
-
-  # Legacy alias for backwards compatibility
-  - model_name: {{ wintermute_model_name }}
-    litellm_params:
-      model: {{ wintermute_model_display }}
-      api_base: "{{ wintermute_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ wintermute_max_input_tokens }}
-      max_output_tokens: {{ wintermute_max_output_tokens }}
-      max_tokens: {{ wintermute_max_model_len }}
-    tpm_limit: 80000
-    rpm_limit: 40
-    max_concurrent_requests: {{ wintermute_max_concurrent_requests }}
-
-  # ============================================================================
-  # LOGICAL ROLE: longcontext
-  # ============================================================================
-  # LOCAL FALLBACK for large context requests (up to 65k tokens)
-  # Use this when chat-fast/chat-deep can't handle the context size
-  # Avoids defaulting to expensive cloud models for large documents
-  # Backend: Count-Zero (Ollama mpt-storywriter, 65k context, M1 Max 64GB)
-  - model_name: longcontext
-    litellm_params:
-      model: {{ countzero_model_display }}
-      api_base: "{{ countzero_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ countzero_max_input_tokens }}
-      max_output_tokens: {{ countzero_max_output_tokens }}
-      max_tokens: {{ countzero_max_model_len }}
-    tpm_limit: 100000
-    rpm_limit: 10
-    max_concurrent_requests: {{ countzero_max_concurrent_requests }}
-
-  # Alias: local/longcontext (consistent with local/* naming)
-  - model_name: local/longcontext
-    litellm_params:
-      model: {{ countzero_model_display }}
-      api_base: "{{ countzero_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ countzero_max_input_tokens }}
-      max_output_tokens: {{ countzero_max_output_tokens }}
-      max_tokens: {{ countzero_max_model_len }}
-    tpm_limit: 100000
-    rpm_limit: 10
-    max_concurrent_requests: {{ countzero_max_concurrent_requests }}
-
-  # ============================================================================
-  # LOGICAL ROLE: embeddings-general
-  # ============================================================================
-  # General-purpose text embeddings
-  # Backend: Motoko (BGE-base-en-v1.5, RTX 2080 8GB)
-  - model_name: embeddings-general
-    litellm_params:
-      model: openai/BAAI/bge-base-en-v1.5
-      api_base: "{{ motoko_embed_base_url }}"
-      api_key: "dummy"
-    model_info:
-      mode: embedding
-
-  # Legacy alias for backwards compatibility
-  - model_name: local/embed
-    litellm_params:
-      model: openai/BAAI/bge-base-en-v1.5
-      api_base: "{{ motoko_embed_base_url }}"
-      api_key: "dummy"
-    model_info:
-      mode: embedding
-
-  # ============================================================================
-  # PHYSICAL MODEL ALIASES (for explicit backend selection)
-  # ============================================================================
-  - model_name: {{ armitage_model_name }}
-    litellm_params:
-      model: {{ armitage_model_display }}
-      api_base: "{{ armitage_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ armitage_max_input_tokens }}
-      max_output_tokens: {{ armitage_max_output_tokens }}
-      max_tokens: {{ armitage_max_model_len }}
-
-  - model_name: {{ wintermute_model_name }}
-    litellm_params:
-      model: {{ wintermute_model_display }}
-      api_base: "{{ wintermute_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ wintermute_max_input_tokens }}
-      max_output_tokens: {{ wintermute_max_output_tokens }}
-      max_tokens: {{ wintermute_max_model_len }}
-
-  - model_name: {{ countzero_model_name }}
-    litellm_params:
-      model: {{ countzero_model_display }}
-      api_base: "{{ countzero_base_url }}"
-    model_info:
-      mode: chat
-      max_input_tokens: {{ countzero_max_input_tokens }}
-      max_output_tokens: {{ countzero_max_output_tokens }}
-      max_tokens: {{ countzero_max_model_len }}
-
-  # ============================================================================
-  # UPSTREAM FALLBACK PROVIDERS
-  # ============================================================================
-  # OpenAI strong model (fallback for heavy tasks or when local models fail)
   - model_name: openai/strong
     litellm_params:
       model: "{{ openai_strong_model }}"
@@ -169,29 +61,25 @@ model_list:
     model_info:
       mode: chat
 
-  # OpenAI cheap model (backup fallback)
   - model_name: openai/cheap
     litellm_params:
       model: "{{ openai_cheap_model }}"
       api_key: "os.environ/OPENAI_API_KEY"
     model_info:
       mode: chat
+{% endif %}
 
 # ============================================================================
 # LITELLM SETTINGS
 # ============================================================================
-# Note: Authentication disabled for local tailnet access
-# All traffic is already secured via Tailscale VPN
 general_settings:
-  database_url: null  # No database - stateless operation
+  database_url: null  # Stateless operation - no database
+  # master_key disabled - tailnet provides access control
 
-# ============================================================================
-# OBSERVABILITY NOTE
-# ============================================================================
-# Prometheus callback (success_callback: ["prometheus"]) requires LiteLLM Enterprise.
-# For now, monitoring is via:
-#   - Netdata container metrics (CPU, memory, network via cgroups)
-#   - LiteLLM /health endpoint for liveness
-#   - Container logs (podman logs litellm)
-# Future: Consider LiteLLM Enterprise or custom metrics endpoint
-
+# Router settings for graceful fallback
+router_settings:
+  routing_strategy: "simple-shuffle"  # Round-robin between healthy backends
+  num_retries: 2
+  timeout: 120
+  retry_after: 5
+  allowed_fails: 3  # Mark backend unhealthy after 3 consecutive failures

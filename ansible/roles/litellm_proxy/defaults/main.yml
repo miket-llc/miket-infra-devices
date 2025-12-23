@@ -7,16 +7,20 @@
 # Container runtime (podman or docker)
 litellm_container_runtime: "{{ 'podman' if ansible_distribution == 'Fedora' else 'docker' }}"
 
-# File paths (use /space on Fedora for second drive)
-litellm_workdir: "{{ '/space/apps/litellm' if ansible_distribution == 'Fedora' else '/opt/litellm' }}"
+# File paths (use /flux for active workloads on Fedora)
+litellm_workdir: "{{ '/flux/apps/litellm' if ansible_distribution == 'Fedora' else '/opt/litellm' }}"
 litellm_config_path: "{{ litellm_workdir }}/config.yaml"
 litellm_env_path: "{{ litellm_workdir }}/.env"
 litellm_compose_path: "{{ litellm_workdir }}/docker-compose.yml"
 
 # Service configuration
 litellm_service_name: "litellm"
-litellm_port: 8000
+litellm_port: 4000  # Port 4000 for LiteLLM (8000 reserved for vLLM backends)
 litellm_image: "ghcr.io/berriai/litellm:main-v1.55.4"
+
+# Network binding - tailnet only by default for security
+litellm_bind_host: "127.0.0.1"  # Override with tailnet IP or 0.0.0.0 if needed
+litellm_bind_tailnet: true  # When true, binds to tailnet interface
 
 # Systemd integration
 litellm_systemd_enabled: "{{ ansible_distribution == 'Fedora' }}"
@@ -25,9 +29,45 @@ litellm_systemd_enabled: "{{ ansible_distribution == 'Fedora' }}"
 litellm_require_secrets: true
 
 # ========================================
+# Backend Configuration
+# ========================================
+# Backend type: 'vllm' or 'ollama'
+litellm_backend_type: "vllm"
+
+# vLLM backend configuration (default: local vLLM on same host)
+vllm_backends:
+  - name: "local"
+    host: "127.0.0.1"
+    port: 8000
+    models:
+      - id: "qwen2.5-7b"
+        alias: "akira/qwen2.5-7b"
+        max_model_len: 32768
+        max_input_tokens: 30000
+        max_output_tokens: 2048
+
+# Default model alias (used when client doesn't specify)
+litellm_default_model: "{{ vllm_backends[0].models[0].alias | default('akira/qwen2.5-7b') }}"
+
+# ========================================
+# Firewall Configuration
+# ========================================
+litellm_firewall_enabled: true
+litellm_firewall_zone: "public"
+# Only allow tailnet access (100.64.0.0/10)
+litellm_firewall_source: "100.64.0.0/10"
+
+# ========================================
 # Observability Settings
 # ========================================
 # NOTE: Prometheus metrics (success_callback: ["prometheus"]) requires LiteLLM Enterprise.
 # Default disabled - monitoring via container metrics and /health endpoint instead.
 litellm_prometheus_enabled: false
+
+# ========================================
+# OpenAI Fallback (optional)
+# ========================================
+litellm_openai_fallback_enabled: false
+openai_strong_model: "gpt-4.1-mini"
+openai_cheap_model: "gpt-4o-mini"
 

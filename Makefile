@@ -1,10 +1,11 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
 ARMITAGE_HOST ?= armitage.tailnet.local
 MOTOKO_HOST ?= motoko.tailnet.local
-LITELLM_PORT ?= 8000
+AKIRA_HOST ?= akira.pangolin-vega.ts.net
+LITELLM_PORT ?= 4000
 VLLM_PORT ?= 8000
 
 # Directories
@@ -16,10 +17,15 @@ TESTS_DIR := tests
 help:
 	@echo "Available targets:"
 	@echo ""
-	@echo "vLLM & LiteLLM:"
+	@echo "LiteLLM Proxy (Akira):"
+	@echo "  deploy-litellm          - Deploy LiteLLM proxy to Akira (routes to vLLM)"
+	@echo "  validate-litellm        - Validate LiteLLM deployment on Akira"
+	@echo "  deploy-ask-cli          - Deploy ask CLI to workstations"
+	@echo ""
+	@echo "vLLM (Legacy):"
 	@echo "  deploy-wintermute       - Deploy vLLM updates to Wintermute"
 	@echo "  deploy-armitage         - Deploy vLLM updates to Armitage"
-	@echo "  deploy-proxy            - Deploy LiteLLM proxy updates to Motoko"
+	@echo "  deploy-proxy            - Deploy LiteLLM proxy updates to Motoko (legacy)"
 	@echo "  rollback-wintermute     - Rollback Wintermute vLLM to previous config"
 	@echo "  rollback-armitage       - Rollback Armitage vLLM to previous config"
 	@echo "  rollback-proxy          - Rollback LiteLLM proxy to previous config"
@@ -43,6 +49,13 @@ help:
 	@echo "Basecamp (atom):"
 	@echo "  deploy-basecamp            - Deploy basecamp/hacker node to atom (Sway/i3)"
 	@echo "  validate-basecamp          - Validate basecamp deployment on atom"
+	@echo ""
+	@echo "Backups (B2 + Restic):"
+	@echo "  deploy-data-lifecycle      - Deploy backup services (space-mirror, restic, restore-test)"
+	@echo "  validate-backups           - Validate backup system is operational"
+	@echo ""
+	@echo "Dev Tools (Node.js/npm):"
+	@echo "  deploy-nodejs-nvm          - Deploy nvm + Node.js (sudo-free npm install -g)"
 	@echo ""
 	@echo "Tailscale & SSH:"
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
@@ -196,6 +209,79 @@ health-check-proxy:
 health-check: health-check-wintermute health-check-armitage health-check-proxy
 	@echo ""
 	@echo "All health checks complete"
+
+# ========================================
+# LiteLLM Proxy (Akira)
+# ========================================
+
+# Deploy LiteLLM proxy to Akira
+deploy-litellm:
+	@echo "========================================"
+	@echo "LiteLLM Proxy Deployment (Akira)"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy LiteLLM proxy to Akira:"
+	@echo "  ✓ Podman container with LiteLLM"
+	@echo "  ✓ Routes to local vLLM on port 8000"
+	@echo "  ✓ Exposed on port 4000 (tailnet only)"
+	@echo "  ✓ Firewall configured for Tailscale CIDR"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  - vLLM must be running on akira:8000"
+	@echo "  - Secrets synced from AKV (optional)"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/akira/deploy-litellm.yml
+	@echo ""
+	@echo "✅ LiteLLM deployed!"
+	@echo ""
+	@echo "Endpoint: http://akira.pangolin-vega.ts.net:4000/v1"
+	@echo ""
+	@echo "Test with:"
+	@echo "  curl http://akira:4000/v1/models | jq '.data[].id'"
+	@echo ""
+	@echo "Client config:"
+	@echo "  export ASK_BASE_URL=http://akira:4000"
+	@echo "  export ASK_MODEL=default"
+
+# Validate LiteLLM deployment
+validate-litellm:
+	@echo "========================================"
+	@echo "LiteLLM Deployment Validation"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/akira/validate-litellm.yml
+	@echo ""
+	@echo "✅ Validation complete!"
+
+# Deploy ask CLI to workstations
+deploy-ask-cli:
+	@echo "========================================"
+	@echo "ask-cli Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy the ask CLI to Linux workstations:"
+	@echo "  ✓ /usr/local/bin/ask script"
+	@echo "  ✓ Environment variables configured"
+	@echo "  ✓ Points to http://akira:4000"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ask-cli.yml
+	@echo ""
+	@echo "✅ ask-cli deployed!"
+	@echo ""
+	@echo "Usage:"
+	@echo "  ask 'your question here'"
+	@echo "  ask --list-models"
+	@echo "  ask -m akira/qwen2.5-7b 'explain this'"
+
+# Quick health check for LiteLLM on Akira
+health-check-litellm:
+	@echo "Checking LiteLLM health on Akira..."
+	@curl -s -f http://$(AKIRA_HOST):$(LITELLM_PORT)/health > /dev/null && \
+		echo "✅ LiteLLM is healthy" || \
+		echo "❌ LiteLLM health check failed"
+	@echo ""
+	@echo "Available models:"
+	@curl -s http://$(AKIRA_HOST):$(LITELLM_PORT)/v1/models 2>/dev/null | jq -r '.data[].id' || echo "(failed to fetch models)"
 
 # Test targets
 test-context: $(ARTIFACTS_DIR)
@@ -504,4 +590,68 @@ validate-basecamp:
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/atom/validate-basecamp.yml
 	@echo ""
 	@echo "✅ Validation complete!"
+
+# ========================================
+# Bulletproof Backups (B2 + Restic)
+# ========================================
+
+# Deploy data lifecycle (backup services)
+deploy-data-lifecycle:
+	@echo "========================================"
+	@echo "Data Lifecycle Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy backup services:"
+	@echo "  ✓ space-mirror (akira): /space → B2 daily mirror"
+	@echo "  ✓ flux-backup (motoko): /flux → B2 restic snapshots"
+	@echo "  ✓ restic-check: Integrity verification"
+	@echo "  ✓ restore-test: Weekly automated restore drill"
+	@echo "  ✓ failure-notify: OnFailure webhook hooks"
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  - Secrets synced from AKV (run: make sync-secrets)"
+	@echo "  - /space mounted on akira"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/akira/deploy-data-lifecycle.yml
+	@echo ""
+	@echo "✅ Data lifecycle services deployed!"
+	@echo ""
+	@echo "Verify with: make validate-backups"
+	@echo "Runbook: docs/runbooks/BACKUPS_B2_AND_RESTORE.md"
+
+# Validate backup system
+validate-backups:
+	@echo "========================================"
+	@echo "Backup System Validation"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/validate-backups.yml
+	@echo ""
+	@echo "✅ Validation complete!"
+	@echo ""
+	@echo "Runbook: docs/runbooks/BACKUPS_B2_AND_RESTORE.md"
+
+# ========================================
+# Dev Tools (Node.js/npm via nvm)
+# ========================================
+
+# Deploy nvm + Node.js for sudo-free npm global packages
+deploy-nodejs-nvm:
+	@echo "========================================"
+	@echo "Node.js (nvm) Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy nvm and Node.js to Linux servers:"
+	@echo "  ✓ nvm installed to ~/.nvm"
+	@echo "  ✓ Node.js LTS installed via nvm"
+	@echo "  ✓ @openai/codex and @anthropic-ai/claude-code"
+	@echo "  ✓ No sudo required for npm install -g"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-nodejs-nvm.yml
+	@echo ""
+	@echo "✅ Node.js (nvm) deployed!"
+	@echo ""
+	@echo "Usage:"
+	@echo "  source ~/.bashrc  # or ~/.zshrc"
+	@echo "  npm install -g <package>  # no sudo needed!"
 

@@ -8,6 +8,7 @@
 # ========================================
 - name: Install dev tools on Fedora/RHEL
   when: ansible_os_family == 'RedHat'
+  become: true
   block:
     - name: Install baseline packages (Fedora/RHEL)
       ansible.builtin.dnf:
@@ -61,6 +62,7 @@
 # ========================================
 - name: Install dev tools on Ubuntu/Debian
   when: ansible_os_family == 'Debian'
+  become: true
   block:
     - name: Install baseline packages (Debian/Ubuntu)
       ansible.builtin.apt:
@@ -139,6 +141,7 @@
   ansible.builtin.pip:
     name: shell-gpt
     state: present
+  become: true
   when: common_dev_tools_install_shell_gpt | bool
   tags: [dev_tools, ai_cli]
 
@@ -146,6 +149,7 @@
   ansible.builtin.pip:
     name: openai
     state: present
+  become: true
   when: common_dev_tools_install_openai_cli | bool
   tags: [dev_tools, ai_cli]
 
@@ -153,6 +157,7 @@
   ansible.builtin.pip:
     name: anthropic
     state: present
+  become: true
   when: common_dev_tools_install_claude_cli | bool
   tags: [dev_tools, ai_cli]
 
@@ -160,8 +165,81 @@
   ansible.builtin.pip:
     name: aider-chat
     state: present
+  become: true
   when: common_dev_tools_install_aider | bool
   tags: [dev_tools, ai_cli]
+
+# ========================================
+# Claude Code CLI (npm-installed via nvm)
+# ========================================
+# Uses nvm for sudo-free global npm packages
+# Prerequisite: nodejs_nvm role should be applied first
+
+- name: Get user home directory for Claude Code
+  ansible.builtin.shell: "echo ~{{ ansible_user }}"
+  register: claude_user_home
+  changed_when: false
+  check_mode: false
+  when: common_dev_tools_install_claude_code | default(true) | bool
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Set nvm directory for Claude Code
+  ansible.builtin.set_fact:
+    claude_nvm_dir: "{{ claude_user_home.stdout }}/.nvm"
+  when: common_dev_tools_install_claude_code | default(true) | bool
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Check if nvm is available for Claude Code
+  ansible.builtin.stat:
+    path: "{{ claude_nvm_dir }}/nvm.sh"
+  register: nvm_available
+  when: common_dev_tools_install_claude_code | default(true) | bool
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Check if Claude Code is already installed (Linux)
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ claude_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    claude --version 2>/dev/null || echo "not installed"
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: claude_version_check
+  changed_when: false
+  when:
+    - common_dev_tools_install_claude_code | default(true) | bool
+    - nvm_available.stat.exists | default(false)
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Install Claude Code CLI (Linux via nvm - no sudo)
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ claude_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    npm install -g @anthropic-ai/claude-code
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  when:
+    - common_dev_tools_install_claude_code | default(true) | bool
+    - nvm_available.stat.exists | default(false)
+    - "'not installed' in claude_version_check.stdout | default('not installed')"
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Display Claude Code version (Linux)
+  ansible.builtin.debug:
+    msg: "Claude Code: {{ claude_version_check.stdout | default('nvm not installed - skipped') }}"
+  when: common_dev_tools_install_claude_code | default(true) | bool
+  tags: [dev_tools, ai_cli, claude]
+
+- name: Warn if nvm not available for Claude Code
+  ansible.builtin.debug:
+    msg: "WARNING: nvm not installed. Run nodejs_nvm role first for sudo-free npm."
+  when:
+    - common_dev_tools_install_claude_code | default(true) | bool
+    - not (nvm_available.stat.exists | default(false))
+  tags: [dev_tools, ai_cli, claude]
 
 # ========================================
 # Git Configuration (all Linux)
@@ -247,6 +325,83 @@
       - "{{ ssh_pubkey.stdout | default('No key found') }}"
   when: common_dev_tools_configure_ssh | bool
   tags: [dev_tools, ssh]
+
+# ========================================
+# Chezmoi (Dotfile Manager)
+# ========================================
+- name: Get user home for chezmoi
+  ansible.builtin.shell: "echo ~{{ ansible_user }}"
+  register: chezmoi_user_home
+  changed_when: false
+  check_mode: false
+  when: common_dev_tools_install_chezmoi | bool
+  tags: [dev_tools, chezmoi]
+
+- name: Check if chezmoi is installed
+  ansible.builtin.shell: which chezmoi || echo "not found"
+  register: chezmoi_check
+  changed_when: false
+  when: common_dev_tools_install_chezmoi | bool
+  tags: [dev_tools, chezmoi]
+
+- name: Install chezmoi (Linux)
+  ansible.builtin.shell: |
+    sh -c "$(curl -fsLS get.chezmoi.io)" -- -b {{ chezmoi_user_home.stdout }}/.local/bin
+  become: true
+  become_user: "{{ ansible_user }}"
+  when:
+    - common_dev_tools_install_chezmoi | bool
+    - "'not found' in chezmoi_check.stdout"
+  tags: [dev_tools, chezmoi]
+
+- name: Ensure ~/.local/bin is in PATH for chezmoi
+  ansible.builtin.lineinfile:
+    path: "{{ chezmoi_user_home.stdout }}/.bashrc"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    create: true
+    mode: '0644'
+  become: true
+  become_user: "{{ ansible_user }}"
+  when: common_dev_tools_install_chezmoi | bool
+  tags: [dev_tools, chezmoi]
+
+- name: Check if chezmoi is initialized
+  ansible.builtin.stat:
+    path: "{{ chezmoi_user_home.stdout }}/.local/share/chezmoi"
+  register: chezmoi_init_check
+  when: common_dev_tools_install_chezmoi | bool
+  tags: [dev_tools, chezmoi]
+
+- name: Initialize chezmoi with dotfiles repo
+  ansible.builtin.shell: |
+    export PATH="{{ chezmoi_user_home.stdout }}/.local/bin:$PATH"
+    chezmoi init {{ common_dev_tools_chezmoi_repo }}
+  become: true
+  become_user: "{{ ansible_user }}"
+  when:
+    - common_dev_tools_install_chezmoi | bool
+    - not chezmoi_init_check.stat.exists
+  register: chezmoi_init
+  tags: [dev_tools, chezmoi]
+
+- name: Apply chezmoi (installs ask-cli via run_onchange)
+  ansible.builtin.shell: |
+    export PATH="{{ chezmoi_user_home.stdout }}/.local/bin:$PATH"
+    chezmoi apply --no-tty
+  become: true
+  become_user: "{{ ansible_user }}"
+  when:
+    - common_dev_tools_install_chezmoi | bool
+    - common_dev_tools_chezmoi_apply | bool
+  register: chezmoi_apply
+  changed_when: chezmoi_apply.stdout | length > 0
+  tags: [dev_tools, chezmoi]
+
+- name: Display chezmoi status
+  ansible.builtin.debug:
+    msg: "chezmoi: {{ 'installed and applied' if chezmoi_apply is succeeded else 'installed' }}"
+  when: common_dev_tools_install_chezmoi | bool
+  tags: [dev_tools, chezmoi]
 
 # ========================================
 # Verification

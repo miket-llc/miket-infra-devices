@@ -1,0 +1,94 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NODE_EXPORTER macOS INSTALLATION
+# =============================================================================
+#
+# Installs node_exporter for Prometheus metrics on macOS hosts
+# Uses Homebrew for installation and service management
+#
+# =============================================================================
+
+# ========================================
+# Homebrew Installation
+# ========================================
+
+- name: Check if node_exporter is installed via Homebrew
+  ansible.builtin.command: brew list node_exporter
+  register: brew_list_result
+  changed_when: false
+  failed_when: false
+  become: false
+  tags: [observability, node_exporter, install]
+
+- name: Install node_exporter via Homebrew
+  community.general.homebrew:
+    name: node_exporter
+    state: present
+  become: false
+  when: brew_list_result.rc != 0
+  tags: [observability, node_exporter, install]
+
+# ========================================
+# Service Management
+# ========================================
+
+- name: Check if node_exporter service is running
+  ansible.builtin.command: brew services list
+  register: brew_services
+  changed_when: false
+  become: false
+  tags: [observability, node_exporter, service]
+
+- name: Start node_exporter service via Homebrew
+  ansible.builtin.command: brew services start node_exporter
+  become: false
+  when: "'node_exporter' not in brew_services.stdout or 'started' not in brew_services.stdout"
+  register: service_start
+  changed_when: "'Successfully started' in service_start.stdout"
+  tags: [observability, node_exporter, service]
+
+# ========================================
+# Firewall Configuration (pf)
+# ========================================
+# Note: macOS pf firewall is typically not enabled by default
+# Tailscale handles network isolation; no additional firewall rules needed
+# If pf is enabled, user should manually add rules
+
+- name: Display macOS firewall note
+  ansible.builtin.debug:
+    msg: |
+      macOS firewall (pf) configuration is not automated.
+      Tailscale provides network isolation for port {{ node_exporter_port }}.
+      If Application Firewall is enabled, node_exporter may need to be allowed.
+  tags: [observability, node_exporter, firewall]
+
+# ========================================
+# Verification
+# ========================================
+
+- name: Wait for node_exporter to be ready
+  ansible.builtin.wait_for:
+    port: "{{ node_exporter_port }}"
+    host: 127.0.0.1
+    timeout: 30
+  tags: [observability, node_exporter, verify]
+
+- name: Verify node_exporter metrics endpoint
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ node_exporter_port }}/metrics"
+    return_content: false
+    status_code: 200
+  register: metrics_check
+  failed_when: false
+  changed_when: false
+  tags: [observability, node_exporter, verify]
+
+- name: Display node_exporter status
+  ansible.builtin.debug:
+    msg: |
+      node_exporter Status: {{ 'RUNNING' if metrics_check.status == 200 else 'NOT RESPONDING' }}
+      Metrics endpoint: http://127.0.0.1:{{ node_exporter_port }}/metrics
+      Tailnet access: Restricted via Tailscale ACLs
+  tags: [observability, node_exporter, verify]

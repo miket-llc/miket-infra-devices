@@ -1,0 +1,88 @@
+#!/bin/bash
+# Managed by Ansible - basecamp_common role
+# basecamp-serial-console: Interactive serial console helper
+#
+# Usage: basecamp-serial-console [port] [baud]
+# Default: 115200 baud
+
+set -euo pipefail
+
+BAUD="${2:-115200}"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+list_ports() {
+    echo -e "${BLUE}Available serial ports:${NC}"
+    echo
+
+    local found=0
+    for port in /dev/ttyUSB* /dev/ttyACM*; do
+        if [[ -e "$port" ]]; then
+            found=1
+            # Get device info if possible
+            UDEV_INFO=$(udevadm info --name="$port" 2>/dev/null || true)
+            VENDOR=$(echo "$UDEV_INFO" | grep 'ID_VENDOR=' | cut -d= -f2 || echo "Unknown")
+            MODEL=$(echo "$UDEV_INFO" | grep 'ID_MODEL=' | cut -d= -f2 || echo "Unknown")
+            echo -e "  ${GREEN}$port${NC}"
+            echo "    Vendor: $VENDOR"
+            echo "    Model:  $MODEL"
+            echo
+        fi
+    done
+
+    if [[ $found -eq 0 ]]; then
+        echo -e "${YELLOW}No serial ports found.${NC}"
+        echo "  - Connect a USB serial adapter"
+        echo "  - Check 'lsusb' for device detection"
+        echo "  - Verify udev rules: ls -la /etc/udev/rules.d/*serial*"
+    fi
+}
+
+connect_port() {
+    local PORT="$1"
+    local BAUD="$2"
+
+    if [[ ! -e "$PORT" ]]; then
+        echo -e "${RED}Error: Port $PORT does not exist${NC}"
+        list_ports
+        exit 1
+    fi
+
+    if [[ ! -r "$PORT" ]] || [[ ! -w "$PORT" ]]; then
+        echo -e "${RED}Error: No read/write permission for $PORT${NC}"
+        echo "  - Ensure you're in the 'dialout' group: groups"
+        echo "  - Log out and back in after group changes"
+        exit 1
+    fi
+
+    echo -e "${GREEN}Connecting to $PORT at $BAUD baud...${NC}"
+    echo -e "${YELLOW}Press Ctrl+A then K to exit screen${NC}"
+    echo
+
+    # Use screen for serial console
+    screen "$PORT" "$BAUD"
+}
+
+# Main
+if [[ $# -eq 0 ]]; then
+    list_ports
+    echo
+    echo -e "${BLUE}Usage:${NC}"
+    echo "  basecamp-serial-console /dev/ttyUSB0 [baud]"
+    echo "  Default baud rate: 115200"
+    exit 0
+fi
+
+# Check for screen
+if ! command -v screen &>/dev/null; then
+    echo -e "${RED}Error: 'screen' is not installed${NC}"
+    echo "  Install with: sudo dnf install screen"
+    exit 1
+fi
+
+connect_port "$1" "$BAUD"

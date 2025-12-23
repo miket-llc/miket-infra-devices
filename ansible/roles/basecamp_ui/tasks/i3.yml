@@ -1,0 +1,165 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# I3 (X11) CONFIGURATION
+# =============================================================================
+#
+# Configure i3 tiling window manager:
+#   - Basecamp-specific config with workspaces
+#   - i3status bar
+#   - Touchscreen support via libinput
+#   - Consistent keybindings with Sway
+#
+# =============================================================================
+
+# ========================================
+# User Configuration Directory
+# ========================================
+- name: Create i3 config directory
+  ansible.builtin.file:
+    path: "{{ basecamp_ui_user_home }}/.config/i3"
+    state: directory
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [i3]
+
+- name: Create i3status config directory
+  ansible.builtin.file:
+    path: "{{ basecamp_ui_user_home }}/.config/i3status"
+    state: directory
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [i3]
+
+# ========================================
+# i3 Configuration
+# ========================================
+- name: Deploy i3 configuration
+  ansible.builtin.template:
+    src: i3-config.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/i3/config"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0644'
+  tags: [i3]
+
+# ========================================
+# i3status Configuration
+# ========================================
+- name: Deploy i3status configuration
+  ansible.builtin.template:
+    src: i3status-config.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/i3status/config"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0644'
+  tags: [i3]
+
+# ========================================
+# Session Desktop Entry (for greetd/tuigreet)
+# ========================================
+# greetd doesn't start X automatically for X11 sessions
+# We need a wrapper script that calls startx
+
+- name: Create i3 session wrapper script
+  ansible.builtin.copy:
+    dest: /usr/local/bin/i3-session
+    content: |
+      #!/bin/bash
+      # Start X11 with i3 window manager
+      # Used by greetd/tuigreet for X11 sessions
+      exec startx /usr/bin/i3 -- :0 vt1
+    mode: '0755'
+  tags: [i3]
+
+- name: Ensure xsessions directory exists
+  ansible.builtin.file:
+    path: /usr/share/xsessions
+    state: directory
+    mode: '0755'
+  tags: [i3]
+
+- name: Create i3 desktop entry for greetd
+  ansible.builtin.copy:
+    dest: /usr/share/xsessions/i3-greetd.desktop
+    content: |
+      [Desktop Entry]
+      Name=i3 (X11)
+      Comment=i3 tiling window manager via startx
+      Exec=/usr/local/bin/i3-session
+      TryExec=/usr/local/bin/i3-session
+      Type=Application
+      DesktopNames=i3
+      Keywords=tiling;wm;windowmanager;window;manager;x11;
+    mode: '0644'
+  tags: [i3]
+
+- name: Remove default i3 desktop entries (don't work with greetd)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/share/xsessions/i3.desktop
+    - /usr/share/xsessions/i3-with-shmlog.desktop
+  tags: [i3]
+
+# ========================================
+# X11 Touchscreen Configuration
+# ========================================
+- name: Create X11 config directory
+  ansible.builtin.file:
+    path: /etc/X11/xorg.conf.d
+    state: directory
+    mode: '0755'
+  tags: [i3, touchscreen]
+
+- name: Configure libinput for touchscreen
+  ansible.builtin.copy:
+    dest: /etc/X11/xorg.conf.d/40-libinput.conf
+    content: |
+      # Managed by Ansible - basecamp_ui role
+      # Touchscreen and input device configuration
+
+      Section "InputClass"
+          Identifier "libinput touchscreen catchall"
+          MatchIsTouchscreen "on"
+          MatchDevicePath "/dev/input/event*"
+          Driver "libinput"
+          Option "Tapping" "on"
+          Option "TappingDrag" "on"
+      EndSection
+
+      Section "InputClass"
+          Identifier "libinput touchpad catchall"
+          MatchIsTouchpad "on"
+          MatchDevicePath "/dev/input/event*"
+          Driver "libinput"
+          Option "Tapping" "on"
+          Option "NaturalScrolling" "true"
+      EndSection
+    mode: '0644'
+  tags: [i3, touchscreen]
+
+# ========================================
+# xinitrc for startx
+# ========================================
+- name: Create .xinitrc for i3
+  ansible.builtin.copy:
+    dest: "{{ basecamp_ui_user_home }}/.xinitrc"
+    content: |
+      #!/bin/sh
+      # Managed by Ansible - basecamp_ui role
+      # xinitrc for i3 session via startx
+
+      # Merge X resources
+      [ -f ~/.Xresources ] && xrdb -merge ~/.Xresources
+
+      # Start i3
+      exec i3
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [i3]

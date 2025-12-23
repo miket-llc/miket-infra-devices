@@ -1,0 +1,33 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Defaults for nodejs_nvm role
+# Installs Node.js via nvm for sudo-free global package management
+
+# nvm version to install
+nodejs_nvm_version: "0.40.1"
+
+# Node.js version to install (use "lts" for latest LTS, or specific like "22")
+nodejs_version: "lts"
+
+# Whether to set this version as default
+nodejs_set_default: true
+
+# User to install nvm for (defaults to ansible_user)
+nodejs_nvm_user: "{{ ansible_user }}"
+
+# nvm install directory (relative to user home)
+nodejs_nvm_dir: ".nvm"
+
+# Whether to remove system nodejs packages
+nodejs_remove_system_packages: false
+
+# Global npm packages to install after node setup
+nodejs_global_packages:
+  - "@openai/codex"
+  - "@anthropic-ai/claude-code"
+
+# Shell profile files to update for nvm integration
+nodejs_shell_profiles:
+  - ".bashrc"
+  - ".zshrc"

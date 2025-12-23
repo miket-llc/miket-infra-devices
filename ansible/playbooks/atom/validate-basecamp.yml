@@ -1,0 +1,328 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# ATOM BASECAMP VALIDATION PLAYBOOK
+# =============================================================================
+#
+# Validates the basecamp/hacker node deployment:
+#   - UI sessions (Sway, i3) installed
+#   - Display manager configured
+#   - Tools installed and accessible
+#   - Permissions correct (serial, SDR)
+#   - SSH hardening in place
+#   - Firewall rules correct
+#
+# USAGE:
+#   ansible-playbook -i inventory/hosts.yml playbooks/atom/validate-basecamp.yml
+#
+# =============================================================================
+
+- name: Validate Atom Basecamp Deployment
+  hosts: atom
+  become: true
+  gather_facts: true
+
+  vars:
+    validation_passed: true
+    validation_results: []
+
+  tasks:
+    - name: Display validation banner
+      ansible.builtin.debug:
+        msg: |
+          ===============================================================
+          ATOM BASECAMP VALIDATION
+          ===============================================================
+
+          Checking:
+            - Boot target configuration
+            - Display manager installation
+            - Sway session availability
+            - i3 session availability
+            - Tools installation
+            - User group membership
+            - udev rules
+            - SSH hardening
+            - Firewall configuration
+            - Tailscale connectivity
+
+          ===============================================================
+      tags: [always]
+
+    # ========================================
+    # Boot Target
+    # ========================================
+    - name: Check boot target
+      ansible.builtin.command: systemctl get-default
+      register: boot_target
+      changed_when: false
+      tags: [boot]
+
+    - name: Validate boot target is graphical
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Boot target', 'status': 'PASS' if boot_target.stdout == 'graphical.target' else 'FAIL', 'details': boot_target.stdout}] }}"
+      tags: [boot]
+
+    # ========================================
+    # Display Manager
+    # ========================================
+    - name: Check if greetd is installed
+      ansible.builtin.command: which greetd
+      register: greetd_installed
+      changed_when: false
+      failed_when: false
+      tags: [display-manager]
+
+    - name: Check if SDDM is installed (fallback)
+      ansible.builtin.command: which sddm
+      register: sddm_installed
+      changed_when: false
+      failed_when: false
+      tags: [display-manager]
+
+    - name: Validate display manager
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Display manager', 'status': 'PASS' if (greetd_installed.rc == 0 or sddm_installed.rc == 0) else 'FAIL', 'details': 'greetd' if greetd_installed.rc == 0 else ('SDDM' if sddm_installed.rc == 0 else 'None found')}] }}"
+      tags: [display-manager]
+
+    # ========================================
+    # Sway Session
+    # ========================================
+    - name: Check if Sway is installed
+      ansible.builtin.command: which sway
+      register: sway_installed
+      changed_when: false
+      failed_when: false
+      tags: [sway]
+
+    - name: Check Sway desktop file
+      ansible.builtin.stat:
+        path: /usr/share/wayland-sessions/sway.desktop
+      register: sway_desktop
+      tags: [sway]
+
+    - name: Validate Sway session
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Sway session', 'status': 'PASS' if (sway_installed.rc == 0 and sway_desktop.stat.exists) else 'FAIL', 'details': 'Binary and desktop file present' if (sway_installed.rc == 0 and sway_desktop.stat.exists) else 'Missing components'}] }}"
+      tags: [sway]
+
+    # ========================================
+    # i3 Session
+    # ========================================
+    - name: Check if i3 is installed
+      ansible.builtin.command: which i3
+      register: i3_installed
+      changed_when: false
+      failed_when: false
+      tags: [i3]
+
+    - name: Check i3 desktop file
+      ansible.builtin.stat:
+        path: /usr/share/xsessions/i3.desktop
+      register: i3_desktop
+      tags: [i3]
+
+    - name: Validate i3 session
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'i3 session', 'status': 'PASS' if (i3_installed.rc == 0 and i3_desktop.stat.exists) else 'FAIL', 'details': 'Binary and desktop file present' if (i3_installed.rc == 0 and i3_desktop.stat.exists) else 'Missing components'}] }}"
+      tags: [i3]
+
+    # ========================================
+    # Terminal
+    # ========================================
+    - name: Check if alacritty is installed
+      ansible.builtin.command: which alacritty
+      register: alacritty_installed
+      changed_when: false
+      failed_when: false
+      tags: [terminal]
+
+    - name: Validate terminal
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Terminal (alacritty)', 'status': 'PASS' if alacritty_installed.rc == 0 else 'FAIL', 'details': 'Installed' if alacritty_installed.rc == 0 else 'Not found'}] }}"
+      tags: [terminal]
+
+    # ========================================
+    # Networking Tools
+    # ========================================
+    - name: Check networking tools
+      ansible.builtin.command: "which {{ item }}"
+      loop:
+        - nmap
+        - tcpdump
+        - tshark
+        - mtr
+      register: net_tools
+      changed_when: false
+      failed_when: false
+      tags: [tools, networking]
+
+    - name: Validate networking tools
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Networking tools', 'status': 'PASS' if (net_tools.results | selectattr('rc', 'eq', 0) | list | length == 4) else 'PARTIAL', 'details': (net_tools.results | selectattr('rc', 'eq', 0) | map(attribute='item') | list | join(', '))}] }}"
+      tags: [tools, networking]
+
+    # ========================================
+    # SDR Tools
+    # ========================================
+    - name: Check SDR tools
+      ansible.builtin.command: "which {{ item }}"
+      loop:
+        - gqrx
+        - rtl_test
+      register: sdr_tools
+      changed_when: false
+      failed_when: false
+      tags: [tools, sdr]
+
+    - name: Validate SDR tools
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'SDR tools', 'status': 'PASS' if (sdr_tools.results | selectattr('rc', 'eq', 0) | list | length == 2) else 'PARTIAL', 'details': (sdr_tools.results | selectattr('rc', 'eq', 0) | map(attribute='item') | list | join(', '))}] }}"
+      tags: [tools, sdr]
+
+    # ========================================
+    # Serial Tools
+    # ========================================
+    - name: Check serial tools
+      ansible.builtin.command: "which {{ item }}"
+      loop:
+        - screen
+        - minicom
+      register: serial_tools
+      changed_when: false
+      failed_when: false
+      tags: [tools, serial]
+
+    - name: Validate serial tools
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Serial tools', 'status': 'PASS' if (serial_tools.results | selectattr('rc', 'eq', 0) | list | length == 2) else 'PARTIAL', 'details': (serial_tools.results | selectattr('rc', 'eq', 0) | map(attribute='item') | list | join(', '))}] }}"
+      tags: [tools, serial]
+
+    # ========================================
+    # User Groups
+    # ========================================
+    - name: Check user groups
+      ansible.builtin.command: groups mdt
+      register: user_groups
+      changed_when: false
+      tags: [users]
+
+    - name: Validate user groups
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'User groups (mdt)', 'status': 'PASS' if ('dialout' in user_groups.stdout and 'video' in user_groups.stdout) else 'PARTIAL', 'details': user_groups.stdout}] }}"
+      tags: [users]
+
+    # ========================================
+    # udev Rules
+    # ========================================
+    - name: Check RTL-SDR udev rules
+      ansible.builtin.stat:
+        path: /etc/udev/rules.d/20-rtlsdr.rules
+      register: rtlsdr_udev
+      tags: [udev]
+
+    - name: Check USB serial udev rules
+      ansible.builtin.stat:
+        path: /etc/udev/rules.d/50-usb-serial.rules
+      register: serial_udev
+      tags: [udev]
+
+    - name: Validate udev rules
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'udev rules', 'status': 'PASS' if (rtlsdr_udev.stat.exists and serial_udev.stat.exists) else 'PARTIAL', 'details': 'RTL-SDR: ' + ('yes' if rtlsdr_udev.stat.exists else 'no') + ', Serial: ' + ('yes' if serial_udev.stat.exists else 'no')}] }}"
+      tags: [udev]
+
+    # ========================================
+    # Basecamp Scripts
+    # ========================================
+    - name: Check basecamp scripts
+      ansible.builtin.stat:
+        path: "/home/mdt/basecamp/bin/{{ item }}"
+      loop:
+        - basecamp-status
+        - basecamp-serial-console
+        - basecamp-net-scan
+        - basecamp-sdr-gqrx
+      register: basecamp_scripts
+      tags: [scripts]
+
+    - name: Validate basecamp scripts
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Basecamp scripts', 'status': 'PASS' if (basecamp_scripts.results | selectattr('stat.exists') | list | length == 4) else 'PARTIAL', 'details': (basecamp_scripts.results | selectattr('stat.exists') | map(attribute='item') | list | join(', '))}] }}"
+      tags: [scripts]
+
+    # ========================================
+    # SSH Hardening
+    # ========================================
+    - name: Check SSH hardening config
+      ansible.builtin.stat:
+        path: /etc/ssh/sshd_config.d/50-basecamp-hardening.conf
+      register: ssh_hardening
+      tags: [ssh, security]
+
+    - name: Validate SSH hardening
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'SSH hardening', 'status': 'PASS' if ssh_hardening.stat.exists else 'FAIL', 'details': 'Config present' if ssh_hardening.stat.exists else 'Config missing'}] }}"
+      tags: [ssh, security]
+
+    # ========================================
+    # Firewall
+    # ========================================
+    - name: Check firewalld status
+      ansible.builtin.systemd:
+        name: firewalld
+      register: firewalld_status
+      tags: [firewall]
+
+    - name: Validate firewall
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Firewall (firewalld)', 'status': 'PASS' if firewalld_status.status.ActiveState == 'active' else 'FAIL', 'details': firewalld_status.status.ActiveState}] }}"
+      tags: [firewall]
+
+    # ========================================
+    # Tailscale
+    # ========================================
+    - name: Check Tailscale status
+      ansible.builtin.command: tailscale status --self
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+      tags: [tailscale]
+
+    - name: Validate Tailscale
+      ansible.builtin.set_fact:
+        validation_results: "{{ validation_results + [{'check': 'Tailscale', 'status': 'PASS' if tailscale_status.rc == 0 else 'FAIL', 'details': tailscale_status.stdout_lines[0] | default('Not connected')}] }}"
+      tags: [tailscale]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Display validation results
+      ansible.builtin.debug:
+        msg: |
+          ===============================================================
+          BASECAMP VALIDATION RESULTS
+          ===============================================================
+
+          {% for result in validation_results %}
+          {{ '✅' if result.status == 'PASS' else ('⚠️' if result.status == 'PARTIAL' else '❌') }} {{ result.check }}: {{ result.status }}
+             {{ result.details }}
+
+          {% endfor %}
+
+          ===============================================================
+
+          Summary:
+            PASS:    {{ validation_results | selectattr('status', 'eq', 'PASS') | list | length }}
+            PARTIAL: {{ validation_results | selectattr('status', 'eq', 'PARTIAL') | list | length }}
+            FAIL:    {{ validation_results | selectattr('status', 'eq', 'FAIL') | list | length }}
+
+          ===============================================================
+      tags: [always]
+
+    - name: Fail if critical checks failed
+      ansible.builtin.fail:
+        msg: "Critical validation checks failed. See results above."
+      when: (validation_results | selectattr('status', 'eq', 'FAIL') | list | length) > 2
+      tags: [always]

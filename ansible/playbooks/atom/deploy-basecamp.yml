@@ -1,0 +1,255 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# ATOM BASECAMP DEPLOYMENT PLAYBOOK
+# =============================================================================
+#
+# Deploys the basecamp/hacker node configuration to atom:
+#   - Sway (Wayland) + i3 (X11) tiling window managers
+#   - greetd/SDDM session selection
+#   - Networking, SDR, and serial tools
+#   - ~/basecamp directory structure with helper scripts
+#   - System hardening (SSH, firewall, SELinux)
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/deploy-basecamp.yml
+#
+#   Specific phases (via tags):
+#     --tags common     # Base packages, groups, scripts
+#     --tags ui         # Display manager, Sway, i3
+#     --tags tools      # Networking, SDR, serial tools
+#     --tags security   # SSH hardening, firewall
+#     --tags power      # Battery and power management
+#
+#   Dry run:
+#     ansible-playbook -i inventory/hosts.yml playbooks/atom/deploy-basecamp.yml --check
+#
+# PREREQUISITES:
+#   - Fedora Server 43 installed
+#   - Tailscale authenticated (tailscale up already performed)
+#   - SSH access via Tailscale
+#   - atom-ansible-password in Azure Key Vault
+#
+# POST-DEPLOYMENT:
+#   1. Reboot: sudo systemctl reboot
+#   2. Select Sway or i3 at login screen
+#   3. Run: basecamp-status
+#
+# =============================================================================
+
+- name: Deploy Atom Basecamp - Hacker Node Configuration
+  hosts: atom
+  become: true
+  gather_facts: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
+  pre_tasks:
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ===============================================================
+          ATOM BASECAMP DEPLOYMENT
+          ===============================================================
+
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+          Architecture:   {{ ansible_architecture }}
+
+          Role:           Basecamp / Hacker Node
+          Purpose:        Field-portable security research appliance
+
+          Deployment Phases:
+            1. basecamp_common   - Base packages, groups, scripts
+            2. resilience_node   - Power management, never sleep
+            3. firewalld_tailnet - Tailnet-only firewall
+            4. basecamp_ui       - Sway + i3 window managers
+            5. basecamp_tools    - Networking, SDR, serial tools
+            6. tailscale_node    - Verify Tailscale connection
+            7. observability     - node_exporter for metrics
+
+          Design Principles:
+            - Low resource (2C/8GB target)
+            - Stable and predictable
+            - Battery-backed resilience
+            - Keyboard-efficient workflow
+
+          ===============================================================
+      tags: [always]
+
+    - name: Verify Fedora distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Fedora'
+        fail_msg: "This playbook requires Fedora"
+        success_msg: "Running on Fedora {{ ansible_distribution_version }}"
+      tags: [always]
+
+    - name: Check battery presence
+      ansible.builtin.stat:
+        path: /sys/class/power_supply/BAT0
+      register: battery_check
+      tags: [always]
+
+    - name: Warn if no battery detected
+      ansible.builtin.debug:
+        msg: |
+          Warning: No battery detected at /sys/class/power_supply/BAT0
+
+          Basecamp nodes are designed for battery-backed operation.
+          The device will still be configured, but battery resilience is compromised.
+      when: not battery_check.stat.exists
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Base Configuration
+    # ========================================
+    # User groups, base packages, directory structure, scripts
+    - role: basecamp_common
+      tags: [common, base, packages, scripts]
+
+    # ========================================
+    # Phase 2: Power Management
+    # ========================================
+    # Never sleep, shutdown at 2% battery
+    - role: resilience_node
+      tags: [power, resilience]
+
+    # ========================================
+    # Phase 3: Firewall Configuration
+    # ========================================
+    # Tailnet-only access, default deny
+    - role: firewalld_tailnet
+      tags: [firewall, security]
+
+    # ========================================
+    # Phase 4: UI Configuration
+    # ========================================
+    # greetd/SDDM + Sway + i3
+    - role: basecamp_ui
+      tags: [ui, sway, i3, display-manager]
+
+    # ========================================
+    # Phase 5: Tools Installation
+    # ========================================
+    # Networking, SDR, serial tools
+    - role: basecamp_tools
+      tags: [tools, networking, sdr, serial]
+
+    # ========================================
+    # Phase 6: Tailscale Verification
+    # ========================================
+    # Ensure tailscaled is running and connected
+    - role: tailscale_node
+      tags: [tailscale, network]
+
+    # ========================================
+    # Phase 7: Observability
+    # ========================================
+    # node_exporter for Prometheus metrics
+    - role: observability_exporters
+      tags: [monitoring, observability]
+      when: node_exporter_enabled | default(true)
+
+  post_tasks:
+    - name: Get battery status
+      ansible.builtin.slurp:
+        src: /sys/class/power_supply/BAT0/capacity
+      register: battery_capacity
+      failed_when: false
+      changed_when: false
+      tags: [always]
+
+    - name: Get power source
+      ansible.builtin.slurp:
+        src: /sys/class/power_supply/BAT0/status
+      register: battery_status
+      failed_when: false
+      changed_when: false
+      tags: [always]
+
+    - name: Get current boot target
+      ansible.builtin.command: systemctl get-default
+      register: boot_target
+      changed_when: false
+      tags: [always]
+
+    - name: Display deployment completion summary
+      ansible.builtin.debug:
+        msg: |
+          ===============================================================
+          ATOM BASECAMP DEPLOYMENT COMPLETE
+          ===============================================================
+
+          CONFIGURATION SUMMARY:
+
+          Boot Target: {{ boot_target.stdout }}
+
+          UI Sessions:
+            - Sway (Wayland) - Modern, efficient
+            - i3 (X11) - Traditional, compatible
+
+          Display Manager: greetd (or SDDM fallback)
+
+          Terminal: alacritty
+          Browser:  firefox
+          Launcher: wofi (Sway) / dmenu (i3)
+
+          Power Management:
+            - Lid switch: ignore (never sleep)
+            - Idle action: ignore (never sleep)
+            - Critical battery: shutdown at 2%
+
+          Firewall:
+            - SSH: Tailnet only (100.64.0.0/10)
+            - node_exporter: port 9100
+
+          Battery Status:
+            - Charge: {{ (battery_capacity.content | default('') | b64decode | trim) | default('N/A') }}%
+            - Status: {{ (battery_status.content | default('') | b64decode | trim) | default('N/A') }}
+
+          ===============================================================
+
+          NEXT STEPS:
+
+          1. Reboot to apply graphical target:
+             sudo systemctl reboot
+
+          2. At login screen, select:
+             - Sway (Wayland) - Recommended
+             - i3 (X11) - If Wayland has issues
+
+          3. After login, verify with:
+             basecamp-status
+
+          4. Key commands:
+             Mod+Enter      - Terminal
+             Mod+d          - Application launcher
+             Mod+1-5        - Workspaces
+             Mod+Shift+q    - Close window
+             Mod+l          - Lock screen
+
+          5. Basecamp scripts:
+             basecamp-status          - System overview
+             basecamp-serial-console  - Serial device access
+             basecamp-net-scan        - Network scanning
+             basecamp-sdr-gqrx        - Launch SDR application
+
+          ===============================================================
+
+          VALIDATION CHECKLIST (after reboot):
+
+          [ ] Sway session works (Mod+Enter opens terminal)
+          [ ] i3 session works (logout, select i3, Mod+Enter)
+          [ ] Touch input works (tap, scroll)
+          [ ] basecamp-status runs correctly
+          [ ] SSH via Tailscale works from another device
+          [ ] USB serial permission works (no sudo needed)
+
+          ===============================================================
+      tags: [always]

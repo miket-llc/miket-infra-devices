@@ -1,0 +1,20 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Default variables for ask_cli role
+# This role ONLY installs the ask binary.
+# Environment configuration (ASK_BASE_URL, ASK_MODEL) is managed by chezmoi.
+
+# ask-cli repository
+ask_cli_repo: "https://github.com/miket-llc/ask-cli.git"
+ask_cli_version: "main"  # Branch, tag, or commit SHA
+
+# Installation paths
+# install.sh prefers /usr/local/bin (if writable), falls back to ~/.local/bin
+ask_cli_clone_dir: "/opt/ask-cli"
+
+# For verification only (actual path depends on install.sh behavior)
+ask_cli_expected_bin: "/usr/local/bin/ask"
+
+# Install as user (set to ansible_user) or system-wide (set to root)
+ask_cli_install_user: "{{ ansible_user }}"

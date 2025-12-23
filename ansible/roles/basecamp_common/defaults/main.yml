@@ -1,0 +1,94 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP COMMON ROLE DEFAULTS
+# =============================================================================
+#
+# Base configuration for atom basecamp/hacker node.
+# This role provides:
+#   - User group configuration (dialout, uucp, video, input)
+#   - Base packages for CLI operation
+#   - ~/basecamp directory structure
+#   - Helper scripts
+#
+# Design: Low-resource (2C/4T, 8GB), stable, predictable
+#
+# =============================================================================
+
+# ========================================
+# Primary User Configuration
+# ========================================
+basecamp_user: mdt
+basecamp_user_home: /home/mdt
+
+# Groups required for hardware access
+# Note: plugdev doesn't exist on Fedora - USB access via udev rules instead
+basecamp_user_groups:
+  - wheel       # sudo
+  - dialout     # Serial devices (USB serial adapters)
+  - video       # GPU/display access
+  - input       # Input devices (touchscreen)
+  - audio       # Audio devices (SDR may need this)
+
+# ========================================
+# Base Package Configuration
+# ========================================
+# Minimal but powerful - each package must justify its presence
+
+basecamp_packages_system:
+  - vim-enhanced          # Full vim for editing
+  - tmux                  # Session persistence (critical for SSH recovery)
+  - git                   # Version control
+  - ripgrep               # Fast code search
+  - jq                    # JSON processing
+  - htop                  # Interactive process viewer
+  - btop                  # Beautiful process viewer
+  - curl                  # HTTP client
+  - wget                  # File download
+  - unzip                 # Archive handling
+  - pciutils              # lspci - hardware inspection
+  - usbutils              # lsusb - USB device inspection
+  - tree                  # Directory tree visualization
+  - rsync                 # File synchronization
+  - lsof                  # File descriptor inspection
+
+basecamp_packages_python:
+  - python3               # Python runtime
+  - python3-pip           # Package manager
+  - python3-pyserial      # Serial communication library
+
+# ========================================
+# Directory Structure
+# ========================================
+basecamp_directories:
+  - "{{ basecamp_user_home }}/basecamp"
+  - "{{ basecamp_user_home }}/basecamp/bin"
+  - "{{ basecamp_user_home }}/basecamp/logs"
+  - "{{ basecamp_user_home }}/basecamp/captures"
+  - "{{ basecamp_user_home }}/basecamp/notes"
+  - "{{ basecamp_user_home }}/basecamp/configs"
+
+# ========================================
+# udev Rules for Device Access
+# ========================================
+basecamp_udev_rules_enabled: true
+
+# RTL-SDR USB device permissions
+basecamp_udev_rtlsdr_enabled: true
+
+# ========================================
+# SSH Hardening (inherited from existing baseline)
+# ========================================
+# These settings ensure atom remains secure
+basecamp_ssh_permit_root_login: "no"
+basecamp_ssh_password_auth: "no"
+basecamp_ssh_pubkey_auth: "yes"
+basecamp_ssh_x11_forwarding: "no"
+
+# ========================================
+# Performance Constraints
+# ========================================
+# Document resource limits for this low-resource node
+basecamp_target_idle_ram_mb: 800    # Target: <800MB idle
+basecamp_target_boot_time_sec: 30   # Target: <30s to login prompt

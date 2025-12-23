@@ -1,0 +1,42 @@
+# Windows power management - WoL and sleep prevention
+---
+- name: Get network adapter for WoL
+  ansible.windows.win_powershell:
+    script: |
+      Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.InterfaceDescription -notlike '*Virtual*' -and $_.InterfaceDescription -notlike '*Tailscale*' } |
+      Select-Object -First 1 -ExpandProperty Name
+  register: win_adapter
+  when: power_wol_enabled | default(false)
+
+- name: Enable Wake-on-LAN on network adapter
+  ansible.windows.win_powershell:
+    script: |
+      $adapter = "{{ win_adapter.output[0] | default('Ethernet') }}"
+      # Enable WoL via adapter advanced properties
+      Set-NetAdapterAdvancedProperty -Name $adapter -RegistryKeyword "*WakeOnMagicPacket" -RegistryValue 1 -ErrorAction SilentlyContinue
+      Set-NetAdapterAdvancedProperty -Name $adapter -RegistryKeyword "*WakeOnPattern" -RegistryValue 1 -ErrorAction SilentlyContinue
+      # Enable WoL power management
+      $nic = Get-NetAdapter -Name $adapter
+      $device = Get-WmiObject MSPower_DeviceWakeEnable -Namespace root\wmi | Where-Object { $_.InstanceName -like "*$($nic.InterfaceGuid)*" }
+      if ($device) { $device.Enable = $true; $device.Put() }
+      Write-Output "WoL configured on $adapter"
+  register: wol_config
+  when: power_wol_enabled | default(false)
+
+- name: Disable sleep and hibernate
+  ansible.windows.win_powershell:
+    script: |
+      # Disable sleep on AC power
+      powercfg /change standby-timeout-ac 0
+      powercfg /change hibernate-timeout-ac 0
+      # Disable hibernation entirely
+      powercfg /hibernate off
+      Write-Output "Sleep and hibernate disabled"
+  when: power_disable_sleep | default(false)
+
+- name: Display WoL configuration
+  ansible.builtin.debug:
+    msg: "WoL enabled on Windows (MAC: {{ wol_mac | default('unknown') }})"
+  when:
+    - power_wol_enabled | default(false)
+    - wol_mac is defined

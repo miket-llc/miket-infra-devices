@@ -1,0 +1,176 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# GREETD DISPLAY MANAGER SETUP
+# =============================================================================
+#
+# greetd is a minimal login manager that supports:
+#   - Wayland and X11 sessions
+#   - TUI and GUI greeters
+#   - Low resource usage
+#
+# tuigreet provides a terminal-based session selector
+#
+# =============================================================================
+
+# ========================================
+# Install greetd
+# ========================================
+# Note: greetd may not be in standard Fedora repos
+# We'll install from COPR or provide a fallback to SDDM
+
+- name: Check if greetd is available in repos
+  ansible.builtin.command: dnf info greetd
+  register: greetd_check
+  failed_when: false
+  changed_when: false
+  tags: [greetd]
+
+- name: Enable COPR repo for greetd (if not in standard repos)
+  ansible.builtin.command: dnf copr enable -y alebastr/sway-extras
+  when: greetd_check.rc != 0
+  register: copr_enabled
+  failed_when: false
+  changed_when: copr_enabled.rc == 0
+  tags: [greetd, copr]
+
+- name: Install greetd packages
+  ansible.builtin.dnf:
+    name:
+      - greetd
+      - tuigreet
+    state: present
+  register: greetd_installed
+  failed_when: false
+  tags: [greetd]
+
+# ========================================
+# Fallback to SDDM if greetd unavailable
+# ========================================
+- name: Check if greetd installation succeeded
+  ansible.builtin.set_fact:
+    use_sddm_fallback: "{{ greetd_installed.failed | default(false) }}"
+  tags: [greetd]
+
+- name: Install SDDM as fallback (if greetd unavailable)
+  ansible.builtin.dnf:
+    name: sddm
+    state: present
+  when: use_sddm_fallback
+  tags: [greetd, sddm]
+
+# ========================================
+# Remove conflicting console packages
+# ========================================
+- name: Remove kmscon and fbterm (conflict with greetd on tty1)
+  ansible.builtin.dnf:
+    name:
+      - kmscon
+      - fbterm
+    state: absent
+  tags: [greetd]
+
+# ========================================
+# Create greeter user
+# ========================================
+- name: Create greeter system user for greetd
+  ansible.builtin.user:
+    name: greeter
+    system: true
+    shell: /usr/bin/nologin
+    home: /var/lib/greeter
+    create_home: true
+  when: not use_sddm_fallback
+  tags: [greetd]
+
+# ========================================
+# Configure greetd (if installed)
+# ========================================
+- name: Create greetd configuration directory
+  ansible.builtin.file:
+    path: /etc/greetd
+    state: directory
+    mode: '0755'
+  when: not use_sddm_fallback
+  tags: [greetd]
+
+- name: Deploy greetd configuration
+  ansible.builtin.template:
+    src: greetd-config.toml.j2
+    dest: /etc/greetd/config.toml
+    mode: '0644'
+  when: not use_sddm_fallback
+  notify: restart greetd
+  tags: [greetd]
+
+- name: Disable other display managers
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - gdm
+    - lightdm
+  failed_when: false
+  tags: [greetd]
+
+- name: Enable greetd display manager
+  ansible.builtin.systemd:
+    name: greetd
+    enabled: true
+  when: not use_sddm_fallback
+  tags: [greetd]
+
+# ========================================
+# Configure SDDM fallback (if used)
+# ========================================
+- name: Disable other display managers for SDDM
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - gdm
+    - lightdm
+    - greetd
+  failed_when: false
+  when: use_sddm_fallback
+  tags: [sddm]
+
+- name: Enable SDDM display manager
+  ansible.builtin.systemd:
+    name: sddm
+    enabled: true
+  when: use_sddm_fallback
+  tags: [sddm]
+
+- name: Create SDDM configuration directory
+  ansible.builtin.file:
+    path: /etc/sddm.conf.d
+    state: directory
+    mode: '0755'
+  when: use_sddm_fallback
+  tags: [sddm]
+
+- name: Configure SDDM for Wayland
+  ansible.builtin.copy:
+    dest: /etc/sddm.conf.d/10-wayland.conf
+    content: |
+      # Managed by Ansible - basecamp_ui role
+      [General]
+      DisplayServer=wayland
+
+      [Wayland]
+      SessionDir=/usr/share/wayland-sessions
+
+      [X11]
+      SessionDir=/usr/share/xsessions
+    mode: '0644'
+  when: use_sddm_fallback
+  tags: [sddm]
+
+- name: Display display manager status
+  ansible.builtin.debug:
+    msg: "Display manager: {{ 'SDDM (fallback)' if use_sddm_fallback else 'greetd' }}"
+  tags: [greetd]

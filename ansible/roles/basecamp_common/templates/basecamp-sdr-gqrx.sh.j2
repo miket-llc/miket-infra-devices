@@ -1,0 +1,62 @@
+#!/bin/bash
+# Managed by Ansible - basecamp_common role
+# basecamp-sdr-gqrx: Launch GQRX SDR application
+#
+# Usage: basecamp-sdr-gqrx
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Check for gqrx
+if ! command -v gqrx &>/dev/null; then
+    echo -e "${RED}Error: 'gqrx' is not installed${NC}"
+    echo "  Install with: sudo dnf install gqrx"
+    exit 1
+fi
+
+# Check for RTL-SDR device
+echo -e "${BLUE}Checking for SDR devices...${NC}"
+
+RTL_DEVICES=$(lsusb 2>/dev/null | grep -iE 'RTL|Realtek.*283' || true)
+HACKRF_DEVICES=$(lsusb 2>/dev/null | grep -i 'HackRF' || true)
+
+if [[ -z "$RTL_DEVICES" ]] && [[ -z "$HACKRF_DEVICES" ]]; then
+    echo -e "${YELLOW}Warning: No SDR devices detected${NC}"
+    echo "  - Connect an RTL-SDR or HackRF device"
+    echo "  - Check 'lsusb' for device detection"
+    echo
+    echo -e "${YELLOW}Launching GQRX anyway (for file playback or other sources)...${NC}"
+else
+    echo -e "${GREEN}SDR device(s) found:${NC}"
+    [[ -n "$RTL_DEVICES" ]] && echo "  RTL-SDR: $RTL_DEVICES"
+    [[ -n "$HACKRF_DEVICES" ]] && echo "  HackRF: $HACKRF_DEVICES"
+    echo
+fi
+
+# Launch GQRX
+echo -e "${GREEN}Launching GQRX...${NC}"
+echo -e "${YELLOW}First-time setup:${NC}"
+echo "  1. Select I/O device: RTL-SDR or HackRF"
+echo "  2. Set sample rate: 2.048 MSPS (RTL-SDR) or higher"
+echo "  3. Set gain: Auto or start around 30-40dB"
+echo
+
+# Run in background to not block terminal
+gqrx &
+
+echo -e "${GREEN}GQRX launched.${NC}"
+echo
+echo -e "${BLUE}Quick reference frequencies:${NC}"
+echo "  FM Radio:     88-108 MHz (WFM mode)"
+echo "  Aircraft:     118-136 MHz (AM mode)"
+echo "  ADS-B:        1090 MHz"
+echo "  Weather:      162.400-162.550 MHz (NFM mode)"
+echo "  Marine VHF:   156.000-163.000 MHz (NFM mode)"
+echo "  ISM Band:     433.05-434.79 MHz (LoRa, sensors)"
+echo "  ISM Band:     902-928 MHz (US, LoRa)"

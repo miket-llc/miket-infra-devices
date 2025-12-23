@@ -1,0 +1,68 @@
+# Linux power management - WoL and sleep prevention
+---
+- name: Install ethtool for WoL management
+  ansible.builtin.package:
+    name: ethtool
+    state: present
+  become: true
+  when: power_wol_enabled | default(false)
+
+- name: Get NetworkManager connection name for WoL interface
+  ansible.builtin.shell: |
+    nmcli -t -f NAME,DEVICE connection show | grep '{{ wol_interface }}' | cut -d: -f1
+  register: nm_connection_name
+  changed_when: false
+  when:
+    - power_wol_enabled | default(false)
+    - wol_interface is defined
+
+- name: Enable Wake-on-LAN via NetworkManager
+  ansible.builtin.command: >
+    nmcli connection modify "{{ nm_connection_name.stdout }}"
+    802-3-ethernet.wake-on-lan magic
+  become: true
+  register: wol_result
+  changed_when: wol_result.rc == 0
+  when:
+    - power_wol_enabled | default(false)
+    - wol_interface is defined
+    - nm_connection_name.stdout | length > 0
+
+- name: Verify WoL is enabled on interface
+  ansible.builtin.shell: |
+    ethtool {{ wol_interface }} | grep 'Wake-on:' | awk '{print $2}'
+  register: wol_status
+  changed_when: false
+  when:
+    - power_wol_enabled | default(false)
+    - wol_interface is defined
+
+- name: Enable WoL immediately if not already enabled
+  ansible.builtin.command: ethtool -s {{ wol_interface }} wol g
+  become: true
+  when:
+    - power_wol_enabled | default(false)
+    - wol_interface is defined
+    - wol_status.stdout | trim != 'g'
+  failed_when: false
+  changed_when: true
+
+- name: Mask sleep targets to prevent system sleep
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    masked: true
+  become: true
+  loop:
+    - sleep.target
+    - suspend.target
+    - hibernate.target
+    - hybrid-sleep.target
+  when: power_disable_sleep | default(false)
+
+- name: Display WoL configuration
+  ansible.builtin.debug:
+    msg: "WoL enabled on {{ wol_interface }} (MAC: {{ wol_mac }})"
+  when:
+    - power_wol_enabled | default(false)
+    - wol_mac is defined
+    - wol_interface is defined

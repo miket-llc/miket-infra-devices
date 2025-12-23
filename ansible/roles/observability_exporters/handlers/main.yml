@@ -1,0 +1,13 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Restart node_exporter
+  ansible.builtin.systemd:
+    name: "{{ node_exporter_service_name }}"
+    state: restarted
+    daemon_reload: true
+  when: node_exporter_enabled | bool
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

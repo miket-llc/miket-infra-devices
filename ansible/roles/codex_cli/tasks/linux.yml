@@ -2,68 +2,94 @@
 
 ---
 # Linux Codex CLI installation
-# Requires Node.js 18+ (installed via NodeSource repository)
+# Uses nvm for sudo-free global npm packages
+# Prerequisite: nodejs_nvm role must be applied first
 
-- name: Check if Node.js is installed
-  ansible.builtin.command: node --version
-  register: node_check
+- name: Get user home directory
+  ansible.builtin.shell: "echo ~{{ ansible_user }}"
+  register: codex_user_home
   changed_when: false
-  failed_when: false
+  check_mode: false
 
-- name: Check Node.js version
+- name: Set nvm directory
   ansible.builtin.set_fact:
-    node_version_ok: "{{ node_check.stdout | regex_search('v(\\d+)') | int >= codex_node_version | int }}"
-  when: node_check.rc == 0
+    codex_nvm_dir: "{{ codex_user_home.stdout }}/.nvm"
 
-- name: Add NodeSource repository
+- name: Check if nvm is installed
+  ansible.builtin.stat:
+    path: "{{ codex_nvm_dir }}/nvm.sh"
+  register: nvm_check
+
+- name: Fail if nvm is not installed
+  ansible.builtin.fail:
+    msg: "nvm is not installed. Please run the nodejs_nvm role first."
+  when: not nvm_check.stat.exists
+
+- name: Check if Codex CLI is installed
   ansible.builtin.shell: |
-    curl -fsSL {{ codex_nodejs_repo }} | sudo -E bash -
+    export NVM_DIR="{{ codex_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    codex --version 2>/dev/null || echo "not installed"
+  args:
+    executable: /bin/bash
   become: true
-  when: node_check.rc != 0 or not (node_version_ok | default(false))
-  register: nodesource_repo
-  failed_when: nodesource_repo.rc != 0
+  become_user: "{{ ansible_user }}"
+  register: codex_check
+  changed_when: false
 
-- name: Install Node.js
-  ansible.builtin.package:
-    name: nodejs
-    state: present
+- name: Install Codex CLI globally (no sudo)
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ codex_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    npm install -g {{ codex_cli_package }}
+  args:
+    executable: /bin/bash
   become: true
-  when: node_check.rc != 0 or not (node_version_ok | default(false))
+  become_user: "{{ ansible_user }}"
+  when: "'not installed' in codex_check.stdout"
+  register: codex_install
 
-- name: Verify Node.js installation
-  ansible.builtin.command: node --version
+- name: Verify Codex CLI installation
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ codex_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    codex --version
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
+  register: codex_verify
+  changed_when: false
+
+- name: Get Node.js version
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ codex_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    node --version
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
   register: node_verify
   changed_when: false
 
-- name: Verify npm installation
-  ansible.builtin.command: npm --version
+- name: Get npm version
+  ansible.builtin.shell: |
+    export NVM_DIR="{{ codex_nvm_dir }}"
+    source "$NVM_DIR/nvm.sh"
+    npm --version
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ ansible_user }}"
   register: npm_verify
   changed_when: false
-
-- name: Check if Codex CLI is installed
-  ansible.builtin.command: codex --version
-  register: codex_check
-  changed_when: false
-  failed_when: false
-
-- name: Install Codex CLI globally
-  ansible.builtin.shell: npm install -g {{ codex_cli_package }}
-  become: true
-  when: codex_check.rc != 0
-  environment:
-    PATH: "{{ ansible_env.PATH }}"
-
-- name: Verify Codex CLI installation
-  ansible.builtin.command: codex --version
-  register: codex_verify
-  changed_when: false
-  failed_when: false
 
 - name: Display installation summary
   ansible.builtin.debug:
     msg:
-      - "✅ Codex CLI installed on {{ inventory_hostname }}"
-      - "Node.js: {{ node_verify.stdout }}"
+      - "Codex CLI installed on {{ inventory_hostname }}"
+      - "Node.js: {{ node_verify.stdout }} (via nvm)"
       - "npm: {{ npm_verify.stdout }}"
-      - "Codex CLI: {{ codex_verify.stdout | default('Installed') }}"
+      - "Codex CLI: {{ codex_verify.stdout }}"
       - "Run 'codex' to authenticate and start using"

@@ -1,0 +1,74 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy Node.js via nvm for sudo-free global npm packages
+#
+# This playbook installs nvm and Node.js in user space, enabling
+# `npm install -g <package>` without sudo.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nodejs-nvm.yml --limit armitage
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-nodejs-nvm.yml --limit linux_servers
+#
+# Variables:
+#   nodejs_version: "lts" (default) or specific version like "22"
+#   nodejs_global_packages: List of packages to install globally
+#   nodejs_remove_system_packages: false (default) - set true to remove system node
+
+- name: Deploy Node.js via nvm
+  hosts: linux_servers
+  gather_facts: true
+
+  vars:
+    # Use Node.js LTS
+    nodejs_version: "lts"
+
+    # Install these global packages
+    nodejs_global_packages:
+      - "@openai/codex"
+      - "@anthropic-ai/claude-code"
+
+    # Don't remove system node by default (can coexist)
+    nodejs_remove_system_packages: false
+
+  roles:
+    - role: nodejs_nvm
+
+  post_tasks:
+    - name: Verify codex is accessible
+      ansible.builtin.shell: |
+        export NVM_DIR="$HOME/.nvm"
+        source "$NVM_DIR/nvm.sh"
+        codex --version 2>/dev/null || echo "codex not found"
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: codex_check
+      changed_when: false
+
+    - name: Verify claude is accessible
+      ansible.builtin.shell: |
+        export NVM_DIR="$HOME/.nvm"
+        source "$NVM_DIR/nvm.sh"
+        claude --version 2>/dev/null || echo "claude not found"
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: claude_check
+      changed_when: false
+
+    - name: Final verification
+      ansible.builtin.debug:
+        msg:
+          - "============================================"
+          - "Deployment complete on {{ inventory_hostname }}"
+          - "============================================"
+          - "codex: {{ codex_check.stdout }}"
+          - "claude: {{ claude_check.stdout }}"
+          - ""
+          - "To use in a new shell:"
+          - "  source ~/.bashrc  # or ~/.zshrc"
+          - "  npm install -g <package>  # no sudo needed!"
+          - "============================================"

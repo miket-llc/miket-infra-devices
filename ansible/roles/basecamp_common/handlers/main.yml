@@ -1,0 +1,14 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for basecamp_common role
+
+- name: reload udev rules
+  ansible.builtin.command: udevadm control --reload-rules
+  listen: "reload udev rules"
+
+- name: restart sshd
+  ansible.builtin.systemd:
+    name: sshd
+    state: restarted
+  listen: "restart sshd"

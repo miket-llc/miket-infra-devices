@@ -1,0 +1,152 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP TOOLS ROLE
+# =============================================================================
+#
+# Install curated toolset for networking, SDR, and serial work.
+#
+# =============================================================================
+
+- name: Display basecamp tools configuration banner
+  ansible.builtin.debug:
+    msg: |
+      ===============================================================
+      BASECAMP TOOLS INSTALLATION
+      ===============================================================
+
+      Host:           {{ inventory_hostname }}
+      Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+
+      Tool Categories:
+        - Networking: tcpdump, nmap, wireshark-cli, mtr
+        - SDR/RF:     gqrx, rtl-sdr, gnuradio
+        - Serial:     screen, minicom, picocom
+
+      Note: SDRangel omitted (high resource usage on 8GB system)
+
+      ===============================================================
+  tags: [always]
+
+# ========================================
+# Networking Tools
+# ========================================
+- name: Install networking tools
+  ansible.builtin.dnf:
+    name: "{{ basecamp_tools_networking_packages }}"
+    state: present
+  tags: [packages, networking]
+
+# ========================================
+# SDR / RF Tools
+# ========================================
+- name: Install SDR tools
+  ansible.builtin.dnf:
+    name: "{{ basecamp_tools_sdr_packages }}"
+    state: present
+  when: basecamp_tools_sdr_enabled
+  tags: [packages, sdr]
+
+- name: Install SDRangel (optional - heavy)
+  ansible.builtin.dnf:
+    name: sdrangel
+    state: present
+  when:
+    - basecamp_tools_sdr_enabled
+    - basecamp_tools_install_sdrangel
+  failed_when: false  # May not be available in repos
+  tags: [packages, sdr]
+
+# ========================================
+# Serial Tools
+# ========================================
+- name: Install serial tools
+  ansible.builtin.dnf:
+    name: "{{ basecamp_tools_serial_packages }}"
+    state: present
+  tags: [packages, serial]
+
+# ========================================
+# Documentation
+# ========================================
+- name: Install documentation packages
+  ansible.builtin.dnf:
+    name: "{{ basecamp_tools_docs_packages }}"
+    state: present
+  tags: [packages, docs]
+
+# ========================================
+# Wireshark GUI (optional)
+# ========================================
+- name: Install Wireshark GUI (optional)
+  ansible.builtin.dnf:
+    name: wireshark
+    state: present
+  when: basecamp_tools_install_wireshark_gui
+  tags: [packages, wireshark]
+
+# ========================================
+# Wireshark Group Configuration
+# ========================================
+- name: Ensure wireshark group exists
+  ansible.builtin.group:
+    name: wireshark
+    state: present
+  tags: [wireshark, groups]
+
+- name: Add user to wireshark group for packet capture
+  ansible.builtin.user:
+    name: "{{ basecamp_user | default('mdt') }}"
+    groups: wireshark
+    append: yes
+  tags: [wireshark, groups]
+
+# ========================================
+# dumpcap capabilities (for non-root capture)
+# ========================================
+- name: Set capabilities on dumpcap for non-root capture
+  ansible.builtin.command: setcap 'cap_net_raw,cap_net_admin+eip' /usr/bin/dumpcap
+  args:
+    creates: /usr/bin/dumpcap  # Only run if dumpcap exists
+  failed_when: false
+  changed_when: false
+  tags: [wireshark, capabilities]
+
+# ========================================
+# Summary
+# ========================================
+- name: Display basecamp tools installation summary
+  ansible.builtin.debug:
+    msg:
+      - "==============================================================="
+      - "BASECAMP TOOLS INSTALLATION COMPLETE"
+      - "==============================================================="
+      - ""
+      - "Networking Tools:"
+      - "  tcpdump    - Packet capture (run with sudo or wireshark group)"
+      - "  tshark     - CLI packet analysis"
+      - "  nmap       - Network scanning"
+      - "  mtr        - Network diagnostics"
+      - "  iperf3     - Bandwidth testing"
+      - ""
+      - "SDR Tools:"
+      - "  gqrx       - SDR receiver GUI (basecamp-sdr-gqrx)"
+      - "  rtl_test   - RTL-SDR diagnostics"
+      - "  rtl_fm     - FM demodulation"
+      - "  gnuradio   - Signal processing framework"
+      - ""
+      - "Serial Tools:"
+      - "  screen     - Terminal multiplexer + serial"
+      - "  minicom    - Classic serial terminal"
+      - "  picocom    - Minimal serial terminal"
+      - ""
+      - "Quick Reference:"
+      - "  basecamp-serial-console /dev/ttyUSB0 115200"
+      - "  basecamp-net-scan 192.168.1.0/24"
+      - "  basecamp-sdr-gqrx"
+      - ""
+      - "Note: Log out and back in for group changes to take effect"
+      - ""
+      - "==============================================================="
+  tags: [always]

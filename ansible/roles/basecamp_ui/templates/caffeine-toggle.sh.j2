@@ -1,0 +1,47 @@
+#!/bin/bash
+# Caffeine toggle for Sway - prevents idle/sleep
+# Managed by Ansible - basecamp_ui role
+#
+# Usage: caffeine-toggle.sh
+#   Toggles caffeine mode on/off
+#   Shows notification with current state
+#
+# Keybinding: Mod+Shift+s
+
+CAFFEINE_PID_FILE="/tmp/caffeine-$USER.pid"
+
+is_caffeine_active() {
+    if [ -f "$CAFFEINE_PID_FILE" ]; then
+        local pid=$(cat "$CAFFEINE_PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            return 0
+        else
+            rm -f "$CAFFEINE_PID_FILE"
+        fi
+    fi
+    return 1
+}
+
+enable_caffeine() {
+    # Use systemd-inhibit to prevent idle
+    systemd-inhibit --what=idle --who="caffeine" --why="User requested stay awake" \
+        sleep infinity &
+    echo $! > "$CAFFEINE_PID_FILE"
+    notify-send -u normal -t 3000 "Caffeine ON" "System will not sleep"
+}
+
+disable_caffeine() {
+    if [ -f "$CAFFEINE_PID_FILE" ]; then
+        local pid=$(cat "$CAFFEINE_PID_FILE")
+        kill "$pid" 2>/dev/null
+        rm -f "$CAFFEINE_PID_FILE"
+    fi
+    notify-send -u normal -t 3000 "Caffeine OFF" "Normal idle behavior restored"
+}
+
+# Toggle
+if is_caffeine_active; then
+    disable_caffeine
+else
+    enable_caffeine
+fi

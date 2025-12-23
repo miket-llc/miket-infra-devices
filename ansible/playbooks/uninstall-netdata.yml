@@ -1,0 +1,307 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# NETDATA UNINSTALL PLAYBOOK
+# =============================================================================
+#
+# Removes Netdata from all managed hosts:
+#   - Stops and disables the service
+#   - Unclaims from Netdata Cloud
+#   - Removes packages and configuration
+#   - Cleans up firewall rules
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/uninstall-netdata.yml
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/uninstall-netdata.yml --limit motoko
+#
+# =============================================================================
+
+- name: Uninstall Netdata from Linux hosts
+  hosts: linux_servers
+  become: true
+  gather_facts: true
+  tags: [netdata, uninstall]
+
+  tasks:
+    # ========================================
+    # Stop Services
+    # ========================================
+    - name: Check if netdata service exists
+      ansible.builtin.stat:
+        path: /etc/systemd/system/netdata.service
+      register: netdata_service_file
+
+    - name: Check if netdata service exists (alternative path)
+      ansible.builtin.stat:
+        path: /usr/lib/systemd/system/netdata.service
+      register: netdata_service_file_alt
+      when: not netdata_service_file.stat.exists
+
+    - name: Set netdata service exists fact
+      ansible.builtin.set_fact:
+        netdata_service_exists: "{{ netdata_service_file.stat.exists or (netdata_service_file_alt.stat.exists | default(false)) }}"
+
+    - name: Stop and disable Netdata service
+      ansible.builtin.systemd:
+        name: netdata
+        state: stopped
+        enabled: false
+      when: netdata_service_exists
+      failed_when: false
+
+    # ========================================
+    # Unclaim from Netdata Cloud
+    # ========================================
+    - name: Check if netdata-claim.sh exists
+      ansible.builtin.stat:
+        path: /usr/sbin/netdata-claim.sh
+      register: netdata_claim_script
+
+    - name: Unclaim from Netdata Cloud
+      ansible.builtin.command: /usr/sbin/netdata-claim.sh -remove
+      when: netdata_claim_script.stat.exists
+      failed_when: false
+      changed_when: true
+
+    # ========================================
+    # Uninstall Packages
+    # ========================================
+    - name: Check if netdata-uninstaller.sh exists
+      ansible.builtin.stat:
+        path: /usr/libexec/netdata/netdata-uninstaller.sh
+      register: netdata_uninstaller
+
+    - name: Check if netdata-uninstaller.sh exists (alternative path)
+      ansible.builtin.stat:
+        path: /opt/netdata/usr/libexec/netdata/netdata-uninstaller.sh
+      register: netdata_uninstaller_alt
+      when: not netdata_uninstaller.stat.exists
+
+    - name: Run Netdata uninstaller script
+      ansible.builtin.shell: |
+        if [ -x /usr/libexec/netdata/netdata-uninstaller.sh ]; then
+          /usr/libexec/netdata/netdata-uninstaller.sh --yes --force
+        elif [ -x /opt/netdata/usr/libexec/netdata/netdata-uninstaller.sh ]; then
+          /opt/netdata/usr/libexec/netdata/netdata-uninstaller.sh --yes --force
+        fi
+      when: netdata_uninstaller.stat.exists or (netdata_uninstaller_alt.stat.exists | default(false))
+      failed_when: false
+      changed_when: true
+
+    - name: Remove Netdata package (if installed via package manager)
+      ansible.builtin.dnf:
+        name:
+          - netdata
+          - netdata-*
+        state: absent
+      failed_when: false
+
+    # ========================================
+    # Clean Up Configuration and Data
+    # ========================================
+    - name: Remove Netdata configuration directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/netdata
+        - /var/lib/netdata
+        - /var/cache/netdata
+        - /var/log/netdata
+        - /opt/netdata
+        - /usr/libexec/netdata
+      failed_when: false
+
+    - name: Remove Netdata user
+      ansible.builtin.user:
+        name: netdata
+        state: absent
+        remove: true
+      failed_when: false
+
+    - name: Remove Netdata group
+      ansible.builtin.group:
+        name: netdata
+        state: absent
+      failed_when: false
+
+    # ========================================
+    # Firewall Cleanup
+    # ========================================
+    - name: Check if firewalld is active
+      ansible.builtin.systemd:
+        name: firewalld
+      register: firewalld_status
+      failed_when: false
+      changed_when: false
+
+    - name: Get default firewalld zone
+      ansible.builtin.command: firewall-cmd --get-default-zone
+      register: default_zone
+      changed_when: false
+      when:
+        - firewalld_status.status is defined
+        - firewalld_status.status.ActiveState == 'active'
+
+    - name: Remove Netdata port 19999 from firewall (Tailscale CIDR)
+      ansible.posix.firewalld:
+        zone: "{{ default_zone.stdout | trim | default('public') }}"
+        rich_rule: "rule family='ipv4' source address='100.64.0.0/10' port port='19999' protocol='tcp' accept"
+        permanent: true
+        immediate: true
+        state: disabled
+      when:
+        - firewalld_status.status is defined
+        - firewalld_status.status.ActiveState == 'active'
+      failed_when: false
+
+    - name: Remove Netdata port 19999 from firewall (localhost)
+      ansible.posix.firewalld:
+        zone: "{{ default_zone.stdout | trim | default('public') }}"
+        rich_rule: "rule family='ipv4' source address='127.0.0.1' port port='19999' protocol='tcp' accept"
+        permanent: true
+        immediate: true
+        state: disabled
+      when:
+        - firewalld_status.status is defined
+        - firewalld_status.status.ActiveState == 'active'
+      failed_when: false
+
+    # ========================================
+    # Verification
+    # ========================================
+    - name: Verify Netdata is not running
+      ansible.builtin.command: pgrep netdata
+      register: netdata_running
+      changed_when: false
+      failed_when: false
+
+    - name: Verify port 19999 is not listening
+      ansible.builtin.command: ss -tlnp | grep :19999
+      register: port_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display uninstall status
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          Netdata Uninstall Status: {{ inventory_hostname }}
+          ========================================
+          Service running: {{ 'YES (PROBLEM!)' if netdata_running.rc == 0 else 'NO (good)' }}
+          Port 19999 listening: {{ 'YES (PROBLEM!)' if port_check.rc == 0 else 'NO (good)' }}
+          ========================================
+
+- name: Uninstall Netdata from Windows hosts
+  hosts: windows_servers
+  gather_facts: true
+  tags: [netdata, uninstall, windows]
+
+  tasks:
+    - name: Check if Netdata is installed
+      ansible.windows.win_service:
+        name: Netdata
+      register: netdata_service
+      failed_when: false
+
+    - name: Stop Netdata service
+      ansible.windows.win_service:
+        name: Netdata
+        state: stopped
+      when: netdata_service.exists | default(false)
+      failed_when: false
+
+    - name: Uninstall Netdata via uninstaller
+      ansible.windows.win_shell: |
+        $uninstaller = "C:\Program Files\Netdata\uninstall.exe"
+        if (Test-Path $uninstaller) {
+          Start-Process -FilePath $uninstaller -ArgumentList "/S" -Wait -NoNewWindow
+        }
+      when: netdata_service.exists | default(false)
+      failed_when: false
+
+    - name: Remove Netdata directories
+      ansible.windows.win_file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - C:\Program Files\Netdata
+        - C:\ProgramData\Netdata
+      failed_when: false
+
+    - name: Display Windows uninstall status
+      ansible.builtin.debug:
+        msg: "Netdata uninstall completed on {{ inventory_hostname }}"
+
+- name: Uninstall Netdata from macOS hosts
+  hosts: macos_workstations
+  become: false
+  gather_facts: true
+  tags: [netdata, uninstall, macos]
+
+  tasks:
+    - name: Check if Netdata is installed via Homebrew
+      ansible.builtin.command: brew list netdata
+      register: netdata_brew
+      changed_when: false
+      failed_when: false
+
+    - name: Stop Netdata service
+      ansible.builtin.command: brew services stop netdata
+      when: netdata_brew.rc == 0
+      failed_when: false
+      changed_when: true
+
+    - name: Uninstall Netdata via Homebrew
+      community.general.homebrew:
+        name: netdata
+        state: absent
+      when: netdata_brew.rc == 0
+      failed_when: false
+
+    - name: Remove Netdata configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /usr/local/etc/netdata
+        - /opt/homebrew/etc/netdata
+        - "{{ ansible_env.HOME }}/Library/Application Support/netdata"
+      failed_when: false
+      become: true
+      become_method: sudo
+
+    - name: Display macOS uninstall status
+      ansible.builtin.debug:
+        msg: "Netdata uninstall completed on {{ inventory_hostname }}"
+
+# ========================================
+# Summary
+# ========================================
+- name: Uninstall Summary
+  hosts: localhost
+  gather_facts: false
+  tags: [netdata, uninstall, summary]
+
+  tasks:
+    - name: Display summary
+      ansible.builtin.debug:
+        msg: |
+          ========================================
+          NETDATA UNINSTALL COMPLETE
+          ========================================
+
+          Netdata has been removed from all hosts.
+
+          Next steps:
+          1. Deploy node_exporter to Linux hosts:
+             ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-observability.yml --tags exporters
+
+          2. Deploy observability stack to Akira:
+             ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-observability.yml --tags stack --limit akira
+
+          3. Verify Grafana is accessible:
+             http://akira.pangolin-vega.ts.net:3000
+
+          ========================================

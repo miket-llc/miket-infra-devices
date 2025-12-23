@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily Restic Repository Integrity Check
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
+
+[Timer]
+# Run daily at 6:00 AM (after flux-backup at 5:00 AM)
+OnCalendar=*-*-* 06:00:00
+# Randomize start within 15 minute window
+RandomizedDelaySec=900
+Persistent=true
+
+[Install]
+WantedBy=timers.target

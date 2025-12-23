@@ -1,0 +1,153 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# SWAY (WAYLAND) CONFIGURATION
+# =============================================================================
+#
+# Configure Sway tiling window manager:
+#   - Basecamp-specific config with workspaces
+#   - Waybar status bar
+#   - Touchscreen support
+#   - Standard i3-compatible keybindings
+#
+# =============================================================================
+
+# ========================================
+# User Configuration Directory
+# ========================================
+- name: Create Sway config directory
+  ansible.builtin.file:
+    path: "{{ basecamp_ui_user_home }}/.config/sway"
+    state: directory
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [sway]
+
+- name: Create waybar config directory
+  ansible.builtin.file:
+    path: "{{ basecamp_ui_user_home }}/.config/waybar"
+    state: directory
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [sway, waybar]
+
+# ========================================
+# Sway Scripts Directory
+# ========================================
+- name: Create Sway scripts directory
+  ansible.builtin.file:
+    path: "{{ basecamp_ui_user_home }}/.config/sway/scripts"
+    state: directory
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [sway, scripts]
+
+# ========================================
+# Sway Configuration
+# ========================================
+- name: Deploy Sway configuration
+  ansible.builtin.template:
+    src: sway-config.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/sway/config"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0644'
+  tags: [sway]
+
+# ========================================
+# Power-Aware Idle Management
+# ========================================
+- name: Deploy power-aware swayidle script
+  ansible.builtin.template:
+    src: swayidle-power-aware.sh.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/sway/scripts/swayidle-power-aware.sh"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [sway, idle, power]
+
+- name: Deploy caffeine toggle script
+  ansible.builtin.template:
+    src: caffeine-toggle.sh.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/sway/scripts/caffeine-toggle.sh"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0755'
+  tags: [sway, idle, caffeine]
+
+# ========================================
+# Waybar Configuration
+# ========================================
+- name: Deploy waybar configuration
+  ansible.builtin.template:
+    src: waybar-config.json.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/waybar/config"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0644'
+  tags: [sway, waybar]
+
+- name: Deploy waybar style
+  ansible.builtin.template:
+    src: waybar-style.css.j2
+    dest: "{{ basecamp_ui_user_home }}/.config/waybar/style.css"
+    owner: "{{ basecamp_ui_user }}"
+    group: "{{ basecamp_ui_user }}"
+    mode: '0644'
+  tags: [sway, waybar]
+
+# ========================================
+# Session Desktop Entry
+# ========================================
+- name: Ensure wayland-sessions directory exists
+  ansible.builtin.file:
+    path: /usr/share/wayland-sessions
+    state: directory
+    mode: '0755'
+  tags: [sway]
+
+- name: Verify Sway desktop entry exists
+  ansible.builtin.stat:
+    path: /usr/share/wayland-sessions/sway.desktop
+  register: sway_desktop
+  tags: [sway]
+
+- name: Create Sway desktop entry if missing
+  ansible.builtin.copy:
+    dest: /usr/share/wayland-sessions/sway.desktop
+    content: |
+      [Desktop Entry]
+      Name=Sway
+      Comment=An i3-compatible Wayland compositor
+      Exec=sway
+      Type=Application
+    mode: '0644'
+  when: not sway_desktop.stat.exists
+  tags: [sway]
+
+# ========================================
+# Environment Variables
+# ========================================
+- name: Deploy Sway environment variables
+  ansible.builtin.copy:
+    dest: /etc/profile.d/sway-env.sh
+    content: |
+      # Managed by Ansible - basecamp_ui role
+      # Sway/Wayland environment variables
+
+      # XDG runtime directory (required for Wayland)
+      if [ -z "$XDG_RUNTIME_DIR" ]; then
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+      fi
+
+      # Wayland backend hints
+      export MOZ_ENABLE_WAYLAND=1
+      export QT_QPA_PLATFORM=wayland
+      export SDL_VIDEODRIVER=wayland
+      export _JAVA_AWT_WM_NONREPARENTING=1
+    mode: '0644'
+  tags: [sway, env]

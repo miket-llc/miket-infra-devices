@@ -1,0 +1,128 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# BASECAMP UI ROLE DEFAULTS
+# =============================================================================
+#
+# Lightweight desktop environment for basecamp/hacker node:
+#   - greetd + tuigreet (lightweight login manager)
+#   - Sway (Wayland tiling WM)
+#   - i3 (X11 tiling WM)
+#   - alacritty (GPU-accelerated terminal)
+#
+# Design: Minimal overhead, touch-friendly, keyboard-efficient
+#
+# =============================================================================
+
+# ========================================
+# User Configuration
+# ========================================
+basecamp_ui_user: mdt
+basecamp_ui_user_home: /home/mdt
+
+# ========================================
+# Display Manager: greetd + tuigreet
+# ========================================
+# greetd is lighter than GDM/SDDM, tuigreet provides TUI session selection
+basecamp_ui_display_manager: greetd
+basecamp_ui_greeter: tuigreet
+
+# greetd configuration
+basecamp_ui_greetd_vt: 1
+
+# ========================================
+# Session Configuration
+# ========================================
+# Both Sway (Wayland) and i3 (X11) available at login
+basecamp_ui_sessions:
+  sway:
+    name: "Sway (Wayland)"
+    command: "sway"
+    desktop_file: sway.desktop
+  i3:
+    name: "i3 (X11)"
+    command: "startx /usr/bin/i3"
+    desktop_file: i3.desktop
+
+# Default session for auto-login (empty = manual selection)
+basecamp_ui_default_session: ""
+
+# ========================================
+# Sway Packages
+# ========================================
+basecamp_ui_sway_packages:
+  - sway                    # Wayland tiling compositor
+  - swaylock                # Screen locker
+  - swayidle                # Idle management
+  - waybar                  # Status bar
+  - wofi                    # Application launcher (wayland dmenu)
+  - mako                    # Notification daemon
+  - grim                    # Screenshot utility
+  - slurp                   # Region selection
+  - wl-clipboard            # Clipboard utilities
+  - xdg-desktop-portal-wlr  # Screen sharing support
+
+# ========================================
+# i3 Packages
+# ========================================
+basecamp_ui_i3_packages:
+  - i3                      # X11 tiling WM
+  - i3status                # Status bar for i3
+  - i3lock                  # Screen locker
+  - dmenu                   # Application launcher
+  - feh                     # Image viewer / wallpaper setter
+  - xorg-x11-server-Xorg    # X11 server
+  - xorg-x11-xinit          # startx
+  - xorg-x11-drv-libinput   # Input driver (touchscreen support)
+  - xorg-x11-drv-evdev      # Event device driver
+
+# ========================================
+# Common Packages (both sessions)
+# ========================================
+basecamp_ui_common_packages:
+  - alacritty               # GPU-accelerated terminal
+  - firefox                 # Web browser (one only, as specified)
+  - brightnessctl           # Brightness control
+  - playerctl               # Media player control
+  - polkit                  # Authorization framework
+  - dbus-daemon             # D-Bus message bus
+  - xdg-utils               # Desktop integration
+  - wev                     # Wayland event viewer (debugging)
+
+# ========================================
+# Font Packages
+# ========================================
+basecamp_ui_font_packages:
+  - fontawesome-fonts       # Icons for waybar/i3status
+  - google-noto-sans-fonts  # Clean sans-serif
+  - google-noto-mono-fonts  # Monospace
+  - jetbrains-mono-fonts    # Developer-friendly monospace
+
+# Nerd Fonts (from COPR - has powerline glyphs for starship)
+basecamp_ui_nerd_fonts_copr: che/nerd-fonts
+basecamp_ui_nerd_fonts_package: nerd-fonts
+
+# ========================================
+# Display Manager Packages
+# ========================================
+basecamp_ui_greetd_packages:
+  - greetd                  # Login manager
+  - greetd-tuigreet         # TUI greeter (may need COPR)
+
+# ========================================
+# Boot Target
+# ========================================
+basecamp_ui_boot_target: graphical.target
+
+# ========================================
+# Touchscreen Configuration
+# ========================================
+basecamp_ui_touchscreen_enabled: true
+
+# ========================================
+# Performance Settings
+# ========================================
+# Disable animations/compositing overhead
+basecamp_ui_disable_animations: true
+basecamp_ui_sway_disable_xwayland: false  # Keep XWayland for i3 compat testing

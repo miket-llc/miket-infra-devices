@@ -1,0 +1,32 @@
+[Unit]
+Description=Automated Restore Drill (B2 Mirror + Restic)
+Documentation=https://github.com/miket-llc/miket-infra/docs/architecture/components/DATA_ESTATE_SPEC.md
+After=network-online.target
+Wants=network-online.target
+OnFailure={{ data_lifecycle_on_failure_target | default('failure-notify@%p.service') }}
+
+[Service]
+Type=oneshot
+
+# Credentials from AKV via secrets_sync
+EnvironmentFile={{ data_lifecycle_env_file }}
+
+# Environment for the script
+Environment=DATA_LIFECYCLE_MARKERS_DIR={{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}
+Environment=DATA_LIFECYCLE_LOG_DIR={{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}
+Environment=DATA_LIFECYCLE_RESTORE_TEST_DIR={{ data_lifecycle_restore_test_dir | default('/space/_ops/backups/restore-tests') }}
+Environment=RESTIC_REPO={{ data_lifecycle_restic_repo | default('b2:miket-backups-restic:flux') }}
+
+ExecStart=/usr/local/bin/restore-test.sh
+User=root
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=restore-test
+
+# Timeout (restore tests should complete quickly)
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,31 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy ask CLI to all tailnet nodes
+# Installs the ask binary via install.sh from the ask-cli repository.
+# Environment configuration (ASK_BASE_URL, ASK_MODEL) is managed by chezmoi.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ask-cli.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ask-cli.yml --limit armitage
+#
+# After deployment, users should run 'chezmoi apply' to configure shell environment.
+
+- name: Deploy ask CLI
+  hosts: linux_servers
+  become: true
+
+  roles:
+    - role: ask_cli
+      tags: [ask-cli]
+
+  post_tasks:
+    - name: Remind about chezmoi
+      ansible.builtin.debug:
+        msg:
+          - "ask binary installed. To configure shell environment:"
+          - "  chezmoi apply"
+          - ""
+          - "Or manually set:"
+          - "  export ASK_BASE_URL=http://akira.pangolin-vega.ts.net:4001"
+          - "  export ASK_MODEL=default"

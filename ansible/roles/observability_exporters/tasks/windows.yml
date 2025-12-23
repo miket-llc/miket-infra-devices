@@ -1,0 +1,146 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# WINDOWS_EXPORTER INSTALLATION
+# =============================================================================
+#
+# Installs windows_exporter for Prometheus metrics on Windows hosts
+# Uses MSI installer for clean Windows integration
+#
+# =============================================================================
+
+# ========================================
+# Check Current Installation
+# ========================================
+
+- name: Check if windows_exporter is already installed
+  ansible.windows.win_service:
+    name: windows_exporter
+  register: windows_exporter_service
+  failed_when: false
+  tags: [observability, windows_exporter, install]
+
+- name: Get installed windows_exporter version
+  ansible.windows.win_shell: |
+    $service = Get-CimInstance Win32_Service -Filter "Name='windows_exporter'"
+    if ($service) {
+      $path = $service.PathName -replace '"', ''
+      $path = $path.Split(' ')[0]
+      if (Test-Path $path) {
+        (Get-Item $path).VersionInfo.ProductVersion
+      }
+    }
+  register: installed_version
+  changed_when: false
+  failed_when: false
+  when: windows_exporter_service.exists | default(false)
+  tags: [observability, windows_exporter, install]
+
+# ========================================
+# Download and Install
+# ========================================
+
+- name: Create temp directory for download
+  ansible.windows.win_file:
+    path: C:\Temp\windows_exporter
+    state: directory
+  tags: [observability, windows_exporter, install]
+
+- name: Download windows_exporter MSI
+  ansible.windows.win_get_url:
+    url: "{{ windows_exporter_msi_url }}"
+    dest: C:\Temp\windows_exporter\windows_exporter.msi
+  register: download_result
+  when: >
+    not (windows_exporter_service.exists | default(false)) or
+    (installed_version.stdout | default('') | trim) != windows_exporter_version
+  tags: [observability, windows_exporter, install]
+
+- name: Stop windows_exporter service before upgrade
+  ansible.windows.win_service:
+    name: windows_exporter
+    state: stopped
+  when:
+    - windows_exporter_service.exists | default(false)
+    - download_result.changed | default(false)
+  failed_when: false
+  tags: [observability, windows_exporter, install]
+
+- name: Install windows_exporter MSI
+  ansible.windows.win_package:
+    path: C:\Temp\windows_exporter\windows_exporter.msi
+    state: present
+    arguments:
+      - /qn
+      - ENABLED_COLLECTORS={{ windows_exporter_collectors | join(',') }}
+      - LISTEN_PORT={{ windows_exporter_port }}
+  register: install_result
+  when: download_result.changed | default(false)
+  tags: [observability, windows_exporter, install]
+
+# ========================================
+# Firewall Configuration
+# ========================================
+
+- name: Configure Windows Firewall for windows_exporter (Tailnet only)
+  community.windows.win_firewall_rule:
+    name: windows_exporter
+    description: Allow Prometheus scraping from Tailnet
+    localport: "{{ windows_exporter_port }}"
+    action: allow
+    direction: in
+    protocol: tcp
+    remoteip: "{{ windows_exporter_tailnet_cidr }}"
+    state: present
+    enabled: true
+  tags: [observability, windows_exporter, firewall]
+
+# ========================================
+# Service Management
+# ========================================
+
+- name: Ensure windows_exporter service is running
+  ansible.windows.win_service:
+    name: windows_exporter
+    start_mode: auto
+    state: started
+  tags: [observability, windows_exporter, service]
+
+# ========================================
+# Cleanup
+# ========================================
+
+- name: Clean up temp directory
+  ansible.windows.win_file:
+    path: C:\Temp\windows_exporter
+    state: absent
+  tags: [observability, windows_exporter, install]
+
+# ========================================
+# Verification
+# ========================================
+
+- name: Wait for windows_exporter to be ready
+  ansible.windows.win_wait_for:
+    port: "{{ windows_exporter_port }}"
+    timeout: 30
+  tags: [observability, windows_exporter, verify]
+
+- name: Verify windows_exporter metrics endpoint
+  ansible.windows.win_uri:
+    url: "http://localhost:{{ windows_exporter_port }}/metrics"
+    return_content: false
+    status_code: 200
+  register: metrics_check
+  failed_when: false
+  changed_when: false
+  tags: [observability, windows_exporter, verify]
+
+- name: Display windows_exporter status
+  ansible.builtin.debug:
+    msg: |
+      windows_exporter Status: {{ 'RUNNING' if metrics_check.status_code == 200 else 'NOT RESPONDING' }}
+      Metrics endpoint: http://localhost:{{ windows_exporter_port }}/metrics
+      Tailnet access: Restricted to {{ windows_exporter_tailnet_cidr }}
+  tags: [observability, windows_exporter, verify]

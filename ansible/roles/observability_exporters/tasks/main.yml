@@ -1,0 +1,57 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# =============================================================================
+# OBSERVABILITY EXPORTERS - MAIN TASKS
+# =============================================================================
+#
+# Deploys Prometheus exporters for metrics collection
+# - Linux: node_exporter
+# - Windows: windows_exporter
+# - macOS: node_exporter (via Homebrew)
+#
+# =============================================================================
+
+- name: Display target OS information
+  ansible.builtin.debug:
+    msg: "Deploying exporter on {{ inventory_hostname }} ({{ ansible_os_family }})"
+  tags: [observability]
+
+# ========================================
+# Linux (node_exporter)
+# ========================================
+- name: Include Linux tasks
+  ansible.builtin.include_tasks: linux.yml
+  when:
+    - node_exporter_enabled | bool
+    - ansible_os_family in ['RedHat', 'Debian']
+  tags: [observability, node_exporter]
+
+# ========================================
+# Windows (windows_exporter)
+# ========================================
+- name: Include Windows tasks
+  ansible.builtin.include_tasks: windows.yml
+  when:
+    - windows_exporter_enabled | bool
+    - ansible_os_family == 'Windows'
+  tags: [observability, windows_exporter]
+
+# ========================================
+# macOS (node_exporter via Homebrew)
+# ========================================
+- name: Include macOS tasks
+  ansible.builtin.include_tasks: macos.yml
+  when:
+    - node_exporter_enabled | bool
+    - ansible_os_family == 'Darwin'
+  tags: [observability, node_exporter]
+
+# ========================================
+# Unsupported OS
+# ========================================
+- name: Skip unsupported OS
+  ansible.builtin.debug:
+    msg: "No exporter available for OS family: {{ ansible_os_family }}"
+  when: ansible_os_family not in ['RedHat', 'Debian', 'Windows', 'Darwin']
+  tags: [observability]

@@ -1,0 +1,72 @@
+#!/bin/bash
+# Power-aware swayidle for basecamp node
+# Managed by Ansible - basecamp_ui role
+#
+# On AC power: never lock/sleep (stay awake for ops)
+# On battery: lock after 20 min, DPMS off after 25 min
+#
+# Respects caffeine mode (systemd-inhibit)
+
+LOCK_CMD="swaylock -f -c 1a1a2e"
+BATTERY_LOCK_TIMEOUT=1200   # 20 minutes
+BATTERY_DPMS_TIMEOUT=1500   # 25 minutes
+
+get_power_source() {
+    # Check if on AC power
+    if [ -f /sys/class/power_supply/AC/online ]; then
+        cat /sys/class/power_supply/AC/online
+    elif [ -f /sys/class/power_supply/ACAD/online ]; then
+        cat /sys/class/power_supply/ACAD/online
+    else
+        # Assume AC if no battery info
+        echo "1"
+    fi
+}
+
+run_swayidle() {
+    local on_ac=$(get_power_source)
+
+    # Kill any existing swayidle
+    pkill -x swayidle 2>/dev/null
+    sleep 0.5
+
+    if [ "$on_ac" = "1" ]; then
+        # On AC: no timeouts, only lock before sleep (for manual suspend)
+        exec swayidle -w \
+            before-sleep "$LOCK_CMD"
+    else
+        # On battery: lock and DPMS timeouts
+        exec swayidle -w \
+            timeout $BATTERY_LOCK_TIMEOUT "$LOCK_CMD" \
+            timeout $BATTERY_DPMS_TIMEOUT 'swaymsg "output * dpms off"' \
+            resume 'swaymsg "output * dpms on"' \
+            before-sleep "$LOCK_CMD"
+    fi
+}
+
+# Monitor power changes and restart swayidle
+monitor_power() {
+    local last_state=$(get_power_source)
+
+    while true; do
+        sleep 10
+        local current_state=$(get_power_source)
+
+        if [ "$current_state" != "$last_state" ]; then
+            last_state=$current_state
+            if [ "$current_state" = "1" ]; then
+                notify-send "Power" "AC connected - idle disabled" -t 3000
+            else
+                notify-send "Power" "On battery - idle enabled (20 min)" -t 3000
+            fi
+            # Restart swayidle with new settings
+            run_swayidle &
+        fi
+    done
+}
+
+# Start swayidle
+run_swayidle &
+
+# Monitor power changes in background
+monitor_power &

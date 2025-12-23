@@ -1,0 +1,18 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Handlers for basecamp_ui role
+
+- name: restart greetd
+  ansible.builtin.systemd:
+    name: greetd
+    state: restarted
+  listen: "restart greetd"
+  failed_when: false
+
+- name: restart sddm
+  ansible.builtin.systemd:
+    name: sddm
+    state: restarted
+  listen: "restart sddm"
+  failed_when: false
