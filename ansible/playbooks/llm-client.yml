@@ -1,0 +1,124 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Client Deployment Playbook
+#
+# Deploys LLM client tools and aider for AI Fabric integration.
+# All clients connect to the central LiteLLM gateway on motoko.
+#
+# Usage:
+#   # Deploy to all LLM client hosts
+#   ansible-playbook playbooks/llm-client.yml
+#
+#   # Deploy to specific host
+#   ansible-playbook playbooks/llm-client.yml --limit armitage
+#
+#   # Canary deployment (recommended first run)
+#   ansible-playbook playbooks/llm-client.yml --limit armitage,akira
+#
+#   # Only install tools (skip aider)
+#   ansible-playbook playbooks/llm-client.yml --tags llm-tools
+#
+#   # Only run validation
+#   ansible-playbook playbooks/llm-client.yml --tags validate
+
+- name: Deploy LLM Client Tools and Aider
+  hosts: llm_client_nodes
+  gather_facts: true
+  become: true
+
+  vars:
+    # LiteLLM Gateway (from Team 1 handoff)
+    llm_gateway_base_url: "http://motoko.pangolin-vega.ts.net:4000/v1"
+    llm_gateway_health_url: "http://motoko.pangolin-vega.ts.net:4000/health"
+
+  pre_tasks:
+    - name: Display deployment info
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "LLM CLIENT DEPLOYMENT"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "Target Host:  {{ inventory_hostname }}"
+          - "OS Family:    {{ ansible_os_family }}"
+          - "Gateway:      {{ llm_gateway_base_url }}"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [always]
+
+    - name: Verify Tailscale connectivity to gateway
+      ansible.builtin.uri:
+        url: "{{ llm_gateway_health_url }}"
+        method: GET
+        timeout: 10
+      register: gateway_health
+      ignore_errors: true
+      tags: [validate]
+
+    - name: Warn if gateway unreachable
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  LiteLLM gateway unreachable: {{ llm_gateway_health_url }}
+
+          This may indicate:
+          1. Tailscale not connected
+          2. LiteLLM service not running on motoko
+          3. Firewall blocking port 4000
+
+          Continuing with deployment, but verify gateway after completion.
+      when: gateway_health.failed | default(false)
+      tags: [validate]
+
+  roles:
+    # Deploy LLM Contract (defines roles, gateway URL)
+    - role: llm_contract_client
+      tags: [llm, llm-contract]
+
+    # Deploy wrapper scripts (llm-env, llm-doctor, aider wrapper)
+    - role: llm_client_tools
+      tags: [llm, llm-tools]
+
+    # Install aider
+    - role: aider
+      tags: [aider]
+
+  post_tasks:
+    - name: Run llm-doctor validation
+      ansible.builtin.command: /usr/local/bin/llm-doctor --quick
+      register: llm_doctor_result
+      changed_when: false
+      failed_when: false
+      tags: [validate]
+
+    - name: Display llm-doctor results
+      ansible.builtin.debug:
+        msg: "{{ llm_doctor_result.stdout_lines | default(['llm-doctor not available']) }}"
+      when: llm_doctor_result.stdout is defined
+      tags: [validate]
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "═══════════════════════════════════════════════════════════"
+          - "LLM CLIENT DEPLOYMENT COMPLETE"
+          - "═══════════════════════════════════════════════════════════"
+          - ""
+          - "Installed on: {{ inventory_hostname }}"
+          - ""
+          - "Tools installed:"
+          - "  /usr/local/bin/llm-env      - LLM environment wrapper"
+          - "  /usr/local/bin/llm-doctor   - Diagnostics"
+          - "  /usr/local/bin/ai           - Aider wrapper"
+          - ""
+          - "Configuration:"
+          - "  /etc/miket/llm/contract.json"
+          - "  /etc/miket/llm/README.md"
+          - ""
+          - "Quick start:"
+          - "  ai                          - Start aider with coder role"
+          - "  ai --role reasoner          - Use reasoner role"
+          - "  llm-doctor                  - Run full diagnostics"
+          - ""
+          - "═══════════════════════════════════════════════════════════"
+      tags: [always]

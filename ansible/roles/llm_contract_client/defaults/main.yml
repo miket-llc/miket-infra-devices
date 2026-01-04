@@ -1,0 +1,23 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Contract Client defaults
+
+# Directory for LLM client configuration
+llm_config_dir: /etc/miket/llm
+
+# LiteLLM gateway configuration
+llm_gateway_base_url: "http://motoko.pangolin-vega.ts.net:4000/v1"
+llm_gateway_health_url: "http://motoko.pangolin-vega.ts.net:4000/health"
+
+# Default role for different applications
+llm_default_roles:
+  openhands: coder
+  claude_code: coder
+  aider: coder
+  continue: coder
+  obsidian: chat
+  rag: encoder
+
+# Contract schema version
+llm_contract_version: "1.0.0"

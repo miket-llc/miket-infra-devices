@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Contract Client - Windows tasks
+# NOTE: Windows native support deferred; use WSL2 for now
+
+- name: Windows LLM Contract - Not Yet Implemented
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CONTRACT CLIENT - WINDOWS"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Native Windows support is deferred."
+      - "For now, use WSL2 with the Linux configuration."
+      - ""
+      - "See: docs/runbooks/wsl2-standardization.md"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-contract]
+
+- name: Skip Windows native deployment
+  ansible.builtin.meta: end_play
+  when: not (llm_windows_native | default(false))
+  tags: [llm, llm-contract]

@@ -1,0 +1,114 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Client Tools - Linux tasks
+
+- name: Display LLM Client Tools setup info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CLIENT TOOLS SETUP"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Install Directory: {{ llm_tools_bin_dir }}"
+      - "Config Directory:  {{ llm_config_dir }}"
+      - ""
+      - "Tools to install:"
+      - "  - llm-env    (LLM environment wrapper)"
+      - "  - llm-doctor (Diagnostics and validation)"
+      - "  - ai         (Aider wrapper)"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-tools]
+
+# ========================================
+# Prerequisites
+# ========================================
+- name: Ensure jq is installed (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: jq
+    state: present
+  when: ansible_os_family == 'RedHat'
+  tags: [llm, llm-tools, packages]
+
+- name: Ensure jq is installed (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: jq
+    state: present
+  when: ansible_os_family == 'Debian'
+  tags: [llm, llm-tools, packages]
+
+- name: Ensure curl is installed (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: curl
+    state: present
+  when: ansible_os_family == 'RedHat'
+  tags: [llm, llm-tools, packages]
+
+# ========================================
+# LLM Environment Wrapper
+# ========================================
+- name: Install llm-env wrapper script
+  ansible.builtin.template:
+    src: llm-env.sh.j2
+    dest: "{{ llm_tools_bin_dir }}/llm-env"
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [llm, llm-tools]
+
+# ========================================
+# LLM Doctor (Diagnostics)
+# ========================================
+- name: Install llm-doctor script
+  ansible.builtin.template:
+    src: llm-doctor.sh.j2
+    dest: "{{ llm_tools_bin_dir }}/llm-doctor"
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [llm, llm-tools]
+
+# ========================================
+# Aider Wrapper
+# ========================================
+- name: Install ai (aider) wrapper script
+  ansible.builtin.template:
+    src: ai.sh.j2
+    dest: "{{ llm_tools_bin_dir }}/ai"
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [llm, llm-tools]
+
+# ========================================
+# Validation
+# ========================================
+- name: Verify llm-env is executable
+  ansible.builtin.command: "{{ llm_tools_bin_dir }}/llm-env --help"
+  register: llm_env_check
+  changed_when: false
+  failed_when: llm_env_check.rc != 0
+  tags: [llm, llm-tools, validate]
+
+- name: Display LLM Client Tools setup complete
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CLIENT TOOLS SETUP COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Installed tools:"
+      - "  {{ llm_tools_bin_dir }}/llm-env"
+      - "  {{ llm_tools_bin_dir }}/llm-doctor"
+      - "  {{ llm_tools_bin_dir }}/ai"
+      - ""
+      - "Usage:"
+      - "  llm-env coder              # Print env vars for coder role"
+      - "  llm-env coder -- cmd       # Run cmd with coder env"
+      - "  ai                         # Start aider (coder role)"
+      - "  ai --role reasoner         # Use reasoner role"
+      - "  llm-doctor                 # Run diagnostics"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-tools]

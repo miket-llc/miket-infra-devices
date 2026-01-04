@@ -1,0 +1,67 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Aider installation - macOS tasks
+
+- name: Display aider installation info (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "AIDER INSTALLATION (macOS)"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Install Method:     {{ aider_install_method }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [aider]
+
+# ========================================
+# Skip check
+# ========================================
+- name: Skip aider installation if requested
+  ansible.builtin.meta: end_play
+  when: aider_skip_install | bool
+  tags: [aider]
+
+# ========================================
+# Install aider via uv tool
+# ========================================
+- name: Check if uv is installed
+  ansible.builtin.command: which uv
+  register: uv_check
+  changed_when: false
+  failed_when: false
+  tags: [aider]
+
+- name: Install uv via Homebrew if not present
+  community.general.homebrew:
+    name: uv
+    state: present
+  when: uv_check.rc != 0
+  tags: [aider, packages]
+
+- name: Install aider via uv tool
+  ansible.builtin.shell: |
+    uv tool install {{ aider_package }} --python {{ aider_python_version }}
+  args:
+    creates: "~/.local/bin/aider"
+  when: aider_install_method == 'uv_tool'
+  register: aider_install
+  tags: [aider]
+
+# ========================================
+# Verification
+# ========================================
+- name: Check aider is installed
+  ansible.builtin.command: which aider
+  register: aider_which
+  changed_when: false
+  failed_when: false
+  tags: [aider, validate]
+
+- name: Display installation status
+  ansible.builtin.debug:
+    msg: |
+      Aider installation: {{ 'SUCCESS' if aider_which.rc == 0 else 'FAILED' }}
+      Location: {{ aider_which.stdout | default('not found') }}
+  tags: [aider, validate]

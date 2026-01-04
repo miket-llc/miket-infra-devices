@@ -1,0 +1,279 @@
+#!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# llm-doctor - LLM Client Diagnostics for AI Fabric
+#
+# Validates the LLM client configuration and connectivity.
+#
+# Usage:
+#   llm-doctor           # Run all checks
+#   llm-doctor --quick   # Quick connectivity check only
+#   llm-doctor --verbose # Verbose output
+#
+# Managed by: miket-infra-devices Ansible
+
+set -euo pipefail
+
+# Configuration
+LLM_CONFIG_DIR="{{ llm_config_dir }}"
+LLM_CONTRACT="${LLM_CONFIG_DIR}/contract.json"
+LLM_BASE_URL="{{ llm_gateway_base_url }}"
+LLM_HEALTH_URL="{{ llm_gateway_health_url }}"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+VERBOSE=false
+QUICK=false
+ERRORS=0
+
+usage() {
+    cat <<EOF
+llm-doctor - LLM Client Diagnostics for AI Fabric
+
+USAGE:
+    llm-doctor [OPTIONS]
+
+OPTIONS:
+    --quick     Quick connectivity check only
+    --verbose   Show detailed output
+    --help      Show this help message
+
+CHECKS:
+    1. Contract file present and valid JSON
+    2. LiteLLM gateway health endpoint
+    3. DNS resolution for gateway host
+    4. Model listing from gateway
+    5. Test chat completion with 'coder' role
+    6. Docker/Podman runtime available
+    7. Aider (AI pair programming) available
+
+EOF
+}
+
+log_pass() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
+log_fail() {
+    echo -e "${RED}✗${NC} $1"
+    ((ERRORS++))
+}
+
+log_warn() {
+    echo -e "${YELLOW}⚠${NC} $1"
+}
+
+log_info() {
+    if [[ "${VERBOSE}" == true ]]; then
+        echo "  $1"
+    fi
+}
+
+check_contract() {
+    echo "Checking LLM Contract..."
+
+    if [[ ! -f "${LLM_CONTRACT}" ]]; then
+        log_fail "Contract file not found: ${LLM_CONTRACT}"
+        echo "  Run: ansible-playbook playbooks/llm-client.yml --limit \$(hostname)"
+        return
+    fi
+    log_pass "Contract file exists"
+
+    if ! jq empty "${LLM_CONTRACT}" 2>/dev/null; then
+        log_fail "Contract file is not valid JSON"
+        return
+    fi
+    log_pass "Contract is valid JSON"
+
+    local version
+    version=$(jq -r '.version // "unknown"' "${LLM_CONTRACT}")
+    log_info "Contract version: ${version}"
+}
+
+check_dns() {
+    echo "Checking DNS resolution..."
+
+    local host
+    host=$(echo "${LLM_BASE_URL}" | sed -E 's|https?://([^:/]+).*|\1|')
+
+    if ping -c 1 -W 2 "${host}" > /dev/null 2>&1; then
+        log_pass "DNS resolves: ${host}"
+    else
+        log_fail "Cannot resolve: ${host}"
+        echo "  Check Tailscale: tailscale status"
+    fi
+}
+
+check_gateway_health() {
+    echo "Checking LiteLLM gateway health..."
+
+    local response
+    if response=$(curl -sf --max-time 5 "${LLM_HEALTH_URL}" 2>/dev/null); then
+        log_pass "Gateway health check passed"
+        log_info "Response: ${response}"
+    else
+        log_fail "Gateway health check failed: ${LLM_HEALTH_URL}"
+        echo "  Check: curl ${LLM_HEALTH_URL}"
+    fi
+}
+
+check_models() {
+    echo "Checking model availability..."
+
+    local models
+    if models=$(curl -sf --max-time 10 "${LLM_BASE_URL}/models" 2>/dev/null); then
+        local count
+        count=$(echo "${models}" | jq -r '.data | length' 2>/dev/null || echo "0")
+        log_pass "Models available: ${count}"
+
+        if [[ "${VERBOSE}" == true ]]; then
+            echo "${models}" | jq -r '.data[].id' 2>/dev/null | while read -r model; do
+                log_info "  - ${model}"
+            done
+        fi
+    else
+        log_fail "Cannot list models from gateway"
+    fi
+}
+
+check_chat_completion() {
+    echo "Checking chat completion (coder role)..."
+
+    local response
+    if response=$(curl -sf --max-time 30 -X POST "${LLM_BASE_URL}/chat/completions" \
+        -H "Content-Type: application/json" \
+        -d '{"model": "coder", "messages": [{"role": "user", "content": "Say OK"}], "max_tokens": 10}' 2>/dev/null); then
+
+        local content
+        content=$(echo "${response}" | jq -r '.choices[0].message.content // "no response"' 2>/dev/null)
+        log_pass "Chat completion works"
+        log_info "Response: ${content}"
+    else
+        log_fail "Chat completion failed"
+        echo "  This may indicate the backend (akira) is down or busy"
+    fi
+}
+
+check_container_runtime() {
+    echo "Checking container runtime..."
+
+    if command -v podman &> /dev/null; then
+        log_pass "Podman available"
+        if [[ "${VERBOSE}" == true ]]; then
+            log_info "Version: $(podman --version)"
+        fi
+    elif command -v docker &> /dev/null; then
+        log_pass "Docker available"
+        if [[ "${VERBOSE}" == true ]]; then
+            log_info "Version: $(docker --version)"
+        fi
+    else
+        log_warn "No container runtime (Docker/Podman) found"
+        echo "  Some AI tools may require Docker or Podman for sandboxing"
+    fi
+}
+
+check_aider() {
+    echo "Checking Aider..."
+
+    # Check in both system PATH and user's local bin
+    local aider_path=""
+    if command -v aider &> /dev/null; then
+        aider_path=$(command -v aider)
+    elif [[ -x "$HOME/.local/bin/aider" ]]; then
+        aider_path="$HOME/.local/bin/aider"
+    fi
+
+    if [[ -n "${aider_path}" ]]; then
+        log_pass "Aider available"
+        if [[ "${VERBOSE}" == true ]]; then
+            log_info "Location: ${aider_path}"
+            log_info "Version: $(${aider_path} --version 2>/dev/null || echo 'unknown')"
+        fi
+    else
+        log_warn "Aider not installed"
+        echo "  Install with: uv tool install aider-chat"
+    fi
+}
+
+check_llm_env() {
+    echo "Checking llm-env wrapper..."
+
+    if command -v llm-env &> /dev/null; then
+        log_pass "llm-env wrapper available"
+    else
+        log_fail "llm-env not found"
+    fi
+}
+
+main() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --quick)
+                QUICK=true
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                ;;
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+        shift
+    done
+
+    echo "═══════════════════════════════════════════════════════════"
+    echo "LLM DOCTOR - AI Fabric Client Diagnostics"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "Gateway: ${LLM_BASE_URL}"
+    echo "Config:  ${LLM_CONFIG_DIR}"
+    echo ""
+
+    if [[ "${QUICK}" == true ]]; then
+        check_gateway_health
+    else
+        check_contract
+        echo ""
+        check_dns
+        echo ""
+        check_gateway_health
+        echo ""
+        check_models
+        echo ""
+        check_chat_completion
+        echo ""
+        check_container_runtime
+        echo ""
+        check_aider
+        echo ""
+        check_llm_env
+    fi
+
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    if [[ ${ERRORS} -eq 0 ]]; then
+        echo -e "${GREEN}All checks passed!${NC}"
+        exit 0
+    else
+        echo -e "${RED}${ERRORS} check(s) failed${NC}"
+        echo ""
+        echo "Troubleshooting:"
+        echo "  1. Verify Tailscale: tailscale status"
+        echo "  2. Check gateway: curl ${LLM_HEALTH_URL}"
+        echo "  3. Review runbook: docs/runbooks/LITELLM_OPERATIONS.md"
+        exit 1
+    fi
+}
+
+main "$@"

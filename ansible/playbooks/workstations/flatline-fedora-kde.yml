@@ -1,0 +1,148 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# FLATLINE: FEDORA KDE WORKSTATION (LENOVO YOGA)
+# =============================================================================
+#
+# Comprehensive playbook for flatline as a Fedora KDE workstation.
+# This is a standard workstation without dedicated GPU/LLM capabilities.
+#
+# Architecture References:
+#   - ADR-004: KDE Plasma is the standard desktop for Linux UI nodes
+#
+# USAGE:
+#   Full deployment:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/flatline-fedora-kde.yml
+#
+#   Check mode (dry run):
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/flatline-fedora-kde.yml --check
+#
+#   Desktop only:
+#     ansible-playbook -i inventory/hosts.yml playbooks/workstations/flatline-fedora-kde.yml --tags desktop
+#
+# PREREQUISITES:
+#   - Fresh Fedora KDE installation
+#   - Network connectivity via Tailscale
+#   - mdt user with sudo access
+#
+# =============================================================================
+
+- name: Configure Flatline - Fedora KDE Workstation
+  hosts: flatline
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target host
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Fedora"
+        fail_msg: "This playbook is designed for Fedora workstations only"
+        success_msg: "Host validated: {{ inventory_hostname }} running {{ ansible_distribution }}"
+      tags: [always]
+
+    - name: Display deployment banner
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          FLATLINE: FEDORA KDE WORKSTATION
+          ═══════════════════════════════════════════════════════════════
+
+          Host:           {{ inventory_hostname }}
+          Distribution:   {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel:         {{ ansible_kernel }}
+
+          Architecture References:
+            - ADR-004: KDE Plasma is the Linux UI standard
+
+          Deployment Phases:
+            1. linux_desktop_base      - Common desktop packages, fonts, time sync
+            2. linux_desktop_kde       - KDE Plasma desktop environment
+            3. firewalld_tailnet       - Host firewall (defense-in-depth)
+            4. secrets_sync            - Azure Key Vault → .env files
+            5. common_dev_tools        - Development tools
+            6. podman_standard_linux   - Container runtime
+            7. workstation_gui_tools   - GUI applications
+
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]
+
+  roles:
+    # ========================================
+    # Phase 1: Base Desktop Setup
+    # ========================================
+    - role: linux_desktop_base
+      tags: [desktop, base]
+
+    # ========================================
+    # Phase 2: KDE Plasma Desktop
+    # ========================================
+    - role: linux_desktop_kde
+      tags: [desktop, kde]
+
+    # ========================================
+    # Phase 3: Host Firewall (Defense-in-Depth)
+    # ========================================
+    - role: firewalld_tailnet
+      tags: [firewall, security]
+
+    # ========================================
+    # Phase 4: Secrets Sync (AKV → .env)
+    # ========================================
+    - role: secrets_sync
+      vars:
+        secrets_map_file: "{{ playbook_dir }}/../../secrets-map.yml"
+      tags: [secrets]
+
+    # ========================================
+    # Phase 5: Development Tools
+    # ========================================
+    - role: common_dev_tools
+      tags: [dev_tools]
+
+    # ========================================
+    # Phase 6: Container Runtime
+    # ========================================
+    - role: podman_standard_linux
+      tags: [containers, podman]
+
+    # ========================================
+    # Phase 7: GUI Applications
+    # ========================================
+    - role: workstation_gui_tools
+      tags: [gui_tools]
+
+  post_tasks:
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg: |
+          ═══════════════════════════════════════════════════════════════
+          FLATLINE DEPLOYMENT COMPLETE
+          ═══════════════════════════════════════════════════════════════
+
+          ✅ Desktop Environment
+             - KDE Plasma installed and configured
+             - Display manager: SDDM (Wayland session)
+
+          ✅ Host Firewall (Defense-in-Depth)
+             - SSH: tailnet only (100.64.0.0/10)
+             - NoMachine (4000): tailnet only
+
+          ✅ Development Environment
+             - Container runtime: Podman
+             - Dev tools: git, tmux, neovim, etc.
+             - GUI apps: VS Code, Warp
+
+          ✅ LLM Client Access
+             - Gateway: http://akira.pangolin-vega.ts.net:4000
+             - Use: ASK_BASE_URL=http://akira:4000
+
+          ═══════════════════════════════════════════════════════════════
+
+          NEXT STEPS:
+          1. Reboot if KDE wasn't already running: sudo systemctl reboot
+          2. Test LLM gateway: curl http://akira:4000/v1/models
+          3. Deploy mounts if needed: make deploy-mounts-linux --limit flatline
+
+          ═══════════════════════════════════════════════════════════════
+      tags: [always]

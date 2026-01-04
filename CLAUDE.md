@@ -69,11 +69,12 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 | **atom** | Basecamp/resilience node | Fedora | Battery-backed, Sway/i3 UI, SSH foothold |
 | **count-zero** | macOS client | macOS | Autofs mounts, OS cloud ingestion |
 
-### Storage Model (Flux/Space/Time)
+### Storage Model (Flux/Space/Time/Matter)
 - **`/space`** - ONLY Source of Record. All data flows INTO `/space`; never mirror FROM it.
 - **`/flux`** - Active workspace (hot, ephemeral)
 - **`/time`** - Backup/history tier (read-mostly)
-- UX paths: `~/{flux,space,time}` on Linux/macOS; `X:/S:/T:` on Windows
+- **`/matter`** - Derived/cached data (embeddings, indexes, build artifacts). Rebuildable from `/space`.
+- UX paths: `~/{flux,space,time,matter}` on Linux/macOS; `X:/S:/T:/M:` on Windows
 
 ### Secrets Management
 Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
@@ -82,6 +83,13 @@ Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
 3. Services read from synced env files (e.g., `/flux/apps/litellm/.env`)
 
 **Never hardcode secrets. 1Password is for humans only.**
+
+### LLM Fabric (AI Nodes)
+Per ADR-005, LLM runtimes split by node type:
+- **Workstations (Ollama):** armitage - interactive, model switching, `ollama run`
+- **Servers (vLLM):** akira - high-throughput inference, OpenAI-compatible API
+- **Gateway (LiteLLM):** akira:4000 - unified proxy, routes to vLLM backend
+- **Clients:** Use `ASK_BASE_URL=http://akira:4000` for all LLM requests
 
 ## Key Files
 - `Makefile` - Primary task runner (`make help` for targets)
@@ -185,3 +193,20 @@ ansible -i ansible/inventory/hosts.yml all -m ping
 # Run ad-hoc command
 ansible -i ansible/inventory/hosts.yml akira -m shell -a "systemctl status litellm"
 ```
+
+## Tailscale SSH
+
+This repo uses Tailscale SSH for most Linux hosts. The wrapper script handles auth:
+
+```bash
+# Direct Tailscale SSH
+tailscale ssh mdt@akira.pangolin-vega.ts.net
+
+# Via wrapper (for Ansible)
+/home/mdt/dev/miket-infra-devices/scripts/tailscale-ssh-wrapper.sh mdt@akira
+
+# Verify mesh connectivity
+./scripts/verify-tailscale-e2e.sh
+```
+
+Hostnames always use MagicDNS format: `<device>.pangolin-vega.ts.net`

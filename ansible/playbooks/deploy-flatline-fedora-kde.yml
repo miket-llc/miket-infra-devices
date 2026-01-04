@@ -1,0 +1,18 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# =============================================================================
+# DEPLOY FLATLINE - FEDORA KDE WORKSTATION
+# =============================================================================
+#
+# Wrapper playbook for deploying flatline as a Fedora KDE workstation.
+#
+# USAGE:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-flatline-fedora-kde.yml
+#
+# For more control, use the full playbook:
+#   ansible-playbook -i inventory/hosts.yml playbooks/workstations/flatline-fedora-kde.yml
+#
+# =============================================================================
+
+- name: Deploy Flatline - Fedora KDE Workstation
+  import_playbook: workstations/flatline-fedora-kde.yml

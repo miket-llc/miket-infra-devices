@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# llm-env - LLM Environment Wrapper for AI Fabric
+#
+# Sets up environment variables for LLM-aware applications to connect
+# to the central LiteLLM gateway.
+#
+# Usage:
+#   llm-env [role]                   # Print environment for role
+#   llm-env [role] -- command args   # Run command with environment
+#   llm-env --app <app>              # Use default role for application
+#   llm-env --help                   # Show help
+#
+# Managed by: miket-infra-devices Ansible
+
+set -euo pipefail
+
+# Configuration
+LLM_CONFIG_DIR="{{ llm_config_dir }}"
+LLM_CONTRACT="{{ '${LLM_CONFIG_DIR}' }}/contract.json"
+LLM_BASE_URL="{{ llm_gateway_base_url }}"
+
+# Default roles per application
+declare -A APP_DEFAULTS=(
+    [aider]="{{ llm_default_role_aider }}"
+    [continue]="coder"
+    [claude-code]="coder"
+    [obsidian]="chat"
+    [rag]="encoder"
+    [default]="{{ llm_default_role_general }}"
+)
+
+usage() {
+    cat <<EOF
+llm-env - LLM Environment Wrapper for AI Fabric
+
+USAGE:
+    llm-env [OPTIONS] [ROLE] [-- COMMAND [ARGS...]]
+
+ROLES:
+    coder     Code generation, review, and editing (default for aider)
+    reasoner  Complex multi-step reasoning and analysis
+    encoder   Text embeddings for semantic search
+    chat      General conversation and quick queries
+
+OPTIONS:
+    --app <app>     Use default role for application
+                    Supported: aider, continue, obsidian, rag
+    --export        Output as export statements (for sourcing)
+    --json          Output as JSON
+    --help          Show this help message
+
+EXAMPLES:
+    # Print environment variables for coder role
+    llm-env coder
+
+    # Run a command with coder environment
+    llm-env coder -- python my_script.py
+
+    # Use default role for aider
+    llm-env --app aider -- aider
+
+    # Source into current shell
+    eval \$(llm-env --export coder)
+
+CONFIGURATION:
+    Contract: ${LLM_CONTRACT}
+    Gateway:  ${LLM_BASE_URL}
+
+EOF
+}
+
+error() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+# Check contract file exists
+check_contract() {
+    if [[ ! -f "${LLM_CONTRACT}" ]]; then
+        error "LLM Contract not found: ${LLM_CONTRACT}
+Run: ansible-playbook playbooks/llm-client.yml --limit \$(hostname)"
+    fi
+}
+
+# Get role from contract (validates it exists)
+validate_role() {
+    local role="$1"
+    if ! jq -e ".roles.${role}" "${LLM_CONTRACT}" > /dev/null 2>&1; then
+        error "Unknown role: ${role}
+Available roles: $(jq -r '.roles | keys | join(", ")' "${LLM_CONTRACT}")"
+    fi
+}
+
+# Get default role for an application
+get_app_default() {
+    local app="$1"
+    # Try contract defaults first
+    local role
+    role=$(jq -r ".defaults.${app} // empty" "${LLM_CONTRACT}" 2>/dev/null || true)
+    if [[ -n "${role}" ]]; then
+        echo "${role}"
+        return
+    fi
+    # Fall back to hardcoded defaults
+    echo "{{ '${APP_DEFAULTS[${app}]:-${APP_DEFAULTS[default]}}' }}"
+}
+
+# Output environment variables
+output_env() {
+    local role="$1"
+    local format="${2:-plain}"
+
+    case "${format}" in
+        export)
+            echo "export LLM_MODEL=\"${role}\""
+            echo "export LLM_BASE_URL=\"${LLM_BASE_URL}\""
+            echo "export LLM_API_KEY=\"not-required\""
+            echo "export OPENAI_API_BASE=\"${LLM_BASE_URL}\""
+            echo "export OPENAI_API_KEY=\"not-required\""
+            ;;
+        json)
+            jq -n \
+                --arg model "${role}" \
+                --arg base_url "${LLM_BASE_URL}" \
+                '{LLM_MODEL: $model, LLM_BASE_URL: $base_url, LLM_API_KEY: "not-required"}'
+            ;;
+        *)
+            echo "LLM_MODEL=${role}"
+            echo "LLM_BASE_URL=${LLM_BASE_URL}"
+            echo "LLM_API_KEY=not-required"
+            echo "OPENAI_API_BASE=${LLM_BASE_URL}"
+            echo "OPENAI_API_KEY=not-required"
+            ;;
+    esac
+}
+
+# Main logic
+main() {
+    local role=""
+    local app=""
+    local format="plain"
+    local cmd_args=()
+    local in_cmd=false
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --)
+                in_cmd=true
+                shift
+                cmd_args=("$@")
+                break
+                ;;
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            --app)
+                shift
+                app="$1"
+                ;;
+            --export)
+                format="export"
+                ;;
+            --json)
+                format="json"
+                ;;
+            -*)
+                error "Unknown option: $1"
+                ;;
+            *)
+                role="$1"
+                ;;
+        esac
+        shift
+    done
+
+    # Check prerequisites
+    check_contract
+
+    # Determine role
+    if [[ -n "${app}" ]]; then
+        role=$(get_app_default "${app}")
+    elif [[ -z "${role}" ]]; then
+        role="{{ '${APP_DEFAULTS[default]}' }}"
+    fi
+
+    # Validate role
+    validate_role "${role}"
+
+    if [[ ${in_cmd} == true ]] && [[ {{ '${#cmd_args[@]}' }} -gt 0 ]]; then
+        # Execute command with environment
+        export LLM_MODEL="${role}"
+        export LLM_BASE_URL="${LLM_BASE_URL}"
+        export LLM_API_KEY="not-required"
+        export OPENAI_API_BASE="${LLM_BASE_URL}"
+        export OPENAI_API_KEY="not-required"
+        exec "${cmd_args[@]}"
+    else
+        # Output environment
+        output_env "${role}" "${format}"
+    fi
+}
+
+main "$@"

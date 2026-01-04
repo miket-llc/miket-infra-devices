@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+#
+# ai - Aider Wrapper for AI Fabric
+#
+# Thin wrapper that sets up LLM environment and runs aider.
+# Default role is 'coder' per the LLM Contract.
+#
+# Usage:
+#   ai                          # Start aider (coder role)
+#   ai --role reasoner          # Use reasoner role
+#   ai file1.py file2.py        # Start with specific files
+#   ai --help                   # Show help
+#
+# Managed by: miket-infra-devices Ansible
+
+set -euo pipefail
+
+# Ensure ~/.local/bin is in PATH (for uv-installed tools)
+export PATH="$HOME/.local/bin:$PATH"
+
+# Configuration
+DEFAULT_ROLE="{{ llm_default_role_aider }}"
+LLM_BASE_URL="{{ llm_gateway_base_url }}"
+
+usage() {
+    cat <<EOF
+ai - Aider Wrapper for AI Fabric
+
+USAGE:
+    ai [OPTIONS] [FILES...]
+
+OPTIONS:
+    --role <role>   Use a specific LLM role (default: ${DEFAULT_ROLE})
+                    Roles: coder, reasoner, chat
+    --dry-run       Show what would be executed
+    --help          Show this help message
+
+AIDER OPTIONS (passed through):
+    --no-auto-commits   Don't auto-commit changes
+    --watch-files       Watch for file changes
+    --yes               Always say yes to prompts
+
+EXAMPLES:
+    # Start aider with default coder role
+    ai
+
+    # Start with specific files
+    ai src/main.py tests/test_main.py
+
+    # Use reasoner role for complex analysis
+    ai --role reasoner
+
+    # No auto-commits
+    ai --no-auto-commits
+
+ENVIRONMENT:
+    Model: ${DEFAULT_ROLE} via LiteLLM
+    Gateway: ${LLM_BASE_URL}
+
+EOF
+}
+
+error() {
+    echo "ERROR: $*" >&2
+    exit 1
+}
+
+# Check aider is installed
+check_aider() {
+    if ! command -v aider &> /dev/null; then
+        error "Aider not found. Install with:
+  uv tool install aider-chat
+  # or
+  pip install aider-chat"
+    fi
+}
+
+main() {
+    local role="${DEFAULT_ROLE}"
+    local dry_run=false
+    local args=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --role)
+                shift
+                role="$1"
+                ;;
+            --dry-run)
+                dry_run=true
+                ;;
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            *)
+                args+=("$1")
+                ;;
+        esac
+        shift
+    done
+
+    # Validate role
+    case "${role}" in
+        coder|reasoner|chat)
+            ;;
+        *)
+            error "Unknown role: ${role}
+Valid roles: coder, reasoner, chat"
+            ;;
+    esac
+
+    # Check prerequisites
+    check_aider
+
+    # Remove trailing /v1 if present (aider adds it)
+    local base_url="${LLM_BASE_URL%/v1}"
+
+    if [[ "${dry_run}" == true ]]; then
+        echo "Would execute:"
+        echo "  aider --openai-api-base ${base_url} --openai-api-key not-required --model openai/${role} ${args[*]:-}"
+        exit 0
+    fi
+
+    # Display startup info
+    echo "═══════════════════════════════════════════════════════════"
+    echo "Aider via AI Fabric"
+    echo "═══════════════════════════════════════════════════════════"
+    echo ""
+    echo "LLM Role:    ${role}"
+    echo "Gateway:     ${base_url}"
+    echo ""
+    echo "Starting aider..."
+    echo ""
+
+    # Run aider with explicit API base flag (more reliable than env vars)
+    # --subtree-only limits repo-map to current directory (avoids model confusion from large repos)
+    # The LiteLLM gateway maps roles to actual models
+    exec aider \
+        --openai-api-base "${base_url}" \
+        --openai-api-key "not-required" \
+        --model "openai/${role}" \
+        --subtree-only \
+        "${args[@]:-}"
+}
+
+main "$@"

@@ -1,0 +1,25 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Client Tools - Windows tasks
+# NOTE: Windows native support deferred; use WSL2 for now
+
+- name: Windows LLM Client Tools - Not Yet Implemented
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CLIENT TOOLS - WINDOWS"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Native Windows support is deferred."
+      - "For now, use WSL2 with the Linux configuration."
+      - ""
+      - "See: docs/runbooks/wsl2-standardization.md"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-tools]
+
+- name: Skip Windows native deployment
+  ansible.builtin.meta: end_play
+  when: not (llm_windows_native | default(false))
+  tags: [llm, llm-tools]

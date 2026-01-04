@@ -1,0 +1,86 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Contract Client - Linux tasks
+
+- name: Display LLM Contract client setup info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CONTRACT CLIENT SETUP"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Config Directory: {{ llm_config_dir }}"
+      - "Gateway URL:      {{ llm_gateway_base_url }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-contract]
+
+# ========================================
+# Directory Setup
+# ========================================
+- name: Ensure /etc/miket directory exists
+  ansible.builtin.file:
+    path: /etc/miket
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [llm, llm-contract]
+
+- name: Ensure LLM config directory exists
+  ansible.builtin.file:
+    path: "{{ llm_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [llm, llm-contract]
+
+# ========================================
+# Contract Distribution
+# ========================================
+- name: Deploy LLM Contract
+  ansible.builtin.template:
+    src: contract.json.j2
+    dest: "{{ llm_config_dir }}/contract.json"
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [llm, llm-contract]
+
+- name: Deploy LLM Contract README
+  ansible.builtin.template:
+    src: README.md.j2
+    dest: "{{ llm_config_dir }}/README.md"
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [llm, llm-contract]
+
+# ========================================
+# Validation
+# ========================================
+- name: Validate contract JSON syntax
+  ansible.builtin.command: >
+    python3 -c "import json; json.load(open('{{ llm_config_dir }}/contract.json'))"
+  register: contract_validation
+  changed_when: false
+  failed_when: contract_validation.rc != 0
+  tags: [llm, llm-contract, validate]
+
+- name: Display LLM Contract client setup complete
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CONTRACT CLIENT SETUP COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Contract installed: {{ llm_config_dir }}/contract.json"
+      - "Gateway URL:        {{ llm_gateway_base_url }}"
+      - ""
+      - "To verify gateway connectivity:"
+      - "  curl {{ llm_gateway_health_url }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-contract]

@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "{{ llm_contract_version }}",
+  "last_updated": "{{ ansible_date_time.date }}",
+  "description": "LLM Contract - Authoritative interface specification for AI Fabric consumers",
+  "base_url": "{{ llm_gateway_base_url }}",
+  "auth": {
+    "type": "none",
+    "note": "Tailnet-only access provides network-layer security; no API key required"
+  },
+  "primary_backend": {
+    "model": "Qwen3-Coder-30B-A3B-Instruct-Q4_K_M",
+    "host": "akira.pangolin-vega.ts.net:8000",
+    "runtime": "llama.cpp",
+    "gpu": "AMD Radeon 890M (ROCm)"
+  },
+  "roles": {
+    "coder": {
+      "description": "Code generation, review, and editing tasks",
+      "context_window": 32768,
+      "recommended_for": ["openhands", "claude-code", "aider", "continue"],
+      "fallback": "gpt-4o",
+      "tier": "high"
+    },
+    "reasoner": {
+      "description": "Complex multi-step reasoning and analysis",
+      "context_window": 32768,
+      "recommended_for": ["research", "planning", "analysis"],
+      "fallback": "gpt-4o",
+      "tier": "high"
+    },
+    "encoder": {
+      "description": "Text embeddings for semantic search and similarity",
+      "context_window": 8192,
+      "recommended_for": ["search", "rag", "clustering"],
+      "fallback": "text-embedding-3-small",
+      "tier": "fast",
+      "note": "Returns embedding vectors, not chat completions"
+    },
+    "chat": {
+      "description": "General conversation and quick responses",
+      "context_window": 8192,
+      "recommended_for": ["chatbots", "quick-queries", "interactive"],
+      "fallback": "gpt-4o-mini",
+      "tier": "fast"
+    }
+  },
+  "defaults": {
+{% for app, role in llm_default_roles.items() %}
+    "{{ app }}": "{{ role }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+  },
+  "deprecated_roles": {
+    "chat-fast": {
+      "replacement": "chat",
+      "reason": "Use persona roles for new applications"
+    },
+    "chat-deep": {
+      "replacement": "coder",
+      "reason": "Use persona roles for new applications"
+    }
+  },
+  "endpoints": {
+    "chat_completions": "/chat/completions",
+    "completions": "/completions",
+    "embeddings": "/embeddings",
+    "models": "/models",
+    "health": "/health"
+  },
+  "limits": {
+    "max_tokens_default": 4096,
+    "timeout_seconds": 60,
+    "rate_limit": "none (tailnet-only)"
+  },
+  "network": {
+    "access": "tailnet-only",
+    "tailnet": "pangolin-vega.ts.net",
+    "public_exposure": false
+  },
+  "troubleshooting": {
+    "health_check": "curl {{ llm_gateway_health_url }}",
+    "list_models": "curl {{ llm_gateway_base_url }}/models",
+    "test_chat": "curl -X POST {{ llm_gateway_base_url }}/chat/completions -H 'Content-Type: application/json' -d '{\"model\": \"chat\", \"messages\": [{\"role\": \"user\", \"content\": \"ping\"}]}'"
+  },
+  "contact": {
+    "documentation": "docs/architecture/components/AI_FABRIC_SERVICE.md",
+    "adr": "docs/architecture/adr/ADR-006-llm-contract-role-model-naming.md",
+    "runbook": "docs/runbooks/LITELLM_OPERATIONS.md"
+  }
+}

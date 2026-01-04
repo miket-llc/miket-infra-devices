@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -21,6 +21,11 @@ help:
 	@echo "  deploy-litellm          - Deploy LiteLLM proxy to Akira (routes to vLLM)"
 	@echo "  validate-litellm        - Validate LiteLLM deployment on Akira"
 	@echo "  deploy-ask-cli          - Deploy ask CLI to workstations"
+	@echo ""
+	@echo "LLM Client Tools (OpenHands):"
+	@echo "  deploy-llm-client          - Deploy LLM client tools + OpenHands to workstations"
+	@echo "  deploy-llm-client-canary   - Canary deployment (armitage + akira only)"
+	@echo "  validate-llm-client        - Validate LLM client deployment"
 	@echo ""
 	@echo "vLLM (Legacy):"
 	@echo "  deploy-wintermute       - Deploy vLLM updates to Wintermute"
@@ -654,4 +659,61 @@ deploy-nodejs-nvm:
 	@echo "Usage:"
 	@echo "  source ~/.bashrc  # or ~/.zshrc"
 	@echo "  npm install -g <package>  # no sudo needed!"
+
+# ========================================
+# LLM Client Tools (OpenHands)
+# ========================================
+
+# Deploy LLM client tools and OpenHands to all client nodes
+deploy-llm-client:
+	@echo "========================================"
+	@echo "LLM Client Tools + OpenHands Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy to all LLM client nodes:"
+	@echo "  ✓ LLM Contract (/etc/miket/llm/contract.json)"
+	@echo "  ✓ llm-env wrapper script"
+	@echo "  ✓ llm-doctor diagnostics"
+	@echo "  ✓ oh (OpenHands) wrapper"
+	@echo "  ✓ OpenHands via uv"
+	@echo ""
+	@echo "Gateway: http://motoko.pangolin-vega.ts.net:4000/v1"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml
+	@echo ""
+	@echo "✅ LLM Client Tools deployed!"
+	@echo ""
+	@echo "Usage:"
+	@echo "  oh serve              # Start OpenHands (coder role)"
+	@echo "  oh serve --mount-cwd  # With current directory mounted"
+	@echo "  llm-env coder         # Print env vars for coder role"
+	@echo "  llm-doctor            # Run diagnostics"
+	@echo ""
+	@echo "Runbook: docs/runbooks/OPENHANDS_USAGE.md"
+
+# Canary deployment (armitage + akira only)
+deploy-llm-client-canary:
+	@echo "========================================"
+	@echo "LLM Client Tools - CANARY Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "Deploying to canary hosts only:"
+	@echo "  - armitage (Linux workstation)"
+	@echo "  - akira (AI workstation)"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml --limit armitage,akira
+	@echo ""
+	@echo "✅ Canary deployment complete!"
+	@echo ""
+	@echo "Verify with: make validate-llm-client"
+
+# Validate LLM client deployment
+validate-llm-client:
+	@echo "========================================"
+	@echo "LLM Client Validation"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml --tags validate
+	@echo ""
+	@echo "✅ Validation complete!"
 

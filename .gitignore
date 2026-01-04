@@ -95,3 +95,4 @@ venv/
 # Local overrides
 *.local
 local/
+.aider*

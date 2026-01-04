@@ -1,0 +1,22 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Client Tools defaults
+
+# Installation paths
+llm_tools_bin_dir: /usr/local/bin
+llm_config_dir: /etc/miket/llm
+
+# LiteLLM gateway (must match llm_contract_client)
+llm_gateway_base_url: "http://motoko.pangolin-vega.ts.net:4000/v1"
+llm_gateway_health_url: "http://motoko.pangolin-vega.ts.net:4000/health"
+
+# Default roles per application
+llm_default_role_aider: coder
+llm_default_role_general: chat
+
+# Tools to install
+llm_tools_install:
+  - llm-env
+  - llm-doctor
+  - ai

@@ -1,0 +1,79 @@
+# LLM Client Configuration
+
+**Installed:** {{ ansible_date_time.date }}
+**Managed by:** miket-infra-devices Ansible
+
+This directory contains the LLM Contract for AI Fabric integration.
+
+## What This Is
+
+The LLM Contract (`contract.json`) defines how applications on this machine
+connect to the central LiteLLM gateway for AI/LLM services.
+
+**Gateway URL:** {{ llm_gateway_base_url }}
+**Auth:** None (tailnet provides network-layer security)
+
+## Available Roles
+
+| Role | Purpose |
+|------|---------|
+| `coder` | Code generation, review, editing |
+| `reasoner` | Complex reasoning and analysis |
+| `encoder` | Text embeddings for search/RAG |
+| `chat` | General conversation |
+
+## How to Use
+
+Use the `llm-env` wrapper to set up environment for LLM-aware applications:
+
+```bash
+# Print environment variables for a role
+llm-env coder
+
+# Run a command with the environment
+llm-env coder -- your-command
+
+# Use the OpenHands wrapper
+oh serve
+oh --role reasoner serve
+```
+
+## Verification
+
+```bash
+# Check gateway health
+curl {{ llm_gateway_health_url }}
+
+# List available models
+curl {{ llm_gateway_base_url }}/models
+
+# Test chat completion
+curl -X POST {{ llm_gateway_base_url }}/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model": "chat", "messages": [{"role": "user", "content": "ping"}]}'
+
+# Run full diagnostics
+llm-doctor
+```
+
+## Troubleshooting
+
+If the gateway is unreachable:
+1. Verify Tailscale is connected: `tailscale status`
+2. Check DNS resolution: `ping motoko.pangolin-vega.ts.net`
+3. Check gateway health: `curl {{ llm_gateway_health_url }}`
+
+## Uninstall
+
+To remove this configuration:
+
+```bash
+sudo rm -rf {{ llm_config_dir }}
+sudo rm /usr/local/bin/{llm-env,oh,llm-doctor}
+```
+
+## Documentation
+
+- LLM Contract Spec: See `contract.json` in this directory
+- AI Fabric Architecture: `docs/architecture/components/AI_FABRIC_SERVICE.md`
+- Operations Runbook: `docs/runbooks/LITELLM_OPERATIONS.md`

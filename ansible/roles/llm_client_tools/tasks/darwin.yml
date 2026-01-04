@@ -1,0 +1,104 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# LLM Client Tools - macOS tasks
+
+- name: Display LLM Client Tools setup info (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CLIENT TOOLS SETUP (macOS)"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Install Directory: {{ llm_tools_bin_dir }}"
+      - "Config Directory:  {{ llm_config_dir }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-tools]
+
+# ========================================
+# Prerequisites (macOS)
+# ========================================
+- name: Check if jq is installed (macOS)
+  ansible.builtin.command: which jq
+  register: jq_check
+  changed_when: false
+  failed_when: false
+  tags: [llm, llm-tools, packages]
+
+- name: Install jq via Homebrew (macOS)
+  community.general.homebrew:
+    name: jq
+    state: present
+  when: jq_check.rc != 0
+  become: false
+  tags: [llm, llm-tools, packages]
+
+# ========================================
+# LLM Environment Wrapper
+# ========================================
+- name: Install llm-env wrapper script (macOS)
+  ansible.builtin.template:
+    src: llm-env.sh.j2
+    dest: "{{ llm_tools_bin_dir }}/llm-env"
+    owner: root
+    group: wheel
+    mode: "0755"
+  become: true
+  tags: [llm, llm-tools]
+
+# ========================================
+# LLM Doctor (Diagnostics)
+# ========================================
+- name: Install llm-doctor script (macOS)
+  ansible.builtin.template:
+    src: llm-doctor.sh.j2
+    dest: "{{ llm_tools_bin_dir }}/llm-doctor"
+    owner: root
+    group: wheel
+    mode: "0755"
+  become: true
+  tags: [llm, llm-tools]
+
+# ========================================
+# OpenHands Wrapper
+# ========================================
+- name: Install oh (OpenHands) wrapper script (macOS)
+  ansible.builtin.template:
+    src: oh.sh.j2
+    dest: "{{ llm_tools_bin_dir }}/oh"
+    owner: root
+    group: wheel
+    mode: "0755"
+  become: true
+  tags: [llm, llm-tools]
+
+# ========================================
+# Validation
+# ========================================
+- name: Verify llm-env is executable (macOS)
+  ansible.builtin.command: "{{ llm_tools_bin_dir }}/llm-env --help"
+  register: llm_env_check
+  changed_when: false
+  failed_when: llm_env_check.rc != 0
+  tags: [llm, llm-tools, validate]
+
+- name: Display LLM Client Tools setup complete (macOS)
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "LLM CLIENT TOOLS SETUP COMPLETE (macOS)"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Installed tools:"
+      - "  {{ llm_tools_bin_dir }}/llm-env"
+      - "  {{ llm_tools_bin_dir }}/llm-doctor"
+      - "  {{ llm_tools_bin_dir }}/oh"
+      - ""
+      - "Usage:"
+      - "  llm-env coder              # Print env vars for coder role"
+      - "  oh serve                   # Start OpenHands (coder role)"
+      - "  llm-doctor                 # Run diagnostics"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [llm, llm-tools]

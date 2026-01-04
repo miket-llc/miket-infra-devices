@@ -1,0 +1,19 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Aider role defaults
+
+# Installation method: uv_tool or pip
+aider_install_method: uv_tool
+
+# Python version for uv tool installation
+aider_python_version: "3.12"
+
+# Package name
+aider_package: aider-chat
+
+# User to install aider for
+aider_user: "{{ ansible_user | default('mdt') }}"
+
+# Whether to skip aider installation (for manual installs)
+aider_skip_install: false

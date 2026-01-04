@@ -1,0 +1,140 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Aider installation - Linux tasks
+
+- name: Display aider installation info
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "AIDER INSTALLATION"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Install Method:     {{ aider_install_method }}"
+      - "Python Version:     {{ aider_python_version }}"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  tags: [aider]
+
+# ========================================
+# Skip check
+# ========================================
+- name: Skip aider installation if requested
+  ansible.builtin.meta: end_play
+  when: aider_skip_install | bool
+  tags: [aider]
+
+# ========================================
+# Prerequisites - uv Package Manager
+# ========================================
+- name: Check if uv is installed
+  ansible.builtin.command: which uv
+  register: uv_check
+  changed_when: false
+  failed_when: false
+  tags: [aider]
+
+- name: Get user home directory
+  ansible.builtin.command: "getent passwd {{ aider_user }}"
+  register: aider_user_info
+  changed_when: false
+  tags: [aider]
+
+- name: Set user home path
+  ansible.builtin.set_fact:
+    aider_user_home: "{{ aider_user_info.stdout.split(':')[5] }}"
+  tags: [aider]
+
+- name: Install uv via official installer
+  ansible.builtin.shell: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: "{{ aider_user_home }}/.local/bin/uv"
+  become: true
+  become_user: "{{ aider_user }}"
+  when:
+    - uv_check.rc != 0
+    - aider_install_method == 'uv_tool'
+  tags: [aider, packages]
+
+- name: Ensure ~/.local/bin is in PATH
+  ansible.builtin.lineinfile:
+    path: "{{ aider_user_home }}/.bashrc"
+    line: 'export PATH="$HOME/.local/bin:$PATH"'
+    create: true
+    mode: '0644'
+    owner: "{{ aider_user }}"
+    group: "{{ aider_user }}"
+  tags: [aider]
+
+# ========================================
+# Install aider via uv tool
+# ========================================
+- name: Install aider via uv tool
+  ansible.builtin.shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    uv tool install {{ aider_package }} --python {{ aider_python_version }}
+  args:
+    creates: "{{ aider_user_home }}/.local/bin/aider"
+  become: true
+  become_user: "{{ aider_user }}"
+  when: aider_install_method == 'uv_tool'
+  register: aider_install
+  tags: [aider]
+
+# ========================================
+# Install aider via pip (alternative)
+# ========================================
+- name: Install aider via pip
+  ansible.builtin.pip:
+    name: aider-chat
+    state: present
+    extra_args: --user
+  become: true
+  become_user: "{{ aider_user }}"
+  when: aider_install_method == 'pip'
+  tags: [aider]
+
+# ========================================
+# Verification
+# ========================================
+- name: Check aider is installed
+  ansible.builtin.shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    which aider
+  register: aider_which
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ aider_user }}"
+  tags: [aider, validate]
+
+- name: Display installation status
+  ansible.builtin.debug:
+    msg: |
+      Aider installation: {{ 'SUCCESS' if aider_which.rc == 0 else 'FAILED' }}
+      Location: {{ aider_which.stdout | default('not found') }}
+  tags: [aider, validate]
+
+- name: Display aider installation complete
+  ansible.builtin.debug:
+    msg:
+      - "═══════════════════════════════════════════════════════════"
+      - "AIDER INSTALLATION COMPLETE"
+      - "═══════════════════════════════════════════════════════════"
+      - ""
+      - "Aider installed at: {{ aider_which.stdout | default('~/.local/bin/aider') }}"
+      - ""
+      - "To start aider:"
+      - "  ai                    # Using AI Fabric wrapper (recommended)"
+      - "  aider                 # Direct command"
+      - ""
+      - "With specific files:"
+      - "  ai file1.py file2.py"
+      - ""
+      - "Run diagnostics:"
+      - "  llm-doctor"
+      - ""
+      - "═══════════════════════════════════════════════════════════"
+  when: aider_which.rc == 0
+  tags: [aider]
