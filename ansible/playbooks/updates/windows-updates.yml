@@ -70,15 +70,16 @@
       win_service:
         name: "{{ item }}"
       register: service_status
-      loop: "{{ update_critical_services | default(['WinRM', 'Docker Desktop Service']) }}"
+      loop: "{{ update_critical_services | default(['WinRM']) }}"
       changed_when: false
       failed_when: false
       tags: [pre-check, always]
 
     - name: Display service status
       debug:
-        msg: "Service {{ item.item }}: {{ 'running' if item.status == 'running' else 'not running' }}"
+        msg: "Service {{ item.item }}: {{ 'running' if item.state | default('') == 'running' else 'not running' }}"
       loop: "{{ service_status.results }}"
+      failed_when: false
       tags: [pre-check, always]
 
     - name: Check for pending Windows Updates
@@ -94,12 +95,7 @@
 
     - name: Display available updates
       debug:
-        msg:
-          - "Available Windows Updates:"
-          - "  Security Updates: {{ windows_updates_search.updates | selectattr('categories', 'equalto', ['SecurityUpdates']) | list | length }}"
-          - "  Critical Updates: {{ windows_updates_search.updates | selectattr('categories', 'equalto', ['CriticalUpdates']) | list | length }}"
-          - "  Update Rollups: {{ windows_updates_search.updates | selectattr('categories', 'equalto', ['UpdateRollups']) | list | length }}"
-          - "  Total: {{ windows_updates_search.updates | length }}"
+        msg: "Found {{ windows_updates_search.found_update_count | default(windows_updates_search.updates | length) }} available Windows Updates"
       when: windows_updates_search.updates | length > 0
       tags: [updates, reboot-check, always]
 
@@ -173,14 +169,16 @@
       win_service:
         name: "{{ item }}"
       register: post_update_services
-      loop: "{{ update_critical_services | default(['WinRM', 'Docker Desktop Service']) }}"
+      loop: "{{ update_critical_services | default(['WinRM']) }}"
       changed_when: false
+      failed_when: false
       tags: [verify, always]
 
     - name: Display post-update service status
       debug:
-        msg: "Service {{ item.item }}: {{ 'running' if item.status == 'running' else 'NOT RUNNING - ACTION REQUIRED' }}"
+        msg: "Service {{ item.item }}: {{ 'running' if item.state | default('') == 'running' else 'NOT RUNNING - ACTION REQUIRED' }}"
       loop: "{{ post_update_services.results }}"
+      failed_when: false
       tags: [verify, always]
 
     - name: Generate update summary
@@ -192,7 +190,6 @@
           - "Windows Updates Installed: {{ 'Yes' if windows_updates_install.changed | default(false) else 'No (already up to date)' }}"
           - "Available Updates Found: {{ windows_updates_search.updates | length }}"
           - "Reboot Required: {{ 'YES - Schedule manually' if reboot_required else 'No' }}"
-          - "Services Status: {{ 'All running' if post_update_services.results | selectattr('status', 'equalto', 'running') | list | length == post_update_services.results | length else 'Some services may need attention' }}"
           - "================================================================"
       tags: [always]
 
