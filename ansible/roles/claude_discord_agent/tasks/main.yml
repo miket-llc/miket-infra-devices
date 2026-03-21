@@ -1,0 +1,112 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Claude Discord Agent — systemd user service
+# Deploys a persistent Claude Code session with Discord channel integration.
+# Runs as a user service (not root) under the specified user account.
+
+# ========================================
+# Prerequisites
+# ========================================
+- name: Check Claude binary exists
+  ansible.builtin.stat:
+    path: "{{ claude_agent_binary }}"
+  register: claude_binary
+  tags: [claude-agent, verify]
+
+- name: Fail if Claude binary not found
+  ansible.builtin.fail:
+    msg: "Claude binary not found at {{ claude_agent_binary }}. Install Claude Code first."
+  when: not claude_binary.stat.exists
+  tags: [claude-agent, verify]
+
+- name: Check working directory exists
+  ansible.builtin.stat:
+    path: "{{ claude_agent_workdir }}"
+  register: claude_workdir
+  tags: [claude-agent, verify]
+
+- name: Fail if working directory not found
+  ansible.builtin.fail:
+    msg: "Working directory not found at {{ claude_agent_workdir }}"
+  when: not claude_workdir.stat.exists
+  tags: [claude-agent, verify]
+
+# ========================================
+# Enable lingering (user services survive logout)
+# ========================================
+- name: Enable loginctl lingering for user
+  ansible.builtin.command:
+    cmd: "loginctl enable-linger {{ claude_agent_user }}"
+  become: true
+  changed_when: false
+  tags: [claude-agent, install]
+
+# ========================================
+# Deploy systemd user service
+# ========================================
+- name: Ensure user systemd directory exists
+  ansible.builtin.file:
+    path: "{{ claude_agent_home }}/.config/systemd/user"
+    state: directory
+    owner: "{{ claude_agent_user }}"
+    group: "{{ claude_agent_user }}"
+    mode: "0755"
+  tags: [claude-agent, install]
+
+- name: Deploy Claude Discord agent service unit
+  ansible.builtin.template:
+    src: claude-discord-agent.service.j2
+    dest: "{{ claude_agent_home }}/.config/systemd/user/claude-discord-agent.service"
+    owner: "{{ claude_agent_user }}"
+    group: "{{ claude_agent_user }}"
+    mode: "0644"
+  register: claude_service_unit
+  tags: [claude-agent, install]
+
+# ========================================
+# Enable and start service
+# ========================================
+- name: Reload systemd user daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: user
+  when: claude_service_unit.changed
+  tags: [claude-agent, install]
+
+- name: Enable Claude Discord agent service
+  ansible.builtin.systemd:
+    name: claude-discord-agent
+    enabled: true
+    scope: user
+  tags: [claude-agent, install]
+
+- name: Start Claude Discord agent service
+  ansible.builtin.systemd:
+    name: claude-discord-agent
+    state: started
+    scope: user
+  tags: [claude-agent, install]
+
+# ========================================
+# Verification
+# ========================================
+- name: Check service status
+  ansible.builtin.systemd:
+    name: claude-discord-agent
+    scope: user
+  register: claude_service_status
+  tags: [claude-agent, verify]
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg:
+      - "Claude Discord Agent on {{ inventory_hostname }}"
+      - "Status: {{ claude_service_status.status.ActiveState | default('unknown') }}"
+      - "Binary: {{ claude_agent_binary }}"
+      - "Working dir: {{ claude_agent_workdir }}"
+      - "Channel: {{ claude_agent_channel }}"
+      - ""
+      - "Logs: journalctl --user -u claude-discord-agent -f"
+      - "Restart: systemctl --user restart claude-discord-agent"
+  tags: [claude-agent, verify]

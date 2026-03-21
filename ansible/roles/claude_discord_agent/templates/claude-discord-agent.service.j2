@@ -1,0 +1,41 @@
+# Claude Discord Agent — systemd user service
+# Managed by Ansible (miket-infra-devices)
+# Role: claude_discord_agent
+#
+# Uses a SEPARATE tmux socket (-L claude) so it never conflicts
+# with your personal tmux sessions.
+#
+# Access:  tmux -L claude attach
+# Detach:  Ctrl-b, d
+# Logs:    journalctl --user -u claude-discord-agent -f
+
+[Unit]
+Description=Claude Code Discord Agent
+Documentation=https://github.com/anthropics/claude-code
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=forking
+ExecStart=/usr/bin/tmux -L claude new-session -d -s agent \
+  {{ claude_agent_binary }} \
+  --dangerously-skip-permissions \
+  --channels {{ claude_agent_channel }}
+ExecStop=/usr/bin/tmux -L claude kill-session -t agent
+WorkingDirectory={{ claude_agent_workdir }}
+Restart=on-failure
+RestartSec={{ claude_agent_restart_sec }}
+RemainAfterExit=yes
+
+# Environment
+Environment=HOME={{ claude_agent_home }}
+Environment=PATH={{ claude_agent_home }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TERM=xterm-256color
+{% for key, value in claude_agent_extra_env.items() %}
+Environment={{ key }}={{ value }}
+{% endfor %}
+
+[Install]
+WantedBy=default.target

@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -21,6 +21,10 @@ help:
 	@echo "  deploy-litellm          - Deploy LiteLLM proxy to Akira (routes to vLLM)"
 	@echo "  validate-litellm        - Validate LiteLLM deployment on Akira"
 	@echo "  deploy-ask-cli          - Deploy ask CLI to workstations"
+	@echo ""
+	@echo "Claude Discord Agent (akira):"
+	@echo "  deploy-claude-agent        - Deploy Claude Discord agent as systemd service"
+	@echo "  validate-claude-agent      - Check Claude agent is running"
 	@echo ""
 	@echo "LLM Client Tools (OpenHands):"
 	@echo "  deploy-llm-client          - Deploy LLM client tools + OpenHands to workstations"
@@ -284,6 +288,33 @@ deploy-ask-cli:
 	@echo "  ask 'your question here'"
 	@echo "  ask --list-models"
 	@echo "  ask -m akira/qwen2.5-7b 'explain this'"
+
+# ========================================
+# Claude Discord Agent
+# ========================================
+deploy-claude-agent:
+	@echo "========================================"
+	@echo "Claude Discord Agent Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "This will deploy the Claude Discord agent on akira:"
+	@echo "  ✓ systemd user service (claude-discord-agent)"
+	@echo "  ✓ loginctl linger (survives logout)"
+	@echo "  ✓ auto-restart on failure"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-claude-agent.yml --limit akira
+	@echo ""
+	@echo "✅ Claude Discord agent deployed!"
+	@echo ""
+	@echo "Management:"
+	@echo "  systemctl --user status claude-discord-agent"
+	@echo "  journalctl --user -u claude-discord-agent -f"
+	@echo "  systemctl --user restart claude-discord-agent"
+
+validate-claude-agent:
+	@echo "Checking Claude Discord agent on akira..."
+	@systemctl --user is-active claude-discord-agent && echo "✅ Running" || echo "❌ Not running"
+	@journalctl --user -u claude-discord-agent --since "5 min ago" --no-pager -n 5 2>/dev/null || true
 
 # Quick health check for LiteLLM on Akira
 health-check-litellm:

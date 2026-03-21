@@ -1,0 +1,21 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy Claude Discord Agent
+# Deploys a persistent Claude Code session with Discord channel integration
+# as a systemd user service. Survives reboots via loginctl linger.
+#
+# Usage:
+#   cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-claude-agent.yml --limit akira
+#   cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-claude-agent.yml --limit akira --check --diff
+
+- name: Deploy Claude Discord Agent
+  hosts: akira
+  gather_facts: true
+  # Most tasks run as the target user (not root)
+  # Only loginctl linger needs become: true (set per-task)
+  become: false
+
+  roles:
+    - role: claude_discord_agent
+      tags: [claude-agent]

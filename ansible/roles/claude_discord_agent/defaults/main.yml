@@ -1,0 +1,24 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Claude Discord Agent - Default Variables
+
+# User that runs the Claude session
+claude_agent_user: mdt
+claude_agent_home: "/home/{{ claude_agent_user }}"
+
+# Claude binary path
+claude_agent_binary: "{{ claude_agent_home }}/.local/bin/claude"
+
+# Working directory for the Claude session
+claude_agent_workdir: "{{ claude_agent_home }}/dev"
+
+# Discord plugin identifier
+claude_agent_channel: "plugin:discord@claude-plugins-official"
+
+# Restart policy: on-failure with backoff
+claude_agent_restart_sec: 30
+claude_agent_restart_max_burst: 5
+
+# Environment
+claude_agent_extra_env: {}
