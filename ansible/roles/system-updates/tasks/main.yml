@@ -3,7 +3,7 @@
 ---
 # System Updates Role - Scheduling Infrastructure
 # Purpose: Set up automated weekly update scheduling
-# Linux: Creates systemd timer/service
+# Linux (Fedora/Debian): Creates systemd timer/service on control node
 # Windows: Creates scheduled task
 
 - name: Configure Linux update scheduling
@@ -11,7 +11,7 @@
     - name: Check if running on control node
       set_fact:
         is_control_node: "{{ inventory_hostname == ansible_control_node }}"
-    
+
     - name: Create systemd timer unit for updates
       template:
         src: update-timer.timer.j2
@@ -19,11 +19,11 @@
         owner: root
         group: root
         mode: "0644"
-      when: 
+      when:
         - update_timer_enabled | bool
         - is_control_node | bool
       notify: reload systemd
-    
+
     - name: Create systemd service unit for updates
       template:
         src: update-timer.service.j2
@@ -31,39 +31,39 @@
         owner: root
         group: root
         mode: "0644"
-      when: 
+      when:
         - update_timer_enabled | bool
         - is_control_node | bool
       notify: reload systemd
-    
+
     - name: Enable and start update timer
       systemd:
         name: "{{ update_timer_name }}.timer"
         enabled: "{{ update_timer_enabled | bool }}"
         state: started
         daemon_reload: yes
-      when: 
+      when:
         - update_timer_enabled | bool
         - is_control_node | bool
-    
+
     - name: Display timer status
       command: systemctl status {{ update_timer_name }}.timer --no-pager
       register: timer_status
       changed_when: false
       failed_when: false
-      when: 
+      when:
         - update_timer_enabled | bool
         - is_control_node | bool
-    
+
     - name: Show next run time
       debug:
         msg: "{{ timer_status.stdout_lines }}"
-      when: 
+      when:
         - update_timer_enabled | bool
         - is_control_node | bool
         - timer_status.stdout_lines is defined
-  
-  when: ansible_os_family == "Debian"
+
+  when: ansible_os_family in ["Debian", "RedHat"]
   tags: [scheduling, linux]
 
 - name: Configure Windows update scheduling

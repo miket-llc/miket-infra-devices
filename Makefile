@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -62,11 +62,18 @@ help:
 	@echo "Dev Tools (Node.js/npm):"
 	@echo "  deploy-nodejs-nvm          - Deploy nvm + Node.js (sudo-free npm install -g)"
 	@echo ""
+	@echo "System Updates (Fedora):"
+	@echo "  update-all              - Update all Fedora hosts (packages + Tailscale + services)"
+	@echo "  update-all-check        - Dry-run updates (see what would change)"
+	@echo "  update-host HOST=<name> - Update a single host (e.g., make update-host HOST=akira)"
+	@echo "  verify-services         - Verify all services are running (no updates)"
+	@echo "  setup-update-scheduling - Setup weekly automated updates on control node"
+	@echo ""
 	@echo "Tailscale & SSH:"
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
 	@echo "  deploy-ssh-config       - Deploy standardized SSH config to workstations"
 	@echo ""
-	@echo "Utility:"
+	@echo "Utility:
 	@echo "  backup-configs          - Backup current configurations"
 	@echo "  health-check            - Check health of all services"
 	@echo "  test-context            - Run context window smoke tests"
@@ -716,4 +723,75 @@ validate-llm-client:
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml --tags validate
 	@echo ""
 	@echo "✅ Validation complete!"
+
+# ========================================
+# System Updates (Fedora)
+# ========================================
+
+# Update all Fedora hosts (security + packages + services)
+update-all:
+	@echo "========================================"
+	@echo "System Updates - All Fedora Hosts"
+	@echo "========================================"
+	@echo ""
+	@echo "This will:"
+	@echo "  ✓ Update dnf packages (security + critical)"
+	@echo "  ✓ Update Tailscale"
+	@echo "  ✓ Clean up old kernels"
+	@echo "  ✓ Verify all services are running"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/updates/fedora-updates.yml
+	@echo ""
+	@echo "✅ Updates complete!"
+
+# Update all hosts (dry-run first)
+update-all-check:
+	@echo "========================================"
+	@echo "System Updates - DRY RUN"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/updates/fedora-updates.yml --check --diff
+	@echo ""
+	@echo "✅ Dry run complete - review changes above"
+
+# Update a single host
+update-host:
+	@echo "========================================"
+	@echo "System Updates - Single Host"
+	@echo "========================================"
+	@echo ""
+	@echo "Usage: make update-host HOST=<hostname>"
+	@echo "Example: make update-host HOST=akira"
+	@echo ""
+ifndef HOST
+	$(error HOST is not set. Usage: make update-host HOST=akira)
+endif
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/updates/fedora-updates.yml --limit $(HOST)
+	@echo ""
+	@echo "✅ Updates complete for $(HOST)!"
+
+# Verify services only (no updates)
+verify-services:
+	@echo "========================================"
+	@echo "Service Verification - All Hosts"
+	@echo "========================================"
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/updates/fedora-updates.yml --tags services,verify
+	@echo ""
+	@echo "✅ Service verification complete!"
+
+# Setup automated update scheduling on control node
+setup-update-scheduling:
+	@echo "========================================"
+	@echo "Setup Automated Update Scheduling"
+	@echo "========================================"
+	@echo ""
+	@echo "This will create a systemd timer on motoko to run"
+	@echo "weekly updates every Sunday at 2 AM."
+	@echo ""
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit motoko
+	@echo ""
+	@echo "✅ Scheduling configured!"
+	@echo ""
+	@echo "Check timer status: systemctl list-timers system-updates.timer"
 

@@ -7,9 +7,12 @@ Wants=network-online.target
 Type=oneshot
 User={{ ansible_user }}
 WorkingDirectory={{ ansible_playbook_dir }}
-ExecStart=/usr/bin/ansible-playbook -i {{ update_inventory_path }} {{ update_playbook_path }} --ask-vault-pass
+# Note: No --ask-vault-pass for automated runs; update playbooks should not require vault
+ExecStart=/usr/bin/ansible-playbook -i {{ update_inventory_path }} {{ update_playbook_path }}
 StandardOutput=journal
 StandardError=journal
+# Allow up to 2 hours for updates across all hosts
+TimeoutStartSec=7200
 
 [Install]
 WantedBy=multi-user.target

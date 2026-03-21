@@ -2,7 +2,52 @@
 
 This directory contains playbooks for managing system updates across Linux, Windows, Docker, and application code.
 
+## Quick Start (Fedora Fleet)
+
+```bash
+# Check what would be updated (ALWAYS do this first)
+make update-all-check
+
+# Update all Fedora hosts
+make update-all
+
+# Update single host
+make update-host HOST=akira
+
+# Verify services are running
+make verify-services
+```
+
 ## Playbooks
+
+### `fedora-updates.yml` (PRIMARY)
+Updates Fedora systems (motoko, akira, armitage, atom, flatline) with dnf packages, Tailscale, and verifies all services.
+
+**Features:**
+- dnf package updates (security + critical)
+- Tailscale update and connectivity verification
+- Kernel cleanup (keeps last 2 kernels)
+- Per-host service health checks (Nextcloud, LiteLLM, vLLM, Ollama, etc.)
+- Post-update service verification
+
+**Usage:**
+```bash
+# Via make (recommended)
+make update-all
+make update-host HOST=akira
+
+# Direct ansible
+ansible-playbook -i inventory/hosts.yml ansible/playbooks/updates/fedora-updates.yml
+ansible-playbook -i inventory/hosts.yml ansible/playbooks/updates/fedora-updates.yml --limit akira
+```
+
+**Tags:**
+- `pre-check` - Pre-flight checks only
+- `updates` - Package updates
+- `tailscale` - Tailscale-specific updates
+- `services` - Service health checks
+- `verify` - Post-update verification
+- `cleanup` - Cleanup tasks
 
 ### `all-updates.yml`
 Master orchestrator playbook that coordinates all update types. Use this for comprehensive system updates.
@@ -25,25 +70,10 @@ ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --c
 - `pre-check` - Pre-flight checks only
 - `notify` - Send notifications
 
-### `linux-updates.yml`
-Updates Linux systems (Debian/Ubuntu) with security and critical packages.
+### `linux-updates.yml` (Debian/Ubuntu only - NOT for this fleet)
+Updates Debian/Ubuntu systems with apt. **Not applicable to PHC fleet** (all Fedora).
 
-**Features:**
-- Security and critical updates only
-- Kernel cleanup (keeps last 2 kernels)
-- Pre-flight checks (disk space, services)
-- Post-update verification
-
-**Usage:**
-```bash
-ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml
-```
-
-**Tags:**
-- `pre-check` - Pre-flight checks only
-- `updates` - Package updates
-- `cleanup` - Cleanup tasks
-- `security` - Security-related tasks only
+**Note:** This playbook uses `apt` and will skip on Fedora hosts. Use `fedora-updates.yml` instead.
 
 ### `windows-updates.yml`
 Updates Windows systems with security and critical Windows Updates, plus Chocolatey packages.

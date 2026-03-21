@@ -25,6 +25,9 @@ ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/<playbook>.yml
 # Dry-run before applying changes (ALWAYS do this first)
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/<playbook>.yml --limit <host> --check --diff
 
+# Run single task by tag
+ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/<playbook>.yml --tags "install" --limit <host>
+
 # Windows automation requires env vars first
 set -a && source /etc/ansible/windows-automation.env && set +a
 
@@ -35,6 +38,14 @@ make deploy-litellm            # LiteLLM proxy to akira
 make deploy-observability      # Prometheus/Grafana stack
 make deploy-data-lifecycle     # Backup services (space-mirror, restic)
 make deploy-basecamp           # Basecamp node to atom
+make deploy-llm-client         # LLM client tools + OpenHands to workstations
+
+# System updates (Fedora fleet)
+make update-all                # Update all hosts (packages + Tailscale + services)
+make update-all-check          # Dry-run first (ALWAYS do this)
+make update-host HOST=akira    # Update single host
+make verify-services           # Check all services are running
+make setup-update-scheduling   # Enable weekly automated updates
 
 # Validation (run after deployments)
 make validate-nextcloud        # Nextcloud pure façade compliance
@@ -42,6 +53,7 @@ make validate-litellm          # LiteLLM deployment
 make validate-observability    # Monitoring stack health
 make validate-backups          # Backup system operational
 make verify-tailscale          # E2E Tailscale mesh verification
+make validate-llm-client       # LLM client deployment
 
 # Sync secrets from Azure Key Vault
 ansible-playbook ansible/playbooks/secrets-sync.yml --limit <host>
@@ -62,11 +74,12 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 ### Device Inventory
 | Device | Role | OS | Key Services |
 |--------|------|----|--------------|
-| **motoko** | Server/control node | Fedora | Ansible control, cloudflared tunnel |
+| **motoko** | Server/control node | Fedora | Ansible control, cloudflared tunnel, `/time` export |
 | **akira** | Storage SoR + AI workstation | Fedora 43 KDE | `/space` (18TB), Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
 | **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |
 | **atom** | Basecamp/resilience node | Fedora | Battery-backed, Sway/i3 UI, SSH foothold |
+| **flatline** | Workstation | Fedora KDE | Basic workstation (Lenovo Yoga, no GPU) |
 | **count-zero** | macOS client | macOS | Autofs mounts, OS cloud ingestion |
 
 ### Storage Model (Flux/Space/Time/Matter)
@@ -80,7 +93,15 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
 1. Add mapping to `ansible/secrets-map.yml`
 2. Run `ansible-playbook ansible/playbooks/secrets-sync.yml --limit <host>`
-3. Services read from synced env files (e.g., `/flux/apps/litellm/.env`)
+3. Services read from synced env files
+
+**Key env file locations:**
+- `/flux/apps/litellm/.env` - LiteLLM on akira
+- `/flux/runtime/secrets/nextcloud.env` - Nextcloud credentials
+- `/flux/runtime/secrets/grafana.env` - Grafana admin password
+- `/etc/miket/storage-credentials.env` - B2/restic backup credentials
+- `/etc/ansible/windows-automation.env` - WinRM passwords (motoko only)
+- `~/.mkt/mounts.env` - SMB mount passwords (macOS)
 
 **Never hardcode secrets. 1Password is for humans only.**
 
@@ -98,8 +119,10 @@ Per ADR-005, LLM runtimes split by node type:
 - `ansible/playbooks/secrets-sync.yml` - Sync secrets from AKV to hosts
 - `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` - PHC big picture
 - `docs/architecture/FILESYSTEM_ARCHITECTURE.md` - Flux/Space/Time storage model
+- `docs/architecture/Miket_Infra_Devices_Architecture.md` - Device roles, automation layers
 - `docs/runbooks/` - Operational runbooks (70+ procedures)
 - `docs/communications/COMMUNICATION_LOG.md` - Dated architectural decisions
+- `scripts/tailscale-ssh-wrapper.sh` - SSH wrapper for Ansible (handles Tailscale auth)
 
 ## Conventions
 
@@ -108,6 +131,7 @@ Per ADR-005, LLM runtimes split by node type:
 - OS dispatch: `when: ansible_os_family == 'RedHat'` (or `'Darwin'`, `'Windows'`)
 - All playbooks must be idempotent (use `creates`, `unless`, `changed_when: false`)
 - Always test with `--check` and `--diff` first; use `--limit` for phased rollout
+- GPU checks: Roles validate GPU presence before deploying GPU-dependent services (fail fast)
 
 ### Inventory Groups
 Key capability groups in `ansible/inventory/hosts.yml`:
@@ -119,6 +143,7 @@ Key capability groups in `ansible/inventory/hosts.yml`:
 - `headless_servers`, `basecamp_nodes` - Server/workstation modes
 - `monitoring_exporters`, `monitoring_stack` - Prometheus infrastructure
 - `container_hosts` - Nodes running Podman/Docker
+- `llm_client_nodes` - Nodes that consume the LiteLLM gateway
 
 ### Service Dependencies
 Systemd services must declare storage dependencies:
@@ -145,12 +170,21 @@ After=<mount>.mount
 - **Windows WinRM env vars** - Must source `/etc/ansible/windows-automation.env` before running Windows playbooks
 - **Nextcloud prohibited paths** - Don't expose `/space/projects`, `/space/code`, `/space/dev` via external storage
 
+## File Organization
+
+- **Architecture docs:** `docs/architecture/` (canonical, slow-changing)
+- **Operational docs:** `docs/runbooks/`, `docs/troubleshooting/` (procedures, fast-changing)
+- **Scripts:** `scripts/` (bootstrap, diagnosis, one-off fixes; NOT for long-term automation)
+- **Ansible:** `ansible/playbooks/`, `ansible/roles/` (reusable automation)
+- **Device configs:** `devices/<hostname>/` (device-specific overrides)
+
 ## When Making Changes
 
 1. **Architecture changes:** Update `docs/architecture/`, log in `COMMUNICATION_LOG.md`
 2. **New secrets:** Add to `secrets-map.yml`, provision in AKV (upstream), run `secrets-sync.yml`
 3. **New services:** Document storage paths, prove `/space` alignment, add systemd mount deps
-4. **Always validate:** Run the corresponding `make validate-*` target after deployment
+4. **New devices:** Add to `ansible/inventory/hosts.yml`, create `devices/<hostname>/config.yml`
+5. **Always validate:** Run the corresponding `make validate-*` target after deployment
 
 ## Creating New Roles
 
