@@ -22,6 +22,7 @@ USAGE: ./scripts/nomachine-ops.sh <command>
 COMMANDS:
   status              Show status of all NoMachine servers
   restart-server      Restart NoMachine server on current host
+  recover             Recover from corrupted Redis DB (after crash/freeze)
   check-ports         Verify NoMachine ports are listening
   check-vnc           Verify VNC is NOT running (Linux)
   check-rdp           Verify RDP is disabled (Windows)
@@ -59,26 +60,14 @@ show_status() {
     echo -e "${BLUE}NoMachine Server Status${NC}"
     echo ""
     
-    echo "Checking motoko (Linux)..."
-    if ssh motoko.pangolin-vega.ts.net "systemctl is-active nxserver" &>/dev/null; then
-        echo -e "  motoko:     ${GREEN}RUNNING${NC}"
-    else
-        echo -e "  motoko:     ${RED}STOPPED${NC}"
-    fi
-    
-    echo "Checking wintermute (Windows)..."
-    if nc -z -w2 wintermute.pangolin-vega.ts.net 4000 &>/dev/null; then
-        echo -e "  wintermute: ${GREEN}LISTENING on port 4000${NC}"
-    else
-        echo -e "  wintermute: ${RED}NOT RESPONDING${NC}"
-    fi
-    
-    echo "Checking armitage (Windows)..."
-    if nc -z -w2 armitage.pangolin-vega.ts.net 4000 &>/dev/null; then
-        echo -e "  armitage:   ${GREEN}LISTENING on port 4000${NC}"
-    else
-        echo -e "  armitage:   ${RED}NOT RESPONDING${NC}"
-    fi
+    for host in akira motoko armitage wintermute; do
+        echo -n "  $host: "
+        if nc -z -w2 "$host.pangolin-vega.ts.net" 4000 &>/dev/null; then
+            echo -e "${GREEN}LISTENING on port 4000${NC}"
+        else
+            echo -e "${RED}NOT RESPONDING${NC}"
+        fi
+    done
     
     echo ""
 }
@@ -102,6 +91,100 @@ restart_server() {
     else
         echo -e "${RED}✗ OS not detected${NC}"
         exit 1
+    fi
+}
+
+# Recover NoMachine after hard freeze / unclean shutdown
+# Fixes: corrupted Redis DB, lost X display access, framebuffer failures
+# See: docs/runbooks/fix-akira-nomachine-after-hard-freeze.md
+recover_after_crash() {
+    local os=$(detect_os)
+
+    if [[ "$os" != "linux" ]]; then
+        echo -e "${RED}Recovery is only supported on Linux${NC}"
+        exit 1
+    fi
+
+    echo -e "${YELLOW}=== NoMachine Crash Recovery ===${NC}"
+    echo ""
+
+    # Step 1: Stop everything
+    echo -e "${BLUE}[1/6] Stopping NoMachine via systemd...${NC}"
+    sudo systemctl stop nxserver 2>/dev/null || true
+    sleep 2
+
+    echo -e "${BLUE}[2/6] Killing all NX processes...${NC}"
+    sudo pkill -9 -f "nxserver|nxnode|nxd|nxrunner" 2>/dev/null || true
+    sleep 2
+
+    local remaining
+    remaining=$(ps aux | grep "[n]xserver\|[n]xnode\|[n]xd" | grep -v grep | wc -l)
+    if [[ "$remaining" -gt 0 ]]; then
+        echo -e "${YELLOW}  Still $remaining NX processes running, force killing...${NC}"
+        ps aux | grep "[n]xserver\|[n]xnode\|[n]xd" | grep -v grep | awk '{print $2}' | xargs -r sudo kill -9 2>/dev/null || true
+        sleep 2
+    fi
+
+    # Step 2: Delete corrupted Redis DB
+    echo -e "${BLUE}[3/6] Removing corrupted Redis DB...${NC}"
+    if [[ -f /usr/NX/var/db/server.db ]]; then
+        sudo rm -f /usr/NX/var/db/server.db
+        echo -e "${GREEN}  Removed /usr/NX/var/db/server.db${NC}"
+    else
+        echo -e "${GREEN}  No server.db found (already clean)${NC}"
+    fi
+
+    # Step 3: Clear temp state
+    echo -e "${BLUE}[4/6] Clearing temp state...${NC}"
+    sudo rm -rf /tmp/.NX-* 2>/dev/null || true
+
+    # Step 4: Start fresh
+    echo -e "${BLUE}[5/6] Starting NoMachine...${NC}"
+    sudo systemctl start nxserver
+    sleep 3
+
+    # Step 5: Re-authorize X display access
+    echo -e "${BLUE}[6/6] Re-authorizing X display access for nx user...${NC}"
+    if [[ -n "${DISPLAY:-}" ]]; then
+        xhost +local: 2>/dev/null || true
+        xhost +SI:localuser:nx 2>/dev/null || true
+        echo -e "${GREEN}  xhost access granted${NC}"
+    else
+        echo -e "${YELLOW}  No DISPLAY set — run 'xhost +local: && xhost +SI:localuser:nx' from a desktop session${NC}"
+    fi
+
+    # Verify
+    echo ""
+    echo -e "${BLUE}=== Verification ===${NC}"
+    sudo /usr/NX/bin/nxserver --status 2>&1 | grep -E "Enabled|Disabled"
+    echo ""
+
+    local sessions
+    sessions=$(sudo /usr/NX/bin/nxserver --list 2>&1)
+    echo "$sessions"
+    echo ""
+
+    if echo "$sessions" | grep -q "Display"; then
+        if echo "$sessions" | grep -qE "^[0-9]"; then
+            echo -e "${GREEN}Display detected. Try connecting from the client.${NC}"
+        else
+            echo -e "${YELLOW}No display detected yet. If black screen, set WaylandModes:${NC}"
+            echo "  sudo sed -i 's/^#WaylandModes.*/WaylandModes drm,compositor,egl/' /usr/NX/etc/node.cfg"
+            echo "  sudo /usr/NX/bin/nxserver --restart"
+        fi
+    fi
+
+    # Check for Redis errors in recent log
+    if sudo tail -20 /usr/NX/var/log/server.log 2>/dev/null | grep -q "Background save already in progress"; then
+        echo ""
+        echo -e "${RED}WARNING: Redis corruption persists after DB removal.${NC}"
+        echo -e "${RED}Full reinstall required:${NC}"
+        echo "  sudo systemctl stop nxserver"
+        echo "  sudo rpm -e nomachine"
+        echo "  sudo rpm -ivh --nodigest --nosignature /home/mdt/Downloads/nomachine_*.rpm"
+        echo "  xhost +local: && xhost +SI:localuser:nx"
+        echo ""
+        echo "See: docs/runbooks/fix-akira-nomachine-after-hard-freeze.md"
     fi
 }
 
@@ -180,7 +263,7 @@ test_connectivity() {
     echo -e "${BLUE}Testing NoMachine connectivity...${NC}"
     echo ""
     
-    for host in motoko wintermute armitage; do
+    for host in akira motoko armitage wintermute; do
         echo -n "Testing $host.pangolin-vega.ts.net:4000... "
         if nc -z -w3 "$host.pangolin-vega.ts.net" 4000 &>/dev/null; then
             echo -e "${GREEN}OK${NC}"
@@ -201,7 +284,7 @@ show_logs() {
     
     if [[ "$os" == "linux" ]]; then
         echo "Server logs:"
-        sudo tail -50 /usr/NX/var/log/nxserver.log
+        sudo tail -50 /usr/NX/var/log/server.log
     elif [[ "$os" == "macos" ]]; then
         echo "Server logs:"
         sudo tail -50 /Library/Logs/NoMachine/nxserver.log 2>/dev/null || \
@@ -247,6 +330,9 @@ main() {
             ;;
         restart-server)
             restart_server
+            ;;
+        recover)
+            recover_after_crash
             ;;
         check-ports)
             check_ports

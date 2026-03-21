@@ -244,6 +244,15 @@ docker_prevention_enabled: true
 # Remote Desktop Configuration
 # =============================================================================
 # NoMachine is the standardized remote access protocol
+# IMPORTANT: akira runs KDE on Wayland. NoMachine Wayland capture notes:
+#   - EGL capture requires libnxegl.so preloaded into kwin (happens at login)
+#   - DRM capture reads GPU framebuffer directly (no preload needed)
+#   - WaylandModes should prefer drm over egl for resilience
+#   - After reinstall, kwin must be restarted (logout/login) for EGL to work
+#   - nx user needs X display access: xhost +local: && xhost +SI:localuser:nx
+#   - Autostart desktop entry handles xhost on login (~/.config/autostart/)
+#   - After hard freeze: delete /usr/NX/var/db/server.db and restart
+#   - See docs/runbooks/fix-akira-nomachine-after-hard-freeze.md
 remote_protocol: nomachine
 remote_port: 4000
 restrict_to_tailscale: true
@@ -268,6 +277,19 @@ interactive_users: []
 # Also runs node_exporter for self-monitoring
 observability_stack_enabled: true
 node_exporter_enabled: true
+
+# =============================================================================
+# Life RPG Application
+# =============================================================================
+# Personal life gamification system — Discord bot + web UI + PostgreSQL
+# Discord input → Claude API (GM) → XP/quest/boss tracking
+liferpg_enabled: true
+liferpg_app_path: /flux/apps/life-rpg
+liferpg_db_path: /flux/dbs/liferpg
+liferpg_db_port: 5433
+liferpg_web_port: 3847
+liferpg_db_container: liferpg-db
+liferpg_pm2_name: life-rpg
 
 # =============================================================================
 # Power Management (Wake-on-LAN)
