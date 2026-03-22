@@ -5,6 +5,10 @@
 # Uses a SEPARATE tmux socket (-L claude) so it never conflicts
 # with your personal tmux sessions.
 #
+# --resume keeps conversation context across restarts. The session
+# name is stable so Claude comes back as the same "person" with
+# full memory of prior work, skills, and plans.
+#
 # Access:  tmux -L claude attach
 # Detach:  Ctrl-b, d
 # Logs:    journalctl --user -u claude-discord-agent -f
@@ -19,8 +23,13 @@ StartLimitBurst=5
 
 [Service]
 Type=forking
+
+# Brief delay so DNS/network are fully ready (Discord plugin needs connectivity)
+ExecStartPre=/usr/bin/sleep {{ claude_agent_start_delay }}
+
 ExecStart=/usr/bin/tmux -L claude new-session -d -s agent \
   {{ claude_agent_binary }} \
+  --resume {{ claude_agent_session_name }} \
   --dangerously-skip-permissions \
   --channels {{ claude_agent_channel }}
 ExecStop=/usr/bin/tmux -L claude kill-session -t agent
