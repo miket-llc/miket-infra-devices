@@ -34,9 +34,8 @@ ExecStart=/usr/bin/tmux -L claude new-session -d -s agent \
   --channels {{ claude_agent_channel }}
 ExecStop=/usr/bin/tmux -L claude kill-session -t agent
 WorkingDirectory={{ claude_agent_workdir }}
-Restart=on-failure
+Restart=always
 RestartSec={{ claude_agent_restart_sec }}
-RemainAfterExit=yes
 
 # Environment
 Environment=HOME={{ claude_agent_home }}
