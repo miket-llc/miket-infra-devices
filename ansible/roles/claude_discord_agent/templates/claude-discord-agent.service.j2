@@ -5,9 +5,8 @@
 # Uses a SEPARATE tmux socket (-L claude) so it never conflicts
 # with your personal tmux sessions.
 #
-# --resume keeps conversation context across restarts. The session
-# name is stable so Claude comes back as the same "person" with
-# full memory of prior work, skills, and plans.
+# Memory and bootstrap hook provide continuity across restarts.
+# --resume is NOT used because it prevents --channels from initializing.
 #
 # Access:  tmux -L claude attach
 # Detach:  Ctrl-b, d
@@ -29,7 +28,6 @@ ExecStartPre=/usr/bin/sleep {{ claude_agent_start_delay }}
 
 ExecStart=/usr/bin/tmux -L claude new-session -d -s agent \
   {{ claude_agent_binary }} \
-  --resume {{ claude_agent_session_name }} \
   --dangerously-skip-permissions \
   --channels {{ claude_agent_channel }}
 ExecStop=/usr/bin/tmux -L claude kill-session -t agent
@@ -37,9 +35,9 @@ WorkingDirectory={{ claude_agent_workdir }}
 Restart=always
 RestartSec={{ claude_agent_restart_sec }}
 
-# Environment
+# Environment — bun must be in PATH for the Discord plugin MCP server to start
 Environment=HOME={{ claude_agent_home }}
-Environment=PATH={{ claude_agent_home }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH={{ claude_agent_home }}/.bun/bin:{{ claude_agent_home }}/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=TERM=xterm-256color
 {% for key, value in claude_agent_extra_env.items() %}
 Environment={{ key }}={{ value }}

@@ -13,9 +13,6 @@ claude_agent_binary: "{{ claude_agent_home }}/.local/bin/claude"
 # Working directory for the Claude session
 claude_agent_workdir: "{{ claude_agent_home }}/dev"
 
-# Persistent session name (--resume keeps context across restarts)
-claude_agent_session_name: "claude-persistent-server-agent"
-
 # Discord plugin identifier
 claude_agent_channel: "plugin:discord@claude-plugins-official"
 
@@ -26,5 +23,8 @@ claude_agent_restart_max_burst: 5
 # Seconds to wait for network/DNS before starting claude
 claude_agent_start_delay: 10
 
-# Environment
-claude_agent_extra_env: {}
+# Extra environment variables passed to the service
+# CLAUDE_AGENT=1 is set by default so the bootstrap hook can
+# distinguish the agent session from interactive sessions.
+claude_agent_extra_env:
+  CLAUDE_AGENT: "1"
