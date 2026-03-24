@@ -1,0 +1,27 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy OpenConnect VPN Client to Fedora KDE Workstations
+#
+# Installs OpenConnect (Cisco AnyConnect-compatible) and creates a
+# NetworkManager VPN profile for the Ellucian VPN.
+#
+# Usage:
+#   # Deploy to all Fedora KDE workstations
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-openconnect-vpn.yml
+#
+#   # Deploy to specific host
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-openconnect-vpn.yml --limit akira
+#
+#   # Dry-run first (ALWAYS do this)
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-openconnect-vpn.yml --check --diff
+
+- name: Deploy OpenConnect VPN to Fedora KDE Workstations
+  hosts: fedora_kde_workstations
+  gather_facts: yes
+
+  roles:
+    - role: openconnect_vpn
+      tags:
+        - openconnect
+        - vpn

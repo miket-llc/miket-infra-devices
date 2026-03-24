@@ -77,6 +77,7 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 | **motoko** | Server/control node | Fedora | Ansible control, cloudflared tunnel, `/time` export |
 | **akira** | Storage SoR + AI workstation | Fedora 43 KDE | `/space` (18TB), Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
 | **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
+| **flatline** | Workstation | Fedora KDE | Lenovo Yoga, no dedicated GPU |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |
 | **atom** | Basecamp/resilience node | Fedora | Battery-backed, Sway/i3 UI, SSH foothold |
 | **flatline** | Workstation | Fedora KDE | Basic workstation (Lenovo Yoga, no GPU) |
@@ -117,12 +118,24 @@ Per ADR-005, LLM runtimes split by node type:
 - `ansible/inventory/hosts.yml` - Device inventory + capability groups
 - `ansible/secrets-map.yml` - AKV → .env mappings per service
 - `ansible/playbooks/secrets-sync.yml` - Sync secrets from AKV to hosts
+- `devices/<hostname>/` - Device-specific configs and scripts (e.g., `devices/wintermute/config.yml`)
 - `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` - PHC big picture
 - `docs/architecture/FILESYSTEM_ARCHITECTURE.md` - Flux/Space/Time storage model
 - `docs/architecture/Miket_Infra_Devices_Architecture.md` - Device roles, automation layers
 - `docs/runbooks/` - Operational runbooks (70+ procedures)
 - `docs/communications/COMMUNICATION_LOG.md` - Dated architectural decisions
 - `scripts/tailscale-ssh-wrapper.sh` - SSH wrapper for Ansible (handles Tailscale auth)
+
+### Playbook Organization
+Most playbooks live in `ansible/playbooks/`. Host-specific playbooks are in subdirectories:
+- `ansible/playbooks/akira/` - LiteLLM, data lifecycle, space setup
+- `ansible/playbooks/atom/` - Basecamp, resilience, headless conversion
+- `ansible/playbooks/motoko/` - Nextcloud deployment (legacy, see ADR-0010)
+
+Master orchestration playbooks (call sub-playbooks via `import_playbook`):
+- `deploy-devices-infrastructure.yml` - Mounts + OS cloud sync across all clients
+- `deploy-nomachine.yml` - NoMachine servers + clients fleet-wide
+- `deploy-observability.yml` - node_exporter + Prometheus/Grafana stack
 
 ## Conventions
 

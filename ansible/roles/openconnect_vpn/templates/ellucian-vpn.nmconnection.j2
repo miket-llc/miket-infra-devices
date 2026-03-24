@@ -1,0 +1,34 @@
+{# Copyright (c) 2025 MikeT LLC. All rights reserved. #}
+{# NetworkManager OpenConnect VPN connection profile #}
+[connection]
+id={{ openconnect_vpn_connection_name }}
+type=vpn
+autoconnect=false
+
+[vpn]
+service-type=org.freedesktop.NetworkManager.openconnect
+gateway={{ openconnect_vpn_gateway }}
+protocol={{ openconnect_vpn_protocol }}
+{% if openconnect_vpn_authgroup %}
+authgroup={{ openconnect_vpn_authgroup }}
+{% endif %}
+{% if openconnect_vpn_username %}
+username={{ openconnect_vpn_username }}
+{% endif %}
+{% if openconnect_vpn_cacert %}
+cacert={{ openconnect_vpn_cacert }}
+{% endif %}
+{% if openconnect_vpn_client_cert %}
+usercert={{ openconnect_vpn_client_cert }}
+{% endif %}
+stoken-source=disabled
+pem_passphrase_fsid=no
+enable_csd_trojan=no
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+
+[proxy]

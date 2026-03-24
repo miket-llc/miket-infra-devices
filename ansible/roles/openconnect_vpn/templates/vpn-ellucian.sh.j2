@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Convenience wrapper for Ellucian VPN (OpenConnect / AnyConnect-compatible)
+#
+# Usage:
+#   vpn-ellucian              # Connect (interactive, prompts for credentials)
+#   vpn-ellucian up           # Connect via NetworkManager
+#   vpn-ellucian down         # Disconnect via NetworkManager
+#   vpn-ellucian status       # Show VPN connection status
+#   vpn-ellucian cli          # Connect via openconnect CLI (foreground)
+#   vpn-ellucian bg           # Connect via openconnect CLI (background/daemon)
+
+set -euo pipefail
+
+VPN_NAME="{{ openconnect_vpn_connection_name }}"
+VPN_GATEWAY="{{ openconnect_vpn_gateway }}"
+VPN_PROTOCOL="{{ openconnect_vpn_protocol }}"
+{% if openconnect_vpn_username %}
+VPN_USER="{{ openconnect_vpn_username }}"
+{% else %}
+VPN_USER="${USER}"
+{% endif %}
+
+cmd="${1:-up}"
+
+case "$cmd" in
+    up|connect)
+        echo "Connecting to ${VPN_NAME} via NetworkManager..."
+        nmcli connection up id "${VPN_NAME}"
+        ;;
+    down|disconnect)
+        echo "Disconnecting ${VPN_NAME}..."
+        nmcli connection down id "${VPN_NAME}" 2>/dev/null || echo "Not connected."
+        ;;
+    status)
+        echo "=== VPN Status ==="
+        nmcli connection show --active | grep -i vpn || echo "No active VPN connections."
+        echo ""
+        echo "=== Tunnel Interface ==="
+        ip addr show tun0 2>/dev/null || echo "No tun0 interface (VPN not active)."
+        echo ""
+        echo "=== Routes via tun0 ==="
+        ip route show dev tun0 2>/dev/null || echo "No routes via tun0."
+        ;;
+    cli)
+        echo "Connecting to ${VPN_GATEWAY} via openconnect CLI (foreground)..."
+        echo "Press Ctrl+C to disconnect."
+        sudo openconnect --protocol="${VPN_PROTOCOL}" --user="${VPN_USER}" "${VPN_GATEWAY}"
+        ;;
+    bg|background|daemon)
+        echo "Connecting to ${VPN_GATEWAY} via openconnect CLI (background)..."
+        sudo openconnect --background --protocol="${VPN_PROTOCOL}" --user="${VPN_USER}" "${VPN_GATEWAY}"
+        echo "VPN running in background. Kill openconnect process to disconnect."
+        ;;
+    *)
+        echo "Usage: vpn-ellucian {up|down|status|cli|bg}"
+        echo ""
+        echo "  up/connect     - Connect via NetworkManager (GUI-integrated)"
+        echo "  down/disconnect - Disconnect"
+        echo "  status         - Show VPN connection status"
+        echo "  cli            - Connect via openconnect CLI (foreground)"
+        echo "  bg/background  - Connect via openconnect CLI (daemon mode)"
+        exit 1
+        ;;
+esac

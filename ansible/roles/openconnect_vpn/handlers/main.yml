@@ -1,0 +1,8 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: reload networkmanager
+  ansible.builtin.systemd:
+    name: NetworkManager
+    state: reloaded
+  become: true

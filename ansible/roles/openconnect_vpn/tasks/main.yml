@@ -1,0 +1,43 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# OpenConnect VPN - Main tasks
+# Installs OpenConnect VPN client for Cisco AnyConnect-compatible connections
+
+- name: Skip OpenConnect VPN if disabled
+  ansible.builtin.debug:
+    msg: "OpenConnect VPN role disabled (openconnect_vpn_enabled={{ openconnect_vpn_enabled }})"
+  when: not openconnect_vpn_enabled | bool
+  tags: [openconnect, vpn, skip]
+
+- name: OpenConnect VPN installation
+  when: openconnect_vpn_enabled | bool
+  block:
+    - name: Include Fedora/RHEL tasks
+      ansible.builtin.include_tasks: fedora.yml
+      when: ansible_os_family == 'RedHat'
+      tags: [openconnect, vpn, linux]
+
+    - name: Display OpenConnect VPN summary
+      ansible.builtin.debug:
+        msg:
+          - "======================================================="
+          - "OPENCONNECT VPN INSTALLED"
+          - "======================================================="
+          - ""
+          - "OS Family: {{ ansible_os_family }}"
+          - "Gateway: {{ openconnect_vpn_gateway }}"
+          - "NM Profile: {{ openconnect_vpn_connection_name if openconnect_vpn_create_profile else 'not created' }}"
+          - ""
+          - "Connect via GUI:"
+          - "  Settings > Network > VPN > {{ openconnect_vpn_connection_name }}"
+          - ""
+          - "Connect via CLI:"
+          - "  nmcli connection up id '{{ openconnect_vpn_connection_name }}'"
+          - "  # or: sudo openconnect --protocol={{ openconnect_vpn_protocol }} {{ openconnect_vpn_gateway }}"
+          - ""
+          - "Disconnect:"
+          - "  nmcli connection down id '{{ openconnect_vpn_connection_name }}'"
+          - ""
+          - "======================================================="
+      tags: [openconnect, vpn]

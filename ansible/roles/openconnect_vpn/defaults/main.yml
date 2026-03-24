@@ -1,0 +1,50 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# OpenConnect VPN Role Defaults
+# Installs OpenConnect (Cisco AnyConnect-compatible) VPN client
+# and optionally configures a NetworkManager VPN profile
+
+# Master toggle
+openconnect_vpn_enabled: true
+
+# ========================================
+# Packages
+# ========================================
+openconnect_vpn_packages:
+  - openconnect
+  - NetworkManager-openconnect
+  - NetworkManager-openconnect-gnome
+
+# ========================================
+# VPN Connection Profile
+# ========================================
+# Create a NetworkManager VPN connection profile
+openconnect_vpn_create_profile: true
+
+# Connection name (shown in NM GUI and nmcli)
+openconnect_vpn_connection_name: "Ellucian VPN"
+
+# VPN gateway hostname
+openconnect_vpn_gateway: "vpn.ellucian.com"
+
+# Protocol (anyconnect, nc, gp, pulse, f5, fortinet, array)
+openconnect_vpn_protocol: "anyconnect"
+
+# Auth group (leave empty if not required)
+openconnect_vpn_authgroup: ""
+
+# Default username (leave empty to prompt)
+openconnect_vpn_username: ""
+
+# CA certificate path (leave empty to use system CAs)
+openconnect_vpn_cacert: ""
+
+# Client certificate path (leave empty if not required)
+openconnect_vpn_client_cert: ""
+
+# ========================================
+# Convenience Script
+# ========================================
+# Install a convenience wrapper script to ~/bin/vpn-ellucian
+openconnect_vpn_install_script: true

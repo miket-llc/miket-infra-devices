@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -72,6 +72,10 @@ help:
 	@echo "  update-host HOST=<name> - Update a single host (e.g., make update-host HOST=akira)"
 	@echo "  verify-services         - Verify all services are running (no updates)"
 	@echo "  setup-update-scheduling - Setup weekly automated updates on control node"
+	@echo ""
+	@echo "VPN (OpenConnect / Ellucian):"
+	@echo "  deploy-openconnect-vpn     - Deploy OpenConnect VPN client to Fedora KDE workstations"
+	@echo "  validate-openconnect-vpn   - Verify OpenConnect is installed on workstations"
 	@echo ""
 	@echo "Tailscale & SSH:"
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
@@ -482,6 +486,26 @@ validate-nextcloud:
 	@echo ""
 	@echo "Running smoke tests..."
 	@python3 $(TESTS_DIR)/nextcloud_smoke.py
+
+# ========================================
+# VPN (OpenConnect / Ellucian)
+# ========================================
+
+deploy-openconnect-vpn:
+	@echo "========================================"
+	@echo "OpenConnect VPN Deployment"
+	@echo "========================================"
+	@echo ""
+	@echo "Deploying to Fedora KDE workstations:"
+	@echo "  - openconnect + NetworkManager plugin"
+	@echo "  - NetworkManager VPN profile (Ellucian)"
+	@echo "  - vpn-ellucian convenience script"
+	@echo ""
+	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-openconnect-vpn.yml
+
+validate-openconnect-vpn:
+	@echo "Checking OpenConnect on Fedora KDE workstations..."
+	@ansible -i ansible/inventory/hosts.yml fedora_kde_workstations -m command -a "rpm -q openconnect" --one-line 2>/dev/null || echo "Run deploy-openconnect-vpn first."
 
 # ========================================
 # Tailscale & SSH Configuration

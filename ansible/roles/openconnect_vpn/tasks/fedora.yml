@@ -1,0 +1,81 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fedora/RHEL tasks for OpenConnect VPN
+
+# ========================================
+# Package Installation
+# ========================================
+- name: Install OpenConnect VPN packages (Fedora/RHEL)
+  ansible.builtin.dnf:
+    name: "{{ openconnect_vpn_packages }}"
+    state: present
+  become: true
+  tags: [openconnect, vpn, packages]
+
+- name: Verify openconnect installation
+  ansible.builtin.command: openconnect --version
+  register: openconnect_version
+  changed_when: false
+  tags: [openconnect, vpn, verify]
+
+- name: Display openconnect version
+  ansible.builtin.debug:
+    msg: "{{ openconnect_version.stdout_lines[0] | default(openconnect_version.stderr_lines[0] | default('installed')) }}"
+  tags: [openconnect, vpn, verify]
+
+# ========================================
+# NetworkManager VPN Profile
+# ========================================
+- name: Create NetworkManager OpenConnect VPN profile
+  when: openconnect_vpn_create_profile | bool
+  block:
+    - name: Check if VPN connection already exists
+      ansible.builtin.command: nmcli connection show "{{ openconnect_vpn_connection_name }}"
+      register: nm_vpn_check
+      changed_when: false
+      failed_when: false
+      tags: [openconnect, vpn, profile]
+
+    - name: Deploy NetworkManager VPN connection file
+      ansible.builtin.template:
+        src: ellucian-vpn.nmconnection.j2
+        dest: "/etc/NetworkManager/system-connections/{{ openconnect_vpn_connection_name | replace(' ', '-') | lower }}.nmconnection"
+        owner: root
+        group: root
+        mode: '0600'
+      become: true
+      when: nm_vpn_check.rc != 0
+      notify: reload networkmanager
+      tags: [openconnect, vpn, profile]
+
+# ========================================
+# Convenience Script
+# ========================================
+- name: Deploy VPN convenience script
+  when: openconnect_vpn_install_script | bool
+  block:
+    - name: Get user home directory
+      ansible.builtin.shell: "echo ~{{ ansible_user }}"
+      register: vpn_user_home
+      changed_when: false
+      check_mode: false
+      tags: [openconnect, vpn, script]
+
+    - name: Ensure ~/bin directory exists
+      ansible.builtin.file:
+        path: "{{ vpn_user_home.stdout }}/bin"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      tags: [openconnect, vpn, script]
+
+    - name: Deploy vpn-ellucian convenience script
+      ansible.builtin.template:
+        src: vpn-ellucian.sh.j2
+        dest: "{{ vpn_user_home.stdout }}/bin/vpn-ellucian"
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      tags: [openconnect, vpn, script]
