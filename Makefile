@@ -501,11 +501,11 @@ deploy-openconnect-vpn:
 	@echo "  - NetworkManager VPN profile (Ellucian)"
 	@echo "  - vpn-ellucian convenience script"
 	@echo ""
-	ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/deploy-openconnect-vpn.yml
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-openconnect-vpn.yml
 
 validate-openconnect-vpn:
 	@echo "Checking OpenConnect on Fedora KDE workstations..."
-	@ansible -i ansible/inventory/hosts.yml fedora_kde_workstations -m command -a "rpm -q openconnect" --one-line 2>/dev/null || echo "Run deploy-openconnect-vpn first."
+	@cd ansible && ansible fedora_kde_workstations -m command -a "rpm -q openconnect" --one-line 2>/dev/null || echo "Run deploy-openconnect-vpn first."
 
 # ========================================
 # Tailscale & SSH Configuration
