@@ -9,6 +9,10 @@
   include_tasks: linux.yml
   when: ansible_os_family == 'Debian'
 
+- name: Include Linux tasks for Fedora/RHEL
+  include_tasks: redhat.yml
+  when: ansible_os_family == 'RedHat'
+
 - name: Include macOS tasks for Darwin
   include_tasks: darwin.yml
   when: ansible_os_family == 'Darwin'
@@ -16,11 +20,3 @@
 - name: Include Windows tasks
   include_tasks: windows.yml
   when: ansible_system == 'Win32NT'
-
-
-
-
-
-
-
-

@@ -12,11 +12,8 @@ secrets_sync_default_owner: "root"
 secrets_sync_default_group: "root"
 secrets_sync_default_mode: "0600"
 
-# Azure CLI binary
+# Azure CLI binary (runs on control node, not target hosts)
 secrets_sync_az_cli: "az"
-
-# Default user to execute az under (override per service with run_as)
-secrets_sync_runner_user: "{{ ansible_user | default('mdt') }}"
 
 # Default privilege escalation for file writes (override per service with become)
 secrets_sync_default_become: true

@@ -25,11 +25,13 @@
     msg: "No secrets mapped for {{ inventory_hostname }} in {{ secrets_map_file }}"
   when: secrets_sync_services | length == 0
 
-- name: Ensure Azure CLI is available
+- name: Ensure Azure CLI is available on control node
   ansible.builtin.command: which {{ secrets_sync_az_cli }}
   register: az_cli_check
   changed_when: false
   failed_when: az_cli_check.rc != 0
+  delegate_to: localhost
+  run_once: true
   when: secrets_sync_services | length > 0
 
 - name: Sync mapped secrets from Azure Key Vault
