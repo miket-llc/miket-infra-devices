@@ -79,7 +79,7 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 | **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
 | **flatline** | Workstation | Fedora KDE | Lenovo Yoga, no dedicated GPU |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |
-| **atom** | Basecamp/resilience node | Fedora | Battery-backed, Sway/i3 UI, SSH foothold |
+| **atom** | Hacker/radio node | Fedora | SDR, Sway/i3 UI, occasionally on |
 | **flatline** | Workstation | Fedora KDE | Basic workstation (Lenovo Yoga, no GPU) |
 | **count-zero** | macOS client | macOS | Autofs mounts, OS cloud ingestion |
 
@@ -129,7 +129,7 @@ Per ADR-005, LLM runtimes split by node type:
 ### Playbook Organization
 Most playbooks live in `ansible/playbooks/`. Host-specific playbooks are in subdirectories:
 - `ansible/playbooks/akira/` - LiteLLM, data lifecycle, space setup
-- `ansible/playbooks/atom/` - Basecamp, resilience, headless conversion
+- `ansible/playbooks/atom/` - Basecamp UI, hacker/radio node config
 - `ansible/playbooks/motoko/` - Nextcloud deployment (legacy, see ADR-0010)
 
 Master orchestration playbooks (call sub-playbooks via `import_playbook`):
@@ -153,7 +153,7 @@ Key capability groups in `ansible/inventory/hosts.yml`:
 - `cuda_nodes`, `rocm_nodes` - GPU compute frameworks
 - `llm_workstations_ollama`, `llm_servers_vllm` - LLM runtime pattern (ADR-005)
 - `fedora_kde_workstations` - KDE Plasma desktops (ADR-004)
-- `headless_servers`, `basecamp_nodes` - Server/workstation modes
+- `headless_servers`, `basecamp_nodes` - Server/hacker node modes
 - `monitoring_exporters`, `monitoring_stack` - Prometheus infrastructure
 - `container_hosts` - Nodes running Podman/Docker
 - `llm_client_nodes` - Nodes that consume the LiteLLM gateway

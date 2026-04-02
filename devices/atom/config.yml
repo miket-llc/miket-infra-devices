@@ -1,6 +1,6 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 # devices/atom/config.yml
-# Device configuration for atom - Headless Fedora Resilience/Lab Node
+# Device configuration for atom - Hacker/Radio Node (SDR + Security Research)
 #
 # Converted from Fedora Workstation 2025-12
 # Migration playbook: ansible/playbooks/atom/convert-to-headless.yml
@@ -11,18 +11,18 @@ device:
   os: Fedora 43 Server
   codename: headless
   desktop_environment: none  # Headless - no GUI
-  type: Headless Resilience/Lab Node
+  type: Hacker/Radio Lab Node
   
   roles:
     - lab_server
     - headless
-    - resilience_node
+    - hacker_radio
   
   flags:
     lab_server: true
     headless: true
-    resilience_node: true
-    battery_backed: true
+    hacker_radio: true
+    battery_backed: false
   
   hardware:
     manufacturer: Lenovo
@@ -43,10 +43,9 @@ device:
           - mount: /
             filesystem: ext4
     battery: true
-    # Battery provides implicit UPS - this is the core resilience feature
     battery_notes: |
-      The battery is the reason this device exists as a resilience node.
-      When all other infrastructure fails (power outage), atom stays alive.
+      Laptop battery provides portability for field use.
+      Not relied upon as a resilience/UPS device.
 
   operating_system:
     os: Fedora
@@ -106,15 +105,14 @@ device:
     
   filesystem:
     # Minimal filesystem - no /space, /flux, /time mounts
-    # This is a resilience node - zero external dependencies
+    # Lightweight node - no external storage dependencies
     notes: |
-      IMPORTANT: atom does NOT mount /space, /flux, or /time.
-      This is intentional - resilience nodes have ZERO dependencies on motoko.
-      
+      atom does NOT mount /space, /flux, or /time.
+      Lightweight hacker node with no dependencies on motoko.
+
       INCIDENT (2024-12-01): CIFS mounts caused kernel panic when motoko
-      was unreachable. A resilience node that fails when the server fails
-      defeats its entire purpose.
-      
+      was unreachable. Removed and never re-added.
+
       If you need data from motoko, use SSH/SCP on-demand.
 
   selinux:
@@ -136,34 +134,34 @@ device:
         - node-exporter
 
 notes: |
-  atom - Battery-backed Headless Resilience/Lab Node
-  
+  atom - Hacker/Radio Node (SDR + Security Research)
+
   ═══════════════════════════════════════════════════════════════
-  CORE MISSION: Last device standing when power fails
+  CORE MISSION: Hobby/hacker node for radio and security research
   ═══════════════════════════════════════════════════════════════
-  
+
   Design Principles:
     - Simplicity over features (minimal services)
-    - Reliability over capability (fewer failure points)
+    - Lightweight tiling WM (Sway/i3)
     - Zero external dependencies (no mounts to other servers)
     - All management via Tailscale (no direct LAN access)
     - 100% IaC/CaC (no manual commands on device)
-  
+
   Conversion History:
-    - 2025-12: Converted from Fedora Workstation 43 (GNOME) to headless
+    - 2025-12: Converted from Fedora Workstation 43 (GNOME) to basecamp UI
     - Migration playbook: playbooks/atom/convert-to-headless.yml
-  
+
   What This Device DOES:
-    ✓ Proves the network exists (node_exporter metrics)
-    ✓ Provides SSH foothold for recovery operations
-    ✓ Stays alive during power outages (battery)
-    ✓ Sends alerts when infrastructure is down (optional)
-  
+    ✓ SDR and RF experimentation
+    ✓ Network analysis and security research
+    ✓ Serial communication and LoRa development
+    ✓ Lightweight portable hacker workstation
+
   What This Device Does NOT Do:
     ✗ Container hosting (not enough RAM)
     ✗ AI/LLM workloads (no GPU compute)
     ✗ Storage (no mounts, no SoR responsibilities)
-    ✗ Interactive workstation use (headless)
+    ✗ Always-on resilience (not a resilience node)
   
   Access:
     - SSH: ssh atom.pangolin-vega.ts.net (tailnet only)

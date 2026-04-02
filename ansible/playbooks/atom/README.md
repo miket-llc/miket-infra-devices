@@ -1,6 +1,6 @@
 # Atom Playbooks
 
-Configuration and management playbooks for **atom** - a headless Fedora server and battery-backed resilience node.
+Configuration and management playbooks for **atom** - a hacker/radio node for SDR and security research.
 
 ## Device Overview
 
@@ -8,22 +8,22 @@ Configuration and management playbooks for **atom** - a headless Fedora server a
 |----------|-------|
 | Hostname | atom |
 | Tailscale IP | 100.120.122.13 |
-| OS | Fedora Server 43 (Headless) |
+| OS | Fedora Server 43 (Sway/i3 UI) |
 | Hardware | Lenovo ThinkPad X1 Carbon (2012) |
 | CPU | Intel Core i7-3667U |
 | RAM | 8GB |
 | Storage | 224GB SSD |
 | GPU | Intel HD Graphics 4000 (unused) |
-| Role | Headless Resilience/Lab Node |
-| Boot Target | multi-user.target |
+| Role | Hacker/Radio Lab Node |
+| Boot Target | graphical.target |
 
-## Role: Headless Resilience Node
+## Role: Hacker/Radio Node
 
-A resilience node is a battery-backed device that stays alive when power fails to provide:
+A hobby/hacker node for radio (SDR) and security research:
 
-1. **Network presence proof** - node_exporter metrics prove the network still exists
-2. **SSH foothold** - Recovery operations when other servers are down
-3. **Alert origin** - Can send notifications that infrastructure is down
+1. **SDR and RF experimentation** - Software-defined radio, LoRa, RF analysis
+2. **Network analysis and security research** - Packet capture, pen testing tools
+3. **Serial communication** - LoRa development, embedded device work
 4. **Lab/automation** - Testing and experimentation node
 
 ### Headless Operation
@@ -193,7 +193,7 @@ Add to Prometheus scrape targets:
     - atom.pangolin-vega.ts.net:9100
   labels:
     device: atom
-    role: resilience
+    role: hacker-radio
     headless: "true"
 ```
 

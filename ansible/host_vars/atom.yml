@@ -5,7 +5,7 @@
 # ATOM HOST CONFIGURATION
 # =============================================================================
 #
-# Fedora Server - Basecamp / Hacker Node (Battery-Backed)
+# Fedora Server - Hacker Node for Radio (SDR) and Security Research
 #
 # OS:       Fedora Server 43 (graphical.target with Sway/i3)
 # Hardware: Lenovo ThinkPad X1 Carbon (2012)
@@ -14,7 +14,7 @@
 # Storage:  224GB SSD
 # GPU:      Intel HD Graphics 4000 (integrated)
 #
-# Role:     Basecamp / Hacker Node
+# Role:     Hacker / Radio Node
 #           Lightweight tiling WM environment for:
 #           - Network analysis and security research
 #           - SDR and RF experimentation
@@ -23,10 +23,10 @@
 #
 # Design:   Low-resource, stable, predictable, secure
 #           Both Sway (Wayland) and i3 (X11) available
-#           Battery-backed = implicit UPS
+#           Laptop with battery (not always on)
 #           100% managed via IaC
 #
-# Migration: Converted from headless resilience node 2025-12
+# Migration: Converted from headless node to basecamp UI 2025-12
 #
 # =============================================================================
 
@@ -34,7 +34,7 @@
 # Device Identity
 # ========================================
 device_role: basecamp_node
-device_description: "Battery-backed basecamp/hacker node for field operations and security research"
+device_description: "Hacker node for radio (SDR) and security research"
 
 # Basecamp operation flag - triggers graphical session
 basecamp: true
@@ -79,21 +79,21 @@ basecamp_ui_boot_target: graphical.target
 basecamp_ui_touchscreen_enabled: true
 
 # ========================================
-# Power Management (Battery-Backed)
+# Power Management (Laptop)
 # ========================================
-# Critical for basecamp role - never sleep unexpectedly
+# Laptop power management - prevent unexpected sleep during use
 
 # Battery thresholds
 resilience_node_low_battery_warning: 5
 resilience_node_critical_battery_percent: 2
 resilience_node_critical_battery_action: shutdown
 
-# Lid switch behavior - stay running
+# Lid switch behavior - keep running when lid closed
 resilience_node_lid_switch: ignore
 resilience_node_lid_switch_external_power: ignore
 resilience_node_lid_switch_docked: ignore
 
-# Idle behavior - never sleep
+# Idle behavior - don't sleep during long-running tasks
 resilience_node_idle_action: ignore
 resilience_node_idle_action_sec: 0
 
@@ -174,7 +174,7 @@ litellm_enabled: false
 smb_enabled: false
 nfs_enabled: false
 
-# NOT mounting network shares (resilience principle)
+# NOT mounting network shares (lightweight, no dependencies)
 # CIFS mounts removed per 2024-12-01 incident
 
 # Disable heavy workstation GUI tools (use basecamp UI instead)
