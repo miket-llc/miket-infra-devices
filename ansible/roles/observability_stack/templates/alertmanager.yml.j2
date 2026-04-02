@@ -1,0 +1,22 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+#
+# Alertmanager Configuration for PHC Monitoring
+# Alerts are routed to a local Discord adapter that translates
+# Alertmanager JSON to Discord-compatible webhook payloads.
+
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: discord
+  group_by: ['alertname', 'instance']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: discord
+    webhook_configs:
+      - url: 'http://localhost:{{ alertmanager_discord_adapter_port }}'
+        send_resolved: true

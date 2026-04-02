@@ -121,6 +121,45 @@
   tags: [observability, stack, dashboards]
 
 # ========================================
+# Alertmanager Configuration (when enabled)
+# ========================================
+
+- name: Create Alertmanager directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ observability_workdir }}/alertmanager"
+    - "{{ observability_workdir }}/alertmanager/data"
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, directories, alertmanager]
+
+- name: Deploy Alertmanager configuration
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: "{{ observability_workdir }}/alertmanager/alertmanager.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart observability stack
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, configure, alertmanager]
+
+- name: Deploy Prometheus alert rules
+  ansible.builtin.template:
+    src: alert-rules.yml.j2
+    dest: "{{ observability_workdir }}/prometheus/alert-rules.yml"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload prometheus
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, configure, alertmanager]
+
+# ========================================
 # Docker Compose Deployment
 # ========================================
 
@@ -209,3 +248,16 @@
     - blackbox/blackbox.yml
   changed_when: false
   tags: [observability, stack, backup]
+
+- name: Backup Alertmanager configuration to /space
+  ansible.builtin.copy:
+    src: "{{ observability_workdir }}/{{ item }}"
+    dest: "{{ observability_config_backup_dir }}/{{ item }}"
+    remote_src: true
+    mode: preserve
+  loop:
+    - alertmanager/alertmanager.yml
+    - prometheus/alert-rules.yml
+  changed_when: false
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, backup, alertmanager]

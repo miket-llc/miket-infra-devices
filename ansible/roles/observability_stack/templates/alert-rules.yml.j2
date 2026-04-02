@@ -1,0 +1,55 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+# Managed by Ansible - do not edit manually
+#
+# Prometheus Alert Rules for PHC Monitoring
+
+groups:
+  - name: node_alerts
+    rules:
+      # ========================================
+      # NodeDown - critical: target is unreachable
+      # ========================================
+      - alert: NodeDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node {{ '{{ $labels.instance }}' }} is down"
+          description: "{{ '{{ $labels.instance }}' }} has been unreachable for more than 2 minutes."
+
+      # ========================================
+      # NodeHighDiskUsage - warning: filesystem nearly full
+      # ========================================
+      - alert: NodeHighDiskUsage
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage critical on {{ '{{ $labels.instance }}' }} ({{ '{{ $labels.mountpoint }}' }})"
+          description: "Filesystem {{ '{{ $labels.mountpoint }}' }} on {{ '{{ $labels.instance }}' }} has less than 10% free space."
+
+      # ========================================
+      # NodeHighMemoryUsage - warning: memory nearly exhausted
+      # ========================================
+      - alert: NodeHighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on {{ '{{ $labels.instance }}' }}"
+          description: "{{ '{{ $labels.instance }}' }} memory usage is above 90% for more than 5 minutes."
+
+      # ========================================
+      # NodeHighCPULoad - warning: sustained high load
+      # ========================================
+      - alert: NodeHighCPULoad
+        expr: node_load5 > 8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU load on {{ '{{ $labels.instance }}' }}"
+          description: "{{ '{{ $labels.instance }}' }} 5-minute load average is above 8 for more than 10 minutes."

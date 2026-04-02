@@ -20,8 +20,11 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
     volumes:
-      - {{ observability_workdir }}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - {{ observability_workdir }}/prometheus/data:/prometheus
+      - {{ observability_workdir }}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+{% if alertmanager_enabled | bool %}
+      - {{ observability_workdir }}/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro,Z
+{% endif %}
+      - {{ observability_workdir }}/prometheus/data:/prometheus:Z
 
   grafana:
     image: docker.io/grafana/grafana-oss:{{ grafana_version }}
@@ -39,9 +42,9 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/node-exporter.json
     volumes:
-      - {{ observability_workdir }}/grafana/data:/var/lib/grafana
-      - {{ observability_workdir }}/grafana/provisioning:/etc/grafana/provisioning:ro
-      - {{ observability_workdir }}/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - {{ observability_workdir }}/grafana/data:/var/lib/grafana:Z
+      - {{ observability_workdir }}/grafana/provisioning:/etc/grafana/provisioning:ro,Z
+      - {{ observability_workdir }}/grafana/dashboards:/var/lib/grafana/dashboards:ro,Z
     depends_on:
       - prometheus
 {% if grafana_env_path is defined %}
@@ -58,7 +61,7 @@ services:
     command:
       - '--config.file=/config/blackbox.yml'
     volumes:
-      - {{ observability_workdir }}/blackbox/blackbox.yml:/config/blackbox.yml:ro
+      - {{ observability_workdir }}/blackbox/blackbox.yml:/config/blackbox.yml:ro,Z
 
 {% if alertmanager_enabled | bool %}
   alertmanager:
@@ -70,6 +73,16 @@ services:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     volumes:
-      - {{ observability_workdir }}/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - {{ observability_workdir }}/alertmanager/data:/alertmanager
+      - {{ observability_workdir }}/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro,Z
+      - {{ observability_workdir }}/alertmanager/data:/alertmanager:Z
+
+  alertmanager-discord:
+    image: {{ alertmanager_discord_adapter_image }}
+    container_name: alertmanager-discord
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - /flux/runtime/secrets/alertmanager-discord.env
+    environment:
+      - LISTEN_ADDRESS=0.0.0.0:{{ alertmanager_discord_adapter_port }}
 {% endif %}

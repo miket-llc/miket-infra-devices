@@ -16,11 +16,16 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-            - alertmanager:{{ alertmanager_port }}
+            - localhost:{{ alertmanager_port }}
 {% endif %}
 
 # Rule files
+{% if alertmanager_enabled | bool %}
+rule_files:
+  - /etc/prometheus/alert-rules.yml
+{% else %}
 rule_files: []
+{% endif %}
 
 # Scrape configurations
 scrape_configs:

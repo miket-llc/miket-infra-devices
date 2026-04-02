@@ -100,9 +100,17 @@ grafana_dashboards:
 # ========================================
 # Alertmanager Configuration (optional)
 # ========================================
-alertmanager_enabled: false
+alertmanager_enabled: true
 alertmanager_version: "v0.27.0"
 alertmanager_port: 9093
+
+# Discord webhook URL for alert notifications
+# Populate via AKV secrets-sync or direct host_vars override
+alertmanager_discord_webhook_url: ""
+
+# alertmanager-discord adapter (translates Alertmanager JSON → Discord format)
+alertmanager_discord_adapter_port: 9095
+alertmanager_discord_adapter_image: "docker.io/benjojo/alertmanager-discord:latest"
 
 # ========================================
 # Network / Security Configuration
