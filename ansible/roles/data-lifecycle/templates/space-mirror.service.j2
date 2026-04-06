@@ -23,8 +23,8 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=space-mirror
 
-# Timeout (generous for large syncs)
-TimeoutStartSec=14400
+# Timeout (generous for large syncs — initial B2 catch-up can take 8h+)
+TimeoutStartSec=28800
 
 [Install]
 WantedBy=multi-user.target
