@@ -7,16 +7,19 @@ groups:
   - name: node_alerts
     rules:
       # ========================================
-      # NodeDown - critical: target is unreachable
+      # NodeDown - critical: SERVER node is unreachable
+      # Only fires for always-on server nodes (motoko, akira).
+      # Workstations (armitage, wintermute, atom, flatline) are
+      # expected to be off and don't need constant alerts.
       # ========================================
       - alert: NodeDown
-        expr: up == 0
-        for: 2m
+        expr: up{instance=~"motoko|akira"} == 0
+        for: 5m
         labels:
           severity: critical
         annotations:
-          summary: "Node {{ '{{ $labels.instance }}' }} is down"
-          description: "{{ '{{ $labels.instance }}' }} has been unreachable for more than 2 minutes."
+          summary: "Server {{ '{{ $labels.instance }}' }} is down"
+          description: "{{ '{{ $labels.instance }}' }} has been unreachable for more than 5 minutes."
 
       # ========================================
       # NodeHighDiskUsage - warning: filesystem nearly full
@@ -53,3 +56,46 @@ groups:
         annotations:
           summary: "High CPU load on {{ '{{ $labels.instance }}' }}"
           description: "{{ '{{ $labels.instance }}' }} 5-minute load average is above 8 for more than 10 minutes."
+
+  - name: backup_alerts
+    rules:
+      # ========================================
+      # SpaceMirrorStale - warning: B2 mirror hasn't run successfully
+      # space-mirror runs daily at 04:00; alert if last success >36h ago
+      # Uses the marker file timestamp exposed via node_exporter textfile
+      # or checks systemd timer state.
+      # ========================================
+      - alert: SpaceMirrorFailed
+        expr: node_systemd_unit_state{name="space-mirror.service",state="failed"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "space-mirror backup failed on {{ '{{ $labels.instance }}' }}"
+          description: "The space-mirror B2 sync service has failed. Check logs with: journalctl -u space-mirror.service"
+
+      # ========================================
+      # FluxBackupFailed - warning: restic backup of /flux failed
+      # ========================================
+      - alert: FluxBackupFailed
+        expr: node_systemd_unit_state{name="flux-backup.service",state="failed"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "flux-backup (restic) failed on {{ '{{ $labels.instance }}' }}"
+          description: "The restic backup of /flux to B2 has failed. Check logs with: journalctl -u flux-backup.service"
+
+  - name: update_alerts
+    rules:
+      # ========================================
+      # SystemUpdatesFailed - warning: automated updates failed
+      # ========================================
+      - alert: SystemUpdatesFailed
+        expr: node_systemd_unit_state{name="dnf-automatic-install.service",state="failed"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "System updates failed on {{ '{{ $labels.instance }}' }}"
+          description: "Automatic system updates have failed on {{ '{{ $labels.instance }}' }}."
