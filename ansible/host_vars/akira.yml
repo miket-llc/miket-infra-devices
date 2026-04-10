@@ -315,5 +315,5 @@ wol_relay_targets:
     mac: "28:00:af:8c:98:7a"
     broadcast: "192.168.1.255"
   - name: wintermute
-    mac: "40:ec:99:8a:89:0a"
+    mac: "24:4b:fe:59:cc:2a"
     broadcast: "192.168.1.255"

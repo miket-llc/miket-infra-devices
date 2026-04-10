@@ -40,7 +40,7 @@
             tailscale ssh mdt@{{ wol_relay_host | default('motoko') }} 'wake {{ inventory_hostname }}'
 
 - name: Configure WOL relay on always-on host
-  hosts: motoko
+  hosts: motoko:akira
   become: true
   roles:
     - role: power_wol_relay
