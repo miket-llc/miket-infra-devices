@@ -48,8 +48,8 @@
       vars:
         nextcloud_sync_root: "{{ ansible_user_dir }}\\nc"
 
-- name: Deploy Nextcloud Client to Linux (non-server)
-  hosts: linux:!linux_servers
+- name: Deploy Nextcloud Client to Linux Workstations
+  hosts: linux_workstations
   become: true
   gather_facts: true
 
@@ -59,15 +59,15 @@
         msg: |
           Deploying Nextcloud client to {{ inventory_hostname }}
           Server: https://nextcloud.miket.io
-          Sync Root: ~/nc
+          Sync Root: ~/Cloud
 
   roles:
     - role: ../roles/nextcloud_client
       vars:
-        nextcloud_sync_root: "{{ ansible_user_dir }}/nc"
+        nextcloud_sync_root: "{{ ansible_user_dir }}/Cloud"
 
 - name: Display post-deployment instructions
-  hosts: all:!linux_servers
+  hosts: all_workstations
   gather_facts: false
 
   tasks:
@@ -85,7 +85,7 @@
           2. Click "Log in to your Nextcloud"
           3. Enter: https://nextcloud.miket.io
           4. Authenticate via Cloudflare Access (Entra ID)
-          5. Select local sync folder: ~/nc
+          5. Select local sync folder: ~/Cloud (Linux) or ~/nc (macOS/Windows)
           6. Choose folders to sync:
              ✅ work, media, finance, inbox, assets, camera
              ⚡ ms365 (online-only recommended)

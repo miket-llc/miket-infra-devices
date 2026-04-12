@@ -55,7 +55,7 @@ nextcloud_macos_cask: nextcloud
 nextcloud_windows_choco: nextcloud-client
 
 # Linux package name (apt/dnf)
-nextcloud_linux_package: nextcloud-desktop
+nextcloud_linux_package: nextcloud-client
 
 # Auto-start on login
 nextcloud_autostart: true
