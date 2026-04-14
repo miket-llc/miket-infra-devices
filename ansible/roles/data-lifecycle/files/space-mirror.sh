@@ -160,6 +160,15 @@ EXCLUDE_PATTERNS=(
     --exclude="*.temp"
     --exclude="*.swp"
     --exclude="*.lock"
+    --exclude="**/node_modules/**"
+    --exclude="**/.cache/**"
+    --exclude="**/.git/objects/**"
+    --exclude="**/.pnpm/**"
+    --exclude="**/.npm/_cacache/**"
+    --exclude="**/__pycache__/**"
+    --exclude="**/.pytest_cache/**"
+    --exclude="**/.venv/**"
+    --exclude="**/venv/**"
 )
 
 # Run rclone with JSON stats for marker data
