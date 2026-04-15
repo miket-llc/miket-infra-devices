@@ -5,6 +5,7 @@
 
 # User that runs the Claude session
 claude_agent_user: mdt
+claude_agent_uid: 1000
 claude_agent_home: "/home/{{ claude_agent_user }}"
 
 # Claude binary path
@@ -28,3 +29,20 @@ claude_agent_start_delay: 10
 # distinguish the agent session from interactive sessions.
 claude_agent_extra_env:
   CLAUDE_AGENT: "1"
+
+# ============================================================================
+# Watchdog — probes Discord REST + gateway and restarts the agent if both
+# paths are down for CONSECUTIVE_FAILURES checks in a row. Catches silent
+# gateway disconnects where the systemd unit still reports "active".
+# ============================================================================
+claude_agent_watchdog_enabled: true
+# How often the timer fires. systemd.time format (e.g., "5min", "2min").
+claude_agent_watchdog_interval: "5min"
+# Consecutive unhealthy checks required before we restart.
+# With a 5min interval, default=3 means ~15 min of sustained failure.
+claude_agent_watchdog_consecutive_failures: 3
+# REST probe timeout (seconds).
+claude_agent_watchdog_rest_timeout: 10
+# File that contains DISCORD_BOT_TOKEN=... (shell-source format).
+# Owned by the plugin; we only read it.
+claude_agent_watchdog_token_file: "{{ claude_agent_home }}/.claude/channels/discord/.env"

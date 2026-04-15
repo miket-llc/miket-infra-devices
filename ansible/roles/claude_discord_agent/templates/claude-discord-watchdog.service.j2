@@ -1,0 +1,29 @@
+# Claude Discord Agent Watchdog — systemd user service
+# Managed by Ansible (miket-infra-devices) — role: claude_discord_agent
+#
+# Oneshot probe: verifies the Discord bot's REST + gateway paths and
+# restarts claude-discord-agent.service if both are down N checks in a row.
+
+[Unit]
+Description=Claude Discord Agent watchdog probe
+Documentation=https://github.com/miket-llc/miket-infra-devices
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ claude_agent_home }}/.local/bin/claude-discord-watchdog.sh
+
+Environment=HOME={{ claude_agent_home }}
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=SERVICE_NAME=claude-discord-agent
+Environment=TOKEN_FILE={{ claude_agent_watchdog_token_file }}
+Environment=STATE_FILE={{ claude_agent_home }}/.local/state/claude-discord-watchdog.state
+Environment=CONSECUTIVE_FAILURES={{ claude_agent_watchdog_consecutive_failures }}
+Environment=REST_TIMEOUT={{ claude_agent_watchdog_rest_timeout }}
+
+# Don't tie watchdog failure to overall user-session health.
+SuccessExitStatus=0
+
+[Install]
+WantedBy=default.target

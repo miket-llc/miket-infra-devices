@@ -43,7 +43,7 @@
   tags: [claude-agent, install]
 
 # ========================================
-# Deploy systemd user service
+# Deploy systemd user units (files owned by the agent user)
 # ========================================
 - name: Ensure user systemd directory exists
   ansible.builtin.file:
@@ -65,38 +65,107 @@
   tags: [claude-agent, install]
 
 # ========================================
-# Enable and start service
+# Watchdog unit files (optional)
 # ========================================
-- name: Reload systemd user daemon
-  ansible.builtin.systemd:
-    daemon_reload: true
-    scope: user
-  when: claude_service_unit.changed
-  tags: [claude-agent, install]
+- name: Ensure watchdog script directory exists
+  ansible.builtin.file:
+    path: "{{ claude_agent_home }}/.local/bin"
+    state: directory
+    owner: "{{ claude_agent_user }}"
+    group: "{{ claude_agent_user }}"
+    mode: "0755"
+  when: claude_agent_watchdog_enabled
+  tags: [claude-agent, watchdog, install]
 
-- name: Enable Claude Discord agent service
-  ansible.builtin.systemd:
-    name: claude-discord-agent
-    enabled: true
-    scope: user
-  tags: [claude-agent, install]
+- name: Deploy Claude Discord watchdog script
+  ansible.builtin.copy:
+    src: claude-discord-watchdog.sh
+    dest: "{{ claude_agent_home }}/.local/bin/claude-discord-watchdog.sh"
+    owner: "{{ claude_agent_user }}"
+    group: "{{ claude_agent_user }}"
+    mode: "0755"
+  when: claude_agent_watchdog_enabled
+  register: claude_watchdog_script
+  tags: [claude-agent, watchdog, install]
 
-- name: Start Claude Discord agent service
-  ansible.builtin.systemd:
-    name: claude-discord-agent
-    state: started
-    scope: user
-  tags: [claude-agent, install]
+- name: Deploy Claude Discord watchdog service unit
+  ansible.builtin.template:
+    src: claude-discord-watchdog.service.j2
+    dest: "{{ claude_agent_home }}/.config/systemd/user/claude-discord-watchdog.service"
+    owner: "{{ claude_agent_user }}"
+    group: "{{ claude_agent_user }}"
+    mode: "0644"
+  when: claude_agent_watchdog_enabled
+  register: claude_watchdog_service
+  tags: [claude-agent, watchdog, install]
+
+- name: Deploy Claude Discord watchdog timer unit
+  ansible.builtin.template:
+    src: claude-discord-watchdog.timer.j2
+    dest: "{{ claude_agent_home }}/.config/systemd/user/claude-discord-watchdog.timer"
+    owner: "{{ claude_agent_user }}"
+    group: "{{ claude_agent_user }}"
+    mode: "0644"
+  when: claude_agent_watchdog_enabled
+  register: claude_watchdog_timer
+  tags: [claude-agent, watchdog, install]
 
 # ========================================
-# Verification
+# systemd --user operations must run AS the agent user with a live user bus.
+# Ansible doesn't propagate XDG_RUNTIME_DIR/DBUS_SESSION_BUS_ADDRESS by default
+# when connecting via SSH, so we set them explicitly for every user-scope call.
+# Grouped in a block so the become/environment boilerplate lives in one place.
 # ========================================
-- name: Check service status
-  ansible.builtin.systemd:
-    name: claude-discord-agent
-    scope: user
-  register: claude_service_status
-  tags: [claude-agent, verify]
+- name: Manage claude-discord-agent user units
+  become: true
+  become_user: "{{ claude_agent_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ claude_agent_uid }}"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ claude_agent_uid }}/bus"
+  block:
+    - name: Reload systemd user daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      when: >
+        claude_service_unit.changed
+        or (claude_agent_watchdog_enabled and (claude_watchdog_service.changed or claude_watchdog_timer.changed))
+
+    - name: Enable Claude Discord agent service
+      ansible.builtin.systemd:
+        name: claude-discord-agent
+        enabled: true
+        scope: user
+
+    - name: Start Claude Discord agent service
+      ansible.builtin.systemd:
+        name: claude-discord-agent
+        state: started
+        scope: user
+
+    - name: Enable and start Claude Discord watchdog timer
+      ansible.builtin.systemd:
+        name: claude-discord-watchdog.timer
+        enabled: true
+        state: started
+        scope: user
+      when: claude_agent_watchdog_enabled
+
+    - name: Disable Claude Discord watchdog timer (when disabled)
+      ansible.builtin.systemd:
+        name: claude-discord-watchdog.timer
+        enabled: false
+        state: stopped
+        scope: user
+      when: not claude_agent_watchdog_enabled
+      failed_when: false
+
+    - name: Check service status
+      ansible.builtin.systemd:
+        name: claude-discord-agent
+        scope: user
+      register: claude_service_status
+  tags: [claude-agent, install, verify, watchdog]
 
 - name: Display service status
   ansible.builtin.debug:
@@ -106,7 +175,9 @@
       - "Binary: {{ claude_agent_binary }}"
       - "Working dir: {{ claude_agent_workdir }}"
       - "Channel: {{ claude_agent_channel }}"
+      - "Watchdog: {{ 'enabled (' + claude_agent_watchdog_interval + ')' if claude_agent_watchdog_enabled else 'disabled' }}"
       - ""
       - "Logs: journalctl --user -u claude-discord-agent -f"
+      - "Watchdog logs: journalctl --user -u claude-discord-watchdog -f"
       - "Restart: systemctl --user restart claude-discord-agent"
   tags: [claude-agent, verify]

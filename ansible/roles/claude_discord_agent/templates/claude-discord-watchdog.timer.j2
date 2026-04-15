@@ -1,0 +1,16 @@
+# Claude Discord Agent Watchdog — systemd user timer
+# Managed by Ansible (miket-infra-devices) — role: claude_discord_agent
+
+[Unit]
+Description=Run Claude Discord Agent watchdog every {{ claude_agent_watchdog_interval }}
+Documentation=https://github.com/miket-llc/miket-infra-devices
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ claude_agent_watchdog_interval }}
+AccuracySec=30s
+Persistent=true
+Unit=claude-discord-watchdog.service
+
+[Install]
+WantedBy=timers.target
