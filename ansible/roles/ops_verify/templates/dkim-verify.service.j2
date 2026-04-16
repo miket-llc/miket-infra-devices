@@ -1,0 +1,27 @@
+[Unit]
+Description=DKIM selector verification for {{ ops_verify_email_domain }}
+Documentation=https://github.com/miket-llc/miket-infra-devices/blob/main/ansible/roles/ops_verify/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DKIM_DOMAIN={{ ops_verify_email_domain }}
+Environment=NODE_EXPORTER_TEXTFILE_DIR={{ ops_verify_metrics_dir }}
+Environment=OPS_VERIFY_LOG_DIR={{ ops_verify_log_dir }}
+ExecStart={{ ops_verify_bin_dir }}/dkim-verify.sh
+User=root
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dkim-verify
+
+# Don't propagate exit code to systemd — we already emit the failure via
+# prometheus textfile. Leaving the unit in 'failed' state would duplicate
+# signal with NodeExporterUnitFailed-style alerts and break the next timer tick.
+SuccessExitStatus=0 1
+
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

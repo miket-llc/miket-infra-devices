@@ -1,0 +1,71 @@
+---
+# ops_verify — systemd-timer replacements for miket-infra scheduled GH Actions.
+#
+# Rollout is one check at a time; each check lives as its own .sh + .service + .timer
+# trio. Start with DKIM Verification, then add email-health / tls-rpt / dmarc /
+# secrets-drift / metrics-collection. Every check emits prometheus textfile metrics;
+# alerts live in observability_stack/templates/alert-rules.yml.j2.
+
+- name: Ensure prerequisites (dig)
+  ansible.builtin.package:
+    name: bind-utils
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Ensure ops-verify log dir exists
+  ansible.builtin.file:
+    path: "{{ ops_verify_log_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Ensure node_exporter textfile collector dir exists
+  ansible.builtin.file:
+    path: "{{ ops_verify_metrics_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# ---------------------------------------------------------------------------
+# DKIM Verification
+# ---------------------------------------------------------------------------
+
+- name: Install dkim-verify script
+  ansible.builtin.copy:
+    src: dkim-verify.sh
+    dest: "{{ ops_verify_bin_dir }}/dkim-verify.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart dkim-verify timer
+
+- name: Install dkim-verify.service
+  ansible.builtin.template:
+    src: dkim-verify.service.j2
+    dest: /etc/systemd/system/dkim-verify.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart dkim-verify timer
+
+- name: Install dkim-verify.timer
+  ansible.builtin.template:
+    src: dkim-verify.timer.j2
+    dest: /etc/systemd/system/dkim-verify.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart dkim-verify timer
+
+- name: Enable dkim-verify.timer
+  ansible.builtin.systemd:
+    name: dkim-verify.timer
+    enabled: true
+    state: started
+    daemon_reload: true

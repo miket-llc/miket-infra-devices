@@ -176,3 +176,38 @@ groups:
         annotations:
           summary: "System updates failed on {{ '{{ $labels.instance }}' }}"
           description: "Automatic system updates have failed on {{ '{{ $labels.instance }}' }}."
+
+  - name: ops_verify_alerts
+    rules:
+      # ops_verify (ansible/roles/ops_verify/) runs scheduled verification checks
+      # that used to live as miket-infra GitHub Actions. Each check emits
+      # Prometheus textfile metrics; these alerts catch regressions + staleness.
+
+      # ========================================
+      # DkimSelectorInvalid - critical: a DKIM selector is not resolving
+      # Fires per-selector so the alert points at which one is broken.
+      # ========================================
+      - alert: DkimSelectorInvalid
+        expr: dkim_selector_valid == 0
+        for: 15m
+        labels:
+          severity: critical
+          category: email
+        annotations:
+          summary: "DKIM selector {{ '{{ $labels.selector }}' }} missing/invalid for {{ '{{ $labels.domain }}' }}"
+          description: "dig TXT {{ '{{ $labels.selector }}' }}._domainkey.{{ '{{ $labels.domain }}' }} did not return v=DKIM1. Outbound mail will be marked unsigned. Investigate M365 Admin Center → Email → DKIM."
+
+      # ========================================
+      # DkimVerifyStale - warning: the DKIM check hasn't written a metric in >2h
+      # Expected cadence is every 30m; >2h means the timer is broken, not that
+      # DKIM itself is broken.
+      # ========================================
+      - alert: DkimVerifyStale
+        expr: (time() - dkim_verify_last_run_timestamp_seconds) > 2 * 3600
+        for: 15m
+        labels:
+          severity: warning
+          category: ops
+        annotations:
+          summary: "dkim-verify has not run in >2h on {{ '{{ $labels.instance }}' }}"
+          description: "dkim-verify.timer appears stopped. Expected every 30m. Check: systemctl status dkim-verify.timer"

@@ -1,0 +1,14 @@
+---
+# ops_verify role defaults
+#
+# Scheduled verification checks that used to live as GitHub Actions
+# scheduled workflows in miket-infra, migrated to systemd timers on akira.
+# Each check emits Prometheus metrics via node_exporter's textfile collector
+# and alerts fire from rules in observability_stack/templates/alert-rules.yml.j2.
+
+ops_verify_bin_dir: /usr/local/bin
+ops_verify_metrics_dir: /var/lib/node_exporter/textfile_collector
+ops_verify_log_dir: /var/log/ops-verify
+
+# Domain this fleet's email is served from (drives DKIM/SPF/DMARC checks).
+ops_verify_email_domain: miket.io

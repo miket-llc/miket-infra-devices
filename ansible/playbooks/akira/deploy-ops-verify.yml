@@ -1,0 +1,19 @@
+---
+# Deploy ops_verify systemd timers to akira.
+#
+# ops_verify replaces miket-infra's scheduled GitHub Actions workflows with
+# local systemd timers. Each check emits Prometheus textfile metrics; alerts
+# fire from rules in observability_stack/templates/alert-rules.yml.j2.
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory/hosts.yml \
+#     ansible/playbooks/akira/deploy-ops-verify.yml --check --diff
+#   ansible-playbook -i ansible/inventory/hosts.yml \
+#     ansible/playbooks/akira/deploy-ops-verify.yml
+
+- name: Deploy ops_verify to akira
+  hosts: akira
+  become: true
+  gather_facts: true
+  roles:
+    - role: ops_verify

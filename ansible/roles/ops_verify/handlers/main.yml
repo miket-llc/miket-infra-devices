@@ -1,0 +1,12 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: ops-verify daemon-reload
+
+- name: Restart dkim-verify.timer
+  ansible.builtin.systemd:
+    name: dkim-verify.timer
+    state: restarted
+    enabled: true
+  listen: restart dkim-verify timer
