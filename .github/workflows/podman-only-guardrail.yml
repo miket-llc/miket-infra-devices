@@ -99,7 +99,7 @@ jobs:
           # Check for Docker daemon patterns
           echo "📁 Checking for Docker daemon/service references..."
           for pattern in "${DAEMON_PATTERNS[@]}"; do
-            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null)
+            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null || true)
             hits=$(exclude_filter "$hits")
             if [ -n "$hits" ]; then
               echo "$hits" | head -5
@@ -117,7 +117,7 @@ jobs:
           echo "📁 Checking for Docker Ansible module usage..."
           ANSIBLE_FOUND=0
           for pattern in "${ANSIBLE_PATTERNS[@]}"; do
-            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null)
+            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null || true)
             hits=$(exclude_filter "$hits")
             if [ -n "$hits" ]; then
               echo "$hits" | head -5
