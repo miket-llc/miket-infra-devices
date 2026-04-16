@@ -120,7 +120,56 @@
     - { name: restore-test.sh,   when: "{{ data_lifecycle_enable_restore_test | default(true) | bool }}" }
     - { name: backblaze-trigger.sh, when: "true" }
     - { name: failure-notify.sh, when: "true" }
+    - { name: ensure-b2-lifecycle.sh, when: "{{ data_lifecycle_enable_space_mirror | bool }}" }
   when: item.when | default(false) | bool
+
+# =============================================================================
+# Restore-test anchor file. A small known blob lives in /space (and
+# therefore in B2 after the next mirror run) and the weekly restore drill
+# round-trips + SHA256-verifies it. force: false means we never
+# overwrite existing anchor content — its checksum is a stable invariant
+# across deploys so sha mismatches signal real corruption, not config
+# drift.
+# =============================================================================
+- name: Ensure restore-test anchor directory exists
+  ansible.builtin.file:
+    path: /space/_ops/backups/restore-anchor
+    state: directory
+    owner: mdt
+    group: mdt
+    mode: "0755"
+  when: data_lifecycle_enable_restore_test | default(true) | bool
+
+- name: Seed restore-test anchor file (once)
+  ansible.builtin.copy:
+    dest: /space/_ops/backups/restore-anchor/anchor.txt
+    force: false
+    owner: mdt
+    group: mdt
+    mode: "0644"
+    content: |
+      miket-phc restore-test anchor
+      Do not edit or delete. Content is SHA256-verified weekly by
+      restore-test.sh as a bulletproof end-to-end proof that the
+      /space -> B2 mirror is both writing AND restorable.
+      Initial seed: {{ inventory_hostname }} via ansible
+  when: data_lifecycle_enable_restore_test | default(true) | bool
+
+# =============================================================================
+# B2 Bucket Policy — assert lifecycle retention so hide markers are
+# recoverable during the retention window. Runs once per deploy.
+# =============================================================================
+- name: Assert B2 bucket lifecycle (hide-to-delete retention)
+  ansible.builtin.shell: |
+    set -a
+    . /etc/miket/storage-credentials.env
+    set +a
+    export B2_BUCKET='{{ data_lifecycle_b2_bucket | default("miket-space-mirror") }}'
+    export B2_LIFECYCLE_HIDE_DAYS='{{ data_lifecycle_b2_hide_days | default(30) }}'
+    /usr/local/bin/ensure-b2-lifecycle.sh
+  register: b2_lifecycle_result
+  changed_when: "'unchanged' not in b2_lifecycle_result.stdout"
+  when: data_lifecycle_enable_space_mirror | bool
 
 - name: Deploy Flux Graduation Service
   template:

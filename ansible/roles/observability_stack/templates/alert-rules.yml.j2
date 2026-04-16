@@ -75,6 +75,83 @@ groups:
           description: "The space-mirror B2 sync service has failed. Check logs with: journalctl -u space-mirror.service"
 
       # ========================================
+      # SpaceMirrorLastRunFailed - critical: last run exited non-zero
+      # This fires from the metric the script itself writes, which
+      # survives even if systemd already reset the unit back to inactive.
+      # ========================================
+      - alert: SpaceMirrorLastRunFailed
+        expr: space_mirror_last_run_status == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "space-mirror last run failed on {{ '{{ $labels.instance }}' }}"
+          description: "space-mirror.service exited non-zero on its most recent run. Check /space/_ops/logs/data-lifecycle/ and journalctl -u space-mirror."
+
+      # ========================================
+      # SpaceMirrorStale - critical: no successful run in >36h (daily schedule)
+      # ========================================
+      - alert: SpaceMirrorStale
+        expr: (time() - space_mirror_last_success_timestamp_seconds) > 36 * 3600
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "space-mirror has not succeeded in >36h on {{ '{{ $labels.instance }}' }}"
+          description: "Last successful /space → B2 mirror was {{ '{{ humanizeDuration $value }}' }} ago (threshold 36h). Daily backups are not happening."
+
+      # ========================================
+      # SpaceMirrorDestShrank - critical: B2 destination bytes regressed
+      # Fires if the most recent measurement is >5% smaller than the
+      # 14-day high-water mark. This is the alert that would have caught
+      # the Apr 14 hard-delete cascade.
+      # ========================================
+      - alert: SpaceMirrorDestShrank
+        expr: |
+          space_mirror_dest_bytes > 0
+          and space_mirror_dest_bytes
+              < 0.95 * max_over_time(space_mirror_dest_bytes[14d])
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "B2 mirror destination shrank on {{ '{{ $labels.instance }}' }}"
+          description: "space_mirror_dest_bytes is below 95% of its 14-day high-water mark. A buggy exclude or source mount loss may be deleting data from B2 — investigate before the hide-to-delete retention window (30d) elapses."
+
+      - alert: SpaceMirrorObjectsShrank
+        expr: |
+          space_mirror_dest_objects > 0
+          and space_mirror_dest_objects
+              < 0.95 * max_over_time(space_mirror_dest_objects[14d])
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "B2 mirror object count shrank on {{ '{{ $labels.instance }}' }}"
+          description: "space_mirror_dest_objects is below 95% of its 14-day high-water mark. Likely cause: unintended deletions in the most recent sync."
+
+      # ========================================
+      # RestoreTestFailed - critical: weekly drill failed (or drill stale)
+      # ========================================
+      - alert: RestoreTestFailed
+        expr: restore_test_last_overall_status == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Restore drill failed on {{ '{{ $labels.instance }}' }}"
+          description: "The weekly restore-test drill FAILED. Either the B2 anchor round-trip or the restic snapshot restore is broken. Backups cannot be trusted until this is resolved."
+
+      - alert: RestoreTestStale
+        expr: (time() - restore_test_last_run_timestamp_seconds) > 10 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Restore drill has not run in >10 days on {{ '{{ $labels.instance }}' }}"
+          description: "restore-test.timer is weekly; if no run in 10 days the timer or the drill itself is broken."
+
+      # ========================================
       # FluxBackupFailed - warning: restic backup of /flux failed
       # ========================================
       - alert: FluxBackupFailed
