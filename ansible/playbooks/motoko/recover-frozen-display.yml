@@ -85,7 +85,6 @@
         - sddm.service
         - nxserver.service
         - tailscaled.service
-        - docker.service
 
     - name: Get final system status
       ansible.builtin.shell: |

@@ -80,14 +80,14 @@ echo ""
 echo "Storage mounts:"
 df -h | grep -E '(space|flux|time)' || echo "  ⚠️  PHC storage not mounted yet"
 
-# Check Docker
+# Check Podman (platform standard — podman-only, see CONTAINERS_RUNTIME_STANDARD.md)
 echo ""
-echo "Docker:"
-if command -v docker &>/dev/null; then
-  docker --version
-  systemctl is-active docker &>/dev/null && echo "  ✅ Docker running" || echo "  ⚠️  Docker not running"
+echo "Podman:"
+if command -v podman &>/dev/null; then
+  podman --version
+  systemctl is-active podman.socket &>/dev/null && echo "  ✅ podman.socket running" || echo "  ⚠️  podman.socket not running"
 else
-  echo "  ⚠️  Docker not installed yet"
+  echo "  ⚠️  Podman not installed yet"
 fi
 
 # Check Tailscale

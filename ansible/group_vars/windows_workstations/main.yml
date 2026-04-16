@@ -1,8 +1,8 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Shared configuration for Windows workstations with Docker Desktop
-# Applies to: armitage, wintermute, and future Windows workstations with Docker
+# Shared configuration for Windows workstations
+# Applies to: wintermute and future Windows workstations (armitage migrated to Fedora per ADR-005)
 
 # User configuration
 # All Windows workstations use the 'mdt' local user account
@@ -10,8 +10,7 @@
 automation_user: mdt
 automation_user_home: "C:\\Users\\mdt"
 
-# Podman Desktop configuration (standardized container runtime)
-# Docker Desktop has been removed - Podman is the standard
+# Podman Desktop configuration (standardized container runtime, replaces the legacy DD stack)
 podman_desktop:
   enabled: true
   backend: wsl2
@@ -66,7 +65,7 @@ wsl2:
 #   - windows-workstation
 #   - gaming-mode
 #   - cuda-development
-#   - docker-desktop
+#   - podman-desktop
 
 
 

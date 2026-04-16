@@ -59,7 +59,7 @@
       }
     mode: '0644'
   notify: Restart Docker
-  when: ansible_facts.services['docker.service'] is defined
+  when: false  # Podman-only fleet; the legacy daemon unit is never present.
 
 
 

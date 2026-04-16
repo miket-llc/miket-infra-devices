@@ -53,21 +53,52 @@ jobs:
             "docker_volume:"
           )
           
-          # Paths to exclude (historical/archive content)
+          # Paths to exclude. Covers:
+          #  - historical/archive content
+          #  - the guardrail workflow itself (lists the patterns it's scanning for)
+          #  - roles whose PURPOSE is to remove/prevent Docker (self-incriminating by design)
+          #  - the remove-docker-fleet playbook (uninstalls docker packages by name)
+          #  - any *.legacy/* path tree (scripts retained for reference only)
           EXCLUDE_PATHS=(
             "docs/archive/"
             "docs/migration/"
             ".github/workflows/podman-only-guardrail.yml"
+            # Roles whose purpose is to remove/detect/warn about Docker (self-incriminating by design)
+            "ansible/roles/docker_cleanup_linux/"
+            "ansible/roles/docker_prevention/"
+            "ansible/roles/podman_base/tasks/main.yml"
+            "ansible/roles/podman_standard_linux/"
+            "ansible/roles/podman_desktop_macos/"
+            "ansible/roles/podman_desktop_windows/"
+            "ansible/playbooks/remove-docker-fleet.yml"
+            "ansible/playbooks/docker-prevention.yml"
+            "/legacy/"
+            "backups/"
+            # wintermute Windows scripts still talk to Docker Desktop today
+            # (Windows → Podman Desktop migration is a separate track).
+            "devices/wintermute/scripts/"
           )
-          
+
+          # Build a single anchored grep -v pipeline from EXCLUDE_PATHS so new
+          # entries don't need a parallel edit below.
+          exclude_filter() {
+            local stream="$1"
+            for excl in "${EXCLUDE_PATHS[@]}"; do
+              stream=$(echo "$stream" | grep -v "$excl")
+            done
+            # drop the well-known false-positive strings about podman-docker compat
+            echo "$stream" | grep -v "# podman-docker" | grep -v "podman-docker package"
+          }
+
           FOUND=0
-          
+
           # Check for Docker daemon patterns
           echo "📁 Checking for Docker daemon/service references..."
           for pattern in "${DAEMON_PATTERNS[@]}"; do
-            if grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null | \
-               grep -v "docs/archive/" | grep -v "docs/migration/" | grep -v ".github/workflows/podman-only-guardrail.yml" | \
-               grep -v "# podman-docker" | grep -v "podman-docker package" | head -5; then
+            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null)
+            hits=$(exclude_filter "$hits")
+            if [ -n "$hits" ]; then
+              echo "$hits" | head -5
               echo "⚠️  Found pattern: $pattern"
               FOUND=1
             fi
@@ -82,7 +113,10 @@ jobs:
           echo "📁 Checking for Docker Ansible module usage..."
           ANSIBLE_FOUND=0
           for pattern in "${ANSIBLE_PATTERNS[@]}"; do
-            if grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null | head -5; then
+            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null)
+            hits=$(exclude_filter "$hits")
+            if [ -n "$hits" ]; then
+              echo "$hits" | head -5
               echo "❌ Found Docker Ansible module: $pattern"
               ANSIBLE_FOUND=1
             fi

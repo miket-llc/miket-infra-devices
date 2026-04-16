@@ -2,8 +2,8 @@
 
 ---
 # Master Update Orchestrator Playbook
-# Purpose: Coordinate all system updates across Linux, Windows, Docker, and applications
-# Scope: Orchestrates linux-updates, windows-updates, docker-updates, and app-updates
+# Purpose: Coordinate all system updates across Linux, Windows, and applications
+# Scope: Orchestrates linux-updates, windows-updates, and app-updates
 # Idempotent: Yes - delegates to individual update playbooks
 # Observable: Comprehensive summary report with notifications
 #
@@ -26,7 +26,6 @@
 # Tags:
 #   - linux: Linux system updates only
 #   - windows: Windows system updates only
-#   - docker: Docker image updates only
 #   - apps: Application code updates only
 #   - security: Security updates only
 #   - pre-check: Pre-flight checks only
@@ -66,10 +65,6 @@
 - name: Update Windows Systems
   import_playbook: windows-updates.yml
   tags: [windows, security]
-
-- name: Update Docker Services
-  import_playbook: docker-updates.yml
-  tags: [docker]
 
 - name: Update Application Code
   import_playbook: app-updates.yml
