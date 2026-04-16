@@ -79,46 +79,43 @@ jobs:
             "devices/wintermute/scripts/"
           )
 
-          # Build a single anchored grep -v pipeline from EXCLUDE_PATHS so new
-          # entries don't need a parallel edit below. Each grep -v is guarded
-          # with `|| true` because under `set -eo pipefail` (GH Actions default)
-          # an empty pipeline result exits 1 and would kill the whole step.
-          exclude_filter() {
-            local stream="$1"
-            for excl in "${EXCLUDE_PATHS[@]}"; do
-              stream=$(echo "$stream" | grep -v -F "$excl" || true)
-            done
-            # drop the well-known false-positive strings about podman-docker compat
-            stream=$(echo "$stream" | grep -v "# podman-docker" || true)
-            stream=$(echo "$stream" | grep -v "podman-docker package" || true)
-            echo "$stream"
-          }
+          # Disable set -e for the scan body — we use explicit exit-code handling
+          # and empty grep results (exit 1) are expected and not fatal.
+          set +e
+
+          # Build a single `grep -vF -e <p1> -e <p2> ...` argument list for
+          # filtering out excluded paths and known-false-positive substrings.
+          EXCL_ARGS=()
+          for excl in "${EXCLUDE_PATHS[@]}"; do
+            EXCL_ARGS+=(-e "$excl")
+          done
+          EXCL_ARGS+=(-e "# podman-docker" -e "podman-docker package")
 
           FOUND=0
 
           # Check for Docker daemon patterns
           echo "📁 Checking for Docker daemon/service references..."
           for pattern in "${DAEMON_PATTERNS[@]}"; do
-            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null || true)
-            hits=$(exclude_filter "$hits")
+            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null \
+                     | grep -vF "${EXCL_ARGS[@]}")
             if [ -n "$hits" ]; then
               echo "$hits" | head -5
               echo "⚠️  Found pattern: $pattern"
               FOUND=1
             fi
           done
-          
+
           if [ $FOUND -eq 0 ]; then
             echo "✅ No Docker daemon references found"
           fi
           echo ""
-          
+
           # Check for Docker Ansible modules
           echo "📁 Checking for Docker Ansible module usage..."
           ANSIBLE_FOUND=0
           for pattern in "${ANSIBLE_PATTERNS[@]}"; do
-            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null || true)
-            hits=$(exclude_filter "$hits")
+            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null \
+                     | grep -vF "${EXCL_ARGS[@]}")
             if [ -n "$hits" ]; then
               echo "$hits" | head -5
               echo "❌ Found Docker Ansible module: $pattern"
