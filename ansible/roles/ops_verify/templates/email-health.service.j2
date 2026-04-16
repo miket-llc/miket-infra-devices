@@ -1,0 +1,24 @@
+[Unit]
+Description=Email infrastructure health probe for {{ ops_verify_email_domain }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=EMAIL_DOMAIN={{ ops_verify_email_domain }}
+Environment=NODE_EXPORTER_TEXTFILE_DIR={{ ops_verify_metrics_dir }}
+Environment=OPS_VERIFY_LOG_DIR={{ ops_verify_log_dir }}
+ExecStart={{ ops_verify_bin_dir }}/email-health.sh
+User=root
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=email-health
+
+# Don't leave the unit in 'failed' on a probe failure — the metric carries the signal.
+SuccessExitStatus=0 1
+
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

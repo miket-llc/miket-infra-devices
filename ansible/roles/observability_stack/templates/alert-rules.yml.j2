@@ -211,3 +211,44 @@ groups:
         annotations:
           summary: "dkim-verify has not run in >2h on {{ '{{ $labels.instance }}' }}"
           description: "dkim-verify.timer appears stopped. Expected every 30m. Check: systemctl status dkim-verify.timer"
+
+      # ========================================
+      # EmailCheckFailed - warning: an individual email-infra DNS record is missing.
+      # Fires per-check so the alert points at MX/SPF/DMARC/MTA-STS/TLS-RPT.
+      # DKIM is handled by the separate DkimSelectorInvalid rule above.
+      # ========================================
+      - alert: EmailCheckFailed
+        expr: email_check_success == 0
+        for: 20m
+        labels:
+          severity: warning
+          category: email
+        annotations:
+          summary: "Email {{ '{{ $labels.check }}' }} record missing for {{ '{{ $labels.domain }}' }}"
+          description: "email-health probe reports {{ '{{ $labels.check }}' }} failing for {{ '{{ $labels.domain }}' }}. Check DNS manually."
+
+      # ========================================
+      # EmailHealthStale - warning: the hourly probe hasn't written in >3h
+      # ========================================
+      - alert: EmailHealthStale
+        expr: (time() - email_health_last_run_timestamp_seconds) > 3 * 3600
+        for: 15m
+        labels:
+          severity: warning
+          category: ops
+        annotations:
+          summary: "email-health has not run in >3h on {{ '{{ $labels.instance }}' }}"
+          description: "email-health.timer appears stopped. Expected every hour. Check: systemctl status email-health.timer"
+
+      # ========================================
+      # DmarcSummaryStale - warning: daily DMARC summary hasn't run in >36h
+      # ========================================
+      - alert: DmarcSummaryStale
+        expr: (time() - dmarc_summary_last_run_timestamp_seconds) > 36 * 3600
+        for: 15m
+        labels:
+          severity: warning
+          category: ops
+        annotations:
+          summary: "dmarc-summary has not run in >36h on {{ '{{ $labels.instance }}' }}"
+          description: "dmarc-summary.timer appears stopped. Expected daily at 09:00 UTC. Check: systemctl status dmarc-summary.timer"

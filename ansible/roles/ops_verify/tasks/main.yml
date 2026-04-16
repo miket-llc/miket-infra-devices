@@ -69,3 +69,87 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# ---------------------------------------------------------------------------
+# Email Infrastructure Health (MX / SPF / DMARC / MTA-STS / TLS-RPT)
+# ---------------------------------------------------------------------------
+
+- name: Install email-health script
+  ansible.builtin.copy:
+    src: email-health.sh
+    dest: "{{ ops_verify_bin_dir }}/email-health.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart email-health timer
+
+- name: Install email-health.service
+  ansible.builtin.template:
+    src: email-health.service.j2
+    dest: /etc/systemd/system/email-health.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart email-health timer
+
+- name: Install email-health.timer
+  ansible.builtin.template:
+    src: email-health.timer.j2
+    dest: /etc/systemd/system/email-health.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart email-health timer
+
+- name: Enable email-health.timer
+  ansible.builtin.systemd:
+    name: email-health.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# ---------------------------------------------------------------------------
+# DMARC daily aggregate-report summary
+# ---------------------------------------------------------------------------
+
+- name: Install dmarc-summary script
+  ansible.builtin.copy:
+    src: dmarc-summary.sh
+    dest: "{{ ops_verify_bin_dir }}/dmarc-summary.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart dmarc-summary timer
+
+- name: Install dmarc-summary.service
+  ansible.builtin.template:
+    src: dmarc-summary.service.j2
+    dest: /etc/systemd/system/dmarc-summary.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart dmarc-summary timer
+
+- name: Install dmarc-summary.timer
+  ansible.builtin.template:
+    src: dmarc-summary.timer.j2
+    dest: /etc/systemd/system/dmarc-summary.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart dmarc-summary timer
+
+- name: Enable dmarc-summary.timer
+  ansible.builtin.systemd:
+    name: dmarc-summary.timer
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -6,6 +6,60 @@
 # =============================================================================
 
 # ========================================
+# Retire legacy podman quadlet stack
+# ========================================
+# Earlier observability setups shipped as /etc/containers/systemd/*.container
+# quadlet files (prometheus.container, grafana.container, alertmanager.container)
+# that pointed at /flux/runtime/monitoring/... paths. The Ansible-managed
+# compose stack at /flux/apps/observability/ has superseded them, but the
+# quadlets + their auto-generated .service units would otherwise race with
+# observability-stack.service on the same container names and win (they
+# persist across daemon-reload because systemd caches them until explicitly
+# disabled). These tasks retire the legacy setup idempotently so subsequent
+# `podman compose up` actually takes effect.
+
+- name: Stop + disable legacy quadlet-generated services (if present)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - prometheus.service
+    - grafana.service
+    - alertmanager.service
+  failed_when: false
+  tags: [observability, stack, legacy-retire]
+
+- name: Retire legacy quadlet files to /etc/containers/systemd.retired/
+  block:
+    - name: Ensure retirement dir exists
+      ansible.builtin.file:
+        path: /etc/containers/systemd.retired
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Move quadlet files out of the active dir
+      ansible.builtin.command: >-
+        mv /etc/containers/systemd/{{ item }} /etc/containers/systemd.retired/{{ item }}
+      args:
+        removes: "/etc/containers/systemd/{{ item }}"
+      loop:
+        - prometheus.container
+        - grafana.container
+        - alertmanager.container
+      notify: Reload systemd
+  tags: [observability, stack, legacy-retire]
+
+- name: Remove stale container instances left by quadlets
+  ansible.builtin.command: podman rm -f prometheus grafana alertmanager
+  register: _remove_legacy_containers
+  changed_when: "'prometheus' in (_remove_legacy_containers.stdout | default(''))"
+  failed_when: false
+  tags: [observability, stack, legacy-retire]
+
+# ========================================
 # Directory Structure
 # ========================================
 

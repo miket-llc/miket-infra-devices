@@ -10,3 +10,17 @@
     state: restarted
     enabled: true
   listen: restart dkim-verify timer
+
+- name: Restart email-health.timer
+  ansible.builtin.systemd:
+    name: email-health.timer
+    state: restarted
+    enabled: true
+  listen: restart email-health timer
+
+- name: Restart dmarc-summary.timer
+  ansible.builtin.systemd:
+    name: dmarc-summary.timer
+    state: restarted
+    enabled: true
+  listen: restart dmarc-summary timer

@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DMARC aggregate-report summary daily at 09:00 UTC
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
