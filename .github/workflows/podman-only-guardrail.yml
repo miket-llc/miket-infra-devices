@@ -19,7 +19,7 @@ jobs:
   check-no-docker-daemon:
     name: Verify No Docker Daemon References
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,161 +28,182 @@ jobs:
 
       - name: Check for Docker daemon/runtime references
         id: docker-check
+        shell: python
         run: |
-          echo "🔍 Scanning for Docker daemon/runtime references..."
-          echo ""
-          
-          # Patterns that indicate Docker daemon usage (not CLI compatibility)
-          # These are things that would require the Docker daemon to be running
-          DAEMON_PATTERNS=(
-            "systemctl.*docker"
-            "docker.service"
-            "docker.socket"
-            "moby-engine"
-            "docker-ce"
-            "Docker Desktop"
-            "docker daemon"
-          )
-          
-          # Patterns in Ansible that indicate Docker module usage
-          ANSIBLE_PATTERNS=(
-            "community.docker"
-            "docker_container:"
-            "docker_image:"
-            "docker_network:"
-            "docker_volume:"
-          )
-          
-          # Paths to exclude. Covers:
-          #  - historical/archive content
-          #  - the guardrail workflow itself (lists the patterns it's scanning for)
-          #  - roles whose PURPOSE is to remove/prevent Docker (self-incriminating by design)
-          #  - the remove-docker-fleet playbook (uninstalls docker packages by name)
-          #  - any *.legacy/* path tree (scripts retained for reference only)
-          EXCLUDE_PATHS=(
-            "docs/archive/"
-            "docs/migration/"
-            ".github/workflows/podman-only-guardrail.yml"
-            # Roles whose purpose is to remove/detect/warn about Docker (self-incriminating by design)
-            "ansible/roles/docker_cleanup_linux/"
-            "ansible/roles/docker_prevention/"
-            "ansible/roles/podman_base/tasks/main.yml"
-            "ansible/roles/podman_standard_linux/"
-            "ansible/roles/podman_desktop_macos/"
-            "ansible/roles/podman_desktop_windows/"
-            "ansible/playbooks/remove-docker-fleet.yml"
-            "ansible/playbooks/docker-prevention.yml"
-            "/legacy/"
-            "backups/"
-            # wintermute Windows scripts still talk to Docker Desktop today
-            # (Windows → Podman Desktop migration is a separate track).
-            "devices/wintermute/scripts/"
-          )
+          """Scan the tree for Docker daemon/runtime references.
 
-          # Disable set -e for the scan body — we use explicit exit-code handling
-          # and empty grep results (exit 1) are expected and not fatal.
-          set +e
+          Written in Python rather than bash so the exit-code semantics are
+          explicit — the earlier bash implementation kept tripping
+          `set -eo pipefail` (GH Actions' default) on empty grep results and
+          dying in the first 0.5s before emitting any diagnostic output.
+          """
+          import os, re, sys
 
-          # Build a single `grep -vF -e <p1> -e <p2> ...` argument list for
-          # filtering out excluded paths and known-false-positive substrings.
-          EXCL_ARGS=()
-          for excl in "${EXCLUDE_PATHS[@]}"; do
-            EXCL_ARGS+=(-e "$excl")
-          done
-          EXCL_ARGS+=(-e "# podman-docker" -e "podman-docker package")
+          DAEMON_PATTERNS = [
+              r"systemctl.*docker",
+              r"docker\.service",
+              r"docker\.socket",
+              r"moby-engine",
+              r"docker-ce",
+              r"Docker Desktop",
+              r"docker daemon",
+          ]
+          ANSIBLE_PATTERNS = [
+              r"community\.docker",
+              r"docker_container:",
+              r"docker_image:",
+              r"docker_network:",
+              r"docker_volume:",
+          ]
 
-          FOUND=0
+          # Paths to exclude (substring match against each file's relative path).
+          # Rationale for each entry:
+          #  - docs/archive|migration: retained historical content
+          #  - the guardrail workflow itself: lists the patterns it's scanning for
+          #  - docker_cleanup_linux, docker_prevention, podman_base(main),
+          #    podman_standard_linux, podman_desktop_macos, podman_desktop_windows:
+          #    roles whose purpose is to remove/detect/warn about Docker
+          #  - remove-docker-fleet.yml, docker-prevention.yml: uninstall playbooks
+          #  - /legacy/, backups/: known-legacy content retained for reference
+          #  - devices/wintermute/scripts/: wintermute still runs vLLM under
+          #    Docker Desktop; Podman Desktop migration is a separate track.
+          EXCLUDE_PATHS = [
+              "docs/archive/",
+              "docs/migration/",
+              ".github/workflows/podman-only-guardrail.yml",
+              "ansible/roles/docker_cleanup_linux/",
+              "ansible/roles/docker_prevention/",
+              "ansible/roles/podman_base/tasks/main.yml",
+              "ansible/roles/podman_standard_linux/",
+              "ansible/roles/podman_desktop_macos/",
+              "ansible/roles/podman_desktop_windows/",
+              "ansible/playbooks/remove-docker-fleet.yml",
+              "ansible/playbooks/docker-prevention.yml",
+              "/legacy/",
+              "backups/",
+              "devices/wintermute/scripts/",
+          ]
+          LINE_EXCLUDES = ["# podman-docker", "podman-docker package"]
 
-          # Check for Docker daemon patterns
-          echo "📁 Checking for Docker daemon/service references..."
-          for pattern in "${DAEMON_PATTERNS[@]}"; do
-            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" --include="*.sh" --include="*.ps1" . 2>/dev/null \
-                     | grep -vF "${EXCL_ARGS[@]}")
-            if [ -n "$hits" ]; then
-              echo "$hits" | head -5
-              echo "⚠️  Found pattern: $pattern"
-              FOUND=1
-            fi
-          done
+          DAEMON_EXTS = (".yml", ".yaml", ".sh", ".ps1")
 
-          if [ $FOUND -eq 0 ]; then
-            echo "✅ No Docker daemon references found"
-          fi
-          echo ""
+          def excluded_path(rel: str) -> bool:
+              return any(e in rel for e in EXCLUDE_PATHS)
 
-          # Check for Docker Ansible modules
-          echo "📁 Checking for Docker Ansible module usage..."
-          ANSIBLE_FOUND=0
-          for pattern in "${ANSIBLE_PATTERNS[@]}"; do
-            hits=$(grep -rn "$pattern" --include="*.yml" --include="*.yaml" ./ansible 2>/dev/null \
-                     | grep -vF "${EXCL_ARGS[@]}")
-            if [ -n "$hits" ]; then
-              echo "$hits" | head -5
-              echo "❌ Found Docker Ansible module: $pattern"
-              ANSIBLE_FOUND=1
-            fi
-          done
-          
-          if [ $ANSIBLE_FOUND -eq 0 ]; then
-            echo "✅ No Docker Ansible modules found"
-          else
-            FOUND=1
-          fi
-          echo ""
-          
-          # Check for docker-compose files (should be podman-compose)
-          echo "📁 Checking for docker-compose files..."
-          if find . -name "docker-compose*.yml" -o -name "docker-compose*.yaml" 2>/dev/null | grep -v "docs/archive/" | head -5; then
-            echo "❌ docker-compose files found (should be podman-compose)"
-            FOUND=1
-          else
-            echo "✅ No docker-compose files found"
-          fi
-          echo ""
-          
-          # Check for Dockerfiles (should be Containerfile for Podman)
-          echo "📁 Checking for Dockerfiles..."
-          if find . -name "Dockerfile*" 2>/dev/null | grep -v "docs/archive/" | head -5; then
-            echo "⚠️  Dockerfile found (consider using Containerfile for Podman)"
-            # Note: Dockerfiles work with Podman, so this is a warning, not a failure
-          else
-            echo "✅ No Dockerfiles found"
-          fi
-          echo ""
-          
-          if [ $FOUND -eq 1 ]; then
-            echo ""
-            echo "═══════════════════════════════════════════════════════════════"
-            echo "❌ GUARDRAIL VIOLATION: Docker daemon/module references detected"
-            echo ""
-            echo "Platform Standard: Podman-only (no Docker daemon)"
-            echo ""
-            echo "Docker CLI compatibility (via podman-docker) is allowed."
-            echo "Docker daemon, service, or Ansible module usage is NOT allowed."
-            echo ""
-            echo "Please update your changes to use Podman patterns:"
-            echo "  - docker.service → podman.socket"
-            echo "  - community.docker → containers.podman"
-            echo "  - docker-compose.yml → podman-compose.yml"
-            echo ""
-            echo "Reference: docs/reference/CONTAINERS_RUNTIME_STANDARD.md"
-            echo "═══════════════════════════════════════════════════════════════"
-            exit 1
-          else
-            echo "═══════════════════════════════════════════════════════════════"
-            echo "✅ GUARDRAIL PASSED: No Docker daemon/module references found"
-            echo ""
-            echo "Note: Docker CLI commands (docker ps, docker run) are allowed"
-            echo "      as they map to Podman via podman-docker compatibility."
-            echo "═══════════════════════════════════════════════════════════════"
-          fi
+          def excluded_line(line: str) -> bool:
+              return any(e in line for e in LINE_EXCLUDES)
+
+          def scan(patterns, extensions, roots):
+              regexes = [(p, re.compile(p)) for p in patterns]
+              hits = []
+              for root in roots:
+                  for dirpath, _dirs, files in os.walk(root):
+                      if ".git" in dirpath.split(os.sep):
+                          continue
+                      for fname in files:
+                          if not fname.endswith(extensions):
+                              continue
+                          rel = os.path.relpath(os.path.join(dirpath, fname), ".")
+                          if excluded_path(rel):
+                              continue
+                          try:
+                              with open(rel, errors="replace") as f:
+                                  for i, line in enumerate(f, 1):
+                                      if excluded_line(line):
+                                          continue
+                                      for raw, rx in regexes:
+                                          if rx.search(line):
+                                              hits.append((raw, rel, i, line.rstrip()))
+                          except OSError:
+                              continue
+              return hits
+
+          def scan_filenames(globs, roots):
+              import fnmatch
+              hits = []
+              for root in roots:
+                  for dirpath, _dirs, files in os.walk(root):
+                      if ".git" in dirpath.split(os.sep):
+                          continue
+                      for fname in files:
+                          rel = os.path.relpath(os.path.join(dirpath, fname), ".")
+                          if excluded_path(rel):
+                              continue
+                          if any(fnmatch.fnmatch(fname, g) for g in globs):
+                              hits.append(rel)
+              return hits
+
+          print("🔍 Scanning for Docker daemon/runtime references...\n")
+          found = False
+
+          print("📁 Checking for Docker daemon/service references...")
+          daemon_hits = scan(DAEMON_PATTERNS, DAEMON_EXTS, ["."])
+          if daemon_hits:
+              for p, path, lineno, line in daemon_hits[:50]:
+                  print(f"  {path}:{lineno}: {line.strip()}  [matched: {p}]")
+              print(f"⚠️  {len(daemon_hits)} daemon-pattern hit(s)")
+              found = True
+          else:
+              print("✅ No Docker daemon references found")
+
+          print("\n📁 Checking for Docker Ansible module usage...")
+          ansible_hits = scan(ANSIBLE_PATTERNS, (".yml", ".yaml"), ["ansible"])
+          if ansible_hits:
+              for p, path, lineno, line in ansible_hits[:50]:
+                  print(f"  {path}:{lineno}: {line.strip()}  [matched: {p}]")
+              print(f"❌ {len(ansible_hits)} Docker Ansible module hit(s)")
+              found = True
+          else:
+              print("✅ No Docker Ansible modules found")
+
+          print("\n📁 Checking for docker-compose files...")
+          compose_hits = scan_filenames(["docker-compose*.yml", "docker-compose*.yaml"], ["."])
+          if compose_hits:
+              for path in compose_hits:
+                  print(f"  {path}")
+              print(f"❌ docker-compose file(s) found (should be podman-compose)")
+              found = True
+          else:
+              print("✅ No docker-compose files found")
+
+          print("\n📁 Checking for Dockerfiles...")
+          dockerfile_hits = scan_filenames(["Dockerfile*"], ["."])
+          if dockerfile_hits:
+              for path in dockerfile_hits:
+                  print(f"  {path}")
+              print("⚠️  Dockerfile(s) found (warning only — Dockerfiles work with Podman)")
+          else:
+              print("✅ No Dockerfiles found")
+
+          print()
+          if found:
+              print("═══════════════════════════════════════════════════════════════")
+              print("❌ GUARDRAIL VIOLATION: Docker daemon/module references detected")
+              print()
+              print("Platform Standard: Podman-only (no Docker daemon)")
+              print("Docker CLI compatibility (via podman-docker) is allowed;")
+              print("Docker daemon, service, or Ansible module usage is NOT.")
+              print()
+              print("Reference: docs/reference/CONTAINERS_RUNTIME_STANDARD.md")
+              print("═══════════════════════════════════════════════════════════════")
+              sys.exit(1)
+
+          print("═══════════════════════════════════════════════════════════════")
+          print("✅ GUARDRAIL PASSED: No Docker daemon/module references found")
+          print()
+          print("Note: Docker CLI commands (docker ps, docker run) are allowed")
+          print("      as they map to Podman via podman-docker compatibility.")
+          print("═══════════════════════════════════════════════════════════════")
 
       - name: Report Docker CLI compatibility references (info only)
         if: always()
+        shell: bash
         run: |
+          set +e
           echo ""
           echo "ℹ️  Docker CLI compatibility mentions (expected, these map to Podman):"
-          grep -rn "docker ps\|docker run\|docker build\|docker exec" . --include="*.md" 2>/dev/null | \
-            grep -v "docs/archive/" | head -10 || echo "  None found in active docs"
+          grep -rn "docker ps\|docker run\|docker build\|docker exec" . --include="*.md" 2>/dev/null \
+            | grep -v "docs/archive/" | head -10
+          if [ $? -ne 0 ]; then echo "  None found in active docs"; fi
           echo ""
           echo "These CLI commands work because podman-docker provides compatibility."
