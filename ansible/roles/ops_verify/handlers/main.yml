@@ -31,3 +31,10 @@
     state: restarted
     enabled: true
   listen: restart secrets-drift timer
+
+- name: Restart recovery-attestation.timer
+  ansible.builtin.systemd:
+    name: recovery-attestation.timer
+    state: restarted
+    enabled: true
+  listen: restart recovery-attestation timer

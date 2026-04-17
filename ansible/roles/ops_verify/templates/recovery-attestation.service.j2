@@ -1,0 +1,29 @@
+[Unit]
+Description=Weekly recovery attestation (break-glass FIDO2 + SSPR)
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/space /flux
+
+[Service]
+Type=oneshot
+# Runs as root: the script uses `runuser -u {{ ops_verify_az_user }} --`
+# to bootstrap the AKV secret fetch (needs user-level az login), then
+# swaps into its own AZURE_CONFIG_DIR to sign in as the ops_verify SPN
+# for the Graph API calls.
+Environment=INFRA_DIR=/flux/ops/miket-infra
+Environment=NODE_EXPORTER_TEXTFILE_DIR={{ ops_verify_metrics_dir }}
+Environment=OPS_VERIFY_LOG_DIR={{ ops_verify_log_dir }}
+Environment=RECOVERY_REPORT_DIR=/space/_ops/reports/recovery
+Environment=AZ_USER={{ ops_verify_az_user }}
+ExecStart={{ ops_verify_bin_dir }}/recovery-attestation.sh
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=recovery-attestation
+
+SuccessExitStatus=0 1
+
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

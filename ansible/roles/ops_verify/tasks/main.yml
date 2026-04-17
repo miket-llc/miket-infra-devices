@@ -298,3 +298,56 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# ---------------------------------------------------------------------------
+# Weekly recovery attestation (break-glass FIDO2 + SSPR)
+# Needs the ops_verify SPN cert in kv-miket-ops/ops-verify-sp-cert-pfx
+# and its appId at kv-miket-ops/ops-verify-sp-app-id — provisioned
+# manually once and documented in the role README.
+# ---------------------------------------------------------------------------
+
+- name: Ensure recovery-attestation report dir exists on /space
+  ansible.builtin.file:
+    path: /space/_ops/reports/recovery
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Install recovery-attestation script
+  ansible.builtin.copy:
+    src: recovery-attestation.sh
+    dest: "{{ ops_verify_bin_dir }}/recovery-attestation.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart recovery-attestation timer
+
+- name: Install recovery-attestation.service
+  ansible.builtin.template:
+    src: recovery-attestation.service.j2
+    dest: /etc/systemd/system/recovery-attestation.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart recovery-attestation timer
+
+- name: Install recovery-attestation.timer
+  ansible.builtin.template:
+    src: recovery-attestation.timer.j2
+    dest: /etc/systemd/system/recovery-attestation.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart recovery-attestation timer
+
+- name: Enable recovery-attestation.timer
+  ansible.builtin.systemd:
+    name: recovery-attestation.timer
+    enabled: true
+    state: started
+    daemon_reload: true

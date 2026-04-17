@@ -328,3 +328,32 @@ groups:
         annotations:
           summary: "Inventory entry {{ '{{ $labels.name }}' }} references missing AKV secret {{ '{{ $labels.secret }}' }}"
           description: "`.ops/secrets.yaml` has an entry whose `secret_name` doesn't exist in `{{ '{{ $labels.vault }}' }}`. Fix the name or remove the entry."
+
+      # ========================================
+      # RecoveryAttestationFailed - critical: weekly break-glass/SSPR
+      # drill failed. Either a break-glass account lost its FIDO2 key
+      # registration or the SSPR policy drifted.
+      # ========================================
+      - alert: RecoveryAttestationFailed
+        expr: recovery_attestation_last_run_status == 0
+        for: 1h
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Recovery attestation failed on {{ '{{ $labels.instance }}' }}"
+          description: "break-glass FIDO2 or SSPR check failed. See /space/_ops/reports/recovery/ for the latest report."
+
+      # ========================================
+      # RecoveryAttestationStale - warning: weekly drill hasn't fired in
+      # >10 days. Timer itself is broken.
+      # ========================================
+      - alert: RecoveryAttestationStale
+        expr: (time() - recovery_attestation_last_run_timestamp_seconds) > 10 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+          category: ops
+        annotations:
+          summary: "Recovery attestation has not run in >10 days on {{ '{{ $labels.instance }}' }}"
+          description: "recovery-attestation.timer is weekly. Check: systemctl status recovery-attestation.timer"
