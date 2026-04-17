@@ -252,3 +252,46 @@ groups:
         annotations:
           summary: "dmarc-summary has not run in >36h on {{ '{{ $labels.instance }}' }}"
           description: "dmarc-summary.timer appears stopped. Expected daily at 09:00 UTC. Check: systemctl status dmarc-summary.timer"
+
+      # ========================================
+      # SecretsDriftAlert - critical: one or more secrets have ALERT status
+      # (expired, within 7d of expiry, or rotation overdue). Subsumes the
+      # old weekly `secrets-expiry-reminders` GH workflow — same inventory,
+      # same thresholds, but routed to Discord via alertmanager instead of
+      # creating GitHub issues.
+      # ========================================
+      - alert: SecretsDriftAlert
+        expr: secrets_drift_secrets_total{status="alert"} > 0
+        for: 15m
+        labels:
+          severity: critical
+          category: secrets
+        annotations:
+          summary: "{{ '{{ $value }}' }} secret(s) in ALERT state on {{ '{{ $labels.instance }}' }}"
+          description: "Review /space/_ops/reports/secrets/latest.md — these are expired/overdue/within-7d-of-expiry per .ops/secrets.yaml."
+
+      # ========================================
+      # SecretsDriftWarning - warning: secrets in WARNING state (within 30d)
+      # ========================================
+      - alert: SecretsDriftWarning
+        expr: secrets_drift_secrets_total{status="warning"} > 0
+        for: 1h
+        labels:
+          severity: warning
+          category: secrets
+        annotations:
+          summary: "{{ '{{ $value }}' }} secret(s) in WARNING state on {{ '{{ $labels.instance }}' }}"
+          description: "Secrets approaching expiry within 30 days. See /space/_ops/reports/secrets/latest.md."
+
+      # ========================================
+      # SecretsDriftStale - warning: hourly probe hasn't written in >3h
+      # ========================================
+      - alert: SecretsDriftStale
+        expr: (time() - secrets_drift_last_run_timestamp_seconds) > 3 * 3600
+        for: 15m
+        labels:
+          severity: warning
+          category: ops
+        annotations:
+          summary: "secrets-drift has not run in >3h on {{ '{{ $labels.instance }}' }}"
+          description: "secrets-drift.timer appears stopped. Expected hourly. Check: systemctl status secrets-drift.timer"

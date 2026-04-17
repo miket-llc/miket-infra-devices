@@ -13,7 +13,10 @@
     daemon_reload: true
 
 - name: Reload prometheus
-  ansible.builtin.command: "{{ container_compose_cmd }} -f {{ observability_workdir }}/docker-compose.yml kill -s SIGHUP prometheus"
-  args:
-    chdir: "{{ observability_workdir }}"
+  # SIGHUP isn't enough here: ansible's template module writes the new file
+  # contents via tmp+rename, which gives the file a new inode. Our bind
+  # mount into the container is inode-pinned, so SIGHUP has the process
+  # re-read its OLD inode and the new rules never arrive. A full container
+  # restart forces the mount to re-resolve to the current file on disk.
+  ansible.builtin.command: podman restart prometheus
   failed_when: false

@@ -153,3 +153,101 @@
     enabled: true
     state: started
     daemon_reload: true
+
+# ---------------------------------------------------------------------------
+# Tier 2: jobs that need a miket-infra checkout + python venv
+# ---------------------------------------------------------------------------
+
+- name: Ensure /flux/ops exists (root-owned for service writes)
+  ansible.builtin.file:
+    path: /flux/ops
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# The miket-infra clone at {{ ops_verify_infra_dir }} is managed OUT-OF-BAND:
+#   sudo git clone --depth 20 {{ ops_verify_miket_infra_repo }} {{ ops_verify_infra_dir }}
+#   sudo git -C {{ ops_verify_infra_dir }} pull  # occasional refresh
+#
+# We don't let Ansible manage it because miket-infra is a private repo and
+# configuring HTTPS creds for root on each run is more security surface than
+# the value of automatic pulls. Inventory files like .ops/secrets.yaml change
+# rarely and a human can refresh when needed. secrets-drift.sh's own
+# pull-on-run is fail-soft — stale inventory is OK, missing inventory is not.
+
+- name: Fail fast if miket-infra clone is missing
+  ansible.builtin.stat:
+    path: "{{ ops_verify_infra_dir }}/.ops/secrets.yaml"
+  register: _miket_infra_stat
+
+- name: Assert miket-infra clone is present
+  ansible.builtin.assert:
+    that: _miket_infra_stat.stat.exists
+    fail_msg: >-
+      {{ ops_verify_infra_dir }} is missing or not checked out.
+      Clone it first:  sudo git clone --depth 20 {{ ops_verify_miket_infra_repo }} {{ ops_verify_infra_dir }}
+
+- name: Create ops-verify python venv
+  ansible.builtin.command: python3 -m venv "{{ ops_verify_venv_dir }}"
+  args:
+    creates: "{{ ops_verify_venv_dir }}/bin/python"
+
+- name: Install python deps for tier 2 scripts
+  ansible.builtin.pip:
+    name:
+      - PyYAML==6.0.2
+      - rich==13.7.0
+    virtualenv: "{{ ops_verify_venv_dir }}"
+    state: present
+
+- name: Ensure secrets-drift report dir exists on /space
+  ansible.builtin.file:
+    path: /space/_ops/reports/secrets
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# ---------------------------------------------------------------------------
+# Secrets Inventory Drift (subsumes secrets-expiry-reminders; same inventory,
+# same expiry thresholds, same alert/warning evaluation path)
+# ---------------------------------------------------------------------------
+
+- name: Install secrets-drift script
+  ansible.builtin.copy:
+    src: secrets-drift.sh
+    dest: "{{ ops_verify_bin_dir }}/secrets-drift.sh"
+    owner: root
+    group: root
+    mode: '0755'
+  notify: restart secrets-drift timer
+
+- name: Install secrets-drift.service
+  ansible.builtin.template:
+    src: secrets-drift.service.j2
+    dest: /etc/systemd/system/secrets-drift.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart secrets-drift timer
+
+- name: Install secrets-drift.timer
+  ansible.builtin.template:
+    src: secrets-drift.timer.j2
+    dest: /etc/systemd/system/secrets-drift.timer
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - ops-verify daemon-reload
+    - restart secrets-drift timer
+
+- name: Enable secrets-drift.timer
+  ansible.builtin.systemd:
+    name: secrets-drift.timer
+    enabled: true
+    state: started
+    daemon_reload: true

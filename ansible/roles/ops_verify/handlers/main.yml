@@ -24,3 +24,10 @@
     state: restarted
     enabled: true
   listen: restart dmarc-summary timer
+
+- name: Restart secrets-drift.timer
+  ansible.builtin.systemd:
+    name: secrets-drift.timer
+    state: restarted
+    enabled: true
+  listen: restart secrets-drift timer

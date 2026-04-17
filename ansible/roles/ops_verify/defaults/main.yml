@@ -12,3 +12,11 @@ ops_verify_log_dir: /var/log/ops-verify
 
 # Domain this fleet's email is served from (drives DKIM/SPF/DMARC checks).
 ops_verify_email_domain: miket.io
+
+# tier 2 (az-auth and/or python) jobs need a miket-infra checkout + a python
+# venv. Services that query `az` run as this user so the existing user-level
+# credential cache at ~/.azure/ is reused (no SPN on disk for this fleet).
+ops_verify_infra_dir: /flux/ops/miket-infra
+ops_verify_venv_dir: /flux/ops/ops-verify-venv
+ops_verify_az_user: mdt
+ops_verify_miket_infra_repo: https://github.com/miket-llc/miket-infra.git
