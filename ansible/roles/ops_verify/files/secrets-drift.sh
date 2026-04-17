@@ -30,9 +30,11 @@ mkdir -p "$LOG_DIR" "$REPORT_DIR"
 NOW=$(date +%s)
 TS=$(date -Iseconds)
 
-# Best-effort inventory refresh. Private-repo auth as root may fail — that's
-# OK, we continue with the already-checked-out inventory. A human can
-# periodically refresh with `sudo git -C /flux/ops/miket-infra pull`.
+# Refresh the inventory from origin. Root-side HTTPS auth uses the
+# credential helper configured by the ops_verify role (see
+# /etc/gitconfig-miket). If the fetch fails for any reason, we continue
+# with the already-checked-out inventory so we still emit metrics; a
+# failure is logged but not fatal.
 if [[ -d "${INFRA_DIR}/.git" ]]; then
     timeout 30 git -C "$INFRA_DIR" fetch --quiet origin main 2>>"$LOG_FILE" && \
         git -C "$INFRA_DIR" reset --hard origin/main --quiet 2>>"$LOG_FILE" || \
@@ -84,6 +86,18 @@ if [[ -d "$METRICS_DIR" ]]; then
 fi
 
 echo "${TS} secrets-drift alert=${ALERT} warning=${WARNING} ok=${OK} total=${TOTAL} script_exit=${SCRIPT_EXIT}" | tee -a "$LOG_FILE"
+
+# AKV cross-check: for every keyvault-store inventory entry, compare
+# `last_rotated` against the AKV `attributes.updated` timestamp. This is
+# the drift-detection layer — if the inventory goes stale (secret rotated
+# in AKV, YAML not updated), the same phantom-alert failure mode we hit
+# once already is now visible as its own metric + alert, not hidden.
+if [[ -x /usr/local/bin/akv-inventory-drift.py ]] && [[ -x "$VENV/bin/python" ]]; then
+    INVENTORY="${INFRA_DIR}/.ops/secrets.yaml" \
+    NODE_EXPORTER_TEXTFILE_DIR="$METRICS_DIR" \
+    "$VENV/bin/python" /usr/local/bin/akv-inventory-drift.py >>"$LOG_FILE" 2>&1 || \
+        echo "${TS} akv-inventory-drift failed (see log above)" >>"$LOG_FILE"
+fi
 
 # Intentionally exit 0 — the metrics + alertmanager are the signal. Exiting
 # non-zero on ALERT would just leave the unit in failed state and suppress

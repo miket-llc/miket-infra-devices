@@ -214,6 +214,53 @@
 # same expiry thresholds, same alert/warning evaluation path)
 # ---------------------------------------------------------------------------
 
+- name: Install akv-inventory-drift helper
+  ansible.builtin.copy:
+    src: akv-inventory-drift.py
+    dest: "{{ ops_verify_bin_dir }}/akv-inventory-drift.py"
+    owner: root
+    group: root
+    mode: '0755'
+
+# Root-side credential helper for git-pull against the private miket-infra
+# repo. Without this, the hourly `secrets-drift.sh` fetch step silently
+# fails and the inventory on /flux/ops/miket-infra goes stale — which is
+# exactly the drift failure mode we're trying to close. Token is the same
+# PAT `gh auth token` issues for mdt, copied once via this task.
+- name: Install root-side git credential file for miket-infra pulls
+  ansible.builtin.shell: |
+    set -e
+    umask 077
+    sudo -u {{ ops_verify_az_user }} gh auth token > /root/.miket-gh-token
+    chown root:root /root/.miket-gh-token
+    chmod 0600 /root/.miket-gh-token
+  args:
+    creates: /root/.miket-gh-token
+  changed_when: false
+
+- name: Install root-side git credential helper config
+  ansible.builtin.copy:
+    dest: /etc/gitconfig-miket
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      [credential "https://github.com"]
+          helper = "!f() { echo username=oauth2; echo \"password=$(cat /root/.miket-gh-token 2>/dev/null)\"; }; f"
+      [safe]
+          directory = {{ ops_verify_infra_dir }}
+
+- name: Include the miket credential helper from root's gitconfig
+  ansible.builtin.command: git config --global --add include.path /etc/gitconfig-miket
+  become: true
+  changed_when: false
+  failed_when: false
+
+- name: Ensure miket-infra clone uses HTTPS origin
+  ansible.builtin.command: >-
+    git -C {{ ops_verify_infra_dir }} remote set-url origin {{ ops_verify_miket_infra_repo }}
+  changed_when: false
+
 - name: Install secrets-drift script
   ansible.builtin.copy:
     src: secrets-drift.sh

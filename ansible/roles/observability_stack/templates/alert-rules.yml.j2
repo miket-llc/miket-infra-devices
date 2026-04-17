@@ -295,3 +295,36 @@ groups:
         annotations:
           summary: "secrets-drift has not run in >3h on {{ '{{ $labels.instance }}' }}"
           description: "secrets-drift.timer appears stopped. Expected hourly. Check: systemctl status secrets-drift.timer"
+
+      # ========================================
+      # InventoryAkvDrift - critical: inventory's `last_rotated` diverges
+      # from AKV `attributes.updated` by >30d for a keyvault-store entry.
+      # This is the failure mode we just burned a morning on: secret was
+      # rotated in AKV, `.ops/secrets.yaml` never got updated, so
+      # SecretsDriftAlert either fires phantoms or (worse) hides real
+      # overdue rotations behind stale inventory dates.
+      # ========================================
+      - alert: InventoryAkvDrift
+        expr: secrets_inventory_akv_drift_seconds > 30 * 86400
+        for: 30m
+        labels:
+          severity: critical
+          category: secrets
+        annotations:
+          summary: "Inventory last_rotated drifts from AKV for {{ '{{ $labels.name }}' }} by {{ '{{ humanizeDuration $value }}' }}"
+          description: "`.ops/secrets.yaml` says the secret was last rotated on a different date than kv-miket-ops's attributes.updated says. Either reconcile the YAML to match AKV (if the AKV rotation is the real one) or rotate the AKV secret to match."
+
+      # ========================================
+      # InventoryAkvMissing - critical: inventory references an AKV secret
+      # that doesn't exist in the named vault. Either the name is wrong,
+      # the secret was deleted, or the store field is lying.
+      # ========================================
+      - alert: InventoryAkvMissing
+        expr: secrets_inventory_akv_missing == 1
+        for: 30m
+        labels:
+          severity: critical
+          category: secrets
+        annotations:
+          summary: "Inventory entry {{ '{{ $labels.name }}' }} references missing AKV secret {{ '{{ $labels.secret }}' }}"
+          description: "`.ops/secrets.yaml` has an entry whose `secret_name` doesn't exist in `{{ '{{ $labels.vault }}' }}`. Fix the name or remove the entry."
