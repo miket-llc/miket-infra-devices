@@ -1,0 +1,34 @@
+[Unit]
+Description=PM2 process manager for {{ life_rpg_user }} (Life RPG)
+Documentation=https://pm2.keymetrics.io/
+# Database must be up before pm2 resurrects the app.
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# Historical note: pm2's `pm2 startup systemd` generates Type=forking with
+# PIDFile=$PM2_HOME/pm2.pid. Under Fedora 43's SELinux targeted policy,
+# `init_t` is denied read+open on `user_home_t` files — so systemd fails
+# to track the PID file, the service stays in "activating", and
+# Restart=on-failure turns that into a notification storm via setroubleshoot
+# (observed 1987 restart-counter rollovers / ~25h of crashloop on akira
+# before this unit replaced the hand-generated one). Solution: ignore the
+# PID file entirely. ExecStart runs `pm2 resurrect` which forks the daemon
+# and exits; RemainAfterExit keeps the service marked active. Daemon
+# tracking, when we need it, is via cgroup / `pm2 list`.
+Type=oneshot
+RemainAfterExit=yes
+User={{ life_rpg_user }}
+Group={{ life_rpg_user }}
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+Environment=PATH={{ life_rpg_service_path }}
+Environment=PM2_HOME={{ life_rpg_pm2_home }}
+
+ExecStart={{ life_rpg_pm2_bin }} resurrect
+ExecReload={{ life_rpg_pm2_bin }} reload all
+ExecStop={{ life_rpg_pm2_bin }} kill
+
+[Install]
+WantedBy=multi-user.target

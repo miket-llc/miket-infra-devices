@@ -1,0 +1,13 @@
+---
+# Deploy the Life RPG pm2 systemd wrapper on akira.
+#
+# This playbook manages the pm2-mdt.service unit only — the life-rpg
+# application itself is installed under /flux/apps/life-rpg and its
+# `pm2 save`'d dump.pm2 is what `pm2 resurrect` reads on startup.
+
+- name: Deploy Life RPG pm2 wrapper on akira
+  hosts: akira
+  become: true
+  gather_facts: true
+  roles:
+    - role: life_rpg

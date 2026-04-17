@@ -1,0 +1,16 @@
+---
+# life_rpg role defaults
+# Owns the systemd wrapper around pm2 for the Life RPG app on akira.
+# Values here are overridden by akira's host_vars (liferpg_*).
+
+life_rpg_user: mdt
+life_rpg_pm2_home: "/home/{{ life_rpg_user }}/.pm2"
+life_rpg_pm2_bin: /usr/local/lib/node_modules/pm2/bin/pm2
+life_rpg_app_path: /flux/apps/life-rpg
+life_rpg_pm2_name: life-rpg
+life_rpg_web_port: 3847
+
+# The PATH the pm2 daemon sees at runtime. Matches what pm2's own
+# `startup systemd` scaffolding generates, with bun prepended because
+# life-rpg invokes bun directly for some tasks.
+life_rpg_service_path: "/home/{{ life_rpg_user }}/.bun/bin:/home/{{ life_rpg_user }}/.local/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/bin"

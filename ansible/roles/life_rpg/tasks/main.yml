@@ -1,0 +1,47 @@
+---
+# Install the corrected pm2 systemd unit.
+# The previous hand-generated unit (from `pm2 startup systemd` long ago)
+# used Type=forking + PIDFile=$PM2_HOME/pm2.pid which broke under F43's
+# SELinux targeted policy. This unit uses Type=oneshot + RemainAfterExit
+# so the PID file is never read.
+
+- name: Install pm2-{{ life_rpg_user }}.service
+  become: true
+  ansible.builtin.template:
+    src: pm2-mdt.service.j2
+    dest: "/etc/systemd/system/pm2-{{ life_rpg_user }}.service"
+    owner: root
+    group: root
+    mode: '0644'
+  notify:
+    - reload systemd
+    - restart pm2-mdt
+
+# Clean out the old drop-in we used to short-circuit the PIDFile problem
+# while we were still using the legacy hand-generated unit. The new unit
+# has the correct Type/RemainAfterExit baked in, so the drop-in is dead
+# weight — and leaving multiple layers of overrides around is a future
+# debugging trap.
+- name: Remove legacy no-PIDFile drop-in (now obsolete)
+  become: true
+  ansible.builtin.file:
+    path: /etc/systemd/system/pm2-{{ life_rpg_user }}.service.d/20-no-pidfile.conf
+    state: absent
+  notify:
+    - reload systemd
+
+- name: Remove legacy drop-in dir if empty
+  become: true
+  ansible.builtin.file:
+    path: "/etc/systemd/system/pm2-{{ life_rpg_user }}.service.d"
+    state: absent
+  when: false  # keep the dir for other drop-ins (e.g. after-db.conf)
+  tags: [never]
+
+- name: Enable + start pm2-{{ life_rpg_user }}.service
+  become: true
+  ansible.builtin.systemd:
+    name: "pm2-{{ life_rpg_user }}.service"
+    enabled: true
+    state: started
+    daemon_reload: true
