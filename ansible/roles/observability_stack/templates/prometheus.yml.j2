@@ -19,10 +19,11 @@ alerting:
             - localhost:{{ alertmanager_port }}
 {% endif %}
 
-# Rule files
+# Rule files. Directory glob instead of a single file so the bind-mount
+# stays stable across Ansible re-renders (see docker-compose.yml.j2).
 {% if alertmanager_enabled | bool %}
 rule_files:
-  - /etc/prometheus/alert-rules.yml
+  - /etc/prometheus/rules/*.yml
 {% else %}
 rule_files: []
 {% endif %}

@@ -202,14 +202,31 @@
   when: alertmanager_enabled | bool
   tags: [observability, stack, configure, alertmanager]
 
+- name: Ensure Prometheus rules directory exists
+  ansible.builtin.file:
+    path: "{{ observability_workdir }}/prometheus/rules"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, configure, alertmanager]
+
 - name: Deploy Prometheus alert rules
   ansible.builtin.template:
     src: alert-rules.yml.j2
-    dest: "{{ observability_workdir }}/prometheus/alert-rules.yml"
+    dest: "{{ observability_workdir }}/prometheus/rules/alerts.yml"
     owner: root
     group: root
     mode: '0644'
   notify: Reload prometheus
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, configure, alertmanager]
+
+- name: Remove legacy single-file alert-rules.yml if present
+  ansible.builtin.file:
+    path: "{{ observability_workdir }}/prometheus/alert-rules.yml"
+    state: absent
   when: alertmanager_enabled | bool
   tags: [observability, stack, configure, alertmanager]
 
@@ -303,6 +320,19 @@
   changed_when: false
   tags: [observability, stack, backup]
 
+- name: Ensure Alertmanager + rules backup subdirs exist on /space
+  ansible.builtin.file:
+    path: "{{ observability_config_backup_dir }}/{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - alertmanager
+    - prometheus/rules
+  when: alertmanager_enabled | bool
+  tags: [observability, stack, backup, alertmanager]
+
 - name: Backup Alertmanager configuration to /space
   ansible.builtin.copy:
     src: "{{ observability_workdir }}/{{ item }}"
@@ -311,7 +341,7 @@
     mode: preserve
   loop:
     - alertmanager/alertmanager.yml
-    - prometheus/alert-rules.yml
+    - prometheus/rules/alerts.yml
   changed_when: false
   when: alertmanager_enabled | bool
   tags: [observability, stack, backup, alertmanager]

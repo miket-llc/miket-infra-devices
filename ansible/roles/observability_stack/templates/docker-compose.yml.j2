@@ -22,7 +22,13 @@ services:
     volumes:
       - {{ observability_workdir }}/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
 {% if alertmanager_enabled | bool %}
-      - {{ observability_workdir }}/prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro,Z
+      # Directory-mount the rules dir (not individual rule files): ansible's
+      # `template` module writes each file via tmp+rename, which changes
+      # the inode. An inode-pinned bind of a single file would keep the
+      # container reading the OLD content after SIGHUP. A directory bind
+      # re-resolves path→inode on every read, so SIGHUP picks up rule
+      # changes without a container restart.
+      - {{ observability_workdir }}/prometheus/rules:/etc/prometheus/rules:ro,Z
 {% endif %}
       - {{ observability_workdir }}/prometheus/data:/prometheus:Z
 
