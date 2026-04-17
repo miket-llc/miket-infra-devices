@@ -220,12 +220,19 @@ else
     log "Latest snapshot: ${LATEST_SNAPSHOT}"
     log "Restoring sample files from snapshot..."
 
-    # Restore at least one file from the snapshot. A zero-file restore
-    # is NOT a pass — either the include pattern is wrong or the
-    # snapshot is empty, and both mean the drill proved nothing.
+    # Earlier iterations of this drill hard-coded `--include "*/.policy/*"`
+    # because that directory was expected to hold policy-tracking files
+    # the data-lifecycle spec calls for. In practice `.policy` is empty
+    # on every host today — the policy-file generator was never shipped —
+    # so any snapshot restored through that filter returns 0 bytes and
+    # the drill silently condemns otherwise-healthy backups. Switch to
+    # whole-snapshot restore: snapshots of /flux are small (typically
+    # single-digit MiB on motoko, bounded by the exclude list on akira),
+    # restic is fast enough that this costs seconds, and the assertion
+    # becomes "can we actually bring bytes back from B2?" which is what
+    # we want to prove.
     if restic -r "$RESTIC_REPO" restore "$LATEST_SNAPSHOT" \
         --target "$RESTIC_TEMP" \
-        --include "*/.policy/*" \
         2>&1 | tee -a "$LOG_FILE"; then
 
         RESTORED_COUNT=$(find "$RESTIC_TEMP" -type f 2>/dev/null | wc -l)
