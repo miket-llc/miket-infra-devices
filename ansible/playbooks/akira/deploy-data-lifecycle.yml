@@ -53,15 +53,86 @@
         data_lifecycle_restore_test_dir: /space/_ops/backups/restore-tests
         data_lifecycle_flux_path: /flux
         data_lifecycle_space_path: /space
-        # Only space-mirror should run on akira (flux stays on motoko)
         data_lifecycle_enable_space_mirror: true
-        data_lifecycle_enable_flux_backup: false
+        # /flux backup is ENABLED on akira — per ADR-0010, all the
+        # stateful container volumes (nextcloud-db, liferpg-db, grafana,
+        # app configs in /flux/apps/**, postgres data dirs in
+        # /flux/dbs/**) live on akira. The original comment here said
+        # "flux stays on motoko" but motoko's /flux is now 8 KiB of
+        # skeleton dirs; akira has ~1.8 GiB of irreplaceable state.
+        data_lifecycle_enable_flux_backup: true
+        data_lifecycle_enable_restic_check: true
+        # Keep local hourly snapshots disabled (they write to
+        # /space/snapshots/flux-local which we don't need on top of
+        # the remote restic repo).
         data_lifecycle_enable_flux_local: false
         data_lifecycle_enable_flux_graduate: false
-        # Restic check disabled (no flux-backup on akira)
-        data_lifecycle_enable_restic_check: false
-        # Restore test enabled (validates B2 mirror is restorable)
         data_lifecycle_enable_restore_test: true
+        # Dedicated restic repo so akira's snapshots don't commingle with
+        # motoko's (which are being decommissioned separately).
+        data_lifecycle_restic_repo: "b2:miket-backups-restic:flux-akira"
+        # Patterns passed to restic --exclude-file. Keep the backup
+        # focused on irreplaceable state (DB data dirs, app configs,
+        # named podman volumes) and exclude reconstitutable bulk
+        # (AI models, overlay images, prometheus TSDB, venvs, caches).
+        # Current post-exclude footprint: ~1.8 GiB / ~30k files.
+        data_lifecycle_flux_backup_excludes:
+          # Large, reconstitutable data
+          - /flux/ai
+          - /flux/ai/**
+          # Podman overlay storage (images/layers — re-pullable)
+          - /flux/containers/storage/overlay
+          - /flux/containers/storage/overlay/**
+          - /flux/containers/storage/overlay-layers
+          - /flux/containers/storage/overlay-layers/**
+          - /flux/containers/storage/overlay-images
+          - /flux/containers/storage/overlay-images/**
+          - /flux/containers/storage/overlay-containers
+          - /flux/containers/storage/overlay-containers/**
+          - /flux/containers/root-storage/overlay
+          - /flux/containers/root-storage/overlay/**
+          - /flux/containers/root-storage/overlay-layers
+          - /flux/containers/root-storage/overlay-layers/**
+          - /flux/containers/root-storage/overlay-images
+          - /flux/containers/root-storage/overlay-images/**
+          - /flux/containers/root-storage/overlay-containers
+          - /flux/containers/root-storage/overlay-containers/**
+          - /flux/containers/engine
+          - /flux/containers/engine/**
+          # Prometheus TSDB — regenerable by re-scraping; too large to ship
+          - /flux/containers/root-storage/volumes/prometheus_data
+          - /flux/containers/root-storage/volumes/prometheus_data/**
+          # Runtime secrets (sourced from AKV via secrets-sync)
+          - /flux/runtime/secrets
+          - /flux/runtime/secrets/**
+          # Transient/scratch
+          - /flux/scratch
+          - /flux/scratch/**
+          - /flux/tmp
+          - /flux/tmp/**
+          - /flux/lost+found
+          - /flux/lost+found/**
+          - /flux/models
+          - /flux/models/**
+          # Python venvs for ops tooling (rebuildable from requirements)
+          - /flux/ops/ops-verify-venv
+          - /flux/ops/ops-verify-venv/**
+          # Common cache/build artifact patterns
+          - "**/.cache/**"
+          - "**/__pycache__/**"
+          - "**/.pytest_cache/**"
+          - "**/node_modules/**"
+          - "**/.npm/_cacache/**"
+          - "**/.pnpm/**"
+          - "**/.venv/**"
+          - "**/venv/**"
+          - "*.tmp"
+          - "*.temp"
+          - "*.swp"
+          - "*.lock"
+          # Git object db (working tree kept — dense pack files skipped)
+          - /flux/ops/miket-infra/.git/objects
+          - /flux/ops/miket-infra/.git/objects/**
       tags: [data-lifecycle]
 
   post_tasks:

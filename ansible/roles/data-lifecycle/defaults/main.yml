@@ -7,6 +7,15 @@ data_lifecycle_enable_flux_backup: true
 data_lifecycle_enable_flux_local: true
 data_lifecycle_enable_flux_graduate: true
 
+# Per-host restic repo — the deploy playbook for each host overrides
+# this. Default matches the historical motoko value for backwards compat.
+data_lifecycle_restic_repo: "b2:miket-backups-restic:flux"
+
+# Populated per-host via the deploy playbook. See
+# `ansible/playbooks/akira/deploy-data-lifecycle.yml` for the akira list.
+# Empty default keeps existing behavior (no excludes).
+data_lifecycle_flux_backup_excludes: []
+
 # Paths
 data_lifecycle_env_file: /etc/miket/storage-credentials.env
 data_lifecycle_markers_dir: /space/_ops/data-estate/markers

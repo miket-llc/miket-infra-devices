@@ -1,0 +1,10 @@
+# Copyright (c) 2026 MikeT LLC. All rights reserved.
+# Managed by Ansible (data-lifecycle role) — edit via the playbook's
+# `data_lifecycle_flux_backup_excludes` list, not by hand.
+#
+# restic-compatible exclude patterns for `flux-backup.sh`. Referenced
+# via `--exclude-file=/flux/.backup-exclude` in the backup script.
+
+{% for pattern in data_lifecycle_flux_backup_excludes | default([]) %}
+{{ pattern }}
+{% endfor %}

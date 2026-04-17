@@ -15,6 +15,13 @@ EnvironmentFile={{ data_lifecycle_env_file }}
 Environment=DATA_LIFECYCLE_MARKERS_DIR={{ data_lifecycle_markers_dir | default('/space/_ops/data-estate/markers') }}
 Environment=DATA_LIFECYCLE_LOG_DIR={{ data_lifecycle_logs_dir | default('/space/_ops/logs/data-lifecycle') }}
 
+# Per-host restic repo. restic tags snapshots by hostname so multiple
+# hosts CAN safely share a repo, but we keep them separate for clarity
+# and so retention policies can diverge. restic-check + restore-test
+# pull from the same `data_lifecycle_restic_repo` var so all three
+# point at the same destination.
+Environment=RESTIC_REPO={{ data_lifecycle_restic_repo | default('b2:miket-backups-restic:flux') }}
+
 ExecStart=/usr/local/bin/flux-backup.sh
 User=root
 

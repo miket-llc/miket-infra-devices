@@ -16,7 +16,10 @@ set -euo pipefail
 # B2_ACCOUNT_KEY
 
 SOURCE="/flux"
-REPO="b2:miket-backups-restic:flux"
+# Per-host restic repo. Default keeps motoko/legacy callers working; akira
+# (and any host with real /flux content) points this at a dedicated repo
+# via the service unit env so snapshots don't commingle across hosts.
+REPO="${RESTIC_REPO:-b2:miket-backups-restic:flux}"
 LOG_DIR="${DATA_LIFECYCLE_LOG_DIR:-/space/_ops/logs/data-lifecycle}"
 LOG_FILE="${LOG_DIR}/flux-backup.log"
 MARKERS_DIR="${DATA_LIFECYCLE_MARKERS_DIR:-/space/_ops/data-estate/markers}"

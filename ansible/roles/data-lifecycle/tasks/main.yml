@@ -90,19 +90,13 @@
     group: root
   when: restic_pass_file.stat.exists == false and restic_local_password is defined and restic_local_password.stdout is defined
 
-- name: Check if backup exclude file exists
-  ansible.builtin.stat:
-    path: /flux/.backup-exclude
-  register: backup_exclude_file
-
-- name: Create backup exclude file if missing
-  ansible.builtin.file:
-    path: /flux/.backup-exclude
-    state: touch
+- name: Render /flux/.backup-exclude from role vars
+  ansible.builtin.template:
+    src: flux-backup-exclude.j2
+    dest: /flux/.backup-exclude
     owner: mdt
     group: mdt
     mode: '0644'
-  when: not backup_exclude_file.stat.exists
 
 - name: Deploy Lifecycle Scripts
   copy:
