@@ -117,13 +117,15 @@ emit_metrics_success() {
     local now
     now=$(date +%s)
 
-    # Query B2 destination totals. Bounded at 60s so a slow list can't
-    # jam the service's exit path; skip metrics on timeout rather than
-    # failing the run.
+    # Query B2 destination totals. --fast-list batches the bucket listing
+    # (critical for ~1M-object buckets); 60s was not enough and left the
+    # dest_* metrics stuck at 0, tripping the regression-on-drop alerts.
+    # Bounded at 600s so a hung list can't jam the service exit path;
+    # metrics are skipped on timeout rather than failing the run.
     local dest_objects="0"
     local dest_bytes="0"
     local size_json
-    if size_json=$(timeout 60 rclone size "$DEST" --json 2>/dev/null); then
+    if size_json=$(timeout 600 rclone size "$DEST" --json --fast-list 2>/dev/null); then
         dest_objects=$(echo "$size_json" | grep -oE '"count":[[:space:]]*[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "0")
         dest_bytes=$(echo "$size_json" | grep -oE '"bytes":[[:space:]]*[0-9]+' | head -1 | grep -oE '[0-9]+' || echo "0")
     fi
@@ -302,10 +304,22 @@ if rclone sync "$SOURCE" "$DEST" \
     --max-delete-size "$MAX_DELETE_SIZE" \
     "${EXCLUDE_PATTERNS[@]}" \
     2>&1 | tee "$SYNC_OUTPUT"; then
-    
-    # Extract stats from JSON log if available
-    FILES_TRANSFERRED=$(grep -o '"transfers":[0-9]*' "$SYNC_OUTPUT" | tail -1 | cut -d: -f2 || echo "0")
-    BYTES_TRANSFERRED=$(grep -o '"bytes":[0-9]*' "$SYNC_OUTPUT" | tail -1 | cut -d: -f2 || echo "0")
+
+    # Extract totals from the last stats entry in the JSON log.
+    # --use-json-log routes rclone output to --log-file, so $SYNC_OUTPUT
+    # (stdout capture) is effectively empty; the authoritative counts
+    # live in the trailing "stats":{...} record inside $LOG_FILE.
+    # Scoping the grep to a single line keeps us from picking up per-file
+    # "size":N fields from "Copied (new)" records.
+    LAST_STATS=$(grep '"stats":{' "$LOG_FILE" | tail -1 || true)
+    FILES_TRANSFERRED="0"
+    BYTES_TRANSFERRED="0"
+    if [[ -n "$LAST_STATS" ]]; then
+        FILES_TRANSFERRED=$(echo "$LAST_STATS" | grep -oE '"transfers":[0-9]+' | tail -1 | cut -d: -f2)
+        BYTES_TRANSFERRED=$(echo "$LAST_STATS" | grep -oE '"bytes":[0-9]+' | head -1 | cut -d: -f2)
+        FILES_TRANSFERRED="${FILES_TRANSFERRED:-0}"
+        BYTES_TRANSFERRED="${BYTES_TRANSFERRED:-0}"
+    fi
     rm -f "$SYNC_OUTPUT"
 
     # Calculate duration

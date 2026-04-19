@@ -23,8 +23,12 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=space-mirror
 
-# Timeout (generous for large syncs — initial B2 catch-up can take 12h+)
-TimeoutStartSec=43200
+# Timeout for the whole sync. A surge day hit the prior 12h cap and got
+# SIGTERMed mid-run; a full resync of a ~2 TB / ~1M-object bucket over
+# residential upload can legitimately take the better part of a day.
+# 24h gives headroom without letting a truly stuck run go forever — the
+# nightly timer will retry the next cycle if it does get killed.
+TimeoutStartSec=86400
 
 [Install]
 WantedBy=multi-user.target
