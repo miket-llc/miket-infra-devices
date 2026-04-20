@@ -253,8 +253,14 @@ docker_prevention_enabled: true
 #   - Autostart desktop entry handles xhost on login (~/.config/autostart/)
 #   - After hard freeze: delete /usr/NX/var/db/server.db and restart
 #   - See docs/runbooks/fix-akira-nomachine-after-hard-freeze.md
+#
+# Port override: akira:4000 is reserved for the LiteLLM gateway, which is
+# the canonical PHC inference entrypoint. NoMachine moves to 4020 on akira
+# only; the fleet-wide default (4000) still applies on motoko/armitage/
+# wintermute/count-zero. Client bookmarks for akira must target :4020.
 remote_protocol: nomachine
-remote_port: 4000
+remote_port: 4020
+nomachine_port: 4020
 restrict_to_tailscale: true
 
 # =============================================================================

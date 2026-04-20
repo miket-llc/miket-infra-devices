@@ -8,8 +8,10 @@ llm_tools_bin_dir: /usr/local/bin
 llm_config_dir: /etc/miket/llm
 
 # LiteLLM gateway (must match llm_contract_client)
-llm_gateway_base_url: "http://motoko.pangolin-vega.ts.net:4000/v1"
-llm_gateway_health_url: "http://motoko.pangolin-vega.ts.net:4000/health"
+# Canonical gateway is on akira; motoko does not run LiteLLM. Port 4000 is
+# reserved for LiteLLM on akira (NoMachine on akira moved to 4020).
+llm_gateway_base_url: "http://akira.pangolin-vega.ts.net:4000/v1"
+llm_gateway_health_url: "http://akira.pangolin-vega.ts.net:4000/health"
 
 # Default roles per application
 llm_default_role_aider: coder
