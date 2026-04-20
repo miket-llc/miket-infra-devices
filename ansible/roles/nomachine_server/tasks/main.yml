@@ -22,11 +22,12 @@
       register: nomachine_rpm_check
       changed_when: false
       failed_when: false
+      check_mode: false  # rpm -q is read-only; run even under --check so downstream facts resolve
 
     - name: Set installation facts (Linux)
       ansible.builtin.set_fact:
-        nomachine_is_installed: "{{ nomachine_rpm_check.rc == 0 }}"
-        nomachine_installed_version: "{{ nomachine_rpm_check.stdout | regex_search('nomachine-([0-9.]+)', '\\1') | first | default('none') if nomachine_rpm_check.rc == 0 else 'none' }}"
+        nomachine_is_installed: "{{ nomachine_rpm_check.rc | default(1) == 0 }}"
+        nomachine_installed_version: "{{ (nomachine_rpm_check.stdout | default('') | regex_search('nomachine-([0-9.]+)', '\\1') | first) if (nomachine_rpm_check.rc | default(1) == 0 and nomachine_rpm_check.stdout | default('')) else 'none' }}"
 
     - name: Display version status (Linux)
       ansible.builtin.debug:
