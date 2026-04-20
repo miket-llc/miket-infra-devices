@@ -264,6 +264,18 @@ nomachine_port: 4020
 restrict_to_tailscale: true
 
 # =============================================================================
+# LiteLLM Image Pin
+# =============================================================================
+# The litellm_proxy role's default is main-v1.55.4, which has a background
+# health-check bug: the router sends real /v1/chat/completions probes to
+# backends every ~30s regardless of background_health_checks=false, spiking
+# akira's integrated Radeon 890M to 80-97% util and cycling the fans. v1.82.3
+# respects the disable setting (verified in production). Pinning here so that
+# re-running deploy-litellm against akira doesn't silently downgrade and
+# re-introduce the GPU-spike regression.
+litellm_image: "ghcr.io/berriai/litellm:main-v1.82.3"
+
+# =============================================================================
 # SELinux
 # =============================================================================
 selinux_mode: enforcing
