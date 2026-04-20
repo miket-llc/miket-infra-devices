@@ -81,9 +81,33 @@
         line: "ServerName = {{ inventory_hostname }}.pangolin-vega.ts.net"
         backup: yes
       become: yes
-      when: 
+      when:
         - nomachine_config_stat.stat.exists
         - nomachine_tailscale_only | bool
+      notify: Restart NoMachine
+
+    # NoMachine ships server.cfg with NXTCPPort/NXUDPPort commented, so the
+    # daemon falls back to the hardcoded default of 4000. Writing explicit
+    # values makes nomachine_port authoritative — required when a host needs
+    # a non-default port (e.g. akira, where 4000 is claimed by LiteLLM).
+    - name: Configure NoMachine TCP port (Linux)
+      ansible.builtin.lineinfile:
+        path: /usr/NX/etc/server.cfg
+        regexp: '^#?NXTCPPort\s'
+        line: "NXTCPPort {{ nomachine_port }}"
+        backup: yes
+      become: yes
+      when: nomachine_config_stat.stat.exists
+      notify: Restart NoMachine
+
+    - name: Configure NoMachine UDP port (Linux)
+      ansible.builtin.lineinfile:
+        path: /usr/NX/etc/server.cfg
+        regexp: '^#?NXUDPPort\s'
+        line: "NXUDPPort {{ nomachine_port }}"
+        backup: yes
+      become: yes
+      when: nomachine_config_stat.stat.exists
       notify: Restart NoMachine
 
     - name: Configure Wayland capture for KDE Plasma (Linux)

@@ -5,7 +5,7 @@ Updated: VNC/RDP retired, NoMachine standardized
 
 ## Overview
 
-**NoMachine is the sole remote desktop solution.** VNC and RDP were architecturally retired on 2025-11-22. All hosts use NoMachine on port 4000 over Tailscale.
+**NoMachine is the sole remote desktop solution.** VNC and RDP were architecturally retired on 2025-11-22. Hosts use NoMachine on port 4000 over Tailscale, with one exception: **akira uses port 4020** because :4000 is reserved for the LiteLLM gateway there.
 
 ## Connection Methods
 
@@ -68,6 +68,14 @@ ansible-playbook playbooks/remote_clients_nomachine.yml -l macos
 - **Session**: Shares existing macOS desktop
 - **Quick Connect**: Open NoMachine → Select "count-zero" from saved connections
 
+### AKIRA (Linux AI Workstation — non-default port)
+
+- **Hostname**: `akira.pangolin-vega.ts.net` (MagicDNS)
+- **Protocol**: NoMachine
+- **Port**: **4020** (not 4000 — :4000 is LiteLLM on akira)
+- **Session**: Shares existing KDE Plasma (Wayland) session
+- **Quick Connect**: Update saved NoMachine connection for akira to port 4020
+
 
 ## Troubleshooting
 
@@ -122,6 +130,7 @@ ansible-playbook playbooks/remote_clients_nomachine.yml -l macos
 | wintermute | NoMachine | 4000 | Windows Desktop |
 | armitage | NoMachine | 4000 | Windows Desktop |
 | count-zero | NoMachine | 4000 | macOS Desktop |
+| **akira** | NoMachine | **4020** | KDE Plasma Wayland (Linux) — :4000 is LiteLLM |
 
 ## Deprecated (Do Not Use)
 
