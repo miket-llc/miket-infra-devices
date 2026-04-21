@@ -275,14 +275,15 @@
     label: "{{ item.name }} ({{ item.host }}:{{ item.port }})"
   register: backend_health
   ignore_errors: true
+  check_mode: false  # read-only GET; run under --check so downstream report renders
   tags: [litellm, verify, backends]
 
 - name: Report backend health status
   ansible.builtin.debug:
     msg: |
       Backend Health Status:
-      {% for result in backend_health.results %}
-      - {{ result.item.name }}: {{ 'HEALTHY' if result.status == 200 else 'UNHEALTHY (' ~ (result.msg | default('unknown error')) ~ ')' }}
+      {% for result in backend_health.results | default([]) %}
+      - {{ result.item.name }}: {{ 'HEALTHY' if (result.status | default(0)) == 200 else 'UNHEALTHY (' ~ (result.msg | default('unknown error')) ~ ')' }}
       {% endfor %}
   tags: [litellm, verify, backends]
 
