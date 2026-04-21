@@ -15,11 +15,17 @@ services:
       - {{ litellm_config_path }}:/app/config/config.yaml:ro,Z
     restart: unless-stopped
     healthcheck:
-      # /health is auth-gated and returns 401 without LITELLM_MASTER_KEY, so
-      # -fsS always treats it as a failure — container reports unhealthy even
-      # when the proxy is serving real traffic fine. /health/liveliness is
-      # public and reflects actual process state.
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:{{ litellm_port }}/health/liveliness"]
+      # Use Python stdlib (urllib) rather than curl — the LiteLLM image is a
+      # Chainguard distroless Python build that has no curl binary, so a
+      # curl-based healthcheck always fails with "executable not found" and
+      # leaves the container marked unhealthy regardless of service state.
+      # /health/liveliness is the public, unauthenticated endpoint; /health
+      # requires LITELLM_MASTER_KEY and would 401 otherwise.
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:{{ litellm_port }}/health/liveliness', timeout=5).status == 200 else 1)"
       interval: 30s
       timeout: 5s
       retries: 3
