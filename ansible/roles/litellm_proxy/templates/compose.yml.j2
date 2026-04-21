@@ -15,7 +15,11 @@ services:
       - {{ litellm_config_path }}:/app/config/config.yaml:ro,Z
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:{{ litellm_port }}/health"]
+      # /health is auth-gated and returns 401 without LITELLM_MASTER_KEY, so
+      # -fsS always treats it as a failure — container reports unhealthy even
+      # when the proxy is serving real traffic fine. /health/liveliness is
+      # public and reflects actual process state.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:{{ litellm_port }}/health/liveliness"]
       interval: 30s
       timeout: 5s
       retries: 3
