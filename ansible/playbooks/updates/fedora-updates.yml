@@ -115,7 +115,7 @@
 
     - name: Display update results
       debug:
-        msg: "Packages updated: {{ dnf_update.changed }}"
+        msg: "Packages updated: {{ dnf_update.changed | default('skipped (not run in this mode)') }}"
       tags: [updates, always]
 
     # Tailscale-specific updates
@@ -131,7 +131,7 @@
         name: tailscaled
         state: restarted
         enabled: yes
-      when: tailscale_update.changed
+      when: tailscale_update.changed | default(false)
       tags: [updates, tailscale]
 
     - name: Wait for Tailscale to reconnect
@@ -140,7 +140,7 @@
       until: tailscale_reconnect.rc == 0
       retries: 6
       delay: 10
-      when: tailscale_update.changed
+      when: tailscale_update.changed | default(false)
       changed_when: false
       failed_when: false
       tags: [updates, tailscale]
@@ -208,9 +208,9 @@
           - "================================================================"
           - "  Update Summary: {{ inventory_hostname }}"
           - "================================================================"
-          - "Packages Updated: {{ 'Yes' if dnf_update.changed else 'No (already up to date)' }}"
+          - "Packages Updated: {{ 'Yes' if dnf_update.changed | default(false) else ('No (already up to date)' if dnf_update is defined else 'Skipped (verify-only mode)') }}"
           - "Updates Available: {{ available_updates.results | length }}"
-          - "Tailscale Updated: {{ 'Yes' if tailscale_update.changed else 'No' }}"
+          - "Tailscale Updated: {{ 'Yes' if tailscale_update.changed | default(false) else ('No' if tailscale_update is defined else 'Skipped (verify-only mode)') }}"
           - "Tailscale Status: {{ 'Online' if tailscale_post_status.rc == 0 else 'NEEDS ATTENTION' }}"
           - "Kernel Status: {{ kernel_check.stdout }}"
           - "Reboot Required: {{ 'Yes' if kernel_check.rc != 0 else 'No' }}"
@@ -399,6 +399,6 @@
           - "================================================================"
           - "Tailscale: {{ 'Connected' if tailscale_post_status.rc == 0 else 'DISCONNECTED' }}"
           - "SSH: Running (you are connected)"
-          - "Updates: {{ 'Applied' if dnf_update.changed else 'Already current' }}"
+          - "Updates: {{ 'Applied' if dnf_update.changed | default(false) else ('Already current' if dnf_update is defined else 'Skipped (verify-only mode)') }}"
           - "================================================================"
       tags: [always]
