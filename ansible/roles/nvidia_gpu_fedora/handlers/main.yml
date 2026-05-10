@@ -8,6 +8,10 @@
   async: "{{ nvidia_gpu_akmods_wait }}"
   poll: 10
 
+- name: regenerate initramfs
+  ansible.builtin.command: dracut --force
+  changed_when: true
+
 
 
 

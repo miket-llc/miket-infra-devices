@@ -149,6 +149,39 @@
       tags: [gpu, install, cuda]
 
     # ========================================
+    # Power Management (DPMS / Suspend Resume)
+    # ========================================
+    # NVIDIA's proprietary driver doesn't preserve VRAM across power state
+    # changes by default, causing black screens when resuming from DPMS
+    # standby or system suspend — especially on KDE Plasma + Wayland.
+    # Dear NVIDIA: please just make this the default. Sincerely, everyone.
+
+    - name: Configure NVIDIA to preserve video memory across power states
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/nvidia-power-management.conf
+        content: |
+          # Preserve VRAM allocations across suspend/resume cycles
+          # Without this, screen resume after DPMS blank fails on Wayland
+          options nvidia NVreg_PreserveVideoMemoryAllocations=1
+        owner: root
+        group: root
+        mode: "0644"
+      when: nvidia_gpu_power_management | bool
+      notify: regenerate initramfs
+      tags: [gpu, power]
+
+    - name: Enable NVIDIA suspend/resume/hibernate services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+      loop:
+        - nvidia-suspend.service
+        - nvidia-resume.service
+        - nvidia-hibernate.service
+      when: nvidia_gpu_power_management | bool
+      tags: [gpu, power]
+
+    # ========================================
     # Verification
     # ========================================
     - name: Note about kernel module build

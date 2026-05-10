@@ -33,6 +33,11 @@ nvidia_gpu_verify: true
 # Wait for akmods to build (seconds)
 nvidia_gpu_akmods_wait: 120
 
+# Enable NVIDIA power management for screen resume (DPMS/suspend)
+# Fixes black screen after screen blank on KDE Plasma / Wayland with NVIDIA GPUs
+# Sets NVreg_PreserveVideoMemoryAllocations=1 and enables nvidia-suspend/resume services
+nvidia_gpu_power_management: true
+
 
 
 
