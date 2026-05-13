@@ -29,13 +29,13 @@
   failed_when: false
   check_mode: false
   when: nvidia_gpu_auto_detect | bool
-  tags: [gpu, detect]
+  tags: [gpu, detect, power]
 
 - name: Set GPU presence fact
   ansible.builtin.set_fact:
     nvidia_gpu_present: "{{ nvidia_lspci.rc == 0 and nvidia_lspci.stdout | length > 0 }}"
   when: nvidia_gpu_auto_detect | bool
-  tags: [gpu, detect]
+  tags: [gpu, detect, power]
 
 - name: Display GPU detection result
   ansible.builtin.debug:
