@@ -156,16 +156,66 @@
     # standby or system suspend — especially on KDE Plasma + Wayland.
     # Dear NVIDIA: please just make this the default. Sincerely, everyone.
 
+    - name: Detect available system sleep states (/sys/power/mem_sleep)
+      ansible.builtin.command: cat /sys/power/mem_sleep
+      register: nvidia_gpu_mem_sleep
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: nvidia_gpu_power_management | bool
+      tags: [gpu, power]
+
+    # On modern laptops (e.g., Alienware m16 R2) the BIOS exposes only s2idle;
+    # 'deep' (ACPI S3) is absent. In that case NVreg_PreserveVideoMemoryAllocations
+    # alone is insufficient — the driver also needs NVreg_EnableS0ixPowerManagement=1
+    # to participate in the S0ix transition. On desktops with S3, the flag is unneeded.
+    - name: Set S0ix-only platform fact
+      ansible.builtin.set_fact:
+        nvidia_gpu_s0ix_only: >-
+          {{
+            (nvidia_gpu_mem_sleep.rc | default(1)) == 0
+            and 'deep' not in (nvidia_gpu_mem_sleep.stdout | default(''))
+          }}
+      when: nvidia_gpu_power_management | bool
+      tags: [gpu, power]
+
+    - name: Report sleep-state detection
+      ansible.builtin.debug:
+        msg: >-
+          mem_sleep={{ nvidia_gpu_mem_sleep.stdout | default('(unavailable)') }} —
+          {{ 'S0ix-only platform: will set NVreg_EnableS0ixPowerManagement=1'
+             if nvidia_gpu_s0ix_only
+             else 'S3 available: S0ix flag not needed' }}
+      when: nvidia_gpu_power_management | bool
+      tags: [gpu, power]
+
     - name: Configure NVIDIA to preserve video memory across power states
       ansible.builtin.copy:
         dest: /etc/modprobe.d/nvidia-power-management.conf
         content: |
+          # Managed by ansible role: nvidia_gpu_fedora
           # Preserve VRAM allocations across suspend/resume cycles
           # Without this, screen resume after DPMS blank fails on Wayland
           options nvidia NVreg_PreserveVideoMemoryAllocations=1
+          # VRAM snapshot destination — must be disk-backed, not tmpfs
+          options nvidia NVreg_TemporaryFilePath=/var/tmp
+          {% if nvidia_gpu_s0ix_only | default(false) %}
+          # Platform exposes only s2idle (no ACPI S3) — opt the driver into S0ix
+          options nvidia NVreg_EnableS0ixPowerManagement=1
+          {% endif %}
         owner: root
         group: root
         mode: "0644"
+      when: nvidia_gpu_power_management | bool
+      notify: regenerate initramfs
+      tags: [gpu, power]
+
+    # Hosts manually patched before the role landed (e.g., armitage 2025-12-24)
+    # may carry a duplicate file at this path. Role now owns the config.
+    - name: Remove legacy manual nvidia-power.conf if present
+      ansible.builtin.file:
+        path: /etc/modprobe.d/nvidia-power.conf
+        state: absent
       when: nvidia_gpu_power_management | bool
       notify: regenerate initramfs
       tags: [gpu, power]

@@ -34,8 +34,12 @@ nvidia_gpu_verify: true
 nvidia_gpu_akmods_wait: 120
 
 # Enable NVIDIA power management for screen resume (DPMS/suspend)
-# Fixes black screen after screen blank on KDE Plasma / Wayland with NVIDIA GPUs
-# Sets NVreg_PreserveVideoMemoryAllocations=1 and enables nvidia-suspend/resume services
+# Fixes black screen after screen blank on KDE Plasma / Wayland with NVIDIA GPUs.
+# Always sets NVreg_PreserveVideoMemoryAllocations=1 and NVreg_TemporaryFilePath=/var/tmp,
+# and enables nvidia-suspend/resume/hibernate services. On platforms where the BIOS
+# exposes only s2idle (S0ix) — typical of modern laptops like Alienware m16 R2 — the
+# role also sets NVreg_EnableS0ixPowerManagement=1 so the driver participates in S0ix
+# transitions; without it, lock/blank produces a black screen that can't recover.
 nvidia_gpu_power_management: true
 
 
