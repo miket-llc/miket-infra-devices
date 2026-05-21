@@ -1,0 +1,37 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# System Upgrade Fedora Role Defaults
+#
+# Performs a Fedora major-version OS upgrade via `dnf5 system-upgrade`.
+# All actions gated by `system_upgrade_target_release`; the role is a no-op
+# until that variable is set.
+
+# Target Fedora release (e.g. 44). Required — no default to avoid accidental
+# upgrades. Pass with -e system_upgrade_target_release=44.
+system_upgrade_target_release: null
+
+# Allow erasing packages whose dependencies cannot be resolved against the
+# target release (e.g. ABI breaks on leaf libraries). True is generally safe
+# because dnf5 will only erase orphaned packages; set false to fail-fast
+# instead and triage manually.
+system_upgrade_allow_erasing: true
+
+# When true, the role triggers `dnf5 offline reboot` and waits for the host
+# to return on the new release. When false, the role stops after staging the
+# offline transaction so a human can pick the reboot window.
+system_upgrade_auto_reboot: false
+
+# Minimum free space on / required before staging the transaction (GiB).
+# dnf5 caches the full F-N download here; 5 GiB is conservative for a
+# headless server, raise for desktop installs.
+system_upgrade_min_root_free_gib: 5
+
+# Minimum free space on /boot required (MiB). New kernel + initramfs.
+system_upgrade_min_boot_free_mib: 500
+
+# Maximum time (seconds) to wait for the host to come back after the
+# offline transaction. The offline phase itself is bounded by how long
+# rpm takes to install ~1.5k packages in dracut — usually 5–15 min on
+# SSD/NVMe, can be longer on slower disks.
+system_upgrade_reboot_timeout: 1800

@@ -1,0 +1,188 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# System Upgrade Fedora — tasks
+#
+# Stages:
+#   pre-check  : assert distro, version delta, disk space
+#   prepare    : clean caches, patch current release to latest
+#   download   : `dnf5 system-upgrade download --releasever=N`
+#   reboot     : `dnf5 offline reboot` via detached systemd-run, then wait
+#   verify     : confirm new release, no failed units
+#
+# All stages are tagged so partial runs are easy:
+#   --tags pre-check
+#   --tags download           (pre-check + prepare + download)
+#   --tags reboot,verify      (assumes download is already staged)
+
+- name: Assert target release was provided
+  ansible.builtin.assert:
+    that:
+      - system_upgrade_target_release is not none
+      - system_upgrade_target_release | int > 0
+    fail_msg: |
+      system_upgrade_target_release must be set, e.g.
+        ansible-playbook ... -e system_upgrade_target_release=44
+  tags: [pre-check, always]
+
+- name: Assert host is Fedora
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Fedora'
+    fail_msg: "This role only supports Fedora (got {{ ansible_distribution }})"
+    quiet: true
+  tags: [pre-check]
+
+- name: Assert target release is newer than current
+  ansible.builtin.assert:
+    that:
+      - system_upgrade_target_release | int > ansible_distribution_major_version | int
+    fail_msg: >-
+      Target release {{ system_upgrade_target_release }} is not newer than
+      current ({{ ansible_distribution_major_version }}).
+      Use dnf5 upgrade for in-release updates.
+  tags: [pre-check]
+
+- name: Assert dnf5 is the package manager
+  ansible.builtin.command: rpm -q dnf5
+  register: dnf5_check
+  changed_when: false
+  failed_when: dnf5_check.rc != 0
+  tags: [pre-check]
+
+- name: Collect filesystem free space
+  ansible.builtin.setup:
+    filter: ansible_mounts
+  tags: [pre-check]
+
+- name: Compute / free GiB
+  ansible.builtin.set_fact:
+    root_free_gib: >-
+      {{ (ansible_mounts | selectattr('mount', 'eq', '/') | first).size_available
+         / 1024 / 1024 / 1024 | round(1) }}
+    boot_free_mib: >-
+      {{ (ansible_mounts | selectattr('mount', 'eq', '/boot') | first).size_available
+         / 1024 / 1024 | round(0) }}
+  tags: [pre-check]
+
+- name: Assert sufficient free space
+  ansible.builtin.assert:
+    that:
+      - root_free_gib | float >= system_upgrade_min_root_free_gib | float
+      - boot_free_mib | float >= system_upgrade_min_boot_free_mib | float
+    fail_msg: >-
+      Insufficient disk: / has {{ root_free_gib }} GiB free
+      (need {{ system_upgrade_min_root_free_gib }}),
+      /boot has {{ boot_free_mib }} MiB free
+      (need {{ system_upgrade_min_boot_free_mib }}).
+      Free space or raise the thresholds via role vars.
+  tags: [pre-check]
+
+# ---------------------------------------------------------------------------
+# Prepare
+# ---------------------------------------------------------------------------
+- name: Clean dnf caches
+  ansible.builtin.command: dnf5 clean all
+  changed_when: true
+  tags: [prepare]
+
+- name: Vacuum systemd journal to 200M
+  ansible.builtin.command: journalctl --vacuum-size=200M
+  changed_when: true
+  tags: [prepare]
+
+- name: Upgrade current release to latest before crossing the version boundary
+  ansible.builtin.command: dnf5 upgrade -y --refresh
+  register: dnf5_patch
+  changed_when: "'Nothing to do' not in dnf5_patch.stdout"
+  tags: [prepare]
+
+# ---------------------------------------------------------------------------
+# Download
+# ---------------------------------------------------------------------------
+- name: Stage offline upgrade transaction
+  ansible.builtin.command: >-
+    dnf5 system-upgrade download
+    --releasever={{ system_upgrade_target_release }}
+    {{ '--allowerasing' if system_upgrade_allow_erasing else '' }}
+    -y
+  register: dnf5_download
+  changed_when: "'Transaction stored' in dnf5_download.stdout"
+  tags: [download]
+
+- name: Report transaction summary
+  ansible.builtin.debug:
+    msg: |
+      Offline transaction staged for F{{ system_upgrade_target_release }}.
+      Run `dnf5 offline reboot` (or re-run with -e system_upgrade_auto_reboot=true)
+      to apply it.
+  tags: [download]
+
+# ---------------------------------------------------------------------------
+# Reboot + wait
+# ---------------------------------------------------------------------------
+- name: Trigger offline reboot via detached systemd-run
+  ansible.builtin.command:
+    cmd: >-
+      systemd-run
+      --description="system_upgrade_fedora offline reboot to F{{ system_upgrade_target_release }}"
+      --on-active=10s
+      bash -c "dnf5 -y offline reboot >/tmp/upgrade-reboot.log 2>&1"
+  when: system_upgrade_auto_reboot | bool
+  changed_when: true
+  tags: [reboot]
+
+- name: Wait for host to drop off the network
+  ansible.builtin.wait_for_connection:
+    timeout: 60
+    delay: 15
+    sleep: 5
+  when: system_upgrade_auto_reboot | bool
+  # We want this to fail-soft: if the host disconnects mid-poll, that's
+  # actually the expected signal. The next task does the real wait.
+  ignore_errors: true
+  tags: [reboot]
+
+- name: Wait for host to return on new release
+  ansible.builtin.wait_for_connection:
+    timeout: "{{ system_upgrade_reboot_timeout }}"
+    delay: 30
+    sleep: 10
+  when: system_upgrade_auto_reboot | bool
+  tags: [reboot]
+
+# ---------------------------------------------------------------------------
+# Verify
+# ---------------------------------------------------------------------------
+- name: Re-gather facts after reboot
+  ansible.builtin.setup:
+  when: system_upgrade_auto_reboot | bool
+  tags: [verify]
+
+- name: Confirm host is on target release
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution_major_version | int == system_upgrade_target_release | int
+    fail_msg: >-
+      Host is still on F{{ ansible_distribution_major_version }} after reboot.
+      Check /var/log/dnf5.log and journalctl -b -1.
+  when: system_upgrade_auto_reboot | bool
+  tags: [verify]
+
+- name: Check for failed systemd units
+  ansible.builtin.command: systemctl --failed --no-legend
+  register: failed_units
+  changed_when: false
+  when: system_upgrade_auto_reboot | bool
+  tags: [verify]
+
+- name: Report upgrade result
+  ansible.builtin.debug:
+    msg: |
+      Upgrade complete.
+      Release : F{{ ansible_distribution_major_version }}
+      Kernel  : {{ ansible_kernel }}
+      Failed units:
+      {{ failed_units.stdout | default('(none)') }}
+  when: system_upgrade_auto_reboot | bool
+  tags: [verify]

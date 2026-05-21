@@ -1,0 +1,52 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fedora Major Version Upgrade Playbook
+#
+# Purpose: Move a Fedora host from release N to N+1 (or further) via
+#          `dnf5 system-upgrade`. Wraps the system_upgrade_fedora role.
+#
+# Usage:
+#   # Dry run on a single host — stage transaction only, no reboot
+#   ansible-playbook -i inventory/hosts.yml \
+#     ansible/playbooks/updates/fedora-major-upgrade.yml \
+#     --limit motoko -e system_upgrade_target_release=44
+#
+#   # Full unattended upgrade including reboot + verify
+#   ansible-playbook -i inventory/hosts.yml \
+#     ansible/playbooks/updates/fedora-major-upgrade.yml \
+#     --limit motoko \
+#     -e system_upgrade_target_release=44 \
+#     -e system_upgrade_auto_reboot=true
+#
+#   # Pre-flight only (disk, distro, version delta)
+#   ansible-playbook ... --tags pre-check ...
+#
+# Required:
+#   system_upgrade_target_release   target Fedora release (e.g. 44)
+#
+# Optional:
+#   system_upgrade_auto_reboot      true to reboot + verify (default false)
+#   system_upgrade_allow_erasing    true to drop orphans on ABI breaks (default true)
+#
+# Notes:
+#   - --limit is strongly encouraged. Running fleet-wide unattended is
+#     intentionally not the default; major upgrades want a maintenance window.
+#   - Hosts running pihole-FTL / cloudflared / other LAN-affecting services
+#     will be unreachable for 5–15 minutes during the offline transaction.
+#   - openhpi (anaconda baseline package) currently blocks F43→F44 due to a
+#     libnetsnmp.so.40 ABI break; --allowerasing handles it. Reinstall after
+#     upgrade only if you actually use HPI tooling.
+
+- name: Fedora major-version upgrade
+  hosts: linux
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Skip non-Fedora hosts
+      ansible.builtin.meta: end_host
+      when: ansible_os_family != "RedHat" or ansible_distribution != "Fedora"
+
+  roles:
+    - role: system_upgrade_fedora
