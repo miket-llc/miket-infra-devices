@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
+.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn deploy-fedora-shell-baseline
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -80,6 +80,9 @@ help:
 	@echo "Tailscale & SSH:"
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
 	@echo "  deploy-ssh-config       - Deploy standardized SSH config to workstations"
+	@echo ""
+	@echo "Fedora shell baseline:"
+	@echo "  deploy-fedora-shell-baseline - Fix Fedora 44 tty: ttyname error on shell startup"
 	@echo ""
 	@echo "Utility:
 	@echo "  backup-configs          - Backup current configurations"
@@ -522,6 +525,10 @@ verify-tailscale:
 # Quick verification (skip SSH auth tests)
 verify-tailscale-quick:
 	@./scripts/verify-tailscale-e2e.sh --quick
+
+# Fix Fedora 44 tty: ttyname error noise on shell startup (all Fedora hosts)
+deploy-fedora-shell-baseline:
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-fedora-shell-baseline.yml
 
 # Deploy standardized SSH config to workstations
 deploy-ssh-config:

@@ -1,0 +1,4 @@
+---
+# fedora_shell_baseline currently has no tunables. This file exists so the role
+# matches the layout convention documented in CLAUDE.md and so future shell
+# tweaks have an obvious home.

@@ -1,0 +1,20 @@
+# Copyright (c) 2026 MikeT LLC. All rights reserved.
+
+---
+# Deploy Fedora Shell Baseline
+#
+# Applies fedora_shell_baseline to every Fedora host in the fleet. Today it
+# only fixes the Fedora 44 `tty: ttyname error: No such device` noise from
+# /etc/profile.d/gnupg2.sh. Re-run after any `dnf update` that touches gnupg2.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-fedora-shell-baseline.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-fedora-shell-baseline.yml --limit armitage --check --diff
+
+- name: Apply Fedora shell baseline
+  hosts: linux
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: fedora_shell_baseline

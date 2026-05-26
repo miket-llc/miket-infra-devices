@@ -1,0 +1,35 @@
+# Copyright (c) 2026 MikeT LLC. All rights reserved.
+
+---
+# Fedora Shell Baseline
+#
+# Quiet down shell-startup diagnostics that became noisy after the Fedora 44
+# upgrade. Currently this role addresses one specific issue:
+#
+#   /etc/profile.d/gnupg2.sh runs `export GPG_TTY=$(tty)` on every interactive
+#   shell. Fedora 44 ships coreutils-9.10, which prints
+#       tty: ttyname error: No such device
+#   on stderr in some pty edge cases (Wayland/wezterm, tmux reattach,
+#   non-controlling-tty children) instead of the older quiet "not a tty".
+#   This surfaces in zsh/bash/wezterm every time a shell opens.
+#
+# Upstream RHEL fixed this in gnupg2-2.4.9-7 ("Make the profile scripts more
+# robust", RHEL-166369). Fedora 44 still ships the buggy variant, so we
+# overwrite /etc/profile.d/gnupg2.sh with a stderr-redirected version.
+#
+# The replacement matches the original semantics (interactive-only export of
+# GPG_TTY) and is byte-stable, so the task is idempotent. dnf may restore the
+# stock file when the gnupg2 package upgrades; re-running the role re-applies.
+
+- name: Skip on non-Fedora hosts
+  ansible.builtin.meta: end_host
+  when: ansible_distribution != 'Fedora'
+
+- name: Replace /etc/profile.d/gnupg2.sh with a quiet GPG_TTY variant
+  ansible.builtin.copy:
+    src: gnupg2.sh
+    dest: /etc/profile.d/gnupg2.sh
+    owner: root
+    group: root
+    mode: '0644'
+  tags: [tty_fix, gnupg2]
