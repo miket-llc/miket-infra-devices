@@ -4,8 +4,9 @@
 $ErrorActionPreference = "Continue"
 
 # SMB Configuration
+# Per-drive credentials so shares hosted on different servers (e.g. /space on
+# akira, /time on motoko) can authenticate against their own Samba accounts.
 $username = "mdt"
-$password = "{{ smb_password }}"
 
 # Wait for Tailscale to be ready using Tailscale's own status command
 # This is more reliable than polling - we check Tailscale's backend state directly
@@ -67,14 +68,17 @@ if (-not $tailscaleReady) {
 }
 
 # Drive mappings
- $drives = @(
+$drives = @(
 {% for share in smb_shares %}
+{%- set _server = share.server | default(smb_server) -%}
+{%- set _password = (smb_passwords | default({}))[_server] | default(smb_password | default('')) -%}
     @{
         Letter = "{{ share.drive_letter }}"
         Path = "{{ share.path }}"
         Label = "{{ share.label }}"
         Name = "{{ share.name }}"
-        Server = "{{ share.server | default(smb_server) }}"
+        Server = "{{ _server }}"
+        Password = "{{ _password }}"
     }{{ "," if not loop.last else "" }}
 {% endfor %}
 )
@@ -82,14 +86,20 @@ if (-not $tailscaleReady) {
 foreach ($drive in $drives) {
     $letter = $drive.Letter
     $server = $drive.Server
+    $password = $drive.Password
     $sharePath = ($drive.Path -replace '^[/\\]+','') -replace '/', '\'
     $uncPath = "\\$server\$sharePath"
-    
-    Write-Host "Processing drive ${letter}:..."
-    
+
+    Write-Host "Processing drive ${letter}: (server=$server)"
+
+    if (-not $password) {
+        Write-Host "  SKIP: no password configured for server '$server' — set smb_passwords.$server in the playbook"
+        continue
+    }
+
     # Check if already mapped to the correct path
     $existing = Get-PSDrive -Name $letter -PSProvider FileSystem -ErrorAction SilentlyContinue
-    
+
     if ($existing -and $existing.DisplayRoot -eq $uncPath) {
         Write-Host "  Drive ${letter}: already mapped to $uncPath"
     } else {
@@ -98,12 +108,12 @@ foreach ($drive in $drives) {
             Write-Host "  Disconnecting existing mapping: $($existing.DisplayRoot)"
             net use ${letter}: /delete /yes 2>&1 | Out-Null
         }
-        
+
         # Also delete any remembered connections
         net use ${letter}: /delete /yes 2>&1 | Out-Null
-        
+
         Write-Host "  Mapping ${letter}: to $uncPath..."
-        
+
         # Use net use with credentials and force overwrite
         $netCmd = "net use ${letter}: $uncPath /user:$username `"$password`" /persistent:yes /yes 2>&1"
         $output = Invoke-Expression $netCmd

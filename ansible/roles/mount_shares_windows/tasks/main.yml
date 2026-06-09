@@ -1,12 +1,16 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-- name: Assert SMB password provided
+- name: Assert SMB credentials provided
   assert:
     that:
-      - smb_password is defined
-      - smb_password | length > 0
-    fail_msg: "smb_password must be provided to mount_shares_windows role"
+      - (smb_passwords is defined and smb_passwords | length > 0) or
+        (smb_password is defined and smb_password | length > 0)
+    fail_msg: >-
+      Either smb_passwords (dict keyed by server) or smb_password (single value)
+      must be provided to mount_shares_windows. The dict form is preferred when
+      shares are split across multiple SMB servers (e.g. /space on akira,
+      /time on motoko).
 
 # Phase 1: Clean up drift (stale mounts, old tasks)
 - name: Clean up mount drift

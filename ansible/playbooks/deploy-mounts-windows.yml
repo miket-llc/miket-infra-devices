@@ -7,27 +7,33 @@
 - name: Deploy Windows Mount Configuration
   hosts: windows
   gather_facts: no
-  vars:
-    smb_server: "motoko.pangolin-vega.ts.net"  # Use Tailscale FQDN for resilience
-  
+  # Per-share SMB servers come from the mount_shares_windows role defaults:
+  # /space and /flux on akira, /time on motoko (ADR-0010). Passwords are
+  # fetched per server below and passed via smb_passwords.
+
   pre_tasks:
-    - name: Fetch SMB password from Azure Key Vault
-      shell: /usr/bin/az keyvault secret show --vault-name kv-miket-ops --name motoko-smb-password --query value -o tsv
-      register: smb_password_result
+    - name: Fetch per-server SMB passwords from Azure Key Vault
+      shell: /usr/bin/az keyvault secret show --vault-name kv-miket-ops --name "{{ item }}" --query value -o tsv
+      register: smb_password_results
       delegate_to: localhost
       run_once: true
       no_log: true
       connection: local
-    
-    - name: Set SMB password fact
+      loop:
+        - akira-smb-password
+        - motoko-smb-password
+
+    - name: Build smb_passwords dict (keyed by server short name)
       set_fact:
-        smb_password: "{{ smb_password_result.stdout | trim }}"
+        smb_passwords:
+          akira: "{{ smb_password_results.results[0].stdout | trim }}"
+          motoko: "{{ smb_password_results.results[1].stdout | trim }}"
       no_log: true
-    
+
     # WinRM authentication handled by inventory Azure Key Vault lookup
     # ansible_password is set in inventory/hosts.yml via:
     # lookup('pipe', '/usr/bin/az keyvault secret show --vault-name kv-miket-ops --name <host>-ansible-password --query value -o tsv')
-    
+
     - name: Include mount_shares_windows role
       include_role:
         name: mount_shares_windows
@@ -104,10 +110,14 @@
       debug:
         msg: |
           Mount configuration deployed successfully!
-          
-          Drives mapped via Tailscale FQDN: motoko.pangolin-vega.ts.net
-          Scheduled task "MikeT Map Network Drives" will run at every logon.
-          
+
+          Drives mapped (per ADR-0010):
+            X: → \\akira\flux
+            S: → \\akira\space
+            T: → \\motoko\time
+          All via Tailscale MagicDNS hostnames.
+          Scheduled task "MikeT Map Network Drives" runs at every logon.
+
           Next steps:
           1. Check File Explorer - drives should appear in "This PC" (may take a few seconds)
           2. If drives don't appear, refresh File Explorer (F5) or restart Explorer
