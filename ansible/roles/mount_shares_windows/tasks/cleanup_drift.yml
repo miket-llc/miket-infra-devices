@@ -6,30 +6,34 @@
 
 - name: Create cleanup timestamp
   set_fact:
-    cleanup_timestamp: "{{ ansible_date_time.date }}"
+    # Controller-local date; avoids requiring gather_facts on Windows hosts.
+    cleanup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
 
 - name: Remove existing mapped drives
-  win_shell: |
-    $drives = @("X", "S", "T")
-    foreach ($drive in $drives) {
-        $driveLetter = "${drive}:"
-        if (Test-Path $driveLetter) {
-            try {
-                Remove-PSDrive -Name $drive -Force -ErrorAction SilentlyContinue
-                Write-Output "Unmapped drive $driveLetter"
-            } catch {
-                Write-Output "Could not unmap $driveLetter : $_"
-            }
-        }
-        
-        # Remove persistent network drive mappings
-        try {
-            net use $driveLetter /delete /y 2>&1 | Out-Null
-            Write-Output "Removed persistent mapping for $driveLetter"
-        } catch {
-            # Ignore errors if drive wasn't mapped
-        }
-    }
+  ansible.windows.win_shell:
+    # ansible-core 2.20 split_args chokes on free-form shell with embedded `:`
+    # and quotes; pass via explicit _raw_params to bypass that parser.
+    _raw_params: |
+      $drives = @("X", "S", "T")
+      foreach ($drive in $drives) {
+          $driveLetter = "${drive}:"
+          if (Test-Path $driveLetter) {
+              try {
+                  Remove-PSDrive -Name $drive -Force -ErrorAction SilentlyContinue
+                  Write-Output "Unmapped drive $driveLetter"
+              } catch {
+                  Write-Output "Could not unmap $driveLetter : $_"
+              }
+          }
+
+          # Remove persistent network drive mappings
+          try {
+              net use $driveLetter /delete /y 2>&1 | Out-Null
+              Write-Output "Removed persistent mapping for $driveLetter"
+          } catch {
+              # Ignore errors if drive wasn't mapped
+          }
+      }
   register: drive_cleanup
   changed_when: drive_cleanup.stdout != ""
   ignore_errors: yes
@@ -40,12 +44,13 @@
   when: drive_cleanup.stdout_lines is defined
 
 - name: Remove old scheduled tasks
-  win_shell: |
-    $tasks = Get-ScheduledTask -TaskName "*MikeT*Mount*" -ErrorAction SilentlyContinue
-    foreach ($task in $tasks) {
-        Write-Output "Removing scheduled task: $($task.TaskName)"
-        Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false
-    }
+  ansible.windows.win_shell:
+    _raw_params: |
+      $tasks = Get-ScheduledTask -TaskName "*MikeT*Mount*" -ErrorAction SilentlyContinue
+      foreach ($task in $tasks) {
+          Write-Output "Removing scheduled task: $($task.TaskName)"
+          Unregister-ScheduledTask -TaskName $task.TaskName -Confirm:$false
+      }
   register: task_cleanup
   changed_when: task_cleanup.stdout != ""
   ignore_errors: yes
@@ -55,7 +60,7 @@
     var: task_cleanup.stdout_lines
   when: task_cleanup.stdout_lines is defined
 
-- name: Ensure cleanup directory on S: exists (if accessible)
+- name: "Ensure cleanup directory on S: exists (if accessible)"
   win_file:
     path: "S:\\devices\\{{ ansible_hostname }}\\{{ ansible_user }}\\cleanup-{{ cleanup_timestamp }}"
     state: directory

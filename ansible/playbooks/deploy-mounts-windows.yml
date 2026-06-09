@@ -19,6 +19,7 @@
       run_once: true
       no_log: true
       connection: local
+      check_mode: false  # read-only AKV lookup; must run even in --check
       loop:
         - akira-smb-password
         - motoko-smb-password
