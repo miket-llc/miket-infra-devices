@@ -93,7 +93,7 @@ foreach ($drive in $drives) {
     Write-Host "Processing drive ${letter}: (server=$server)"
 
     if (-not $password) {
-        Write-Host "  SKIP: no password configured for server '$server' — set smb_passwords.$server in the playbook"
+        Write-Host "  SKIP: no password configured for server '$server' -- set smb_passwords.$server in the playbook"
         continue
     }
 
