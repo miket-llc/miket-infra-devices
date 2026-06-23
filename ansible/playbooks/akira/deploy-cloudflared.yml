@@ -1,0 +1,79 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Deploy Cloudflare Tunnel connector on akira
+#
+# This playbook installs and configures cloudflared directly on akira, the host
+# that runs Nextcloud. It replaces the previous motoko proxy-hop architecture.
+#
+# Architecture (current):
+#   Internet → Cloudflare Access → akira (cloudflared) → Nextcloud (localhost:8080)
+#
+# Architecture (previous, see playbooks/motoko/deploy-cloudflared.yml):
+#   Internet → Cloudflare Access → motoko (cloudflared) → akira (Nextcloud) via Tailscale
+#
+# Why move the tunnel onto akira?
+# - After ADR-0010 (Nextcloud migration to akira), motoko was only a proxy hop.
+#   When motoko went offline (node-key expiry, 2026-06), external Nextcloud broke.
+# - Hosting the tunnel where Nextcloud lives removes the extra hop and the
+#   single point of failure, and lets cloudflared reach Nextcloud over loopback.
+#
+# Prerequisites:
+# - Tunnel created on akira via `cloudflared tunnel login` + `cloudflared tunnel create akira-phc`
+# - Tunnel credentials JSON stored in AKV (cloudflare-tunnel-akira-credentials)
+# - Azure CLI authenticated (creds fetched from AKV at deploy time)
+#
+# Usage:
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/akira/deploy-cloudflared.yml --limit akira
+
+- name: Deploy Cloudflare Tunnel connector on akira
+  hosts: akira
+  become: true
+
+  vars:
+    # Tunnel configuration (created via cloudflared CLI on akira, 2026-06)
+    cloudflared_tunnel_id: "4a2b4a95-cbfa-49e8-9e20-038964bdce47"
+    cloudflared_tunnel_name: "akira-phc"
+    cloudflared_akv_secret_name: "cloudflare-tunnel-akira-credentials"
+
+    # Ingress rules - Nextcloud runs locally on akira:8080 (no Tailscale hop)
+    cloudflared_ingress_rules:
+      - hostname: nextcloud.miket.io
+        service: http://localhost:8080
+
+  roles:
+    - role: ../../roles/cloudflared
+
+  post_tasks:
+    - name: Verify cloudflared can reach Nextcloud locally
+      ansible.builtin.uri:
+        url: http://localhost:8080/status.php
+        return_content: false
+        status_code: [200, 302]
+      register: nextcloud_check
+      ignore_errors: true
+
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+
+          ═══════════════════════════════════════════════════════════════
+          Cloudflare Tunnel Deployment Complete (akira)
+          ═══════════════════════════════════════════════════════════════
+
+          Tunnel ID:    {{ cloudflared_tunnel_id }}
+          Tunnel Name:  {{ cloudflared_tunnel_name }}
+          Service:      {{ 'Running' if cloudflared_service_status.status.ActiveState == 'active' else 'Not Running' }}
+
+          Architecture:
+            Internet → Cloudflare Access → akira (tunnel) → Nextcloud (localhost:8080)
+
+          Exposed Services:
+          {% for rule in cloudflared_ingress_rules %}
+            - https://{{ rule.hostname }} → {{ rule.service }}
+          {% endfor %}
+
+          Verification:
+            External: curl -I https://nextcloud.miket.io (expect 302 to Access login)
+            Internal: curl http://localhost:8080/status.php
+
+          ═══════════════════════════════════════════════════════════════

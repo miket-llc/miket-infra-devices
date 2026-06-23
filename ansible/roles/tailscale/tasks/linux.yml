@@ -123,11 +123,11 @@
     current_tags: "{{ (tailscale_status.Self.Tags | default([]) | sort) | join(',') }}"
   when: tailscale_status is defined and tailscale_status.Self is defined and tailscale_status.Self.Tags is defined
 
-- name: Set exit node flag for motoko
+- name: Set exit node flag (host-var driven)
   ansible.builtin.set_fact:
-    use_exit_node: "{{ (inventory_hostname == 'motoko' and tailscale_exit_node_motoko | default(true)) or tailscale_exit_node | default(false) }}"
+    use_exit_node: "{{ tailscale_exit_node | default(false) }}"
 
-- name: Enable IP forwarding (required for exit node on motoko)
+- name: Enable IP forwarding (required for exit node or subnet routing)
   ansible.builtin.sysctl:
     name: "{{ item }}"
     value: '1'
@@ -137,7 +137,7 @@
   loop:
     - net.ipv4.ip_forward
     - net.ipv6.conf.all.forwarding
-  when: use_exit_node | bool
+  when: use_exit_node | bool or (tailscale_advertise_routes | default([]) | length > 0)
 
 - name: Build tailscale up command
   ansible.builtin.set_fact:
@@ -147,6 +147,7 @@
       {% if tailscale_accept_dns %}--accept-dns{% endif %}
       {% if tailscale_accept_routes %}--accept-routes{% endif %}
       {% if tailscale_ssh_enabled %}--ssh{% endif %}
+      {% if tailscale_advertise_routes | default([]) | length > 0 %}--advertise-routes={{ tailscale_advertise_routes | join(',') }}{% endif %}
       {% if use_exit_node %}--advertise-exit-node{% endif %}
 
 - name: Configure Tailscale (if tags changed or not connected)

@@ -74,8 +74,8 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 ### Device Inventory
 | Device | Role | OS | Key Services |
 |--------|------|----|--------------|
-| **motoko** | Server/control node | Fedora | Ansible control, cloudflared tunnel, `/time` export |
-| **akira** | Storage SoR + AI workstation | Fedora 43 KDE | `/space` (18TB), Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
+| **akira** | Control node + Storage SoR + AI workstation | Fedora 44 KDE | **Ansible control**, **cloudflared tunnel** (`nextcloud.miket.io`), `/space` (18TB), Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
+| **motoko** | Server (demoted from control) | Fedora | `/time` export. Was Ansible control + cloudflared tunnel until 2026-06; control moved to akira. ⚠️ Tailscale node key expired — needs `tailscale up` at console + disable key expiry |
 | **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
 | **flatline** | Workstation | Fedora KDE | Lenovo Yoga, no dedicated GPU |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |

@@ -27,4 +27,5 @@ cloudflared_service_enabled: true
 # Installation
 cloudflared_version: "latest"  # or specific version like "2025.11.1"
 cloudflared_deb_url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb"
+cloudflared_rpm_url: "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-x86_64.rpm"
 

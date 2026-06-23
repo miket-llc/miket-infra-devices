@@ -26,14 +26,26 @@ desktop_environment: kde
 # =============================================================================
 hostname: akira
 tailscale_hostname: akira
+# Tags reconciled 2026-06-23 to match the LIVE node tags. The previous list
+# (tag:ai-node, tag:workstation, tag:rocm) did NOT match the tailnet, which
+# actually has tag:gpu/tag:monitoring/tag:server. tag:server is REQUIRED — the
+# ACL autoApprovers approve 192.168.1.0/24 for tag:server. Re-running this role
+# with the old list would have stripped tag:server and broken the subnet route.
 tailscale_tags:
+  - "tag:gpu"
   - "tag:linux"
-  - "tag:ai-node"
-  - "tag:workstation"
-  - "tag:rocm"
   - "tag:llm-node"
+  - "tag:monitoring"
+  - "tag:server"
 tailscale_auth_key_akv_secret: "akira-tailscale-authkey"
 tailscale_auth_key_env_file: "/flux/runtime/secrets/tailscale.env"
+
+# VPN roles taken over from motoko 2026-06-23 (akira is the control node now).
+# exit-node: advertised; subnet route 192.168.1.0/24 auto-approves via tag:server.
+# Applied live via `tailscale set`; verify exit-node approval in admin console.
+tailscale_exit_node: true
+tailscale_advertise_routes:
+  - "192.168.1.0/24"
 
 # =============================================================================
 # GPU / AI Configuration
