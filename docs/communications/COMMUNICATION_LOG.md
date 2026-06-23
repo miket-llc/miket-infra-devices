@@ -1,3 +1,34 @@
+## 2026-06-22 – Control node moved motoko → akira; cloudflared tunnel relocated {#2026-06-22-control-node-akira}
+
+### Context
+A power outage exposed that **motoko** (the Ansible control node + cloudflared tunnel host) was offline with an **expired Tailscale node key**. Because motoko was only reachable by its Tailscale name and its SSH is Tailscale-SSH-only, it could not be recovered remotely (chicken-and-egg) — it needs console access to run `tailscale up`. With motoko down, external `nextcloud.miket.io` was broken, since the motoko tunnel was merely proxying to akira over Tailscale (a leftover from ADR-0010's Nextcloud migration).
+
+### Decision
+Promote **akira** to control node and host the cloudflared tunnel directly where Nextcloud lives.
+
+**Ansible control → akira**
+- akira already had both repos, Ansible, AKV auth, and Tailscale; verified it drives Ansible (`akira | SUCCESS` ping). No new bootstrap needed (motoko's apt-based bootstrap is Debian-only and irrelevant on Fedora).
+
+**cloudflared tunnel → akira** (new `akira-phc` tunnel, id `4a2b4a95-cbfa-49e8-9e20-038964bdce47`)
+- New architecture: `Internet → Cloudflare Access → akira (cloudflared) → Nextcloud (localhost:8080)` — eliminates the motoko proxy hop and its single point of failure.
+- Created via `cloudflared tunnel login` + `tunnel create` (the stored `cloudflare-api-token` lacks `Tunnel:Edit`, so the `tunnel-akira` **Terraform** module was intentionally **not** used; we used the role-based local-config + AKV-credentials pattern, same as motoko).
+- Credentials stored in AKV as `cloudflare-tunnel-akira-credentials`.
+- `nextcloud.miket.io` CNAME re-pointed to the akira tunnel (`--overwrite-dns`). Verified: returns `302 → miketllc.cloudflareaccess.com` (Access gate intact).
+
+### Code Changes
+- `roles/cloudflared/tasks/install.yml` — made OS-aware (RedHat/dnf-rpm + Debian/apt-deb); was Debian-only.
+- `roles/cloudflared/defaults/main.yml` — added `cloudflared_rpm_url`.
+- `playbooks/akira/deploy-cloudflared.yml` — new; deploys the akira connector (ingress `nextcloud.miket.io → http://localhost:8080`).
+- `CLAUDE.md` — device table updated (akira = control node; motoko demoted).
+
+### Follow-ups (not done — need console/owner action)
+- **motoko**: at its console, `sudo tailscale up` to clear the expired key, then **disable key expiry** in the Tailscale admin console (root cause; a control/server node should never have an expiring key).
+- **`tailscale-api-key` in AKV is expired/invalid** (`API token invalid`) — rotate it (used by Terraform for ACLs).
+- **akira LAN IPs are DHCP-dynamic** (`Wired connection 1/2`, no reservations) — the outage reshuffled them; consider DHCP reservations/static for the SoR node.
+- **atom** is not registered in `wake.sh` (can't WoL); offline 35d.
+
+---
+
 ## 2025-12-17 – Atom Basecamp/Hacker Node Configuration {#2025-12-17-atom-basecamp}
 
 ### Context

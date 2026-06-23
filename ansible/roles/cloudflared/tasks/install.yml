@@ -8,18 +8,33 @@
   changed_when: false
   failed_when: false
 
-- name: Download cloudflared .deb package
+# --- RedHat / Fedora (akira, motoko) ---
+- name: Install cloudflared from .rpm (RedHat family)
+  ansible.builtin.dnf:
+    name: "{{ cloudflared_rpm_url }}"
+    state: present
+    disable_gpg_check: true
+  when:
+    - cloudflared_installed.rc != 0
+    - ansible_os_family == 'RedHat'
+
+# --- Debian / Ubuntu ---
+- name: Download cloudflared .deb package (Debian family)
   ansible.builtin.get_url:
     url: "{{ cloudflared_deb_url }}"
     dest: /tmp/cloudflared.deb
     mode: '0644'
-  when: cloudflared_installed.rc != 0
+  when:
+    - cloudflared_installed.rc != 0
+    - ansible_os_family == 'Debian'
 
-- name: Install cloudflared from .deb
+- name: Install cloudflared from .deb (Debian family)
   ansible.builtin.apt:
     deb: /tmp/cloudflared.deb
     state: present
-  when: cloudflared_installed.rc != 0
+  when:
+    - cloudflared_installed.rc != 0
+    - ansible_os_family == 'Debian'
 
 - name: Verify cloudflared installation
   ansible.builtin.command: cloudflared --version
