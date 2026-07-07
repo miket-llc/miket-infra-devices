@@ -97,6 +97,38 @@ sudo update-desktop-database /usr/share/applications   # menu entry → native
 WezTerm now updates via `dnf` alongside the rest of the system, instead of dragging a
 dead flatpak runtime.
 
+### Post-migration regression: titlebar + border + flicker (Wayland backend)
+
+After the native switch and a reboot, WezTerm suddenly showed a **titlebar and border**
+(despite `window_decorations = "RESIZE"`) and **flickered**. The flatpak build had been
+running under XWayland; the native build defaulted to WezTerm's **native Wayland backend**
+(`config.enable_wayland = true`), which exposes two known KWin (Plasma 6) bugs:
+
+1. **Decorations.** KWin forces server-side decorations and WezTerm's Wayland CSD
+   negotiation ignores `RESIZE`, so the titlebar/border appear. Under XWayland, KWin
+   honors `_MOTIF_WM_HINTS` and `RESIZE` yields a true borderless window.
+2. **Flicker.** WezTerm's Wayland surface presentation fights KWin's compositor
+   (frame-callback/damage timing), aggravated by `window_background_opacity = 0.75`
+   transparency and armitage's **hybrid Meteor Lake Arc + NVIDIA** present path.
+
+**Fix** — force XWayland in `~/.config/wezterm/wezterm.lua` (chezmoi dotfiles repo):
+
+```lua
+config.enable_wayland = false   -- startup-time setting: fully quit + relaunch WezTerm
+```
+
+This clears both symptoms in one move. Trade-off: slightly softer text at fractional
+scale (eDP-1 is 1.25×), since XWayland upscales a 1.0 buffer. Confirm it took effect:
+
+```bash
+xlsclients -l 2>/dev/null | grep -i wezterm   # listed = now an X client (XWayland) ✓
+```
+
+Escalation if flicker survives XWayland (hybrid-GPU wildcard): add
+`config.front_end = "OpenGL"` (WezTerm may default to WebGpu and bind the NVIDIA adapter).
+If instead the softer text is the bigger annoyance, stay native-Wayland and set
+`window_background_opacity = 1.0` — that kills most flicker but does **not** fix the titlebar.
+
 ## Gotchas / Lessons
 
 - **Only `23.08` was EOL, not `24.08`.** `org.kde.Platform//6.9` (used by ProtonUp-Qt,
