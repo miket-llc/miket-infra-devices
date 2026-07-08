@@ -22,9 +22,9 @@ tailscale_ssh_enabled: true  # For Linux/macOS only
 tailscale_magicdns_resolver: "100.100.100.100"
 tailscale_magicdns_suffix: "pangolin-vega.ts.net"  # Default, will be auto-detected
 
-# Exit node configuration (motoko only)
-tailscale_exit_node: false  # Set to true for motoko
-
-# Device-specific overrides
-tailscale_exit_node_motoko: true
+# Exit node + subnet routing configuration (host-var driven).
+# Set per-host in host_vars. As of 2026-06 these roles live on akira
+# (control node); motoko held them previously but was decommissioned.
+tailscale_exit_node: false          # true => advertise this node as an exit node
+tailscale_advertise_routes: []      # e.g. ["192.168.1.0/24"] to act as a subnet router
 
