@@ -20,8 +20,11 @@ node_exporter_user: "node_exporter"
 node_exporter_group: "node_exporter"
 
 # Installation method: "package" (OS package manager) or "binary" (official release)
-# Prefer "package" for automatic updates via OS
-node_exporter_install_method: "package"
+# Use "binary": the Fedora package name varies by release (the old
+# golang-github-prometheus-node_exporter is gone on F44; it's now node-exporter),
+# and the fleet already runs the pinned binary at /usr/local/bin via systemd.
+# Binary install is idempotent (skips download when the binary already exists).
+node_exporter_install_method: "binary"
 
 # Binary download URL (used when install_method is "binary")
 node_exporter_binary_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
