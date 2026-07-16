@@ -13,7 +13,7 @@
 #
 # Usage:
 #   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/uninstall-netdata.yml
-#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/uninstall-netdata.yml --limit motoko
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/uninstall-netdata.yml --limit akira
 #
 # =============================================================================
 

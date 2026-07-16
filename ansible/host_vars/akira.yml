@@ -268,7 +268,7 @@ docker_prevention_enabled: true
 #
 # Port override: akira:4000 is reserved for the LiteLLM gateway, which is
 # the canonical PHC inference entrypoint. NoMachine moves to 4020 on akira
-# only; the fleet-wide default (4000) still applies on motoko/armitage/
+# only; the fleet-wide default (4000) still applies on armitage/
 # wintermute/count-zero. Client bookmarks for akira must target :4020.
 remote_protocol: nomachine
 remote_port: 4020
@@ -338,9 +338,6 @@ wol_relay_host: akira
 
 # WOL relay targets — hosts that akira can wake via magic packet
 wol_relay_targets:
-  - name: motoko
-    mac: "38:05:25:30:42:84"
-    broadcast: "192.168.1.255"
   - name: armitage
     mac: "28:00:af:8c:98:7a"
     broadcast: "192.168.1.255"

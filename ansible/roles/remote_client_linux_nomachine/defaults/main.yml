@@ -6,8 +6,8 @@ nomachine_version: "8.15.3"
 
 # Pre-configured server connections
 nomachine_servers:
-  - name: "motoko"
-    host: "motoko.pangolin-vega.ts.net"
+  - name: "akira"
+    host: "akira.pangolin-vega.ts.net"
     port: 4000
     protocol: "NX"
   - name: "wintermute"

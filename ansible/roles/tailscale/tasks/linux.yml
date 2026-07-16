@@ -102,8 +102,8 @@
   ansible.builtin.fail:
     msg: |
       Tailscale is not installed on {{ inventory_hostname }}.
-      Run bootstrap script first:
-      curl -fsSL https://raw.githubusercontent.com/miket-llc/miket-infra-devices/main/scripts/bootstrap-motoko.sh | bash
+      Install Tailscale first:
+      curl -fsSL https://tailscale.com/install.sh | sh
   when: tailscale_check is failed or (tailscale_check.rc is defined and tailscale_check.rc != 0)
 
 - name: Get current Tailscale status

@@ -120,7 +120,7 @@ fi
 
 echo -e "\n${GREEN}✅ Remediation complete!${NC}"
 echo -e "\n${YELLOW}Next steps:${NC}"
-echo -e "${CYAN}1. Test hostname resolution: ping motoko${NC}"
+echo -e "${CYAN}1. Test hostname resolution: ping akira${NC}"
 echo -e "${CYAN}2. Verify DNS: tailscale status --json | jq '.Self.DNS'${NC}"
-echo -e "${CYAN}3. Test SSH: ssh mike@miket.io@motoko${NC}"
+echo -e "${CYAN}3. Test SSH: ssh mike@miket.io@akira${NC}"
 

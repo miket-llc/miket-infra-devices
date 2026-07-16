@@ -14,7 +14,7 @@
 #   ansible-playbook -i inventory/hosts.yml ansible/playbooks/updates/fedora-updates.yml
 #
 #   # Update specific host
-#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/updates/fedora-updates.yml --limit motoko
+#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/updates/fedora-updates.yml --limit akira
 #
 # Tags:
 #   - pre-check: Pre-flight checks only
@@ -302,20 +302,6 @@
             enabled: yes
           failed_when: false
 
-        - name: Display Akira service status
-          debug:
-            msg:
-              - "Nextcloud: {{ 'Running' if 'Up' in nextcloud_status.stdout else 'NOT RUNNING' }}"
-              - "LiteLLM: {{ 'Running' if 'Up' in litellm_status.stdout else 'NOT RUNNING' }}"
-              - "vLLM: {{ 'Running' if vllm_status.status.ActiveState | default('unknown') == 'active' else 'NOT RUNNING' }}"
-              - "Prometheus: {{ 'Running' if 'Up' in prometheus_status.stdout else 'NOT RUNNING' }}"
-              - "Grafana: {{ 'Running' if 'Up' in grafana_status.stdout else 'NOT RUNNING' }}"
-      when: inventory_hostname == 'akira'
-      tags: [services, verify]
-
-    # Motoko services (control node, cloudflared)
-    - name: Ensure Motoko services are running
-      block:
         - name: Ensure cloudflared is running
           systemd:
             name: cloudflared
@@ -324,18 +310,16 @@
           failed_when: false
           register: cloudflared_status
 
-        - name: Check node_exporter is running
-          systemd:
-            name: node_exporter
-            state: started
-            enabled: yes
-          failed_when: false
-
-        - name: Display Motoko service status
+        - name: Display Akira service status
           debug:
             msg:
+              - "Nextcloud: {{ 'Running' if 'Up' in nextcloud_status.stdout else 'NOT RUNNING' }}"
+              - "LiteLLM: {{ 'Running' if 'Up' in litellm_status.stdout else 'NOT RUNNING' }}"
+              - "vLLM: {{ 'Running' if vllm_status.status.ActiveState | default('unknown') == 'active' else 'NOT RUNNING' }}"
+              - "Prometheus: {{ 'Running' if 'Up' in prometheus_status.stdout else 'NOT RUNNING' }}"
+              - "Grafana: {{ 'Running' if 'Up' in grafana_status.stdout else 'NOT RUNNING' }}"
               - "Cloudflared: {{ 'Running' if cloudflared_status.status.ActiveState | default('unknown') == 'active' else 'NOT RUNNING' }}"
-      when: inventory_hostname == 'motoko'
+      when: inventory_hostname == 'akira'
       tags: [services, verify]
 
     # Armitage services (Ollama workstation)
@@ -384,7 +368,6 @@
       command: tailscale ping -c 1 {{ item }}
       loop:
         - akira
-        - motoko
       register: tailscale_ping
       changed_when: false
       failed_when: false

@@ -43,14 +43,14 @@ scrape_configs:
       - source_labels: [hostname]
         target_label: instance
 
-  # Headless and rack-mounted servers
+  # Server / storage node (akira) and resilience node (atom)
   - job_name: "servers-node"
     metrics_path: /metrics
     static_configs:
       - targets:
-          - motoko.tailnet-name.ts.net:9100
+          - akira.pangolin-vega.ts.net:9100
         labels:
-          device: motoko
+          device: akira
           role: server
       - targets:
           - atom.tailnet-name.ts.net:9100
@@ -67,9 +67,9 @@ scrape_configs:
     scrape_interval: 30s
     static_configs:
       - targets:
-          - motoko.tailnet-name.ts.net:9400
+          - akira.pangolin-vega.ts.net:9400
         labels:
-          device: motoko
+          device: akira
           exporter: dcgm
     metric_relabel_configs:
       - source_labels: [hostname]
@@ -78,8 +78,8 @@ scrape_configs:
   - job_name: "servers-services"
     static_configs:
       - targets:
-          - motoko.tailnet-name.ts.net:8000  # Example: vLLM or custom API
+          - akira.pangolin-vega.ts.net:8080  # akira service exporter
         labels:
-          device: motoko
+          device: akira
           service: vllm
     scrape_interval: 15s

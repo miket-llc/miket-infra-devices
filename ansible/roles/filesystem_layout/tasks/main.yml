@@ -43,7 +43,7 @@
     mode: "0700"
   when: flux_local
 
-# Space - NFS mount from motoko
+# Space - NFS mount from akira
 - name: Install NFS utilities
   ansible.builtin.dnf:
     name:
@@ -56,10 +56,10 @@
   ansible.builtin.copy:
     content: |
       # Managed by Ansible - do not edit manually
-      # NFS mount for /space from motoko (System of Record)
-      # akira is a CONSUMER, not SoR
+      # NFS mount for /space from akira (System of Record per ADR-0010)
+      # This host is a CONSUMER, not SoR
       [Unit]
-      Description=Mount /space from motoko via NFS
+      Description=Mount /space from akira via NFS
       After=network-online.target tailscaled.service
       Wants=network-online.target
       
@@ -83,7 +83,7 @@
     content: |
       # Managed by Ansible - do not edit manually
       [Unit]
-      Description=Automount /space from motoko
+      Description=Automount /space from akira
       
       [Automount]
       Where={{ space_mount }}
@@ -105,7 +105,7 @@
     state: started
     daemon_reload: true
   when: not space_is_sor
-  failed_when: false  # May fail if motoko not reachable
+  failed_when: false  # May fail if akira not reachable
 
 # User symlinks
 - name: Create user symlinks for flux
@@ -148,8 +148,8 @@
         {{ space_mount }} - NFS from {{ space_remote_source }}
         {{ time_mount }} - Backups
       
-      IMPORTANT: akira is NOT the System of Record for /space.
-      motoko remains the canonical source. akira is read-mostly.
+      IMPORTANT: akira is the System of Record for /space (ADR-0010).
+      This host is a read-mostly CONSUMER, not the canonical source.
       
       User symlinks created for: {{ filesystem_users | join(', ') }}
       

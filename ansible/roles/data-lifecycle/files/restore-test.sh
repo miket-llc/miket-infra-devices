@@ -227,7 +227,7 @@ else
     # so any snapshot restored through that filter returns 0 bytes and
     # the drill silently condemns otherwise-healthy backups. Switch to
     # whole-snapshot restore: snapshots of /flux are small (typically
-    # single-digit MiB on motoko, bounded by the exclude list on akira),
+    # single-digit MiB, bounded by the exclude list on akira),
     # restic is fast enough that this costs seconds, and the assertion
     # becomes "can we actually bring bytes back from B2?" which is what
     # we want to prove.

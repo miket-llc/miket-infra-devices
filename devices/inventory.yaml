@@ -47,40 +47,9 @@ devices:
         NOT a container host. NOT for heavy workloads.
         
   servers:
-    motoko:
-      hostname: motoko
-      fqdn: motoko.pangolin-vega.ts.net
-      os: Fedora 43 Workstation
-      codename: workstation
-      type: Server
-      hardware:
-        model: Alienware Laptop
-        gpu: NVIDIA GeForce RTX 2080
-        gpu_driver: 535.230.02
-        cuda_version: "12.2"
-      services:
-        - podman  # Docker BANNED - purged 2025-12-03
-        - litellm
-        - vllm-embeddings
-        - nextcloud
-        - samba
-        - netatalk
-        - fail2ban
-        - postfix
-      storage:
-        podman_root: /podman/storage
-        backup_location: /space
-        model_storage: /podman/apps/vllm/cache
-      network:
-        ssh_enabled: true
-        ssh_auth: key_only
-        tailscale: enabled
-      terminal: WarpTerminal
-      notes: |
-        Primary infrastructure server
-        Hosts Podman containers with NVIDIA CDI runtime
-        Provides backup services via Samba/AFP
-        Docker completely purged 2025-12-03
+    # motoko was fully decommissioned (2026). Its control-node, storage (/space),
+    # and server duties (LiteLLM, Nextcloud, vLLM, Samba/AFP export) moved to akira
+    # per ADR-0010. akira is now the control + storage + server node.
 
     akira:
       hostname: akira
@@ -105,7 +74,7 @@ devices:
       storage:
         flux_mount: /mnt/flux
         model_storage: /mnt/flux/ai/models
-        space_mount: /mnt/space  # NFS from motoko
+        space_mount: /mnt/space  # local /space SoR (18TB WD Red)
       network:
         ssh_enabled: true
         ssh_auth: key_only

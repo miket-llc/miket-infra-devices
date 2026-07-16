@@ -15,7 +15,7 @@
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml
 #
 #   # Deploy to specific host
-#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml --limit motoko
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml --limit akira
 #
 #   # Deploy only Tailscale config
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailscale-and-codex.yml --tags tailscale

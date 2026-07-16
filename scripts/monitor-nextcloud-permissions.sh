@@ -25,7 +25,7 @@
 #   3. Default to ~/cloud if nothing else specified
 #
 # IMPORTANT: This operates on LOCAL sync directories only.
-# It must NEVER be used on /space (SoR) on motoko.
+# It must NEVER be used on /space (SoR) on akira.
 
 set -uo pipefail
 

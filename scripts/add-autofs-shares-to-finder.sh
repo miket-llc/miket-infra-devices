@@ -30,7 +30,7 @@ info "Shares: ~/space, ~/flux, ~/time"
 echo ""
 
 # Check if autofs is configured
-if [ ! -f "/etc/auto.motoko" ]; then
+if [ ! -f "/etc/auto.akira" ]; then
     error "Autofs not configured! Run deploy-autofs script first."
     exit 1
 fi
@@ -39,12 +39,12 @@ success "Autofs configuration found"
 echo ""
 
 # Detect mount base
-AUTOFS_MOUNT_BASE="/Volumes/motoko"
+AUTOFS_MOUNT_BASE="/Volumes/akira"
 if [ ! -d "$AUTOFS_MOUNT_BASE" ]; then
-    AUTOFS_MOUNT_BASE="/mnt/motoko"
+    AUTOFS_MOUNT_BASE="/mnt/akira"
     if [ ! -d "$AUTOFS_MOUNT_BASE" ]; then
         warn "Mount base not found. Checking autofs config..."
-        AUTOFS_MOUNT_BASE=$(grep "^/Volumes/motoko\|^/mnt/motoko" /etc/auto_master | awk '{print $1}' | head -1)
+        AUTOFS_MOUNT_BASE=$(grep "^/Volumes/akira\|^/mnt/akira" /etc/auto_master | awk '{print $1}' | head -1)
         if [ -z "$AUTOFS_MOUNT_BASE" ]; then
             error "Could not determine mount base from autofs config"
             exit 1

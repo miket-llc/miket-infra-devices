@@ -69,7 +69,7 @@
         data_lifecycle_enable_flux_graduate: false
         data_lifecycle_enable_restore_test: true
         # Dedicated restic repo so akira's snapshots don't commingle with
-        # motoko's (which are being decommissioned separately).
+        # the legacy motoko repo (motoko was decommissioned per ADR-0010).
         data_lifecycle_restic_repo: "b2:miket-backups-restic:flux-akira"
         # Patterns passed to restic --exclude-file. Keep the backup
         # focused on irreplaceable state (DB data dirs, app configs,

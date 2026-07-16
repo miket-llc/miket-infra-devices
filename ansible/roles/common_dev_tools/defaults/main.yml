@@ -38,7 +38,7 @@ common_dev_tools_install_gh: true
 # Azure CLI (az) - installed from Microsoft repo
 common_dev_tools_install_az: true
 
-# Ansible (for control nodes like motoko)
+# Ansible (for control nodes like akira)
 common_dev_tools_install_ansible: false  # Only on control nodes
 
 # pywinrm (for Ansible control nodes managing Windows)

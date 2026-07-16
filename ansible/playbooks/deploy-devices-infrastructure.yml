@@ -4,7 +4,7 @@
 # Master Playbook: Deploy Complete Devices Infrastructure
 # 
 # This playbook orchestrates the deployment of:
-# 1. Server-side /space/devices structure on motoko
+# 1. Server-side /space/devices structure on akira
 # 2. Updated mount configuration on macOS clients
 # 3. Updated mount configuration on Windows clients
 # 4. OS cloud synchronization on all clients
@@ -22,8 +22,11 @@
 #   # Deploy only OS cloud sync
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-devices-infrastructure.yml --tags oscloud
 
-- name: "[1/4] Setup Devices Structure on Motoko"
-  import_playbook: motoko/setup-devices-structure.yml
+- name: "[1/4] Setup Devices Structure on akira"
+  hosts: akira
+  become: true
+  roles:
+    - role: devices_structure
   tags: [server, devices-structure]
 
 - name: "[2/4] Deploy macOS Mount Configuration"
@@ -53,7 +56,7 @@
           DEVICES INFRASTRUCTURE DEPLOYMENT COMPLETE
           ================================================================
           
-          Server (motoko):
+          Server (akira):
           ✓ /space/devices structure created
           ✓ /space/mike/devices symlink created
           
@@ -98,7 +101,7 @@
           - Use ~/flux (macOS) or X: (Windows) for runtime/ops only
           - Access devices view: ~/space/mike/devices or S:\mike\devices
           - OS clouds (iCloud/OneDrive) continue to work normally
-          - Everything is backed up to motoko automatically
+          - Everything is backed up to akira automatically
           
           ================================================================
 

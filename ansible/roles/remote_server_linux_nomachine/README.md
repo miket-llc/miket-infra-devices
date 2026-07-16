@@ -81,7 +81,7 @@ This ensures remote users see the same desktop as the physical console.
 ## Usage
 
 ```yaml
-# host_vars/motoko.yml
+# host_vars/akira.yml
 nomachine_version: "9.2.18"
 nomachine_port: 4000
 session_sharing: true
@@ -89,7 +89,7 @@ session_sharing: true
 
 Run the playbook:
 ```bash
-ansible-playbook -i inventory/hosts.yml playbooks/remote_server.yml --limit motoko
+ansible-playbook -i inventory/hosts.yml playbooks/remote_server.yml --limit akira
 ```
 
 ## Troubleshooting

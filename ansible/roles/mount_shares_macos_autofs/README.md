@@ -33,32 +33,32 @@ The current `mount_shares_macos` role uses manual `mount_smbfs` commands with a 
 
 ```yaml
 # host_vars/count-zero.yml
-smb_server: motoko
+smb_server: akira
 smb_username: mdt
 smb_env_file: "{{ ansible_env.HOME }}/.mkt/mounts.env"
 
 # Optional: customize timeout
 autofs_timeout: 600  # 10 minutes
 
-# Optional: customize mount base (default: /Volumes/motoko for macOS SIP compliance)
-autofs_mount_base: /Volumes/motoko
+# Optional: customize mount base (default: /Volumes/akira for macOS SIP compliance)
+autofs_mount_base: /Volumes/akira
 ```
 
 ## What Gets Configured
 
 | Item | Path | Purpose |
 |------|------|---------|
-| Autofs master | `/etc/auto_master` | Registers the motoko map |
-| Autofs map | `/etc/auto.motoko` | Defines share mount points (mode 0600, contains URL-encoded password) |
+| Autofs master | `/etc/auto_master` | Registers the akira map |
+| Autofs map | `/etc/auto.akira` | Defines share mount points (mode 0600, contains URL-encoded password) |
 | Secrets cache | `~/.mkt/mounts.env` | Ephemeral cache from AKV (synced via secrets-sync.yml) |
-| Mount base | `/Volumes/motoko/` | Parent directory for mounts (macOS SIP-compliant) |
+| Mount base | `/Volumes/akira/` | Parent directory for mounts (macOS SIP-compliant) |
 | Symlinks | `~/flux`, `~/space` | User-friendly access (time excluded - Time Machine manages it) |
 
 **Secrets Architecture Compliance:**
 - Source: Azure Key Vault secret `motoko-smb-password`
 - Pattern: AKV → `~/.mkt/mounts.env` (ephemeral cache) → role consumption
 - macOS Limitation: autofs requires password in URL (no credentials file support like Linux)
-- File Permissions: `/etc/auto.motoko` restricted to 0600 (root:wheel)
+- File Permissions: `/etc/auto.akira` restricted to 0600 (root:wheel)
 
 ## Accessing Shares
 
@@ -73,7 +73,7 @@ mount | grep autofs
 mount | grep smbfs
 
 # Force unmount (autofs will remount on next access)
-umount /Volumes/motoko/flux
+umount /Volumes/akira/flux
 ```
 
 ## Migration from Manual Mounts
@@ -91,8 +91,8 @@ When migrating from `mount_shares_macos` to `mount_shares_macos_autofs`:
 
 ```bash
 # Check autofs configuration
-cat /etc/auto_master | grep motoko
-cat /etc/auto.motoko
+cat /etc/auto_master | grep akira
+cat /etc/auto.akira
 
 # Check automountd status
 launchctl list | grep automountd
@@ -106,7 +106,7 @@ log show --predicate 'process == "automountd"' --last 1h
 
 ### Credentials Issues
 
-The password is URL-encoded and stored in `/etc/auto.motoko`. Source is Azure Key Vault secret `motoko-smb-password` synced to `~/.mkt/mounts.env`.
+The password is URL-encoded and stored in `/etc/auto.akira`. Source is Azure Key Vault secret `motoko-smb-password` synced to `~/.mkt/mounts.env`.
 
 ```bash
 # Verify secrets cache exists
@@ -116,7 +116,7 @@ ls -la ~/.mkt/mounts.env
 ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit count-zero
 
 # Test SMB connection manually
-mount_smbfs //mdt@motoko/space /tmp/test_mount
+mount_smbfs //mdt@akira/space /tmp/test_mount
 umount /tmp/test_mount
 ```
 
@@ -143,11 +143,11 @@ If Time Machine fails:
 | Feature | Linux (`mount_shares_linux_autofs`) | macOS (`mount_shares_macos_autofs`) |
 |---------|-----------------------------------|-------------------------------------|
 | Master file | `/etc/auto.master` | `/etc/auto_master` |
-| Map file | `/etc/auto.motoko` | `/etc/auto.motoko` |
+| Map file | `/etc/auto.akira` | `/etc/auto.akira` |
 | Mount type | `cifs` | `smbfs` |
 | Service | `systemd` | `launchd` (automountd) |
-| Credentials | `/root/.smbcredentials_motoko` (credentials file) | Password in URL (macOS limitation) |
-| Mount base | `/mnt/motoko` | `/Volumes/motoko` (macOS SIP-compliant) |
+| Credentials | `/root/.smbcredentials_akira` (credentials file) | Password in URL (macOS limitation) |
+| Mount base | `/mnt/akira` | `/Volumes/akira` (macOS SIP-compliant) |
 
 ## Related Roles
 

@@ -15,9 +15,9 @@ NC='\033[0m'
 
 # Test matrix
 declare -A TESTS=(
-    ["motoko_to_motoko"]="motoko.pangolin-vega.ts.net:4000"
-    ["motoko_to_wintermute"]="wintermute.pangolin-vega.ts.net:4000"
-    ["motoko_to_armitage"]="armitage.pangolin-vega.ts.net:4000"
+    ["akira_to_akira"]="akira.pangolin-vega.ts.net:4000"
+    ["akira_to_wintermute"]="wintermute.pangolin-vega.ts.net:4000"
+    ["akira_to_armitage"]="armitage.pangolin-vega.ts.net:4000"
 )
 
 PASSED=0

@@ -13,20 +13,20 @@ echo "╚═══════════════════════�
 echo ""
 echo "APPROVAL REQUIRED:"
 echo "1. Tailscale admin should be open in your browser"
-echo "2. Find 'motoko' in machines list"
+echo "2. Find 'akira' in machines list"
 echo "3. Click '...' menu → 'Edit route settings'"
 echo "4. Check 'Use as exit node' → Save"
 echo ""
-read -p "Press Enter when you've approved motoko as exit node..."
+read -p "Press Enter when you've approved akira as exit node..."
 
 echo ""
 echo "Checking for exit node..."
-if tailscale exit-node list 2>&1 | grep -q "motoko"; then
-    echo "✓ motoko exit node detected"
+if tailscale exit-node list 2>&1 | grep -q "akira"; then
+    echo "✓ akira exit node detected"
 else
     echo "⚠ Waiting for approval to propagate..."
     sleep 5
-    if ! tailscale exit-node list 2>&1 | grep -q "motoko"; then
+    if ! tailscale exit-node list 2>&1 | grep -q "akira"; then
         echo "✗ Exit node not found. Please ensure you've saved the settings."
         echo "  Then run this script again."
         exit 1
@@ -35,7 +35,7 @@ fi
 
 echo ""
 echo "Enabling exit node..."
-sudo tailscale up --exit-node=motoko --exit-node-allow-lan-access=true
+sudo tailscale up --exit-node=akira --exit-node-allow-lan-access=true
 
 echo ""
 echo "Testing connectivity..."
@@ -60,7 +60,7 @@ echo "╔═══════════════════════�
 echo "║                    FIX APPLIED                                ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
-echo "All traffic now routes through motoko, bypassing Verizon."
+echo "All traffic now routes through akira, bypassing Verizon."
 echo "Both avid.com and ChatGPT should work now."
 echo ""
 echo "To disable later: sudo tailscale up --exit-node=''"

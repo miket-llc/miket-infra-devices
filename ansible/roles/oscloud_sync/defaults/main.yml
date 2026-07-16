@@ -4,7 +4,7 @@
 # Defaults for OS cloud synchronization to /space/devices
 
 # Target server for syncing OS cloud content
-target_server: "motoko.pangolin-vega.ts.net"
+target_server: "akira.pangolin-vega.ts.net"
 target_base_path: "/space/devices"
 
 # Sync schedule (cron format)

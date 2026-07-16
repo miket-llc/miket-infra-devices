@@ -44,12 +44,12 @@ sudo dseditgroup -o edit -a mdt -t user admin
 # Set up SSH key authentication (if needed)
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
-# Copy public key from motoko to count-zero
+# Copy public key from akira to count-zero
 ```
 
 ### 4. Test SSH Access
 
-From motoko, test both methods:
+From akira, test both methods:
 
 ```bash
 # Test Tailscale SSH
@@ -74,7 +74,7 @@ count-zero:
 
 ### 6. Test Ansible Connectivity
 
-From motoko:
+From akira:
 
 ```bash
 cd /home/mdt/miket-infra-devices
@@ -117,8 +117,8 @@ brew install jq wget curl
 
 - [ ] Remote Login enabled: `sudo systemsetup -getremotelogin`
 - [ ] Tailscale SSH enabled: `tailscale status --json | jq '.Self.HostName'`
-- [ ] MagicDNS working: `ping motoko`
-- [ ] SSH accessible from motoko: `ssh mdt@count-zero.pangolin-vega.ts.net hostname`
+- [ ] MagicDNS working: `ping akira`
+- [ ] SSH accessible from akira: `ssh mdt@count-zero.pangolin-vega.ts.net hostname`
 - [ ] Ansible connectivity: `ansible count-zero -m ping`
 
 ## Troubleshooting

@@ -19,7 +19,7 @@ TAILSCALE_SUBNET="100.64.0.0/10"
 
 # Device configurations: hostname:protocol:port
 declare -A DEVICES=(
-    ["motoko"]="vnc:5900"
+    ["akira"]="vnc:5900"
     ["wintermute"]="rdp:3389"
     ["armitage"]="rdp:3389"
     ["count-zero"]="vnc:5900"

@@ -35,7 +35,7 @@ fi
 log ""
 log "Step 2: Checking model name configuration..."
 log "Current Wintermute model config:"
-grep -A1 "wintermute_model" ansible/group_vars/motoko.yml | head -3 | tee -a "$LOG_FILE"
+grep -A1 "wintermute_model" ansible/group_vars/akira.yml | head -3 | tee -a "$LOG_FILE"
 log ""
 log "Note: Model name will be verified after vLLM deployment"
 log "If mismatch occurs, update LiteLLM config to match vLLM's reported model name"
@@ -72,10 +72,10 @@ docker logs vllm-armitage --tail 50 | Select-String "max-model-len|kv-cache-dtyp
 docker ps --filter name=vllm-armitage
 ```
 
-### On Motoko (LiteLLM Proxy)
+### On Akira (LiteLLM Proxy)
 ```bash
-# SSH to Motoko first
-ssh motoko
+# SSH to Akira first
+ssh akira
 
 # Restart LiteLLM to pick up new config
 sudo systemctl restart litellm
@@ -263,7 +263,7 @@ log ""
 log "📋 Manual Steps Required:"
 log "  1. Deploy on Wintermute (see DEPLOY_NOW.md)"
 log "  2. Deploy on Armitage (see DEPLOY_NOW.md)"
-log "  3. Restart LiteLLM on Motoko (see DEPLOY_NOW.md)"
+log "  3. Restart LiteLLM on Akira (see DEPLOY_NOW.md)"
 log ""
 log "🧪 After Deployment:"
 log "  1. Run: make health-check"

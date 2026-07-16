@@ -16,7 +16,7 @@
     - name: Load device persona mapping
       set_fact:
         device_personas:
-          motoko:
+          akira:
             persona: server
             cloudflare_group: server-devices  # TBD - awaiting miket-infra confirmation
             tags:
@@ -116,7 +116,7 @@
         msg: |
           NoMachine connectivity test placeholder.
           Will test access to NoMachine servers via Cloudflare Access once configured.
-          Expected: Access to motoko, wintermute, armitage on port 4000
+          Expected: Access to akira, wintermute, armitage on port 4000
       tags:
         - cloudflare_access
         - validation

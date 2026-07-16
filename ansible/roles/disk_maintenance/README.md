@@ -1,6 +1,6 @@
 # Disk Maintenance Role
 
-Comprehensive disk cleanup role for motoko and other Linux hosts. Cleans Podman resources, journal logs, package cache, temporary files, and old log files.
+Comprehensive disk cleanup role for akira and other Linux hosts. Cleans Podman resources, journal logs, package cache, temporary files, and old log files.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ This role performs comprehensive disk maintenance to free up disk space and inod
 ### Full Cleanup
 
 ```yaml
-- hosts: motoko
+- hosts: akira
   roles:
     - role: disk_maintenance
       vars:
@@ -21,7 +21,7 @@ This role performs comprehensive disk maintenance to free up disk space and inod
 ### Selective Cleanup
 
 ```yaml
-- hosts: motoko
+- hosts: akira
   roles:
     - role: disk_maintenance
       vars:

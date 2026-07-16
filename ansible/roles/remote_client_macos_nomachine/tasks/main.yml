@@ -43,7 +43,6 @@
     dest: "{{ ansible_user_dir }}/Documents/NoMachine/{{ item.name }}.nxs"
     mode: '0644'
   loop:
-    - { name: 'motoko', host: 'motoko', session_type: 'unix' }
     - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
     - { name: 'armitage', host: 'armitage', session_type: 'unix' }
     - { name: 'akira', host: 'akira', session_type: 'unix' }
@@ -54,7 +53,6 @@
       - "✅ NoMachine client installed"
       - "Launch from: /Applications/NoMachine.app"
       - "Pre-configured servers available in ~/Documents/NoMachine:"
-      - "  - motoko (Linux)"
       - "  - wintermute (Windows)"
       - "  - armitage (Linux - Fedora KDE)"
       - "  - akira (Linux)"

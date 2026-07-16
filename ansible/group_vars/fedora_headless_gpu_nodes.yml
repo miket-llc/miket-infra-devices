@@ -6,7 +6,7 @@
 # =============================================================================
 #
 # Shared configuration for all Fedora headless GPU nodes
-# Members: motoko (add future nodes here)
+# Members: (none currently — motoko decommissioned 2026-06 per ADR-0010; add future nodes here)
 #
 # =============================================================================
 

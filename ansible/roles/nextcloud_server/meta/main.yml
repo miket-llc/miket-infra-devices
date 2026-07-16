@@ -3,7 +3,7 @@
 ---
 galaxy_info:
   author: MikeT LLC
-  description: Deploy Nextcloud server stack on motoko with /space integration
+  description: Deploy Nextcloud server stack on akira with /space integration
   license: proprietary
   min_ansible_version: "2.14"
   platforms:

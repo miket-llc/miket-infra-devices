@@ -139,7 +139,7 @@ try {
 
 Write-Host "`n✅ Remediation complete!" -ForegroundColor Green
 Write-Host "`nNext steps:" -ForegroundColor Yellow
-Write-Host "1. Test hostname resolution: ping motoko" -ForegroundColor Cyan
+Write-Host "1. Test hostname resolution: ping akira" -ForegroundColor Cyan
 Write-Host "2. Verify DNS: tailscale status --json | ConvertFrom-Json | Select-Object -ExpandProperty Self | Select-Object DNS" -ForegroundColor Cyan
-Write-Host "3. Test RDP: Test-NetConnection -ComputerName motoko -Port 3389" -ForegroundColor Cyan
+Write-Host "3. Test RDP: Test-NetConnection -ComputerName akira -Port 3389" -ForegroundColor Cyan
 

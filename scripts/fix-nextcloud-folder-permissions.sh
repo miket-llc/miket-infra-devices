@@ -17,7 +17,7 @@
 # Usage: fix-nextcloud-folder-permissions.sh [--dry-run] <path> [<path>...]
 #
 # IMPORTANT: This operates on LOCAL sync directories only.
-# It must NEVER be used on /space (SoR) on motoko.
+# It must NEVER be used on /space (SoR) on akira.
 
 set -euo pipefail
 
@@ -36,8 +36,8 @@ FORBIDDEN_ROOTS=(
     "/System"
     "/Library"
     "/private"
-    "/space"           # Motoko SoR - NEVER touch
-    "/flux"            # Motoko apps - NEVER touch
+    "/space"           # akira SoR - NEVER touch
+    "/flux"            # akira apps - NEVER touch
     "/Volumes"
 )
 

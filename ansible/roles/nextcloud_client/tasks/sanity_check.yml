@@ -2,7 +2,7 @@
 
 ---
 # Sanity Check for Nextcloud Sync
-# Creates a file on the client and verifies it appears on the server (motoko)
+# Creates a file on the client and verifies it appears on the server (akira)
 
 - name: Ensure 'work' directory exists in sync root
   ansible.builtin.file:
@@ -26,7 +26,7 @@
 - name: Verify file exists on server (SoR)
   ansible.builtin.stat:
     path: "/space/mike/work/test_sync_{{ inventory_hostname }}.txt"
-  delegate_to: motoko
+  delegate_to: akira
   register: sync_check
   become: true
   failed_when: false

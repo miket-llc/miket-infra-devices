@@ -2,7 +2,7 @@
 
 ---
 # SMB Server Role for PHC Storage (Flux/Space/Time)
-# Deploys Samba server to share /flux, /space, /time on motoko
+# Deploys Samba server to share /flux, /space, /time on akira
 
 - name: Install Samba server package
   ansible.builtin.dnf:

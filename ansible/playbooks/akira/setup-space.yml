@@ -45,7 +45,6 @@
           {{ space_usage.stdout }}
           
           Next steps:
-          1. Sync data from motoko: ansible-playbook playbooks/migration/space-migration-sync.yml
-          2. Deploy Nextcloud: ansible-playbook playbooks/migration/nextcloud-stage-akira.yml
+          1. Deploy Nextcloud: ansible-playbook playbooks/akira-deploy-nextcloud.yml --limit akira
           ============================================
 

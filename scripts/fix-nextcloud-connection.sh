@@ -22,7 +22,7 @@ error() { echo -e "${RED}[$(date '+%H:%M:%S')] ✗${NC} $1"; }
 info() { echo -e "${BLUE}[$(date '+%H:%M:%S')] ℹ${NC} $1"; }
 
 # Nextcloud server URLs
-TAILSCALE_URL="https://motoko.pangolin-vega.ts.net"
+TAILSCALE_URL="https://akira.pangolin-vega.ts.net"
 CLOUDFLARE_URL="https://nextcloud.miket.io"
 
 echo "=========================================="
@@ -105,7 +105,7 @@ if [ "$USE_TAILSCALE" = false ] && [ "$USE_CLOUDFLARE" = false ]; then
     error "Please check:"
     error "  1. Internet connectivity"
     error "  2. Tailscale status (if using Tailscale URL)"
-    error "  3. Server status on motoko"
+    error "  3. Server status on akira"
     exit 1
 fi
 echo ""

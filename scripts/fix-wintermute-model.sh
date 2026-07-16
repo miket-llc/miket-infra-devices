@@ -18,8 +18,8 @@ echo ""
 # Check current configuration
 echo "=== Current Configuration ==="
 echo ""
-echo "ansible/group_vars/motoko.yml:"
-grep -A1 "wintermute_model" ansible/group_vars/motoko.yml | head -4
+echo "ansible/group_vars/akira.yml:"
+grep -A1 "wintermute_model" ansible/group_vars/akira.yml | head -4
 echo ""
 echo "devices/wintermute/config.yml:"
 grep "model:" devices/wintermute/config.yml | head -1

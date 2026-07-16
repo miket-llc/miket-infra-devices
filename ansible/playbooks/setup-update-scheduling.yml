@@ -11,7 +11,7 @@
 #   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml
 #
 #   # Set up scheduling only on Linux control node
-#   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit motoko
+#   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit akira
 #
 #   # Set up scheduling only on Windows hosts
 #   ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit windows --ask-vault-pass

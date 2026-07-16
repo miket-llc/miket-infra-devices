@@ -9,11 +9,11 @@ time_mount: /mnt/time
 # Flux is local storage
 flux_local: true
 
-# Space is remote (motoko is SoR)
-space_remote_source: "motoko.pangolin-vega.ts.net:/space"
+# Space is remote (akira is SoR per ADR-0010)
+space_remote_source: "akira.pangolin-vega.ts.net:/space"
 space_protocol: nfs
 space_mount_options: "nfsvers=4.2,soft,timeo=150,retrans=3,_netdev,x-systemd.automount,x-systemd.idle-timeout=600"
-space_is_sor: false  # IMPORTANT: motoko remains System of Record
+space_is_sor: false  # IMPORTANT: akira remains System of Record
 
 # Time can be local or remote
 time_local: true

@@ -21,7 +21,7 @@
 #   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --tags security
 #
 #   # Update specific host
-#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --limit motoko --ask-vault-pass
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --limit akira --ask-vault-pass
 #
 # Tags:
 #   - linux: Linux system updates only

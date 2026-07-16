@@ -20,7 +20,7 @@ update_task_name: "System Updates"
 update_task_description: "Weekly system updates via Ansible"
 
 # Ansible control node settings
-ansible_control_node: "motoko"  # Hostname of the Ansible control node
+ansible_control_node: "akira"  # Hostname of the Ansible control node
 ansible_user: "mdt"  # User to run Ansible playbooks as
 ansible_playbook_dir: "/home/{{ ansible_user }}/dev/miket-infra-devices/ansible"  # Path to ansible directory on control node
 

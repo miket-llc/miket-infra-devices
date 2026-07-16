@@ -2,12 +2,12 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 # Comprehensive validation script for Armitage vLLM → LiteLLM → Ansible control flow
-# Run from Motoko (Ansible control node)
+# Run from Akira (Ansible control node)
 #
 # This script validates:
 # 1. Deployed model on Armitage (Qwen2.5-7B-Instruct)
 # 2. vLLM configuration and health
-# 3. LiteLLM proxy configuration on Motoko
+# 3. LiteLLM proxy configuration on Akira
 # 4. Connectivity and health checks
 # 5. Functional tests end-to-end
 # 6. Generates validation report
@@ -25,7 +25,7 @@ NC='\033[0m' # No Color
 # Configuration
 ARMITAGE_HOST="armitage.pangolin-vega.ts.net"
 ARMITAGE_VLLM_PORT=8000
-MOTOKO_LITELLM_PORT=4000
+AKIRA_LITELLM_PORT=4000
 EXPECTED_MODEL="Qwen/Qwen2.5-7B-Instruct"
 EXPECTED_SERVED_NAME="qwen2.5-7b-armitage"
 REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -100,8 +100,8 @@ test_connectivity() {
     fi
     
     # Test LiteLLM endpoint
-    log "Testing LiteLLM endpoint on Motoko..."
-    if curl -s --max-time 5 "http://localhost:${MOTOKO_LITELLM_PORT}/health" &>> "$REPORT_FILE" 2>&1; then
+    log "Testing LiteLLM endpoint on Akira..."
+    if curl -s --max-time 5 "http://localhost:${AKIRA_LITELLM_PORT}/health" &>> "$REPORT_FILE" 2>&1; then
         log_success "LiteLLM health endpoint: OK"
     else
         log_warning "LiteLLM health endpoint: Not responding (service may be stopped)"
@@ -215,7 +215,7 @@ check_vllm_deployment() {
 
 # Check LiteLLM configuration
 check_litellm_config() {
-    log_section "3. LiteLLM Proxy Configuration Check (Motoko)"
+    log_section "3. LiteLLM Proxy Configuration Check (Akira)"
     
     # Find LiteLLM config file
     LITELLM_CONFIG_PATHS=(
@@ -306,7 +306,7 @@ run_functional_tests() {
     
     START_TIME=$(date +%s.%N)
     LITELLM_RESPONSE=$(curl -s --max-time 30 \
-        -X POST "http://localhost:${MOTOKO_LITELLM_PORT}/v1/chat/completions" \
+        -X POST "http://localhost:${AKIRA_LITELLM_PORT}/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "$LITELLM_PROMPT" 2>&1 || echo "")
     END_TIME=$(date +%s.%N)
@@ -324,7 +324,7 @@ run_functional_tests() {
     log "Test 3: Models endpoint comparison..."
     
     VLLM_MODELS=$(curl -s --max-time 10 "http://${ARMITAGE_HOST}:${ARMITAGE_VLLM_PORT}/v1/models" 2>&1 || echo "")
-    LITELLM_MODELS=$(curl -s --max-time 10 "http://localhost:${MOTOKO_LITELLM_PORT}/v1/models" 2>&1 || echo "")
+    LITELLM_MODELS=$(curl -s --max-time 10 "http://localhost:${AKIRA_LITELLM_PORT}/v1/models" 2>&1 || echo "")
     
     if [ -n "$VLLM_MODELS" ] && [ -n "$LITELLM_MODELS" ]; then
         echo "vLLM Models:" >> "$REPORT_FILE"
@@ -353,7 +353,7 @@ generate_summary() {
         echo "- Model should be: ${EXPECTED_MODEL}"
         echo "- Served name should be: ${EXPECTED_SERVED_NAME}"
         echo "- vLLM endpoint: http://${ARMITAGE_HOST}:${ARMITAGE_VLLM_PORT}"
-        echo "- LiteLLM endpoint: http://localhost:${MOTOKO_LITELLM_PORT}"
+        echo "- LiteLLM endpoint: http://localhost:${AKIRA_LITELLM_PORT}"
         echo ""
         echo "Next Steps:"
         echo "1. If model mismatch: Update config.yml and redeploy"

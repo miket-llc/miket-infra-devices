@@ -22,7 +22,7 @@ error() { echo -e "${RED}[$(date '+%H:%M:%S')] ✗${NC} $1"; }
 info() { echo -e "${BLUE}[$(date '+%H:%M:%S')] ℹ${NC} $1"; }
 
 # Nextcloud server URLs
-TAILSCALE_URL="https://motoko.pangolin-vega.ts.net"
+TAILSCALE_URL="https://akira.pangolin-vega.ts.net"
 CLOUDFLARE_URL="https://nextcloud.miket.io"
 
 echo "=========================================="
@@ -120,14 +120,14 @@ echo ""
 
 # 6. Test DNS resolution
 log "6. Testing DNS resolution..."
-if host motoko.pangolin-vega.ts.net > /dev/null 2>&1; then
-    success "DNS resolves: motoko.pangolin-vega.ts.net"
-    DNS_RESULT=$(host motoko.pangolin-vega.ts.net 2>&1 | grep "has address" | head -1 || echo "")
+if host akira.pangolin-vega.ts.net > /dev/null 2>&1; then
+    success "DNS resolves: akira.pangolin-vega.ts.net"
+    DNS_RESULT=$(host akira.pangolin-vega.ts.net 2>&1 | grep "has address" | head -1 || echo "")
     if [ -n "$DNS_RESULT" ]; then
         info "   $DNS_RESULT"
     fi
 else
-    error "DNS resolution FAILED: motoko.pangolin-vega.ts.net"
+    error "DNS resolution FAILED: akira.pangolin-vega.ts.net"
     warn "   This may indicate Tailscale DNS (MagicDNS) is not working"
     ISSUES_FOUND=$((ISSUES_FOUND + 1))
 fi
@@ -207,7 +207,7 @@ echo ""
 log "10. Checking for common configuration issues..."
 if [ -f "$CONFIG_DIR/nextcloud.cfg" ]; then
     # Check if URL is configured correctly
-    if grep -q "nextcloud.miket.io\|motoko.pangolin-vega.ts.net" "$CONFIG_DIR/nextcloud.cfg" 2>/dev/null; then
+    if grep -q "nextcloud.miket.io\|akira.pangolin-vega.ts.net" "$CONFIG_DIR/nextcloud.cfg" 2>/dev/null; then
         success "   Server URL appears to be configured"
     else
         warn "   Server URL may not be configured correctly"

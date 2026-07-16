@@ -60,7 +60,7 @@ show_status() {
     echo -e "${BLUE}NoMachine Server Status${NC}"
     echo ""
     
-    for host in akira motoko armitage wintermute; do
+    for host in akira armitage wintermute; do
         echo -n "  $host: "
         if nc -z -w2 "$host.pangolin-vega.ts.net" 4000 &>/dev/null; then
             echo -e "${GREEN}LISTENING on port 4000${NC}"
@@ -263,7 +263,7 @@ test_connectivity() {
     echo -e "${BLUE}Testing NoMachine connectivity...${NC}"
     echo ""
     
-    for host in akira motoko armitage wintermute; do
+    for host in akira armitage wintermute; do
         echo -n "Testing $host.pangolin-vega.ts.net:4000... "
         if nc -z -w3 "$host.pangolin-vega.ts.net" 4000 &>/dev/null; then
             echo -e "${GREEN}OK${NC}"

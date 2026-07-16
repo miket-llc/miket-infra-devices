@@ -6,7 +6,7 @@
 #
 # Usage:
 #   ./check_vllm_backends.sh             # Check all backends
-#   ./check_vllm_backends.sh motoko      # Check specific backend
+#   ./check_vllm_backends.sh akira       # Check specific backend
 #   ./check_vllm_backends.sh --json      # Output JSON
 
 set -euo pipefail
@@ -19,14 +19,14 @@ NC='\033[0m' # No Color
 
 # Backend definitions (hostname:port:role)
 declare -a BACKENDS=(
-    "motoko:8200:embeddings-general:BAAI/bge-base-en-v1.5"
+    "akira.pangolin-vega.ts.net:8200:embeddings-general:BAAI/bge-base-en-v1.5"
     "wintermute.pangolin-vega.ts.net:8000:chat-deep:llama31-8b-wintermute"
     "armitage.pangolin-vega.ts.net:8000:chat-fast:qwen2.5-7b-armitage"
 )
 
 # LiteLLM proxy
 LITELLM_URL="http://127.0.0.1:8000"
-LITELLM_TOKEN="${LITELLM_TOKEN:-$(sudo cat /podman/apps/litellm/.env 2>/dev/null | grep LITELLM_TOKEN | cut -d= -f2)}"
+LITELLM_TOKEN="${LITELLM_TOKEN:-$(sudo cat /flux/apps/litellm/.env 2>/dev/null | grep LITELLM_TOKEN | cut -d= -f2)}"
 
 OUTPUT_JSON=false
 FILTER_BACKEND=""

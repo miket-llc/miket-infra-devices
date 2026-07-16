@@ -47,7 +47,7 @@ ansible-playbook playbooks/docker-prevention.yml
 
 ### Apply to specific host
 ```bash
-ansible-playbook playbooks/docker-prevention.yml --limit motoko
+ansible-playbook playbooks/docker-prevention.yml --limit akira
 ```
 
 ### Apply via tags

@@ -23,7 +23,7 @@
           - Set up auto-mount via LaunchAgent
           - Clean up autofs-managed mounts and stale symlinks
           
-          Server: motoko (updated with macOS fruit modules)
+          Server: akira (updated with macOS fruit modules)
           User: {{ ansible_user }}
   
   roles:
@@ -73,7 +73,7 @@
           - Mounts will reconnect automatically after login/wake
           
           Optional cleanup (requires sudo):
-          - Remove /etc/auto_master entry for /Volumes/motoko
-          - Remove /etc/auto.motoko file
+          - Remove /etc/auto_master entry for /Volumes/akira
+          - Remove /etc/auto.akira file
           - This is cosmetic; autofs is no longer actively used
 

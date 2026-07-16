@@ -12,7 +12,7 @@ usage() {
     cat <<EOF
 Usage: $SCRIPT_NAME [OPTIONS] [SERVICE]
 
-Manually trigger Backblaze backup services on motoko.
+Manually trigger Backblaze backup services on akira.
 
 Services:
   flux-backup    - Backup /flux to Backblaze B2 (restic)

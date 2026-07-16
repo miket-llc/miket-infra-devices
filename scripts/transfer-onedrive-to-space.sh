@@ -2,7 +2,7 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 # transfer-onedrive-to-space.sh
-# Transfer OneDrive content from client devices to /space on motoko
+# Transfer OneDrive content from client devices to /space on akira
 # Usage: transfer-onedrive-to-space.sh --source <source> --dest <destination> [options]
 
 set -euo pipefail
@@ -70,7 +70,7 @@ show_help() {
     cat << EOF
 Usage: $0 --source <source> --dest <destination> [options]
 
-Transfer OneDrive content from client devices to /space on motoko.
+Transfer OneDrive content from client devices to /space on akira.
 
 Required:
   --source <source>        Source path (e.g., 'count-zero:/Users/miket/Library/CloudStorage/OneDrive-MikeTLLC/_MAIN_FILES')
@@ -360,7 +360,7 @@ build_rsync_cmd() {
         CMD="$CMD '$REMOTE_SOURCE/' '$REMOTE_DEST/'"
         CMD="$CMD'"
     else
-        # Pull method (from motoko pulling from remote)
+        # Pull method (from akira pulling from remote)
         CMD="$CMD '$REMOTE_SOURCE/' '$DEST/'"
     fi
 
@@ -483,7 +483,7 @@ main() {
     if [[ "$DRY_RUN" == false ]]; then
         log_info "Next steps:"
         log_info "1. Verify transferred content: ls -la $DEST"
-        log_info "2. Test Samba access: smbclient //motoko/space"
+        log_info "2. Test Samba access: smbclient //akira/space"
         log_info "3. Verify B2 backup includes transferred content"
     fi
 }

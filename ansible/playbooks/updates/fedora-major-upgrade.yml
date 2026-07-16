@@ -10,12 +10,12 @@
 #   # Dry run on a single host — stage transaction only, no reboot
 #   ansible-playbook -i inventory/hosts.yml \
 #     ansible/playbooks/updates/fedora-major-upgrade.yml \
-#     --limit motoko -e system_upgrade_target_release=44
+#     --limit akira -e system_upgrade_target_release=44
 #
 #   # Full unattended upgrade including reboot + verify
 #   ansible-playbook -i inventory/hosts.yml \
 #     ansible/playbooks/updates/fedora-major-upgrade.yml \
-#     --limit motoko \
+#     --limit akira \
 #     -e system_upgrade_target_release=44 \
 #     -e system_upgrade_auto_reboot=true
 #

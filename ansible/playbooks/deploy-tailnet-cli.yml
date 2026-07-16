@@ -4,7 +4,7 @@
 # Deploy tailnet CLI tools to all nodes on the tailnet
 # 
 # This playbook deploys the tailnet CLI tools (tailnet.py) to all nodes:
-# - motoko (Linux)
+# - akira (Linux)
 # - wintermute (Windows)
 # - armitage (Windows)
 # - count-zero (macOS)
@@ -13,7 +13,7 @@
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml
 #
 #   # Deploy to specific host
-#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml --limit motoko
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml --limit akira
 #
 #   # Skip wrapper script creation
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-tailnet-cli.yml -e tailnet_cli_create_wrapper=false

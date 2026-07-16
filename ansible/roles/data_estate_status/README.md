@@ -39,7 +39,7 @@ The collector uses a **marker file system** for reliable status detection:
 ```json
 {
   "job": "restic_cloud",
-  "host": "motoko",
+  "host": "akira",
   "timestamp": "2025-12-02T18:30:00+00:00",
   "source": "/flux",
   "repo": "b2:miket-backups-restic:flux",
@@ -248,7 +248,7 @@ journalctl -u flux-backup.service -n 50
 
 ```bash
 # Deploy credentials
-ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit motoko
+ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit akira
 
 # Verify
 cat /etc/miket/storage-credentials.env

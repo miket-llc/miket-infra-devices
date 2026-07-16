@@ -6,8 +6,8 @@
 # =============================================================================
 # Creates Flux/Space/Time filesystem layout for workstation nodes:
 #   - ~/flux: Local active workspace
-#   - ~/space: Remote mount to motoko (SoR)
-#   - ~/time: Remote mount to motoko (backups)
+#   - ~/space: Remote mount to akira (SoR)
+#   - ~/time: Remote mount to akira (backups)
 # =============================================================================
 
 - name: Install CIFS utilities for SMB mounts

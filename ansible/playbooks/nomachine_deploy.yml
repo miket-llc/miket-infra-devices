@@ -56,7 +56,7 @@
           - "✅ NoMachine deployment complete"
           - ""
           - "Servers configured on all Tailnet nodes:"
-          - "  - motoko.pangolin-vega.ts.net:4000"
+          - "  - akira.pangolin-vega.ts.net:4000"
           - "  - wintermute.pangolin-vega.ts.net:4000"
           - "  - armitage.pangolin-vega.ts.net:4000"
           - "  - count-zero.pangolin-vega.ts.net:4000"
@@ -64,5 +64,5 @@
           - "Clients installed on all workstations"
           - ""
           - "Connect using: nomachine HOSTNAME"
-          - "Example: nomachine motoko"
+          - "Example: nomachine akira"
 

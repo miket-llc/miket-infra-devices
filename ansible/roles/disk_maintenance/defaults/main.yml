@@ -2,7 +2,7 @@
 
 ---
 # Disk Maintenance Role Defaults
-# Comprehensive disk cleanup for motoko and other Linux hosts
+# Comprehensive disk cleanup for akira and other Linux hosts
 
 # Safety: must be explicitly set to true to perform cleanup
 disk_maintenance_confirm: false

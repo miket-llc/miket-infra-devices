@@ -106,14 +106,14 @@
       ansible.builtin.copy:
         content: |
           #!/bin/bash
-          # Resilience Node Health Check - SSH-based push to motoko
+          # Resilience Node Health Check - SSH-based push to akira
           # Does NOT require local mounts - pushes via SSH
-          
+
           set -euo pipefail
-          
+
           HOSTNAME=$(hostname -s)
           USER="mdt"
-          MOTOKO="motoko.pangolin-vega.ts.net"
+          AKIRA="akira.pangolin-vega.ts.net"
           STATUS_DIR="/space/devices/${HOSTNAME}/${USER}"
           STATUS_FILE="${STATUS_DIR}/_status.json"
           
@@ -168,13 +168,13 @@
           EOF
           )
           
-          # Push to motoko via SSH
+          # Push to akira via SSH
           # Tailscale SSH handles authentication
-          if ssh -o ConnectTimeout=10 -o BatchMode=yes "${MOTOKO}" "mkdir -p ${STATUS_DIR} && cat > ${STATUS_FILE}" <<< "${JSON_CONTENT}"; then
-              echo "[$(date)] Health status pushed to ${MOTOKO}:${STATUS_FILE}"
+          if ssh -o ConnectTimeout=10 -o BatchMode=yes "${AKIRA}" "mkdir -p ${STATUS_DIR} && cat > ${STATUS_FILE}" <<< "${JSON_CONTENT}"; then
+              echo "[$(date)] Health status pushed to ${AKIRA}:${STATUS_FILE}"
           else
-              echo "[$(date)] WARNING: Could not push health status to motoko (this is expected if motoko is down)"
-              # This is not a failure - resilience node should work even if motoko is unreachable
+              echo "[$(date)] WARNING: Could not push health status to akira (this is expected if akira is down)"
+              # This is not a failure - resilience node should work even if akira is unreachable
               exit 0
           fi
         dest: /usr/local/bin/resilience_health_check.sh
@@ -184,7 +184,7 @@
       ansible.builtin.copy:
         content: |
           [Unit]
-          Description=Push Resilience Node Health to Motoko (SSH-based)
+          Description=Push Resilience Node Health to akira (SSH-based)
           After=network-online.target tailscaled.service
           Wants=network-online.target
 
@@ -192,7 +192,7 @@
           Type=oneshot
           ExecStart=/usr/local/bin/resilience_health_check.sh
           User=mdt
-          # Don't fail if motoko is unreachable - that's expected during outages
+          # Don't fail if akira is unreachable - that's expected during outages
           SuccessExitStatus=0 1
         dest: /etc/systemd/system/resilience-health.service
 
@@ -255,7 +255,7 @@
           
           ATOM IS NOW A TRUE RESILIENCE NODE:
           
-          - Zero dependencies on motoko being reachable
+          - Zero dependencies on akira being reachable
           - CIFS kernel bugs cannot crash the desktop
           - Core function (metrics, SSH) always works
           - Health reporting is best-effort via SSH push

@@ -5,7 +5,7 @@
 # SMB Export Configuration for /space
 # =============================================================================
 # Exports /space via Samba for other PHC nodes to mount
-# Replicates motoko's current SMB configuration
+# (SMB configuration migrated from motoko per ADR-0010)
 
 - name: Ensure Samba is installed
   ansible.builtin.dnf:

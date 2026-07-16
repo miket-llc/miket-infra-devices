@@ -262,7 +262,7 @@ selinux_custom_modules: []
 wol_enabled: true
 wol_interfaces:
   - name: eth0  # Update with actual interface name
-wol_relay_host: motoko
+wol_relay_host: akira
 
 # =============================================================================
 # IMPORTANT: Windows Partition Documentation

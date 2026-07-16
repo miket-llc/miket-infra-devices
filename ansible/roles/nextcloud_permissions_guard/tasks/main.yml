@@ -10,7 +10,7 @@
 # - Ensures logs directory exists
 #
 # IMPORTANT: This operates on LOCAL sync directories only.
-# It must NEVER touch /space (SoR) on motoko.
+# It must NEVER touch /space (SoR) on akira.
 
 - name: Validate platform is macOS
   ansible.builtin.assert:

@@ -1,6 +1,6 @@
 # USB Storage Management Role
 
-Manages 20TB USB 3.0 drive connected to motoko with two partitions:
+Manages 20TB USB 3.0 drive connected to the storage host (akira) with two partitions:
 - **Time Machine partition**: APFS format, read-only access for count-zero backups
 - **Space partition**: ext4 format, file cache storage for enterprise cloud storage
 
@@ -16,14 +16,15 @@ Manages 20TB USB 3.0 drive connected to motoko with two partitions:
 
 ## Usage
 
-### From motoko (self-management)
+### From the storage host (akira, self-management)
 
 ```bash
 cd ~/miket-infra-devices/ansible
 ansible-playbook -i inventory/hosts.yml \
-  playbooks/motoko/configure-usb-storage.yml \
-  --limit motoko \
-  --connection=local
+  --limit akira \
+  --connection=local \
+  -e 'ansible_python_interpreter=/usr/bin/python3' \
+  <playbook-invoking-usb_storage-role>
 ```
 
 ### Detection Script
@@ -36,7 +37,7 @@ Before running the playbook, you can detect the drive:
 
 ## Configuration
 
-Default variables (override in `host_vars/motoko.yml` or playbook):
+Default variables (override in `host_vars/akira.yml` or playbook):
 
 ```yaml
 usb_timemachine_mount: /mnt/usb-timemachine

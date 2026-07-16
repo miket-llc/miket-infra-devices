@@ -22,7 +22,7 @@
 
 ## Testing Guidelines
 - Add or adjust smoke tests in `tests/` when changing request flows, models, or deployment behavior; mirror naming (`*_smoke.py`, `*_test.py`).
-- Environment overrides via `WINTERMUTE_HOST`, `ARMITAGE_HOST`, `MOTOKO_HOST`, `LITELLM_PORT`, `VLLM_PORT`.
+- Environment overrides via `WINTERMUTE_HOST`, `ARMITAGE_HOST`, `AKIRA_HOST`, `LITELLM_PORT`, `VLLM_PORT`.
 - Before merging, run relevant `make test-*` targets; include `make verify-tailscale-quick` for networking changes. Use `ansible-playbook ... --check` when safe.
 
 ## Commit & Pull Request Guidelines
@@ -30,6 +30,6 @@
 - PRs: summarize intent and affected hosts/roles, list commands run, and note operational considerations (vault usage, SSH/RDP touch points). Add screenshots/logs when user-facing flows change (Nextcloud or remote UX).
 
 ## Security & Configuration Tips
-- Never commit secrets; rely on `secrets-map.yml` + `secrets-sync`. Vault/become credentials live locally (e.g., `/etc/ansible/.vault-pass.txt` on motoko).
+- Never commit secrets; rely on `secrets-map.yml` + `secrets-sync`. Vault/become credentials live locally (e.g., `/etc/ansible/.vault-pass.txt` on the akira control node).
 - Protect device-specific files under `devices/` and `backups/`; treat them as configuration artifacts. Validate Tailscale/Cloudflare hostnames when editing inventories or docs.
 - Back up configs with `make backup-configs` before invasive changes; restores pull from timestamped folders in `backups/`.

@@ -33,7 +33,7 @@
         content: |
           #!/bin/bash
           # NoMachine connection helper - uses Tailscale MagicDNS
-          HOST="${1:-motoko}"
+          HOST="${1:-akira}"
           # Always use Tailscale MagicDNS hostname to ensure Tailscale IP resolution
           TARGET="${HOST}.pangolin-vega.ts.net:{{ nomachine_port }}"
           if [ -f /usr/NX/bin/nxclient ]; then
@@ -72,7 +72,7 @@
         dest: C:\Windows\System32\nomachine.ps1
         content: |
           # NoMachine connection helper - uses Tailscale MagicDNS
-          param([string]$Hostname = "motoko")
+          param([string]$Hostname = "akira")
           # Always use Tailscale MagicDNS hostname to ensure Tailscale IP resolution
           $Target = "${Hostname}.pangolin-vega.ts.net:{{ nomachine_port }}"
           & "C:\Program Files\NoMachine\bin\nxclient.exe" --session $Target
@@ -106,7 +106,7 @@
         content: |
           #!/bin/bash
           # NoMachine connection helper
-          HOST="${1:-motoko}"
+          HOST="${1:-akira}"
           open "nx://{{ HOST }}.pangolin-vega.ts.net:{{ nomachine_port }}"
         mode: '0755'
       become: yes
@@ -118,6 +118,6 @@
     msg:
       - "✅ NoMachine client installed"
       - "Usage: nomachine HOSTNAME"
-      - "Example: nomachine motoko"
+      - "Example: nomachine akira"
       - "Connects to: HOSTNAME.pangolin-vega.ts.net:{{ nomachine_port }}"
 

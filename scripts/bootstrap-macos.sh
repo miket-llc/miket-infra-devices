@@ -229,8 +229,6 @@ fi
 echo -e "${CYAN}Testing MagicDNS...${NC}"
 if ping -c 1 -W 2 akira.${TAILNET_DOMAIN} &> /dev/null; then
     echo -e "${GREEN}✅ MagicDNS working (akira.${TAILNET_DOMAIN} resolves)${NC}"
-elif ping -c 1 -W 2 motoko.${TAILNET_DOMAIN} &> /dev/null; then
-    echo -e "${GREEN}✅ MagicDNS working (motoko.${TAILNET_DOMAIN} resolves)${NC}"
 else
     echo -e "${YELLOW}⚠️  MagicDNS test inconclusive (devices may be offline)${NC}"
 fi
@@ -275,6 +273,6 @@ echo -e "  ssh mdt@akira.${TAILNET_DOMAIN}  # Traditional SSH (needs keys)"
 echo -e "\n${CYAN}Next Steps:${NC}"
 echo "1. Test: tailscale ssh mdt@akira hostname"
 echo "2. Add SSH keys from other devices to ~/.ssh/authorized_keys (for non-tailscale ssh)"
-echo "3. Run Ansible playbooks from control node (motoko)"
+echo "3. Run Ansible playbooks from control node (akira)"
 
 echo -e "\n${GREEN}✅ macOS device ready for management via Tailscale${NC}"

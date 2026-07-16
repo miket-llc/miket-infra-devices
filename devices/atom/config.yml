@@ -108,12 +108,12 @@ device:
     # Lightweight node - no external storage dependencies
     notes: |
       atom does NOT mount /space, /flux, or /time.
-      Lightweight hacker node with no dependencies on motoko.
+      Lightweight hacker node with no dependencies on the storage host (akira).
 
-      INCIDENT (2024-12-01): CIFS mounts caused kernel panic when motoko
-      was unreachable. Removed and never re-added.
+      INCIDENT (2024-12-01): CIFS mounts caused kernel panic when the storage
+      host (then motoko, now akira) was unreachable. Removed and never re-added.
 
-      If you need data from motoko, use SSH/SCP on-demand.
+      If you need data from akira, use SSH/SCP on-demand.
 
   selinux:
     mode: enforcing

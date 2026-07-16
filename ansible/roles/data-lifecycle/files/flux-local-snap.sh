@@ -87,7 +87,7 @@ fi
 # Verify password file exists
 if [[ ! -f "$PASS_FILE" ]]; then
     log_msg "ERROR: Local restic password file missing at $PASS_FILE"
-    log_msg "Run: ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-data-lifecycle.yml"
+    log_msg "Run: ansible-playbook -i inventory/hosts.yml playbooks/akira/deploy-data-lifecycle.yml"
     exit 1
 fi
 

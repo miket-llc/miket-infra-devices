@@ -9,8 +9,8 @@
     fail_msg: >-
       Either smb_passwords (dict keyed by server) or smb_password (single value)
       must be provided to mount_shares_windows. The dict form is preferred when
-      shares are split across multiple SMB servers (e.g. /space on akira,
-      /time on motoko).
+      shares are split across multiple SMB servers (e.g. /space and
+      /time on akira).
 
 # Phase 1: Clean up drift (stale mounts, old tasks)
 - name: Clean up mount drift

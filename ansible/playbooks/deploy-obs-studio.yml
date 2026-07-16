@@ -4,7 +4,7 @@
 # Deploy OBS Studio across all PHC devices
 # OBS is a baseline tool for streaming, recording, and screen capture
 
-- name: Deploy OBS Studio to Linux devices (motoko)
+- name: Deploy OBS Studio to Linux devices
   hosts: linux
   become: true
   gather_facts: true

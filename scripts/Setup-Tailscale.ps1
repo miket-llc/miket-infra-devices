@@ -152,5 +152,5 @@ if ($winrmStatus.Status -ne 'Running') {
 
 Write-Host "`n✅ Setup complete!" -ForegroundColor Green
 Write-Host "Device $DeviceName is now connected to the Tailnet with tags: $($config.Tags)"
-Write-Host "`nThis device can now be managed via Ansible from motoko using:"
+Write-Host "`nThis device can now be managed via Ansible from akira using:"
 Write-Host "  ansible $($DeviceName.ToLower()) -m win_ping" -ForegroundColor Cyan

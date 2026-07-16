@@ -17,7 +17,7 @@
 
 ---
 - name: Validate Bulletproof Backups
-  hosts: akira,motoko
+  hosts: akira
   become: true
   gather_facts: true
 
@@ -29,7 +29,6 @@
       akira:
         - /space/_ops/data-estate/markers/b2_mirror.json
         - /space/_ops/data-estate/markers/restore_test.json
-      motoko:
         - /space/_ops/data-estate/markers/restic_cloud.json
         - /space/_ops/data-estate/markers/restic_check.json
 
@@ -86,19 +85,19 @@
         success_msg: "PASS: space-mirror.timer enabled"
       when: inventory_hostname == 'akira'
 
-    - name: Check flux-backup timer (motoko only)
+    - name: Check flux-backup timer (akira only)
       ansible.builtin.command: systemctl is-enabled flux-backup.timer
       register: flux_backup_timer
       changed_when: false
       failed_when: false
-      when: inventory_hostname == 'motoko'
+      when: inventory_hostname == 'akira'
 
     - name: Validate flux-backup timer enabled
       ansible.builtin.assert:
         that: flux_backup_timer.rc == 0
-        fail_msg: "FAIL: flux-backup.timer not enabled on motoko"
+        fail_msg: "FAIL: flux-backup.timer not enabled on akira"
         success_msg: "PASS: flux-backup.timer enabled"
-      when: inventory_hostname == 'motoko'
+      when: inventory_hostname == 'akira'
 
     - name: Check restore-test timer
       ansible.builtin.command: systemctl is-enabled restore-test.timer

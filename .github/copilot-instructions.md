@@ -1,7 +1,7 @@
 # Copilot Instructions for miket-infra-devices
 
 ## Project Overview
-This repo automates the **Personal Hybrid Cloud (PHC)** endpoint devices using Ansible for configuration management. It manages workstations (Linux/Windows/macOS), servers (motoko, akira), and services (LiteLLM, Nextcloud, NoMachine) across a Tailscale mesh network.
+This repo automates the **Personal Hybrid Cloud (PHC)** endpoint devices using Ansible for configuration management. It manages workstations (Linux/Windows/macOS), the akira control/server node, and services (LiteLLM, Nextcloud, NoMachine) across a Tailscale mesh network.
 
 **Key subordination:** Platform-level resources (Tailscale ACLs, DNS, Entra ID apps, Azure Key Vault provisioning, Cloudflare Access) are owned by `miket-infra` (Terraform/Terragrunt). This repo consumes those contracts via Ansible automation.
 
@@ -29,12 +29,14 @@ This repo automates the **Personal Hybrid Cloud (PHC)** endpoint devices using A
 ### Device Inventory
 | Device | Role | OS | Key Services | Tailnet |
 |--------|------|----|--------------|---------|
-| **motoko** | Server/control node | Fedora | Ansible control, LiteLLM proxy, `/time` export, Netdata | motoko.pangolin-vega.ts.net |
-| **akira** | Storage + AI workstation | Fedora 43 KDE | `/space` SoR (18TB WD Red), Nextcloud, vLLM, space-mirror | akira.pangolin-vega.ts.net |
+| **akira** | Control node + Storage + AI/server node | Fedora 43 KDE | Ansible control, cloudflared tunnel, `/space` SoR (18TB WD Red), `/time` export, Nextcloud, vLLM, LiteLLM proxy, space-mirror | akira.pangolin-vega.ts.net |
 | **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine, KDE Plasma | armitage.pangolin-vega.ts.net |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine | wintermute.pangolin-vega.ts.net |
 | **atom** | Resilience node | Fedora 43 | Battery-backed SSH foothold, minimal services | atom.pangolin-vega.ts.net |
+| **flatline** | Workstation | Fedora KDE | Basic KDE workstation (Lenovo Yoga, no GPU) | flatline.pangolin-vega.ts.net |
 | **count-zero** | macOS client | macOS | Mounts via autofs, OS cloud ingestion | count-zero.pangolin-vega.ts.net |
+
+> motoko was fully decommissioned (2026); control, storage, and server duties moved to akira (ADR-0010).
 
 Inventory: `ansible/inventory/hosts.yml` (OS families + capability groups like `gpu_8gb`, `wol_enabled`)
 
@@ -42,7 +44,7 @@ Inventory: `ansible/inventory/hosts.yml` (OS families + capability groups like `
 
 ### Ansible Deployment Pattern
 ```bash
-# Standard deployment from motoko (control node)
+# Standard deployment from akira (control node)
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/<playbook>.yml --limit <host>
 
 # Windows automation requires env vars sourced first
@@ -67,9 +69,9 @@ ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/validate-devic
 3. **Usage:** Services read from synced env files (e.g., `/podman/apps/litellm/.env`, `/etc/miket/storage-credentials.env`)
 
 Common env files:
-- `/podman/apps/litellm/.env` - LiteLLM API keys (motoko)
-- `/etc/miket/storage-credentials.env` - B2/restic credentials (akira, motoko)
-- `/etc/ansible/windows-automation.env` - WinRM passwords (motoko)
+- `/flux/apps/litellm/.env` - LiteLLM API keys (akira)
+- `/etc/miket/storage-credentials.env` - B2/restic credentials (akira)
+- `/etc/ansible/windows-automation.env` - WinRM passwords (akira control node)
 - `~/.mkt/mounts.env` - SMB passwords (macOS group)
 
 **1Password is for humans only**; never wire automation to `op` CLI sessions.
@@ -185,7 +187,7 @@ make backup-configs           # Backup current configs before changes
 
 ### Device-Specific Notes
 - **akira:** Runs `/space` SoR on external 18TB WD Red; Nextcloud, space-mirror, and vLLM
-- **motoko:** Ansible control node (run playbooks here); LiteLLM proxy; `/time` Time Machine backups
+- **akira:** Ansible control node (run playbooks here); `/space` SoR; LiteLLM proxy; vLLM; Nextcloud; `/time` Time Machine backups
 - **armitage:** Ollama workstation (not vLLM); KDE Plasma; small Windows partition offline (Dell support only)
 - **wintermute:** Windows GPU node; vLLM + NoMachine; drives X:/S:/T: for Flux/Space/Time
 - **atom:** Battery-backed resilience node; minimal services; proof-of-life + SSH foothold during power failures

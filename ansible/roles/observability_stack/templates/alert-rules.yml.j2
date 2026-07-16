@@ -8,12 +8,12 @@ groups:
     rules:
       # ========================================
       # NodeDown - critical: SERVER node is unreachable
-      # Only fires for always-on server nodes (motoko, akira).
+      # Only fires for always-on server nodes (akira).
       # Workstations (armitage, wintermute, atom, flatline) are
       # expected to be off and don't need constant alerts.
       # ========================================
       - alert: NodeDown
-        expr: up{instance=~"motoko|akira"} == 0
+        expr: up{instance=~"akira"} == 0
         for: 5m
         labels:
           severity: critical

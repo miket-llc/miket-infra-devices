@@ -3,7 +3,7 @@
 ---
 # Nextcloud Server Role Defaults
 # These values align with PHC invariants - do not modify paths without
-# reviewing docs/guides/nextcloud_on_motoko.md
+# reviewing docs/guides/nextcloud_on_akira.md
 
 # Container runtime - standardized on podman
 nextcloud_container_runtime: podman
@@ -87,7 +87,7 @@ nextcloud_external_mounts:
     path: /space/_ops/nextcloud/dashboard
 
 # FORBIDDEN mounts - never wire these into Nextcloud
-# This is enforced via docs/guides/nextcloud_on_motoko.md
+# This is enforced via docs/guides/nextcloud_on_akira.md
 # - /space/mike/dev
 # - /space/mike/code
 # - /space/mike/art

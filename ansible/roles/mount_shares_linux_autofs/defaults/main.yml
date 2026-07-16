@@ -11,14 +11,14 @@
 # =============================================================================
 
 # SMB server (Tailscale hostname)
-smb_server: "motoko.pangolin-vega.ts.net"
+smb_server: "akira.pangolin-vega.ts.net"
 smb_username: "mdt"
 
 # Credentials file location
-smb_credentials_file: "/root/.smbcredentials_motoko"
+smb_credentials_file: "/root/.smbcredentials_akira"
 
 # Autofs configuration
-autofs_mount_base: "/mnt/motoko"
+autofs_mount_base: "/mnt/akira"
 autofs_timeout: 300  # Unmount after 5 minutes idle
 
 # Shares to mount via autofs

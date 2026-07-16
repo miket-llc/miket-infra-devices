@@ -4,7 +4,7 @@
 - name: Mount Network Shares on count-zero (Autofs)
   hosts: count-zero
   gather_facts: true  # Need facts for ansible_user, ansible_env, etc.
-  become: true  # Required for autofs configuration (modifying /etc/auto_master, /etc/auto.motoko)
+  become: true  # Required for autofs configuration (modifying /etc/auto_master, /etc/auto.akira)
   become_method: sudo
   
   roles:

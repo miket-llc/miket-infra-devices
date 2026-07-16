@@ -69,5 +69,5 @@ fi
 echo ""
 
 success "=== TCC-BLOCKED TRANSFERS COMPLETE ==="
-log "Check SSH transfers for dev/archives: tail -f ~/.local/log/transfer-*.log on motoko"
+log "Check SSH transfers for dev/archives: tail -f ~/.local/log/transfer-*.log on akira"
 

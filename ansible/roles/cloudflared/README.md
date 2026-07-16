@@ -29,14 +29,14 @@ This role:
 ## Example Playbook
 
 ```yaml
-- hosts: motoko
+- hosts: akira
   become: true
   roles:
     - role: cloudflared
       vars:
-        cloudflared_tunnel_id: "b8073aa7-29ce-4bd9-8e9a-186ba69575b3"
-        cloudflared_tunnel_name: "motoko-phc"
-        cloudflared_akv_secret_name: "cloudflare-tunnel-motoko-credentials"
+        cloudflared_tunnel_id: "<tunnel-id-from-miket-infra>"
+        cloudflared_tunnel_name: "akira-phc"
+        cloudflared_akv_secret_name: "cloudflare-tunnel-akira-credentials"
         cloudflared_ingress_rules:
           - hostname: nextcloud.miket.io
             service: http://localhost:8080

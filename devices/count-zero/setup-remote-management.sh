@@ -85,20 +85,20 @@ else
 fi
 
 # Test hostname resolution
-if ping -c 1 motoko.pangolin-vega.ts.net >/dev/null 2>&1 || ping -c 1 motoko >/dev/null 2>&1; then
-    echo -e "  ✅ Can resolve motoko hostname"
+if ping -c 1 akira.pangolin-vega.ts.net >/dev/null 2>&1 || ping -c 1 akira >/dev/null 2>&1; then
+    echo -e "  ✅ Can resolve akira hostname"
 else
-    echo -e "  ${YELLOW}⚠️  Cannot resolve motoko hostname yet${NC}"
+    echo -e "  ${YELLOW}⚠️  Cannot resolve akira hostname yet${NC}"
 fi
 
 # Display connection info
 echo -e "\n${GREEN}=== Setup Complete ===${NC}"
-echo -e "\nTo connect from motoko, use:"
+echo -e "\nTo connect from akira, use:"
 echo -e "  ${YELLOW}ssh mdt@count-zero.pangolin-vega.ts.net${NC}"
 echo -e "  ${YELLOW}tailscale ssh mdt@count-zero${NC}"
-echo -e "\nTo test Ansible connectivity from motoko:"
+echo -e "\nTo test Ansible connectivity from akira:"
 echo -e "  ${YELLOW}ansible -i ansible/inventory/hosts.yml count-zero -m ping${NC}"
-echo -e "\n${YELLOW}Note: You may need to add motoko's SSH public key to ~/.ssh/authorized_keys${NC}"
-echo -e "From motoko, run: ${YELLOW}cat ~/.ssh/id_*.pub${NC}"
+echo -e "\n${YELLOW}Note: You may need to add akira's SSH public key to ~/.ssh/authorized_keys${NC}"
+echo -e "From akira, run: ${YELLOW}cat ~/.ssh/id_*.pub${NC}"
 
 

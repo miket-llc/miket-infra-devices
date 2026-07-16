@@ -22,7 +22,7 @@
 #     ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml --limit linux
 #
 #   Specific host:
-#     ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml --limit motoko
+#     ansible-playbook -i inventory/hosts.yml playbooks/common/dev-tools.yml --limit akira
 #
 # IDEMPOTENCE:
 #   Safe to run multiple times. Will only install missing packages.

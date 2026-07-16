@@ -11,7 +11,7 @@ tailnet_domain: "pangolin-vega.ts.net"
 ssh_user_mapping:
   # Linux servers use mdt (automation account)
   linux_hosts:
-    - motoko
+    - akira
   linux_user: mdt
   
   # Windows servers use mdt (via WinRM, not SSH)

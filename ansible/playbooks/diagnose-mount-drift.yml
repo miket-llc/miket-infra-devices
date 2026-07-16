@@ -74,9 +74,9 @@
       register: path_analysis
       changed_when: false
     
-    - name: Test Tailscale connectivity to motoko
-      command: ping -c 2 motoko
-      register: motoko_ping
+    - name: Test Tailscale connectivity to akira
+      command: ping -c 2 akira
+      register: akira_ping
       changed_when: false
       failed_when: false
     
@@ -115,7 +115,7 @@
           launchagents: "{{ launchagent_status.stdout_lines }}"
           secrets_file_exists: "{{ secrets_file.stat.exists }}"
           secrets_file_perms: "{{ secrets_file.stat.mode | default('N/A') }}"
-          motoko_reachable: "{{ motoko_ping.rc == 0 }}"
+          akira_reachable: "{{ akira_ping.rc == 0 }}"
           path_analysis: "{{ path_analysis.stdout_lines }}"
     
     - name: Display drift report
@@ -162,9 +162,9 @@
       register: win_secrets_file
       failed_when: false
     
-    - name: Test connectivity to motoko
-      win_shell: Test-Connection -ComputerName motoko -Count 2 -Quiet
-      register: win_motoko_ping
+    - name: Test connectivity to akira
+      win_shell: Test-Connection -ComputerName akira -Count 2 -Quiet
+      register: win_akira_ping
       changed_when: false
       failed_when: false
     
@@ -187,7 +187,7 @@
           drives: "{{ drive_status.stdout | from_json }}"
           drive_details: "{{ drive_details.stdout | default('{}') | from_json }}"
           secrets_file_exists: "{{ win_secrets_file.stat.exists | default(false) }}"
-          motoko_reachable: "{{ win_motoko_ping.stdout | trim | bool }}"
+          akira_reachable: "{{ win_akira_ping.stdout | trim | bool }}"
           scheduled_tasks: "{{ scheduled_tasks.stdout | default('[]') | from_json }}"
     
     - name: Display Windows drift report

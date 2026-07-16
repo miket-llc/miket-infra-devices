@@ -2,7 +2,7 @@
 
 ---
 # Nextcloud Server Deployment Tasks
-# Idempotent deployment of Nextcloud stack on motoko
+# Idempotent deployment of Nextcloud stack on akira
 # Respects PHC invariants: /space is SoR, /flux is runtime
 # Implements "pure façade" architecture: user content on /space only
 

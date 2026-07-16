@@ -1,9 +1,8 @@
-.PHONY: help deploy-wintermute deploy-armitage deploy-proxy rollback-wintermute rollback-armitage rollback-proxy test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
+.PHONY: help deploy-wintermute deploy-armitage rollback-wintermute rollback-armitage test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
 ARMITAGE_HOST ?= armitage.tailnet.local
-MOTOKO_HOST ?= motoko.tailnet.local
 AKIRA_HOST ?= akira.pangolin-vega.ts.net
 LITELLM_PORT ?= 4000
 VLLM_PORT ?= 8000
@@ -34,10 +33,8 @@ help:
 	@echo "vLLM (Legacy):"
 	@echo "  deploy-wintermute       - Deploy vLLM updates to Wintermute"
 	@echo "  deploy-armitage         - Deploy vLLM updates to Armitage"
-	@echo "  deploy-proxy            - Deploy LiteLLM proxy updates to Motoko (legacy)"
 	@echo "  rollback-wintermute     - Rollback Wintermute vLLM to previous config"
 	@echo "  rollback-armitage       - Rollback Armitage vLLM to previous config"
-	@echo "  rollback-proxy          - Rollback LiteLLM proxy to previous config"
 	@echo ""
 	@echo "NoMachine Remote Desktop:"
 	@echo "  deploy-nomachine-servers   - Deploy NoMachine servers (Linux + Windows, disable RDP)"
@@ -46,7 +43,7 @@ help:
 	@echo "  rollback-nomachine         - Emergency rollback (re-enable RDP on Windows)"
 	@echo ""
 	@echo "Nextcloud:"
-	@echo "  deploy-nextcloud           - Deploy Nextcloud stack on motoko"
+	@echo "  deploy-nextcloud           - Deploy Nextcloud stack on akira"
 	@echo "  validate-nextcloud         - Validate Nextcloud pure façade compliance"
 	@echo "  test-nextcloud             - Run Nextcloud smoke tests"
 	@echo ""
@@ -91,7 +88,7 @@ help:
 	@echo "Environment variables:"
 	@echo "  WINTERMUTE_HOST         - Wintermute hostname (default: wintermute.tailnet.local)"
 	@echo "  ARMITAGE_HOST           - Armitage hostname (default: armitage.tailnet.local)"
-	@echo "  MOTOKO_HOST             - Motoko hostname (default: motoko.tailnet.local)"
+	@echo "  AKIRA_HOST              - Akira hostname (default: akira.pangolin-vega.ts.net)"
 
 # Create necessary directories
 $(LOGS_DIR) $(ARTIFACTS_DIR) $(BACKUP_DIR):
@@ -148,21 +145,6 @@ deploy-armitage: backup-configs $(LOGS_DIR)
 	@sleep 5
 	@$(MAKE) health-check-armitage
 
-# Deploy LiteLLM proxy (requires Ansible)
-deploy-proxy: backup-configs $(LOGS_DIR)
-	@echo "Deploying LiteLLM proxy to Motoko..."
-	@if command -v ansible-playbook >/dev/null 2>&1; then \
-		echo "Running Ansible playbook..."; \
-		cd ansible && ansible-playbook -i inventory playbooks/deploy-litellm.yml -v; \
-	else \
-		echo "Ansible not found. Manual deployment required:"; \
-		echo "  1. SSH to Motoko"; \
-		echo "  2. Restart LiteLLM service: sudo systemctl restart litellm"; \
-		echo "  3. Check logs: sudo journalctl -u litellm -f"; \
-	fi
-	@sleep 5
-	@$(MAKE) health-check-proxy
-
 # Rollback Wintermute
 rollback-wintermute: $(BACKUP_DIR)
 	@echo "Available backups:"
@@ -195,18 +177,6 @@ rollback-armitage: $(BACKUP_DIR)
 	fi; \
 	echo "Rollback complete. Restart vLLM manually."
 
-# Rollback LiteLLM proxy
-rollback-proxy: $(BACKUP_DIR)
-	@echo "Available backups:"
-	@ls -1t $(BACKUP_DIR) | head -5
-	@echo ""
-	@read -p "Enter backup timestamp to restore (YYYYMMDD_HHMMSS): " timestamp; \
-	if [ -f $(BACKUP_DIR)/$$timestamp/litellm_config.yaml.j2 ]; then \
-		cp $(BACKUP_DIR)/$$timestamp/litellm_config.yaml.j2 ansible/roles/litellm_proxy/templates/litellm.config.yaml.j2; \
-		echo "Restored litellm.config.yaml.j2"; \
-		echo "Re-run Ansible playbook to deploy: make deploy-proxy"; \
-	fi
-
 # Health checks
 health-check-wintermute:
 	@echo "Checking Wintermute vLLM health..."
@@ -222,7 +192,7 @@ health-check-armitage:
 
 health-check-proxy:
 	@echo "Checking LiteLLM proxy health..."
-	@curl -s -f http://$(MOTOKO_HOST):$(LITELLM_PORT)/health > /dev/null && \
+	@curl -s -f http://$(AKIRA_HOST):$(LITELLM_PORT)/health > /dev/null && \
 		echo "✅ LiteLLM proxy is healthy" || \
 		echo "❌ LiteLLM proxy health check failed"
 
@@ -354,8 +324,8 @@ deploy-nomachine-servers:
 	@echo "========================================"
 	@echo ""
 	@echo "This will:"
-	@echo "  ✓ Install NoMachine on motoko (Linux)"
-	@echo "  ✓ Install NoMachine on wintermute, armitage (Windows)"
+	@echo "  ✓ Install NoMachine on akira, armitage (Linux)"
+	@echo "  ✓ Install NoMachine on wintermute (Windows)"
 	@echo "  ✓ Remove VNC completely from Linux"
 	@echo "  ✓ Disable RDP on Windows"
 	@echo "  ✓ Configure firewalls for Tailscale-only access"
@@ -380,8 +350,8 @@ deploy-nomachine-clients:
 	@echo ""
 	@echo "This will install NoMachine client on:"
 	@echo "  - count-zero (macOS)"
-	@echo "  - wintermute, armitage (Windows)"
-	@echo "  - motoko (Linux)"
+	@echo "  - wintermute (Windows)"
+	@echo "  - akira, armitage (Linux)"
 	@echo ""
 	@read -p "Continue? (y/N): " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
@@ -395,7 +365,7 @@ deploy-nomachine-clients:
 	@echo "✅ NoMachine clients deployed!"
 	@echo ""
 	@echo "Connection info:"
-	@echo "  motoko:     motoko.pangolin-vega.ts.net:4000"
+	@echo "  akira:      akira.pangolin-vega.ts.net:4000"
 	@echo "  wintermute: wintermute.pangolin-vega.ts.net:4000"
 	@echo "  armitage:   armitage.pangolin-vega.ts.net:4000"
 
@@ -439,7 +409,7 @@ test-nextcloud: $(ARTIFACTS_DIR)
 	@echo "Running Nextcloud pure façade smoke tests..."
 	@python3 $(TESTS_DIR)/nextcloud_smoke.py || echo "Nextcloud tests failed - check $(ARTIFACTS_DIR)/nextcloud_smoke_test_results.json"
 
-# Deploy Nextcloud stack on motoko
+# Deploy Nextcloud stack on akira
 deploy-nextcloud:
 	@echo "========================================"
 	@echo "Nextcloud Stack Deployment"
@@ -455,7 +425,7 @@ deploy-nextcloud:
 	@read -p "Continue? (y/N): " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
 		echo "Deploying Nextcloud..."; \
-		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/motoko/deploy-nextcloud.yml --limit motoko --ask-vault-pass; \
+		cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/akira/deploy-nextcloud.yml --limit akira --ask-vault-pass; \
 	else \
 		echo "Deployment cancelled."; \
 		exit 1; \
@@ -670,7 +640,7 @@ deploy-data-lifecycle:
 	@echo ""
 	@echo "This will deploy backup services:"
 	@echo "  ✓ space-mirror (akira): /space → B2 daily mirror"
-	@echo "  ✓ flux-backup (motoko): /flux → B2 restic snapshots"
+	@echo "  ✓ flux-backup (akira): /flux → B2 restic snapshots"
 	@echo "  ✓ restic-check: Integrity verification"
 	@echo "  ✓ restore-test: Weekly automated restore drill"
 	@echo "  ✓ failure-notify: OnFailure webhook hooks"
@@ -739,7 +709,7 @@ deploy-llm-client:
 	@echo "  ✓ oh (OpenHands) wrapper"
 	@echo "  ✓ OpenHands via uv"
 	@echo ""
-	@echo "Gateway: http://motoko.pangolin-vega.ts.net:4000/v1"
+	@echo "Gateway: http://akira.pangolin-vega.ts.net:4000/v1"
 	@echo ""
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml
 	@echo ""
@@ -841,10 +811,10 @@ setup-update-scheduling:
 	@echo "Setup Automated Update Scheduling"
 	@echo "========================================"
 	@echo ""
-	@echo "This will create a systemd timer on motoko to run"
+	@echo "This will create a systemd timer on akira (control node) to run"
 	@echo "weekly updates every Sunday at 2 AM."
 	@echo ""
-	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit motoko
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/setup-update-scheduling.yml --limit akira
 	@echo ""
 	@echo "✅ Scheduling configured!"
 	@echo ""

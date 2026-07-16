@@ -38,8 +38,7 @@ docker_update_images: []  # List of Docker images to pull/update
   # Example: ['vllm/vllm-openai:latest', 'nginx:latest']
 docker_update_compose_files: []  # List of docker-compose.yml files to update
   # Override per host/group:
-  #   - /opt/vllm-motoko/docker-compose.yml
-  #   - /opt/litellm/docker-compose.yml
+  #   - /flux/apps/litellm/docker-compose.yml
 docker_health_checks: []  # List of health check URLs
   # Override per host/group:
   #   - url: "http://localhost:8001/health"

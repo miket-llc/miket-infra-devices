@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
-# System Health Watchdog for motoko
+# System Health Watchdog
 # Monitors critical services and takes corrective action
 # Part of miket-infra-devices monitoring role
 

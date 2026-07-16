@@ -105,7 +105,7 @@ data_estate_b2_mirror_source: /space
 
 # Explicit path to rclone config file for remote inspection
 # Set to empty string to skip remote inspection (recommended when using backend notation)
-# On motoko, we use backend notation (:b2:bucket) with env vars, so no config file exists
+# On akira, we use backend notation (:b2:bucket) with env vars, so no config file exists
 data_estate_rclone_config_path: ""
 
 # =============================================================================

@@ -2,7 +2,7 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 # Quick deployment script for Armitage when it comes online
-# Run from motoko: ./scripts/deploy-armitage-when-online.sh
+# Run from akira: ./scripts/deploy-armitage-when-online.sh
 
 set -e
 
@@ -85,7 +85,7 @@ for i in {1..30}; do
         echo "  docker restart litellm"
         echo ""
         echo "Then test end-to-end:"
-        echo "  curl http://motoko.pangolin-vega.ts.net:8000/health"
+        echo "  curl http://akira.pangolin-vega.ts.net:8000/health"
         echo ""
         exit 0
     fi

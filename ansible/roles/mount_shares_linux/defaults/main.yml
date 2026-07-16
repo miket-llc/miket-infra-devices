@@ -2,9 +2,9 @@
 
 ---
 # Defaults for Linux mount shares role
-# Default SMB hosts (SoR: space on akira, time on motoko)
+# Default SMB hosts (SoR: space and time on akira per ADR-0010)
 smb_server_space: "akira"
-smb_server_time: "motoko"
+smb_server_time: "akira"
 smb_server_flux: "akira"
 smb_server: "{{ smb_server_space }}"  # legacy fallback
 smb_username: "mdt"

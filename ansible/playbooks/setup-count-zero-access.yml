@@ -2,7 +2,7 @@
 
 ---
 # Setup SSH access for count-zero
-# Uses the existing SSH key from motoko's filesystem
+# Uses the existing SSH key from the control node's filesystem (akira)
 # This follows the same pattern as standardize-users.yml
 
 - name: Setup SSH access for count-zero
@@ -18,12 +18,12 @@
         state: directory
         mode: '0700'
     
-    - name: Add motoko's SSH public key to authorized_keys
+    - name: Add control node SSH public key to authorized_keys
       authorized_key:
         user: "{{ ansible_user }}"
         key: "{{ infrastructure_ssh_key }}"
         state: present
-        comment: "motoko control node - {{ ansible_date_time.date }}"
+        comment: "akira control node - {{ ansible_date_time.date }}"
     
     - name: Verify SSH access
       ping:
@@ -33,6 +33,6 @@
       debug:
         msg:
           - "✅ SSH access configured for count-zero"
-          - "Key deployed from motoko: ~/.ssh/id_ed25519.pub"
+          - "Key deployed from akira: ~/.ssh/id_ed25519.pub"
           - "Test with: ssh {{ ansible_user }}@{{ ansible_host }}"
 

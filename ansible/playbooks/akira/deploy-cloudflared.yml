@@ -8,7 +8,7 @@
 # Architecture (current):
 #   Internet → Cloudflare Access → akira (cloudflared) → Nextcloud (localhost:8080)
 #
-# Architecture (previous, see playbooks/motoko/deploy-cloudflared.yml):
+# Architecture (previous, now decommissioned):
 #   Internet → Cloudflare Access → motoko (cloudflared) → akira (Nextcloud) via Tailscale
 #
 # Why move the tunnel onto akira?

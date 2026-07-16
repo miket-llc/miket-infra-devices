@@ -23,28 +23,28 @@ sudo bash <<EOF
 set -euo pipefail
 
 # Create mount base (use /Volumes - macOS SIP makes /mnt read-only)
-mkdir -p /Volumes/motoko
-chmod 755 /Volumes/motoko
+mkdir -p /Volumes/akira
+chmod 755 /Volumes/akira
 
 # Add to auto_master
-if ! grep -q "^/Volumes/motoko " /etc/auto_master; then
-    echo "/Volumes/motoko /etc/auto.motoko --timeout=300" >> /etc/auto_master
+if ! grep -q "^/Volumes/akira " /etc/auto_master; then
+    echo "/Volumes/akira /etc/auto.akira --timeout=300" >> /etc/auto_master
 fi
 
 # Create autofs map
-cat > /etc/auto.motoko <<AUTOMAP
-# Autofs map for motoko SMB shares
-flux -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:${SMB_PASSWORD_ENCODED}@motoko/flux
-space -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:${SMB_PASSWORD_ENCODED}@motoko/space
-time -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:${SMB_PASSWORD_ENCODED}@motoko/time
+cat > /etc/auto.akira <<AUTOMAP
+# Autofs map for akira SMB shares
+flux -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:${SMB_PASSWORD_ENCODED}@akira/flux
+space -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:${SMB_PASSWORD_ENCODED}@akira/space
+time -fstype=smbfs,soft,noowners,nosuid,rw ://mdt:${SMB_PASSWORD_ENCODED}@akira/time
 AUTOMAP
 
-chmod 600 /etc/auto.motoko  # Restrictive permissions - contains URL-encoded password
+chmod 600 /etc/auto.akira  # Restrictive permissions - contains URL-encoded password
 
 # Create symlinks
 for share in flux space time; do
     rm -f /Users/miket/\$share
-    ln -s /Volumes/motoko/\$share /Users/miket/\$share
+    ln -s /Volumes/akira/\$share /Users/miket/\$share
 done
 
 # Reload autofs

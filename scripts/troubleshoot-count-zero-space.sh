@@ -20,7 +20,7 @@ warn() { echo -e "${YELLOW}[$(date '+%H:%M:%S')] ⚠${NC} $1"; }
 error() { echo -e "${RED}[$(date '+%H:%M:%S')] ✗${NC} $1"; }
 
 SPACE_MOUNT="${HOME}/.mkt/space"
-SMB_SERVER="motoko"
+SMB_SERVER="akira"
 SECRETS_FILE="${HOME}/.mkt/mounts.env"
 
 echo "=========================================="
@@ -87,7 +87,7 @@ else
 fi
 echo ""
 
-# 5. Check network connectivity to motoko
+# 5. Check network connectivity to akira
 log "5. Checking network connectivity to $SMB_SERVER..."
 if ping -c 2 "$SMB_SERVER" &>/dev/null; then
     success "Can ping $SMB_SERVER"
@@ -220,8 +220,8 @@ if mount | grep -q "on ${SPACE_MOUNT} "; then
             echo "  umount $SPACE_MOUNT"
             echo "  ~/.scripts/mount_shares.sh"
             echo ""
-            echo "  # Check SMB share on motoko"
-            echo "  tailscale ssh motoko 'ls -la /space'"
+            echo "  # Check SMB share on akira"
+            echo "  tailscale ssh akira 'ls -la /space'"
         else
             success "Space is mounted and contains files"
         fi

@@ -52,7 +52,7 @@ azure_cli_verify_keyvault: false
 ### Deploy to specific host
 
 ```bash
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit motoko
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit akira
 ```
 
 ### Deploy to all devices

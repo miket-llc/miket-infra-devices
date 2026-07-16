@@ -31,8 +31,6 @@ prometheus_evaluation_interval: "15s"
 
 # Targets for node_exporter scraping
 prometheus_node_exporter_targets:
-  - name: motoko
-    address: "motoko.pangolin-vega.ts.net:9100"
   - name: akira
     address: "localhost:9100"
   - name: atom

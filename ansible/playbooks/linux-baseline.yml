@@ -24,7 +24,7 @@
 # =============================================================================
 
 - name: Apply Linux Baseline Configuration
-  hosts: linux:!motoko
+  hosts: linux:!akira
   become: true
   gather_facts: true
 
@@ -53,7 +53,7 @@
     # Container Runtime Standard
     # ========================================
     # Podman with Docker CLI compatibility
-    # Applies to all Linux hosts except motoko (has custom setup)
+    # Applies to all Linux hosts except akira (has custom setup)
     - role: podman_standard_linux
       tags: [podman_standard, containers]
 

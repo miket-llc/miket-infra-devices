@@ -35,7 +35,7 @@
 
     - name: Test Tailscale server connectivity
       ansible.builtin.uri:
-        url: https://motoko.pangolin-vega.ts.net
+        url: https://akira.pangolin-vega.ts.net
         method: HEAD
         status_code: [200, 301, 302, 401, 403]
         timeout: 10
@@ -107,9 +107,9 @@
           
           🌐 Server Connectivity:
           {% if tailscale_connectivity.status is defined and tailscale_connectivity.status in [200, 301, 302, 401, 403] %}
-          ✅ Tailscale: https://motoko.pangolin-vega.ts.net (HTTP {{ tailscale_connectivity.status }})
+          ✅ Tailscale: https://akira.pangolin-vega.ts.net (HTTP {{ tailscale_connectivity.status }})
           {% else %}
-          ❌ Tailscale: https://motoko.pangolin-vega.ts.net UNREACHABLE
+          ❌ Tailscale: https://akira.pangolin-vega.ts.net UNREACHABLE
           {% endif %}
           {% if cloudflare_connectivity.status is defined and cloudflare_connectivity.status in [200, 301, 302, 401, 403] %}
           ✅ Cloudflare: https://nextcloud.miket.io (HTTP {{ cloudflare_connectivity.status }})
@@ -144,7 +144,7 @@
           2. Launch Nextcloud: open -a Nextcloud
           {% elif not tailscale_connectivity.status is defined and not cloudflare_connectivity.status is defined %}
           3. Check network/Tailscale connectivity
-          4. Verify Nextcloud is running on motoko: systemctl status nextcloud
+          4. Verify Nextcloud is running on akira: systemctl status nextcloud
           {% elif not nextcloud_config_dir.stat.exists %}
           5. Reconfigure Nextcloud client (launch app and log in)
           {% else %}

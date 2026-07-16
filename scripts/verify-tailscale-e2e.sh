@@ -19,7 +19,7 @@
 #
 # Usage:
 #   ./verify-tailscale-e2e.sh              # Test all devices
-#   ./verify-tailscale-e2e.sh --device motoko   # Test specific device
+#   ./verify-tailscale-e2e.sh --device akira    # Test specific device
 #   ./verify-tailscale-e2e.sh --ssh-only        # SSH tests only
 #   ./verify-tailscale-e2e.sh --quick           # Skip slow tests (SSH auth)
 #
@@ -44,7 +44,7 @@ NC='\033[0m' # No Color
 # Format: device="tags|ssh_user|expected_ports"
 # ============================================================================
 declare -A DEVICES=(
-    ["motoko"]="tag:server,tag:linux,tag:ansible|mdt|22,4000"
+    ["akira"]="tag:server,tag:linux,tag:ansible|mdt|22,4000"
     ["armitage"]="tag:workstation,tag:windows,tag:gaming|mdt|5985,4000"
     ["wintermute"]="tag:workstation,tag:windows,tag:gaming|mdt|5985,4000"
     ["count-zero"]="tag:workstation,tag:macos|miket|22,4000"

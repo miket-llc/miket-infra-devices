@@ -26,33 +26,33 @@ echo ""
 
 # Test 1: Check autofs master
 log "1. Checking autofs master configuration..."
-if grep -q "^/Volumes/motoko " /etc/auto_master 2>/dev/null; then
+if grep -q "^/Volumes/akira " /etc/auto_master 2>/dev/null; then
     success "Autofs master entry found"
-    grep "^/Volumes/motoko " /etc/auto_master | sed 's/^/   /'
+    grep "^/Volumes/akira " /etc/auto_master | sed 's/^/   /'
 else
     error "Autofs master entry not found"
-    echo "   Expected: /Volumes/motoko /etc/auto.motoko --timeout=300"
+    echo "   Expected: /Volumes/akira /etc/auto.akira --timeout=300"
 fi
 echo ""
 
 # Test 2: Check autofs map file
 log "2. Checking autofs map file..."
-if [ -f /etc/auto.motoko ]; then
+if [ -f /etc/auto.akira ]; then
     success "Autofs map file exists"
     echo "   Contents:"
-    cat /etc/auto.motoko | sed 's/^/   /'
+    cat /etc/auto.akira | sed 's/^/   /'
 else
-    error "Autofs map file not found: /etc/auto.motoko"
+    error "Autofs map file not found: /etc/auto.akira"
 fi
 echo ""
 
 # Test 3: Check mount base
 log "3. Checking mount base directory..."
-if [ -d /Volumes/motoko ]; then
-    success "Mount base exists: /Volumes/motoko"
-    ls -ld /Volumes/motoko | sed 's/^/   /'
+if [ -d /Volumes/akira ]; then
+    success "Mount base exists: /Volumes/akira"
+    ls -ld /Volumes/akira | sed 's/^/   /'
 else
-    error "Mount base does not exist: /Volumes/motoko"
+    error "Mount base does not exist: /Volumes/akira"
 fi
 echo ""
 
@@ -60,7 +60,7 @@ echo ""
 log "4. Checking user symlinks..."
 for share in flux space time; do
     LINK_PATH="$HOME/$share"
-    TARGET_PATH="/Volumes/motoko/$share"
+    TARGET_PATH="/Volumes/akira/$share"
     
     if [ -L "$LINK_PATH" ]; then
         CURRENT=$(readlink "$LINK_PATH")
@@ -85,9 +85,9 @@ if [ -L "$HOME/space" ] && [ -e "$HOME/space" ]; then
         success "Mount triggered successfully"
         sleep 2
         
-        if mount | grep -q "on /Volumes/motoko/space"; then
+        if mount | grep -q "on /Volumes/akira/space"; then
             success "Space share is mounted"
-            mount | grep "on /Volumes/motoko/space" | sed 's/^/   /'
+            mount | grep "on /Volumes/akira/space" | sed 's/^/   /'
         else
             warn "Space share not mounted (may need more time)"
         fi
@@ -116,17 +116,17 @@ echo ""
 
 ALL_GOOD=true
 
-if ! grep -q "^/Volumes/motoko " /etc/auto_master 2>/dev/null; then
+if ! grep -q "^/Volumes/akira " /etc/auto_master 2>/dev/null; then
     error "Autofs master not configured"
     ALL_GOOD=false
 fi
 
-if [ ! -f /etc/auto.motoko ]; then
+if [ ! -f /etc/auto.akira ]; then
     error "Autofs map file missing"
     ALL_GOOD=false
 fi
 
-if [ ! -d /Volumes/motoko ]; then
+if [ ! -d /Volumes/akira ]; then
     error "Mount base missing"
     ALL_GOOD=false
 fi

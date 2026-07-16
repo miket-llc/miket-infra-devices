@@ -43,10 +43,10 @@ echo ""
 
 # Step 3: Verify network connectivity
 log "3. Verifying network connectivity..."
-if ping -c 2 motoko.pangolin-vega.ts.net &>/dev/null; then
+if ping -c 2 akira.pangolin-vega.ts.net &>/dev/null; then
     success "Network connectivity OK"
 else
-    error "Cannot reach motoko.pangolin-vega.ts.net"
+    error "Cannot reach akira.pangolin-vega.ts.net"
     echo "   Check Tailscale: tailscale status"
     exit 1
 fi
@@ -54,17 +54,17 @@ echo ""
 
 # Step 4: Open Time Machine share in Finder to refresh mount
 log "4. Opening Time Machine share in Finder to refresh mount..."
-open "smb://mdt@motoko.pangolin-vega.ts.net/time" 2>&1 || true
+open "smb://mdt@akira.pangolin-vega.ts.net/time" 2>&1 || true
 sleep 3
 success "Share opened in Finder"
 echo ""
 
 # Step 5: Check Time Machine mount
 log "5. Checking Time Machine mount..."
-TM_MOUNT=$(mount | grep -i "timemachine.*motoko" | head -1 | awk '{print $3}' || echo "")
+TM_MOUNT=$(mount | grep -i "timemachine.*akira" | head -1 | awk '{print $3}' || echo "")
 if [ -n "$TM_MOUNT" ]; then
     success "Time Machine mount found: $TM_MOUNT"
-    if df -h | grep -q "motoko.*time"; then
+    if df -h | grep -q "akira.*time"; then
         success "Time Machine mount is accessible"
     else
         warn "Time Machine mount may be stale"

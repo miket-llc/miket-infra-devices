@@ -5,7 +5,7 @@
 # NoMachine Keystroke Dropping Diagnostic Script
 # 
 # Purpose: Gather diagnostic information for keystroke dropping issues
-# Usage: Run on motoko (server) during active NoMachine session
+# Usage: Run on akira (server) during active NoMachine session
 #
 # Author: Codex-CA-001 (Chief Architect)
 # Date: 2025-11-24
@@ -77,7 +77,7 @@ echo "" | tee -a "${REPORT_FILE}"
 # 6. Tailscale Status
 echo "=== TAILSCALE STATUS ===" | tee -a "${REPORT_FILE}"
 if command -v tailscale >/dev/null 2>&1; then
-    tailscale status | grep -E "(count-zero|motoko)" | tee -a "${REPORT_FILE}"
+    tailscale status | grep -E "(count-zero|akira)" | tee -a "${REPORT_FILE}"
     echo "" | tee -a "${REPORT_FILE}"
     echo "Connection type:" | tee -a "${REPORT_FILE}"
     tailscale status | grep count-zero | grep -oE "(direct|relay)" | tee -a "${REPORT_FILE}" || echo "Unknown" | tee -a "${REPORT_FILE}"

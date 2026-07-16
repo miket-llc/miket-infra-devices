@@ -3,18 +3,15 @@
 # =============================================================================
 # Deploy Nextcloud Stack on Akira
 # =============================================================================
-# Per ADR-0010: Nextcloud migrated from motoko to akira
+# Per ADR-0010: Nextcloud migrated from motoko to akira (migration complete)
 #
 # Prerequisites:
-# 1. /space synced from motoko (rsync complete)
+# 1. /space present on akira (SoR)
 # 2. Azure CLI logged in for secrets sync
 # 3. Podman installed
 #
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml playbooks/akira-deploy-nextcloud.yml --limit akira
-#
-# Post-deploy:
-#   Run cutover playbook to migrate DB from motoko
 
 - name: Deploy Nextcloud stack on akira
   hosts: akira
@@ -54,7 +51,5 @@
           Secrets: {{ nextcloud_env_path | default('/flux/runtime/secrets/nextcloud.env') }}
           
           Next steps:
-          1. Run cutover playbook to migrate DB from motoko:
-             ansible-playbook playbooks/nextcloud-motoko-to-akira-cutover.yml
-          2. Test: curl http://localhost:{{ nextcloud_port | default(8080) }}/status.php
-          3. Tailnet: https://akira.pangolin-vega.ts.net
+          1. Test: curl http://localhost:{{ nextcloud_port | default(8080) }}/status.php
+          2. Tailnet: https://akira.pangolin-vega.ts.net

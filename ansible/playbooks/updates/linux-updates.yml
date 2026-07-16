@@ -15,7 +15,7 @@
 #   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml
 #
 #   # Update specific host
-#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml --limit motoko
+#   ansible-playbook -i ../inventory/hosts.yml playbooks/updates/linux-updates.yml --limit akira
 #
 # Tags:
 #   - pre-check: Pre-flight checks only

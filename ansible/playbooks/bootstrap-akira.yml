@@ -95,7 +95,7 @@
           2. Test SSH via tailnet: ssh mdt@akira.pangolin-vega.ts.net
           3. Verify ROCm: rocm-smi
           4. Test AI inference: source ~/rocm-test/bin/activate && python -c "import torch; print(torch.cuda.is_available())"
-          5. Mount /space from motoko (if not auto-mounted)
+          5. Mount /space (if not auto-mounted; akira is the SoR host)
           
           AI API server (when ready):
             source ~/rocm-test/bin/activate

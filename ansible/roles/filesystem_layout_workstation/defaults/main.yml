@@ -24,11 +24,11 @@ flux_subdirs:
   - tmp             # Temp workspace
 
 # ========================================
-# Space (Remote - SoR on motoko)
+# Space (Remote - SoR on akira per ADR-0010)
 # ========================================
 space_path: "/home/{{ workstation_user }}/space"
 space_type: remote
-space_source: "//motoko.pangolin-vega.ts.net/space"
+space_source: "//akira.pangolin-vega.ts.net/space"
 space_mount_type: cifs
 space_mount_point: "/home/{{ workstation_user }}/.mkt/mounts/space"
 space_mount_options: "credentials={{ space_credentials_file }},uid={{ workstation_user }},gid={{ workstation_user }},iocharset=utf8,vers=3.0,nofail"
@@ -40,11 +40,11 @@ space_credentials_akv:
 space_credentials_file: "/home/{{ workstation_user }}/.mkt/smb-credentials"
 
 # ========================================
-# Time (Remote - Backups on motoko)
+# Time (Remote - Backups on akira per ADR-0010)
 # ========================================
 time_path: "/home/{{ workstation_user }}/time"
 time_type: remote
-time_source: "//motoko.pangolin-vega.ts.net/time"
+time_source: "//akira.pangolin-vega.ts.net/time"
 time_mount_type: cifs
 time_mount_point: "/home/{{ workstation_user }}/.mkt/mounts/time"
 time_mount_options: "credentials={{ space_credentials_file }},uid={{ workstation_user }},gid={{ workstation_user }},iocharset=utf8,vers=3.0,nofail,ro"

@@ -9,8 +9,8 @@
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml playbooks/validate-devices-infrastructure.yml
 
-- name: Validate Motoko Server Configuration
-  hosts: motoko
+- name: Validate akira Server Configuration
+  hosts: akira
   gather_facts: yes
   become: yes
   
@@ -136,9 +136,9 @@
         $results.X_drive = Test-Path X:\
         $results.S_drive = Test-Path S:\
         $results.T_drive = Test-Path T:\
-        $results.flux_unc = Test-Path \\motoko.pangolin-vega.ts.net\flux
-        $results.space_unc = Test-Path \\motoko.pangolin-vega.ts.net\space
-        $results.time_unc = Test-Path \\motoko.pangolin-vega.ts.net\time
+        $results.flux_unc = Test-Path \\akira.pangolin-vega.ts.net\flux
+        $results.space_unc = Test-Path \\akira.pangolin-vega.ts.net\space
+        $results.time_unc = Test-Path \\akira.pangolin-vega.ts.net\time
         $results | ConvertTo-Json
       register: drive_checks
       changed_when: false
@@ -224,8 +224,8 @@
           Check the output above for any failures or warnings.
           
           Expected results:
-          ✓ motoko: /space/devices exists
-          ✓ motoko: /space/mike/devices -> /space/devices
+          ✓ akira: /space/devices exists
+          ✓ akira: /space/mike/devices -> /space/devices
           ✓ macOS: /mkt directory exists
           ✓ macOS: SMB mounts active on /mkt/*
           ✓ macOS: User symlinks ~/flux, ~/space, ~/time

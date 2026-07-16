@@ -5,7 +5,7 @@
 # Device-local safeguard for overly restrictive file/directory permissions
 # in Nextcloud client sync directories.
 #
-# IMPORTANT: This is a client-side guard only. It NEVER touches /space on motoko.
+# IMPORTANT: This is a client-side guard only. It NEVER touches /space on akira.
 # See: docs/runbooks/nextcloud-permissions-troubleshooting.md
 # See: docs/reference/NEXTCLOUD_PLATFORM_CONTRACT.md
 

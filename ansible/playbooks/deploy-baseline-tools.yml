@@ -14,7 +14,7 @@
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml
 #
 #   # Deploy to specific host
-#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --limit motoko
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --limit akira
 #
 #   # Deploy only Azure CLI (prerequisite)
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-baseline-tools.yml --tags azure

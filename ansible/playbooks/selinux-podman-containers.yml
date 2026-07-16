@@ -9,7 +9,7 @@
 # 
 # Usage:
 #   ansible-playbook playbooks/selinux-podman-containers.yml
-#   ansible-playbook playbooks/selinux-podman-containers.yml --limit motoko
+#   ansible-playbook playbooks/selinux-podman-containers.yml --limit akira
 # ============================================================================
 
 - name: Configure SELinux for Podman Container Scripts

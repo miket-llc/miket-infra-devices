@@ -21,7 +21,7 @@ warn() { echo -e "${YELLOW}[$(date '+%H:%M:%S')] ⚠${NC} $1"; }
 # Check SMB mount
 if [[ ! -d ~/.mkt/space ]]; then
     echo "ERROR: SMB mount not found at ~/.mkt/space"
-    echo "Please ensure motoko shares are mounted first."
+    echo "Please ensure akira shares are mounted first."
     exit 1
 fi
 
@@ -105,6 +105,6 @@ fi
 echo ""
 
 success "=== ALL TRANSFERS COMPLETE ==="
-log "Data now in /space on motoko"
+log "Data now in /space on akira"
 log "Verify with: ls -la ~/.mkt/space/mike/ ~/.mkt/space/devices/count-zero/"
 

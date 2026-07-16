@@ -85,8 +85,6 @@
       vars:
         observability_enabled: true
         prometheus_node_exporter_targets:
-          - name: motoko
-            address: "motoko.pangolin-vega.ts.net:9100"
           - name: akira
             address: "localhost:9100"
           - name: atom
@@ -215,7 +213,6 @@
           ========================================
 
           node_exporter deployed to:
-            - motoko
             - akira
             - atom
             - armitage

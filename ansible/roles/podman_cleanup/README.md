@@ -1,6 +1,6 @@
 # Podman Cleanup Role
 
-Safely removes unused Podman resources to free disk space on motoko and other Podman hosts.
+Safely removes unused Podman resources to free disk space on akira and other Podman hosts.
 
 ## Purpose
 
@@ -11,7 +11,7 @@ This role cleans up unused Podman containers, images, volumes, networks, and bui
 ### Basic Cleanup
 
 ```yaml
-- hosts: motoko
+- hosts: akira
   roles:
     - role: podman_cleanup
       vars:
@@ -21,7 +21,7 @@ This role cleans up unused Podman containers, images, volumes, networks, and bui
 ### Aggressive Cleanup (All Unused Resources)
 
 ```yaml
-- hosts: motoko
+- hosts: akira
   roles:
     - role: podman_cleanup
       vars:
@@ -32,7 +32,7 @@ This role cleans up unused Podman containers, images, volumes, networks, and bui
 ### Selective Cleanup
 
 ```yaml
-- hosts: motoko
+- hosts: akira
   roles:
     - role: podman_cleanup
       vars:

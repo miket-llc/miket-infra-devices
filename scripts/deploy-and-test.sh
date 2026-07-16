@@ -82,7 +82,7 @@ if make deploy-proxy >> "$LOG_FILE" 2>&1; then
     log "✓ LiteLLM proxy deployment command executed"
 else
     log "⚠ Automated deployment failed - manual deployment required"
-    log "  On Motoko: sudo systemctl restart litellm"
+    log "  On Akira: sudo systemctl restart litellm"
 fi
 
 sleep 10

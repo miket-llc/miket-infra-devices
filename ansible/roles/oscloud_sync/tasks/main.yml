@@ -2,7 +2,7 @@
 
 ---
 # OS Cloud Sync Role - Main Entry Point
-# Syncs iCloud/OneDrive to /space/devices on motoko
+# Syncs iCloud/OneDrive to /space/devices on akira
 
 - name: Include macOS tasks
   include_tasks: macos.yml

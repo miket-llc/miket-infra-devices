@@ -8,7 +8,7 @@
 # the "red icon" sync errors caused by Obsidian/macOS creating 700 dirs.
 #
 # IMPORTANT: This is a device-local safeguard only.
-# It NEVER touches /space (SoR) on motoko.
+# It NEVER touches /space (SoR) on akira.
 #
 # Usage:
 #   # Deploy to all macOS devices

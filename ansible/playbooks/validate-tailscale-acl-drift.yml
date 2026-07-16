@@ -120,8 +120,8 @@
     - name: Load device inventory
       set_fact:
         device_inventory:
-          motoko:
-            hostname: motoko
+          akira:
+            hostname: akira
             tags:
               - tag:server
               - tag:linux
@@ -233,7 +233,7 @@
           debug:
             msg: |
               Device: {{ item.key }}
-              NoMachine Server: {{ 'YES' if item.key in ['motoko', 'wintermute', 'armitage'] else 'NO' }}
+              NoMachine Server: {{ 'YES' if item.key in ['akira', 'wintermute', 'armitage'] else 'NO' }}
               Port: 4000
               Expected ACL: tag:workstation, tag:server → tag:server, tag:workstation:4000
           loop: "{{ device_inventory | dict2items }}"

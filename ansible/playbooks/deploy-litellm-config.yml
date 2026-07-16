@@ -3,10 +3,9 @@
 ---
 # Deploy LiteLLM configuration with updated throttling and model aliases
 - name: Deploy LiteLLM Proxy Configuration
-  hosts: motoko
+  hosts: akira
   become: yes
   vars_files:
-    - ../group_vars/motoko.yml
     - ../group_vars/linux/vault.yml
   tasks:
     - name: Deploy updated LiteLLM config

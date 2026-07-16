@@ -100,7 +100,7 @@ ansible-playbook -i inventory/hosts.yml playbooks/configure-windows-rdp.yml -l w
 5. Username: `mdt`
 6. Connect
 
-### From Linux (motoko)
+### From Linux (akira)
 
 ```bash
 # Using xfreerdp (recommended)

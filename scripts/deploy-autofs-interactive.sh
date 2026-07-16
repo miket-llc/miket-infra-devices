@@ -20,10 +20,10 @@ EOF
 }
 
 # Configuration
-SMB_SERVER="motoko"
+SMB_SERVER="akira"
 SMB_USERNAME="mdt"
 SMB_ENV_FILE="${HOME}/.mkt/mounts.env"
-AUTOFS_MOUNT_BASE="/mnt/motoko"
+AUTOFS_MOUNT_BASE="/mnt/akira"
 AUTOFS_TIMEOUT=300
 
 # Read SMB password
@@ -49,7 +49,7 @@ set -euo pipefail
 AUTOFS_MOUNT_BASE="$AUTOFS_MOUNT_BASE"
 AUTOFS_TIMEOUT=$AUTOFS_TIMEOUT
 AUTOFS_MASTER="/etc/auto_master"
-AUTOFS_MAP="/etc/auto.motoko"
+AUTOFS_MAP="/etc/auto.akira"
 SMB_SERVER="$SMB_SERVER"
 SMB_USERNAME="$SMB_USERNAME"
 SMB_PASSWORD_ENCODED="$SMB_PASSWORD_ENCODED"
@@ -66,7 +66,7 @@ fi
 
 # Create autofs map
 cat > "\$AUTOFS_MAP" <<EOF
-# Autofs map for motoko SMB shares
+# Autofs map for akira SMB shares
 # Auto-generated - do not edit manually
 flux -fstype=smbfs,soft,noowners,nosuid,rw ://\${SMB_USERNAME}:\${SMB_PASSWORD_ENCODED}@\${SMB_SERVER}/flux
 space -fstype=smbfs,soft,noowners,nosuid,rw ://\${SMB_USERNAME}:\${SMB_PASSWORD_ENCODED}@\${SMB_SERVER}/space

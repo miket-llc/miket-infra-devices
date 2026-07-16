@@ -4,7 +4,7 @@
 # LLM Client Deployment Playbook
 #
 # Deploys LLM client tools and aider for AI Fabric integration.
-# All clients connect to the central LiteLLM gateway on motoko.
+# All clients connect to the central LiteLLM gateway on akira.
 #
 # Usage:
 #   # Deploy to all LLM client hosts
@@ -29,8 +29,8 @@
 
   vars:
     # LiteLLM Gateway (from Team 1 handoff)
-    llm_gateway_base_url: "http://motoko.pangolin-vega.ts.net:4000/v1"
-    llm_gateway_health_url: "http://motoko.pangolin-vega.ts.net:4000/health"
+    llm_gateway_base_url: "http://akira.pangolin-vega.ts.net:4000/v1"
+    llm_gateway_health_url: "http://akira.pangolin-vega.ts.net:4000/health"
 
   pre_tasks:
     - name: Display deployment info
@@ -63,7 +63,7 @@
 
           This may indicate:
           1. Tailscale not connected
-          2. LiteLLM service not running on motoko
+          2. LiteLLM service not running on akira
           3. Firewall blocking port 4000
 
           Continuing with deployment, but verify gateway after completion.

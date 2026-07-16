@@ -5,7 +5,7 @@
 #
 # This playbook:
 # 1. Enables WOL on target hosts (akira)
-# 2. Configures WOL relay on always-on host (motoko)
+# 2. Configures WOL relay on always-on host (akira)
 #
 # Usage:
 #   # Full deployment
@@ -14,8 +14,8 @@
 #   # Just akira WOL
 #   ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-power-management.yml --limit akira
 #
-#   # Just motoko relay
-#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-power-management.yml --limit motoko
+#   # Just akira relay
+#   ansible-playbook -i inventory/hosts.yml ansible/playbooks/configure-power-management.yml --limit akira
 
 ---
 - name: Configure Wake-on-LAN on target hosts
@@ -37,10 +37,10 @@
           Relay host: {{ wol_relay_host | default('not configured') }}
           
           Test with:
-            tailscale ssh mdt@{{ wol_relay_host | default('motoko') }} 'wake {{ inventory_hostname }}'
+            tailscale ssh mdt@{{ wol_relay_host | default('akira') }} 'wake {{ inventory_hostname }}'
 
 - name: Configure WOL relay on always-on host
-  hosts: motoko:akira
+  hosts: akira
   become: true
   roles:
     - role: power_wol_relay

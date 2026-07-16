@@ -11,10 +11,10 @@
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml
 #
 #   # Deploy to specific host
-#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit motoko
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit akira
 #
 #   # Test with timeout
-#   timeout 300 ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit motoko
+#   timeout 300 ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit akira
 
 - name: Deploy OpenAI Codex CLI
   hosts: tailnet_all

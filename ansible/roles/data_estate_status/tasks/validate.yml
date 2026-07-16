@@ -75,7 +75,7 @@
       
       The collector will fail to check B2 mirror and cloud restic repos.
       Run the secrets_sync playbook to deploy credentials:
-        ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit motoko
+        ansible-playbook -i inventory/hosts.yml playbooks/secrets-sync.yml --limit akira
   when: not creds_stat.stat.exists
 
 - name: Run collector in dry-run mode (check dependencies)

@@ -311,7 +311,7 @@ main() {
     log_success "=== Migration completed successfully ==="
     log_info "Next steps:"
     log_info "1. Verify migrated content: ls -la $DEST"
-    log_info "2. Test Samba access: smbclient //motoko/space"
+    log_info "2. Test Samba access: smbclient //akira/space"
     log_info "3. Verify B2 backup includes migrated content"
     log_info "4. Resume hoover/rclone processes if paused"
 }

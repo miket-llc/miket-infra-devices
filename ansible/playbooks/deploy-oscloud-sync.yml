@@ -2,7 +2,7 @@
 
 ---
 # Deploy OS cloud synchronization to all client devices
-# Syncs iCloud/OneDrive to /space/devices on motoko
+# Syncs iCloud/OneDrive to /space/devices on akira
 
 - name: Deploy OS Cloud Synchronization
   hosts: macos,windows

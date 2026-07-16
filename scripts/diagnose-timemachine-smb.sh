@@ -19,8 +19,8 @@ success() { echo -e "${GREEN}[$(date '+%H:%M:%S')] ✓${NC} $1"; }
 warn() { echo -e "${YELLOW}[$(date '+%H:%M:%S')] ⚠${NC} $1"; }
 error() { echo -e "${RED}[$(date '+%H:%M:%S')] ✗${NC} $1"; }
 
-SMB_SERVER="motoko"
-SMB_SERVER_FQDN="motoko.pangolin-vega.ts.net"
+SMB_SERVER="akira"
+SMB_SERVER_FQDN="akira.pangolin-vega.ts.net"
 SMB_SHARE="time"
 SMB_USER="mdt"
 SECRETS_FILE="${HOME}/.mkt/mounts.env"
@@ -91,7 +91,7 @@ echo ""
 
 # 5. Check Time Machine mount
 log "5. Checking Time Machine-specific mount..."
-TM_MOUNT=$(mount | grep -i "timemachine.*motoko" || echo "")
+TM_MOUNT=$(mount | grep -i "timemachine.*akira" || echo "")
 if [ -n "$TM_MOUNT" ]; then
     success "Time Machine has its own mount"
     echo "$TM_MOUNT" | sed 's/^/   /'
@@ -173,8 +173,8 @@ echo ""
 
 # Check if Time Machine mount is working
 TM_MOUNT_WORKING="no"
-if mount | grep -qi "timemachine.*motoko"; then
-    TM_MOUNT_POINT=$(mount | grep -i "timemachine.*motoko" | awk '{print $3}')
+if mount | grep -qi "timemachine.*akira"; then
+    TM_MOUNT_POINT=$(mount | grep -i "timemachine.*akira" | awk '{print $3}')
     if [ -n "$TM_MOUNT_POINT" ] && ls "$TM_MOUNT_POINT" >/dev/null 2>&1; then
         TM_MOUNT_WORKING="yes"
     fi
@@ -186,7 +186,7 @@ if [ "$TM_MOUNT_WORKING" == "yes" ]; then
     echo "If Time Machine is still failing, try:"
     echo "  1. Check Time Machine preferences: System Settings > Time Machine"
     echo "  2. Remove and re-add Time Machine destination"
-    echo "  3. Check server-side SMB logs: tailscale ssh motoko 'tail -50 /var/log/samba/log.smbd'"
+    echo "  3. Check server-side SMB logs: tailscale ssh akira 'tail -50 /var/log/samba/log.smbd'"
 else
     error "Time Machine mount is not working"
     echo ""

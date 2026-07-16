@@ -16,8 +16,8 @@
 #   # Deploy to all devices
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml
 #
-#   # Deploy to motoko only
-#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit motoko
+#   # Deploy to akira only
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit akira
 #
 #   # Deploy to all Linux servers
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-azure-cli.yml --limit linux

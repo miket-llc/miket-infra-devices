@@ -40,7 +40,7 @@ TEST_CASES = [
         "model": "embeddings-general",
         "type": "embedding",
         "input": "This is a test sentence for embeddings",
-        "expected_backend": "motoko"
+        "expected_backend": "akira"
     },
     {
         "name": "Legacy alias: local/chat",
@@ -55,7 +55,7 @@ TEST_CASES = [
         "model": "local/embed",
         "type": "embedding",
         "input": "Test embedding",
-        "expected_backend": "motoko"
+        "expected_backend": "akira"
     },
 ]
 

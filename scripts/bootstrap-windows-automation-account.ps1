@@ -86,7 +86,7 @@ if ($user -and $isAdmin) {
     Write-Host "  Administrators: Yes"
     Write-Host ""
     Write-Host "Next Steps:" -ForegroundColor Yellow
-    Write-Host "  1. From motoko, test WinRM connectivity:"
+    Write-Host "  1. From akira, test WinRM connectivity:"
     Write-Host "     ansible armitage -i ~/miket-infra-devices/ansible/inventory/hosts.yml -m win_ping"
     Write-Host ""
     Write-Host "  2. All future account management via Ansible (IaC/CaC)"

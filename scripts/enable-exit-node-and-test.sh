@@ -20,8 +20,8 @@ echo -e "${CYAN}========================================${NC}\n"
 
 echo -e "${YELLOW}Exit Node Approval Required:${NC}"
 echo -e "1. Navigate to: ${GREEN}https://login.tailscale.com/admin/machines${NC}"
-echo -e "2. Find 'motoko' in the machine list"
-echo -e "3. Click the '...' menu next to motoko"
+echo -e "2. Find 'akira' in the machine list"
+echo -e "3. Click the '...' menu next to akira"
 echo -e "4. Select 'Edit route settings...'"
 echo -e "5. Check 'Use as exit node'"
 echo -e "6. Click 'Save'"
@@ -33,8 +33,8 @@ MAX_ATTEMPTS=12
 ATTEMPT=0
 
 while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-    if tailscale exit-node list 2>&1 | grep -q "motoko"; then
-        echo -e "${GREEN}✓ motoko exit node is approved and available!${NC}\n"
+    if tailscale exit-node list 2>&1 | grep -q "akira"; then
+        echo -e "${GREEN}✓ akira exit node is approved and available!${NC}\n"
         break
     fi
     
@@ -52,7 +52,7 @@ done
 
 # Enable exit node on count-zero
 echo -e "${GREEN}Enabling exit node on count-zero...${NC}"
-sudo tailscale up --exit-node=motoko --exit-node-allow-lan-access=true --accept-dns --ssh
+sudo tailscale up --exit-node=akira --exit-node-allow-lan-access=true --accept-dns --ssh
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Exit node enabled${NC}\n"
@@ -87,16 +87,16 @@ else
     echo -e "${YELLOW}HTTP $AVID_RESPONSE${NC}"
 fi
 
-# Get public IP to verify we're routing through motoko
+# Get public IP to verify we're routing through akira
 echo -e "\n${CYAN}Verifying exit node routing...${NC}"
 PUBLIC_IP=$(curl -s https://api.ipify.org)
 echo -e "Current public IP: ${GREEN}$PUBLIC_IP${NC}"
-echo -e "(This should be motoko's public IP, not your local router's IP)\n"
+echo -e "(This should be akira's public IP, not your local router's IP)\n"
 
 echo -e "${CYAN}========================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"
 echo -e "${CYAN}========================================${NC}"
-echo -e "All traffic from count-zero is now routed through motoko."
+echo -e "All traffic from count-zero is now routed through akira."
 echo -e "This bypasses any router-level filtering or blocking."
 echo ""
 echo -e "${GREEN}Now test in your browser:${NC}"

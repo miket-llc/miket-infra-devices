@@ -66,7 +66,6 @@ python3 tests/nomachine_smoke.py
 
 # Device bootstrap (initial setup only)
 scripts/bootstrap-macos.sh     # macOS: autofs, CLI tools, Tailscale
-scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 ```
 
 ## Architecture
@@ -74,14 +73,14 @@ scripts/bootstrap-motoko.sh    # motoko: Ansible control node setup
 ### Device Inventory
 | Device | Role | OS | Key Services |
 |--------|------|----|--------------|
-| **akira** | Control node + Storage SoR + AI workstation | Fedora 44 KDE | **Ansible control**, **cloudflared tunnel** (`nextcloud.miket.io`), `/space` (18TB), Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
-| **motoko** | Server (demoted from control) | Fedora | `/time` export. Was Ansible control + cloudflared tunnel until 2026-06; control moved to akira. ⚠️ Tailscale node key expired — needs `tailscale up` at console + disable key expiry |
+| **akira** | Control node + Storage SoR + AI/server node | Fedora 44 KDE | **Ansible control**, **cloudflared tunnel** (`nextcloud.miket.io`), `/space` (18TB), `/time` export, Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
 | **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
-| **flatline** | Workstation | Fedora KDE | Lenovo Yoga, no dedicated GPU |
+| **flatline** | Workstation | Fedora KDE | Basic workstation (Lenovo Yoga, no dedicated GPU) |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |
 | **atom** | Hacker/radio node | Fedora | SDR, Sway/i3 UI, occasionally on |
-| **flatline** | Workstation | Fedora KDE | Basic workstation (Lenovo Yoga, no GPU) |
 | **count-zero** | macOS client | macOS | Autofs mounts, OS cloud ingestion |
+
+> motoko was fully decommissioned (2026); its storage, control-node, and server duties moved to akira (see ADR-0010).
 
 ### Storage Model (Flux/Space/Time/Matter)
 - **`/space`** - ONLY Source of Record. All data flows INTO `/space`; never mirror FROM it.
@@ -101,7 +100,7 @@ Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
 - `/flux/runtime/secrets/nextcloud.env` - Nextcloud credentials
 - `/flux/runtime/secrets/grafana.env` - Grafana admin password
 - `/etc/miket/storage-credentials.env` - B2/restic backup credentials
-- `/etc/ansible/windows-automation.env` - WinRM passwords (motoko only)
+- `/etc/ansible/windows-automation.env` - WinRM passwords (akira control node)
 - `~/.mkt/mounts.env` - SMB mount passwords (macOS)
 
 **Never hardcode secrets. 1Password is for humans only.**

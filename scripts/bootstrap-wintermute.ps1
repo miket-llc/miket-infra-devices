@@ -122,7 +122,7 @@ Write-Host "===============================================================" -Fo
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Green
 Write-Host ""
-Write-Host "  1. From motoko, test connectivity:" -ForegroundColor Yellow
+Write-Host "  1. From akira, test connectivity:" -ForegroundColor Yellow
 Write-Host "     ansible wintermute -i ~/miket-infra-devices/ansible/inventory/hosts.yml -m win_ping" -ForegroundColor White
 Write-Host ""
 Write-Host "  2. Run Windows workstation playbook:" -ForegroundColor Yellow

@@ -14,7 +14,7 @@
 # Current version (update when new binaries are added)
 nomachine_version: "9.2.18"
 
-# Binary storage location (on motoko, accessible to all devices)
+# Binary storage location (on akira, accessible to all devices)
 # Binaries are stored in /space/software/nomachine/ to avoid Git repo bloat
 nomachine_binary_base: "/space/software/nomachine"
 

@@ -32,11 +32,11 @@ This role implements the **official container runtime standard** for all Linux h
     - role: podman_standard_linux
 ```
 
-### With Custom Storage (e.g., motoko)
+### With Custom Storage (e.g., akira)
 
 ```yaml
 - name: Install Podman with custom storage
-  hosts: motoko
+  hosts: akira
   roles:
     - role: podman_standard_linux
       vars:
@@ -147,7 +147,7 @@ docker-compose up -d
 - **Rootless containers:** `~/.local/share/containers/storage`
 - **Runtime data:** `/run/containers/storage`
 
-### Custom Storage (motoko Example)
+### Custom Storage (akira Example)
 
 ```yaml
 podman_graphroot: /space/containers/engine/podman
@@ -246,7 +246,7 @@ If Docker (moby-engine, docker-ce, docker.io) is already installed:
 
 ```yaml
 - name: Deploy Podman with dedicated storage drive
-  hosts: motoko
+  hosts: akira
   become: true
   roles:
     - role: podman_standard_linux

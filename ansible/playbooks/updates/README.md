@@ -21,7 +21,7 @@ make verify-services
 ## Playbooks
 
 ### `fedora-updates.yml` (PRIMARY)
-Updates Fedora systems (motoko, akira, armitage, atom, flatline) with dnf packages, Tailscale, and verifies all services.
+Updates Fedora systems (akira, armitage, atom, flatline) with dnf packages, Tailscale, and verifies all services.
 
 **Features:**
 - dnf package updates (security + critical)
@@ -123,7 +123,7 @@ docker_update_images:
   - vllm/vllm-openai:latest
 
 docker_update_compose_files:
-  - /opt/vllm-motoko/docker-compose.yml
+  - /flux/apps/vllm/docker-compose.yml
 
 docker_health_checks:
   - url: "http://localhost:8001/health"
@@ -202,7 +202,7 @@ ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --c
 
 ### Update Specific Host
 ```bash
-ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --limit motoko --ask-vault-pass
+ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --limit akira --ask-vault-pass
 ```
 
 ### Check Windows Reboot Requirements

@@ -2,7 +2,7 @@
 
 # Nextcloud Server Role
 
-Deploys Nextcloud server stack on motoko with /space integration per PHC invariants.
+Deploys Nextcloud server stack on akira with /space integration per PHC invariants.
 
 ## Overview
 
@@ -70,26 +70,26 @@ The role configures Nextcloud external storage to mount existing `/space/mike` d
 
 2. Secrets sync must be run first:
    ```bash
-   ansible-playbook playbooks/secrets-sync.yml --limit motoko
+   ansible-playbook playbooks/secrets-sync.yml --limit akira
    ```
 
 ## Usage
 
 ```bash
 # Deploy Nextcloud stack
-ansible-playbook playbooks/motoko/deploy-nextcloud.yml --limit motoko
+ansible-playbook playbooks/akira-deploy-nextcloud.yml --limit akira
 
 # Validate deployment
-ansible-playbook playbooks/motoko/deploy-nextcloud.yml --limit motoko --tags validate
+ansible-playbook playbooks/akira-deploy-nextcloud.yml --limit akira --tags validate
 ```
 
 ## Endpoints
 
-- **Internal**: `https://motoko.pangolin-vega.ts.net` (via Tailscale MagicDNS + HTTPS)
+- **Internal**: `https://akira.pangolin-vega.ts.net` (via Tailscale MagicDNS + HTTPS)
 - **External**: `https://nextcloud.miket.io` (via Cloudflare Access)
 
-> **Note**: The hostname `nextcloud.motoko` is NOT valid. Tailscale MagicDNS uses
-> `<hostname>.<tailnet>.ts.net` format. Use `motoko.pangolin-vega.ts.net` for internal access.
+> **Note**: The hostname `nextcloud.akira` is NOT valid. Tailscale MagicDNS uses
+> `<hostname>.<tailnet>.ts.net` format. Use `akira.pangolin-vega.ts.net` for internal access.
 
 ## Scheduled Jobs
 
@@ -107,7 +107,7 @@ Verify with: `restic snapshots | grep nextcloud`
 
 ## See Also
 
-- [Nextcloud on Motoko Guide](../../../docs/guides/nextcloud_on_motoko.md)
+- [Nextcloud on Akira Guide](../../../docs/guides/nextcloud_on_akira.md)
 - [M365 Sync Runbook](../../../docs/runbooks/nextcloud_m365_sync.md)
 - [Client Usage Guide](../../../docs/guides/nextcloud_client_usage.md)
 

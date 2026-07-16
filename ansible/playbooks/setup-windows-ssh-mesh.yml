@@ -57,7 +57,7 @@
       set_fact:
         all_windows_pubkeys: "{{ groups['windows_workstations'] | map('extract', hostvars, 'windows_ssh_pubkey') | list }}"
 
-    - name: Add motoko's key to the list
+    - name: Add control node (akira) key to the list
       set_fact:
         all_authorized_keys: "{{ all_windows_pubkeys + [lookup('file', '~/.ssh/id_ed25519.pub')] }}"
 

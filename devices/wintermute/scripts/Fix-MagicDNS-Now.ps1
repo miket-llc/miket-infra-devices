@@ -9,6 +9,6 @@ Write-Host "Verifying..." -ForegroundColor Yellow
 $status = & $tailscale status --json | ConvertFrom-Json
 Write-Host "DNS: $($status.Self.DNS)" -ForegroundColor $(if ($status.Self.DNS) { "Green" } else { "Red" })
 Write-Host "Testing hostname resolution..." -ForegroundColor Yellow
-Test-NetConnection -ComputerName motoko -InformationLevel Quiet && Write-Host "✅ motoko resolves" -ForegroundColor Green || Write-Host "❌ motoko does not resolve" -ForegroundColor Red
+Test-NetConnection -ComputerName akira -InformationLevel Quiet && Write-Host "✅ akira resolves" -ForegroundColor Green || Write-Host "❌ akira does not resolve" -ForegroundColor Red
 
 

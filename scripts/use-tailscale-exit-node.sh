@@ -3,7 +3,7 @@
 
 
 # Use Tailscale Exit Node to Bypass Router Filtering
-# This routes all traffic through motoko server, bypassing local router
+# This routes all traffic through akira server, bypassing local router
 
 set -e
 
@@ -33,18 +33,18 @@ fi
 
 echo -e "${GREEN}✓ Tailscale is connected${NC}\n"
 
-# Check if motoko is available
-echo -e "${GREEN}Checking for motoko exit node...${NC}"
-if tailscale status | grep -q "motoko"; then
-    echo -e "${GREEN}✓ motoko is available${NC}\n"
+# Check if akira is available
+echo -e "${GREEN}Checking for akira exit node...${NC}"
+if tailscale status | grep -q "akira"; then
+    echo -e "${GREEN}✓ akira is available${NC}\n"
 else
-    echo -e "${YELLOW}⚠️  motoko not found in Tailscale network${NC}"
-    echo -e "${YELLOW}You may need to configure motoko as an exit node first${NC}\n"
+    echo -e "${YELLOW}⚠️  akira not found in Tailscale network${NC}"
+    echo -e "${YELLOW}You may need to configure akira as an exit node first${NC}\n"
 fi
 
 # Enable exit node
-echo -e "${GREEN}Enabling Tailscale exit node (motoko)...${NC}"
-sudo tailscale up --exit-node=motoko --exit-node-allow-lan-access=true --accept-dns --ssh
+echo -e "${GREEN}Enabling Tailscale exit node (akira)...${NC}"
+sudo tailscale up --exit-node=akira --exit-node-allow-lan-access=true --accept-dns --ssh
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Exit node enabled${NC}\n"
@@ -84,7 +84,7 @@ echo ""
 echo -e "${CYAN}========================================${NC}"
 echo -e "${GREEN}Exit node configured successfully!${NC}"
 echo -e "${CYAN}========================================${NC}"
-echo -e "All traffic is now routed through motoko."
+echo -e "All traffic is now routed through akira."
 echo -e "This bypasses any router-level filtering."
 echo ""
 echo -e "To disable exit node later:"

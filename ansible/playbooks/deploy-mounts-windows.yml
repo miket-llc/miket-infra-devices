@@ -8,7 +8,7 @@
   hosts: windows
   gather_facts: no
   # Per-share SMB servers come from the mount_shares_windows role defaults:
-  # /space and /flux on akira, /time on motoko (ADR-0010). Passwords are
+  # /space, /flux and /time all on akira (ADR-0010). Passwords are
   # fetched per server below and passed via smb_passwords.
 
   pre_tasks:
@@ -22,13 +22,11 @@
       check_mode: false  # read-only AKV lookup; must run even in --check
       loop:
         - akira-smb-password
-        - motoko-smb-password
 
     - name: Build smb_passwords dict (keyed by server short name)
       set_fact:
         smb_passwords:
           akira: "{{ smb_password_results.results[0].stdout | trim }}"
-          motoko: "{{ smb_password_results.results[1].stdout | trim }}"
       no_log: true
 
     # WinRM authentication handled by inventory Azure Key Vault lookup
@@ -115,7 +113,7 @@
           Drives mapped (per ADR-0010):
             X: → \\akira\flux
             S: → \\akira\space
-            T: → \\motoko\time
+            T: → \\akira\time
           All via Tailscale MagicDNS hostnames.
           Scheduled task "MikeT Map Network Drives" runs at every logon.
 

@@ -2,7 +2,7 @@
 
 ---
 # Disk Maintenance Role
-# Comprehensive disk cleanup for motoko and other Linux hosts
+# Comprehensive disk cleanup for akira and other Linux hosts
 
 - name: Check if disk maintenance is confirmed
   ansible.builtin.assert:

@@ -2,11 +2,11 @@
 
 ---
 # Playbook: remote_detect.yml
-# Detects NoMachine server status on Linux hosts (primarily Motoko)
+# Detects NoMachine server status on Linux hosts (primarily akira)
 # RDP/VNC detection removed - NoMachine is the sole remote desktop solution
 
 - name: Detect NoMachine server
-  hosts: motoko
+  hosts: akira
   gather_facts: true
   tags:
     - remote

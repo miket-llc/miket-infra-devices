@@ -8,7 +8,7 @@
   changed_when: false
   failed_when: false
 
-# --- RedHat / Fedora (akira, motoko) ---
+# --- RedHat / Fedora (akira) ---
 - name: Install cloudflared from .rpm (RedHat family)
   ansible.builtin.dnf:
     name: "{{ cloudflared_rpm_url }}"

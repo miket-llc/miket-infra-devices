@@ -26,7 +26,7 @@ echo -e "${GREEN}Setting up Tailscale for: ${DEVICE_NAME}${NC}"
 # Define device tags based on hostname
 # These must match the tags defined in miket-infra/infra/tailscale/entra-prod/devices.tf
 case "$DEVICE_NAME" in
-    motoko)
+    akira)
         TAGS="tag:server,tag:linux,tag:ansible"
         ADVERTISE_ROUTES="--advertise-routes=192.168.1.0/24"  # Local network
         SSH_ENABLED="--ssh"
@@ -122,8 +122,8 @@ else
     exit 1
 fi
 
-# Special setup for Ansible control node (motoko)
-if [[ "$DEVICE_NAME" == "motoko" ]]; then
+# Special setup for Ansible control node (akira)
+if [[ "$DEVICE_NAME" == "akira" ]]; then
     echo -e "${GREEN}Setting up Ansible for managing other devices...${NC}"
     
     # Install Ansible if not present
@@ -136,7 +136,7 @@ if [[ "$DEVICE_NAME" == "motoko" ]]; then
         fi
     fi
     
-    echo -e "${GREEN}✅ Motoko is ready as Ansible control node${NC}"
+    echo -e "${GREEN}✅ Akira is ready as Ansible control node${NC}"
     echo "You can now manage other devices using:"
     echo "  ansible-playbook -i ~/miket-infra-devices/ansible/inventory/hosts.yml playbooks/site.yml"
 fi

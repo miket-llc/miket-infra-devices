@@ -2,7 +2,7 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 # Detect USB drive and partitions for 20TB drive setup
-# Run this script on motoko to identify partitions before running Ansible playbook
+# Run this script on akira to identify partitions before running Ansible playbook
 
 set -e
 
@@ -42,7 +42,7 @@ fi
 echo ""
 echo "💡 To configure, run:"
 echo "   cd ~/miket-infra-devices/ansible"
-echo "   ansible-playbook -i inventory/hosts.yml playbooks/motoko/configure-usb-storage.yml --limit motoko --connection=local"
+echo "   ansible-playbook -i inventory/hosts.yml playbooks/akira/configure-usb-storage.yml --limit akira --connection=local"
 
 
 

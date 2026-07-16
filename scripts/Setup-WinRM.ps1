@@ -3,7 +3,7 @@
     Configures WinRM for Ansible management on Windows devices
 .DESCRIPTION
     This script enables and configures WinRM (Windows Remote Management) 
-    for Ansible automation from the motoko control node.
+    for Ansible automation from the akira control node.
     
     It configures:
     - WinRM service (HTTP on port 5985)
@@ -188,11 +188,11 @@ try {
     Write-Host ""
     Write-Host "[SUCCESS] WinRM setup complete!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "This device can now be managed via Ansible from motoko." -ForegroundColor Cyan
+    Write-Host "This device can now be managed via Ansible from akira." -ForegroundColor Cyan
     if ($tailscaleIP) {
         Write-Host "Tailscale IP: $tailscaleIP" -ForegroundColor Cyan
         Write-Host ""
-        Write-Host "Test from motoko with:" -ForegroundColor Yellow
+        Write-Host "Test from akira with:" -ForegroundColor Yellow
         Write-Host "  ansible $($env:COMPUTERNAME.ToLower()) -i ~/miket-infra-devices/ansible/inventory/hosts.yml -m win_ping" -ForegroundColor White
     } else {
         Write-Host ""
@@ -202,7 +202,7 @@ try {
     
 } catch {
     Write-Warning "Could not verify WinRM configuration: $_"
-    Write-Host "WinRM may still be configured correctly. Test from motoko to verify." -ForegroundColor Yellow
+    Write-Host "WinRM may still be configured correctly. Test from akira to verify." -ForegroundColor Yellow
 }
 
 Write-Host ""

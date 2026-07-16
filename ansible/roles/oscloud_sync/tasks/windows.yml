@@ -27,7 +27,7 @@
 - name: Create scheduled task for OS cloud sync
   win_scheduled_task:
     name: "MikeT OS Cloud Sync"
-    description: "Syncs iCloud/OneDrive to /space/devices on motoko"
+    description: "Syncs iCloud/OneDrive to /space/devices on akira"
     actions:
       - path: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe
         arguments: -ExecutionPolicy Bypass -File "C:\Scripts\oscloud-sync\Sync-ToDevices.ps1"

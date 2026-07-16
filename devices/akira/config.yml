@@ -270,7 +270,7 @@ device:
           mac: "38:05:25:30:42:85"
           ip: 192.168.1.195
           primary: false
-      relay_host: motoko  # Always-on host that sends WOL packets
+      relay_host: atom  # Always-on (battery-backed) host that sends WOL packets
       # WOL support: pumbg (magic packet supported)
       # Current state: disabled (d) - needs wol@.service
     

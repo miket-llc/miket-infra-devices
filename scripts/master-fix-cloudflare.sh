@@ -136,7 +136,7 @@ echo ""
 echo -e "${CYAN}These fixes are permanent and will persist across reboots.${NC}"
 echo ""
 
-echo -e "${GREEN}To verify on other Tailnet nodes (motoko, wintermute, etc.):${NC}"
+echo -e "${GREEN}To verify on other Tailnet nodes (akira, wintermute, etc.):${NC}"
 echo -e "  Run this script on each node, or"
 echo -e "  Deploy via Ansible: ansible-playbook playbooks/fix-cloudflare-dns.yml"
 echo ""

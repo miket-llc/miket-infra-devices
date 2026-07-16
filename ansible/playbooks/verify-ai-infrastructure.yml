@@ -39,11 +39,11 @@
       
     - name: Test LiteLLM API endpoint (Linux)
       uri:
-        url: "http://localhost:8000/health"
+        url: "http://localhost:4000/health"
         method: GET
         timeout: 5
       register: litellm_health_linux
-      when: ansible_os_family != "Windows" and inventory_hostname == "motoko"
+      when: ansible_os_family != "Windows" and inventory_hostname == "akira"
       ignore_errors: true
       
     - name: Display API health status

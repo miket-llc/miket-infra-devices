@@ -39,7 +39,7 @@ else
 # DMARC Report Summary — ${TODAY}
 
 _Stub report._ \`$SUMMARY_SCRIPT\` is not installed on this host; install it
-(or run the summary manually from motoko) to generate an actual aggregate
+(or run the summary manually from akira) to generate an actual aggregate
 summary. This file exists so the daily heartbeat metric continues to fire
 and a missing run still trips \`DmarcSummaryStale\`.
 EOF

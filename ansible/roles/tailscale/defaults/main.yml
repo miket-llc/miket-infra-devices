@@ -7,7 +7,7 @@
 
 # Device-specific tags (must match miket-infra ACL tagOwners)
 tailscale_device_tags:
-  motoko: "tag:server,tag:linux,tag:ansible"
+  akira: "tag:server,tag:linux,tag:ansible"
   wintermute: "tag:workstation,tag:windows,tag:gaming"
   armitage: "tag:linux,tag:gaming,tag:workstation"
   count-zero: "tag:workstation,tag:macos"
@@ -23,8 +23,8 @@ tailscale_magicdns_resolver: "100.100.100.100"
 tailscale_magicdns_suffix: "pangolin-vega.ts.net"  # Default, will be auto-detected
 
 # Exit node + subnet routing configuration (host-var driven).
-# Set per-host in host_vars. As of 2026-06 these roles live on akira
-# (control node); motoko held them previously but was decommissioned.
+# Set per-host in host_vars. These roles live on akira
+# (control node); motoko held them previously but was decommissioned (ADR-0010).
 tailscale_exit_node: false          # true => advertise this node as an exit node
 tailscale_advertise_routes: []      # e.g. ["192.168.1.0/24"] to act as a subnet router
 

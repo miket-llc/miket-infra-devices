@@ -12,7 +12,7 @@ This Ansible role installs [Warp Terminal](https://www.warp.dev/), a modern Rust
 
 | Platform | Status | Notes |
 |----------|--------|-------|
-| Ubuntu/Debian (Linux) | ✅ Full | Primary target (motoko) |
+| Ubuntu/Debian (Linux) | ✅ Full | Primary target (akira) |
 | macOS | ✅ Full | Via Homebrew Cask |
 | Windows | ⚠️ Beta | Manual installation recommended |
 
@@ -43,7 +43,7 @@ warp_package_name: "warp-terminal"
 ### Deploy to specific host
 
 ```bash
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml --limit motoko
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-warp-terminal.yml --limit akira
 ```
 
 ### Deploy to all Linux servers

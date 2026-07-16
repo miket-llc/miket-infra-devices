@@ -48,7 +48,7 @@
     that:
       - "'/space' not in sync_root_abs"
       - "'/mkt' not in sync_root_abs"
-      - "'\\\\motoko' not in sync_root_abs"
+      - "'\\\\akira' not in sync_root_abs"
     fail_msg: "Sync root MUST NOT be on a /space SMB mount!"
     success_msg: "Sync root is not on SMB mount"
 
