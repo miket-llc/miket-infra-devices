@@ -170,6 +170,104 @@ xprop -id "$WID" _NET_FRAME_EXTENTS         # expect 0, 0, 0, 0 (was 0, 0, 35, 0
   healthy, suspect an **EOL runtime** in the pending set. Apply updates via
   `flatpak update` and get the offending app off the dead runtime.
 
+## Recurrence 2026-07-14 — different root cause: the snap backend
+
+Discover hung on *Fetching updates…* again (badge showed 21, then 31 after a cache
+refresh, but the list never rendered and Update All stayed grey). This time **neither**
+prior cause was present: no EOL runtime (only 24.08/25.08 remained) and no phantom remote
+(`discoverrc` clean, only `fedora` + `flathub`).
+
+**Root cause: the `snap` backend.** `plasma-discover-snap` started a fetch and never
+signalled completion. Discover's *Fetching updates…* spinner is tied to the **global**
+`isFetching` state aggregated across **all** backends, so one stuck backend pins the whole
+Updates page even though PackageKit/Flatpak/fwupd already had their updates ready. No snaps
+were even installed and `snapd.service` was inactive (socket-activated only) — the plugin
+was pure dead weight.
+
+**Isolation method (definitive).** Load backends selectively and screenshot each run:
+```bash
+plasma-discover --listbackends        # fwupd, flatpak, snap, packagekit, kns
+# renders fine:
+plasma-discover --backends packagekit-backend,flatpak-backend,fwupd-backend --mode update
+# re-hangs the moment snap is added back:
+plasma-discover --backends packagekit-backend,flatpak-backend,fwupd-backend,snap-backend --mode update
+```
+`kns` was NOT guilty (the "Application Addons" category loads fine).
+
+**Fix (as applied 2026-07-14, but see the durable-fix update below):**
+```bash
+sudo dnf remove -y plasma-discover-snap   # 1 package, no cascade; snap-backend.so gone
+```
+Confirmed a normal `plasma-discover --mode update` (no flags) then renders with Update All
+enabled: 2 flatpaks (Chrome, Freedesktop SDK) + fwupd (Microsoft UEFI dbx) + PackageKit
+system upgrade (28 pkgs), total 3.6 GiB.
+
+**Red herrings ruled out this round:**
+- `rpmfusion-nonfree-steam` 404s on refresh — stale local metadata pointing at a rotated
+  `primary.xml.gz` checksum. Cleared by `sudo dnf clean all && sudo dnf makecache`. Not the
+  Discover cause (PackageKit still returned updates fine).
+- IPv6 tether hijack — not active (no v6 default route; `ip_resolve=4` holding; v4 to
+  mirrors HTTP 200 in 0.4s).
+- Process was idle in its Qt event loop (`eu-stack` showed all threads in `ppoll`/waits),
+  not deadlocked on any socket — consistent with "a backend never emitted done."
+
+**Screenshot verification on this Wayland box** (no `xdotool`/`qdotool`/`qdbus` installed):
+```bash
+# activate a specific window via KWin scripting over dbus-send, then capture active window
+printf 'workspace.windowList().forEach(function(w){if(w.resourceClass&&String(w.resourceClass).toLowerCase().indexOf("discover")>=0){w.minimized=false;workspace.activeWindow=w;}});' > /tmp/act.js
+ID=$(dbus-send --session --print-reply --dest=org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript string:/tmp/act.js | awk '/int32/{print $2}')
+dbus-send --session --dest=org.kde.KWin /Scripting/Script$ID org.kde.kwin.Script.run
+spectacle -b -n -a -o /tmp/shot.png
+```
+
+**Caveat:** Discover is effectively single-instance. Removing `plasma-discover-snap` only
+takes effect for a **freshly started** Discover — an already-open window keeps the plugin
+loaded and stays wedged, and clicking the icon may just re-focus the stale window. Fully
+quit all `plasma-discover` processes (`pkill -x plasma-discover`; note `-f` self-matches the
+shell) before relaunching.
+
+## Recurrence 2026-07-25 — the snap-backend removal did NOT stick (weak-dep auto-repull)
+
+Discover wedged on *Fetching updates…* **again**, same idle-in-`ppoll` event-loop signature
+(a live `plasma-discover --mode update` PID sitting flat at ~3% CPU, `eu-stack` showing only
+`QCoreApplication::exec → ppoll` — fetched nothing, never emitted done). Root cause: **the
+snap backend was back.** `plasma-discover-snap` had been reinstalled on **2026-07-19** by a
+routine `dnf update -y` (history tx 94, logged as *"Weak Dependency updates"*), even though
+tx 91 removed it on 2026-07-14.
+
+**Why `dnf remove` doesn't hold.** `plasma-discover-snap` ships:
+```
+Supplements: (plasma-discover and snapd)
+```
+Both `plasma-discover` and `snapd` are installed, so with the default `install_weak_deps=True`,
+**every full `dnf update` re-adds the snap backend automatically.** On this fleet that means
+`make update-all` silently re-wedges Discover on armitage roughly weekly. Removing the package
+is necessary but not sufficient — you must also break the weak-dep re-pull.
+
+**Durable fix.** Add a permanent dnf exclude, *then* remove the package:
+```bash
+# 1. Permanent exclude so weak-dep resolution can never re-add it (survives dnf update):
+sudo sed -i '/^\[main\]/a excludepkgs=plasma-discover-snap' /etc/dnf/dnf.conf
+
+# 2. Remove it. NOTE: on dnf5 (F44) the exclude also blocks `dnf remove`
+#    ("matches only excluded packages"), and `--disableexcludes` is not a remove option.
+#    It's a leaf (nothing requires it), so remove via rpm directly:
+sudo rpm -e plasma-discover-snap
+
+# 3. Verify the exclude blocks a future re-pull:
+sudo dnf install plasma-discover-snap   # -> "Argument ... matches only excluded packages"
+```
+Verified: `plasma-discover --listbackends` now shows only `fwupd, flatpak, packagekit, kns`.
+A fresh `plasma-discover --mode update` ramps CPU to ~95% (actually fetching), decays smoothly
+to idle, and settles in the event loop — versus the wedged instance that sat flat from launch.
+
+**Alternative if snap is genuinely unwanted:** `sudo dnf remove -y snapd` removes the other
+half of the `Supplements` trigger, and the snap backend won't come back without needing the
+exclude. Kept snapd here (socket-activated, harmless) and used the surgical exclude instead.
+
+**Fleet takeaway:** any Discover backend you remove that carries a `Supplements:` on installed
+packages will be resurrected by `dnf update`. Pair the removal with an `excludepkgs=` line.
+
 ## Related Documentation
 
 - `CLAUDE.md` (chezmoi dotfiles repo) — WezTerm config lives at `~/.config/wezterm/`
