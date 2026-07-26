@@ -261,9 +261,18 @@ Verified: `plasma-discover --listbackends` now shows only `fwupd, flatpak, packa
 A fresh `plasma-discover --mode update` ramps CPU to ~95% (actually fetching), decays smoothly
 to idle, and settles in the event loop — versus the wedged instance that sat flat from launch.
 
-**Alternative if snap is genuinely unwanted:** `sudo dnf remove -y snapd` removes the other
-half of the `Supplements` trigger, and the snap backend won't come back without needing the
-exclude. Kept snapd here (socket-activated, harmless) and used the surgical exclude instead.
+**What was actually done on armitage (2026-07-25): both.** After the exclude + `rpm -e` above,
+snapd was also pulled since snap capability isn't wanted on this box:
+```bash
+sudo systemctl stop snapd.socket snapd.service
+sudo dnf remove -y snapd snapd-selinux snap-confine snapd-glib snapd-qt   # all orphans
+sudo rm -rf /var/lib/snapd    # snapd's uninstall clears most state; this is the residual
+```
+Removing `snapd` eliminates the other half of `Supplements:(plasma-discover and snapd)`, so
+the snap backend can never be re-pulled regardless of the exclude — the two fixes are now
+redundant guarantees (the `excludepkgs=` line is left in place as belt-and-braces). Nothing
+hard-required snapd (`rpm -q --whatrequires snapd` → none); the snapd-glib/snapd-qt libs were
+orphaned once `plasma-discover-snap` was gone.
 
 **Fleet takeaway:** any Discover backend you remove that carries a `Supplements:` on installed
 packages will be resurrected by `dnf update`. Pair the removal with an `excludepkgs=` line.
