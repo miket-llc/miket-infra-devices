@@ -217,6 +217,123 @@
       tags: [workstation_gui, warp]
 
 # ========================================
+# Obsidian Installation (AppImage, no Flatpak)
+# ========================================
+- name: Obsidian installation block
+  when: obsidian_enabled | bool
+  block:
+    - name: Ensure FUSE is present for AppImage execution
+      ansible.builtin.dnf:
+        name: fuse
+        state: present
+      when: ansible_os_family == 'RedHat'
+      tags: [workstation_gui, obsidian]
+
+    - name: Create Obsidian installation directory
+      ansible.builtin.file:
+        path: "{{ obsidian_install_dir }}"
+        state: directory
+        mode: '0755'
+      tags: [workstation_gui, obsidian]
+
+    - name: Download Obsidian AppImage
+      ansible.builtin.get_url:
+        url: "{{ obsidian_appimage_url }}"
+        dest: "{{ obsidian_install_dir }}/Obsidian-{{ obsidian_version }}.AppImage"
+        mode: '0755'
+      tags: [workstation_gui, obsidian]
+
+    - name: Link Obsidian to the current version
+      ansible.builtin.file:
+        src: "{{ obsidian_install_dir }}/Obsidian-{{ obsidian_version }}.AppImage"
+        dest: /usr/local/bin/obsidian
+        state: link
+      tags: [workstation_gui, obsidian]
+
+    - name: Ensure local applications directory exists (Obsidian)
+      ansible.builtin.file:
+        path: /usr/local/share/applications
+        state: directory
+        mode: '0755'
+      when: workstation_create_desktop_entries | bool
+      tags: [workstation_gui, obsidian]
+
+    - name: Create Obsidian desktop entry
+      ansible.builtin.copy:
+        dest: /usr/local/share/applications/obsidian.desktop
+        content: |
+          [Desktop Entry]
+          Name=Obsidian
+          Comment=Markdown-based knowledge base
+          Exec=/usr/local/bin/obsidian %U
+          Icon=obsidian
+          Type=Application
+          Categories=Office;TextEditor;
+          MimeType=x-scheme-handler/obsidian;
+          StartupNotify=true
+          Terminal=false
+          # Managed by Ansible - workstation_gui_tools role
+        mode: '0644'
+      when: workstation_create_desktop_entries | bool
+      tags: [workstation_gui, obsidian]
+
+# ========================================
+# Google Chrome Installation (native RPM)
+# ========================================
+- name: Chrome installation block
+  when:
+    - chrome_enabled | bool
+    - ansible_os_family == 'RedHat'
+  block:
+    - name: Add Google Chrome repository
+      ansible.builtin.yum_repository:
+        name: google-chrome
+        description: Google Chrome
+        baseurl: https://dl.google.com/linux/chrome/rpm/stable/x86_64
+        gpgkey: https://dl.google.com/linux/linux_signing_key.pub
+        gpgcheck: yes
+        enabled: yes
+      tags: [workstation_gui, chrome]
+
+    - name: Install Google Chrome
+      ansible.builtin.dnf:
+        name: google-chrome-stable
+        state: present
+      tags: [workstation_gui, chrome]
+
+# ========================================
+# Slack Installation (native RPM)
+# ========================================
+- name: Slack installation block
+  when:
+    - slack_enabled | bool
+    - ansible_os_family == 'RedHat'
+  block:
+    - name: Resolve current Slack RPM URL
+      ansible.builtin.uri:
+        url: "{{ slack_release_api }}"
+        return_content: yes
+      register: slack_release
+      failed_when: false
+      tags: [workstation_gui, slack]
+
+    - name: Parse Slack RPM URL
+      ansible.builtin.set_fact:
+        slack_rpm_url: "{{ (slack_release.content | from_json).download_url }}"
+      when:
+        - slack_release is succeeded
+        - slack_release.content is defined
+      tags: [workstation_gui, slack]
+
+    - name: Install Slack
+      ansible.builtin.dnf:
+        name: "{{ slack_rpm_url }}"
+        state: present
+        disable_gpg_check: yes
+      when: slack_rpm_url is defined
+      tags: [workstation_gui, slack]
+
+# ========================================
 # Verification
 # ========================================
 - name: Verify VS Code installation

@@ -221,10 +221,15 @@ workstation_packages:
   - buildah
 
 # Flatpaks for workstation
-flatpak_apps:
-  - com.visualstudio.code
-  - dev.warp.Warp
-  # - io.github.ArcticFox-Dev.ArcticFox.Cursor
+# Baseline (VS Code, Warp, Obsidian) comes from the linux_desktop_base role.
+# These are armitage-specific additions, merged with that baseline.
+# Chrome and Slack are installed as native RPMs by workstation_gui_tools.
+# Only apps with no maintained Fedora RPM remain as Flatpaks.
+linux_desktop_flatpaks_extra:
+  - eu.betterbird.Betterbird
+  # Gaming (armitage carries tag:gaming; hybrid Intel iGPU + RTX 4070)
+  - com.heroicgameslauncher.hgl
+  - net.davidotek.pupgui2
 
 # =============================================================================
 # Remote Desktop Configuration
