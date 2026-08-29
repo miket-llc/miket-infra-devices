@@ -31,6 +31,14 @@ cursor_linux_appimage_url: "https://downloads.cursor.com/production/latest/linux
 warp_enabled: true
 # Warp is currently Linux and macOS only (no Windows support yet)
 
+# VS Code Wayland override
+# On KDE Wayland, VS Code launches via XWayland by default, which produces
+# blank secondary windows on hybrid Intel + NVIDIA graphics. Running it as a
+# native Wayland client fixes it without giving up GPU acceleration.
+# Deployed as a /usr/local/share/applications override so the RPM's own
+# desktop file is left untouched (same approach as cool-retro-term).
+vscode_wayland_override_enabled: true
+
 # ========================================
 # Obsidian Configuration
 # ========================================

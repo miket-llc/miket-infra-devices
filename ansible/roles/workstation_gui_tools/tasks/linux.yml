@@ -217,6 +217,51 @@
       tags: [workstation_gui, warp]
 
 # ========================================
+# VS Code Wayland Desktop Override
+# ========================================
+- name: VS Code Wayland override block
+  when:
+    - vscode_enabled | bool
+    - vscode_wayland_override_enabled | bool
+    - desktop_environment | default('') == 'kde'
+  block:
+    - name: Ensure local applications directory exists (VS Code)
+      ansible.builtin.file:
+        path: /usr/local/share/applications
+        state: directory
+        mode: '0755'
+      tags: [workstation_gui, vscode, wayland]
+
+    - name: Deploy VS Code desktop entry with Wayland hints
+      ansible.builtin.copy:
+        dest: /usr/local/share/applications/code.desktop
+        content: |
+          [Desktop Entry]
+          Name=Visual Studio Code
+          Comment=Code Editing. Redefined.
+          GenericName=Text Editor
+          Exec=/usr/share/code/code --ozone-platform-hint=auto --enable-features=WaylandWindowDecorations %F
+          Icon=vscode
+          Type=Application
+          StartupNotify=false
+          StartupWMClass=Code
+          Categories=TextEditor;Development;IDE;
+          MimeType=application/x-code-workspace;
+          Actions=new-empty-window;
+          Keywords=vscode;
+          # Managed by Ansible - workstation_gui_tools role
+          # Overrides /usr/share/applications/code.desktop to run VS Code as a
+          # native Wayland client instead of via XWayland. Addresses blank
+          # secondary windows on KDE Wayland with hybrid Intel + NVIDIA graphics.
+
+          [Desktop Action new-empty-window]
+          Name=New Empty Window
+          Exec=/usr/share/code/code --new-window --ozone-platform-hint=auto --enable-features=WaylandWindowDecorations %F
+          Icon=vscode
+        mode: '0644'
+      tags: [workstation_gui, vscode, wayland]
+
+# ========================================
 # Obsidian Installation (AppImage, no Flatpak)
 # ========================================
 - name: Obsidian installation block
