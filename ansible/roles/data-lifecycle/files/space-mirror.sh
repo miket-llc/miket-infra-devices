@@ -283,6 +283,12 @@ EXCLUDE_PATTERNS=(
     --exclude="**/.pytest_cache/**"
     --exclude="**/.venv/**"
     --exclude="**/venv/**"
+    # Derived / rebuildable artifacts that should never be in the SoR mirror:
+    # - docker/**: a Docker data-root (overlay2/image/buildkit) living on /space;
+    #   container internals, rebuildable, and full of sysfs-symlink noise.
+    # - **/.build/**: Swift/Xcode SwiftPM build output (same class as node_modules/.venv).
+    --exclude="docker/**"
+    --exclude="**/.build/**"
 )
 
 # Run rclone with JSON stats for marker data
