@@ -21,7 +21,9 @@
         name: gh-cli
         description: GitHub CLI
         baseurl: https://cli.github.com/packages/rpm
-        gpgkey: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x23F3D4EA75716059
+        # GitHub rotated the RPM signing key (old 0x23F3D4EA75716059 expired 2026-09);
+        # their keyring URL always carries the current key — never pin a key ID here.
+        gpgkey: https://cli.github.com/packages/githubcli-archive-keyring.asc
         gpgcheck: yes
         enabled: yes
       when: common_dev_tools_install_gh | bool
