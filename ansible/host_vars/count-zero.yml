@@ -28,6 +28,10 @@ ollama_enabled: false
 #   - name: yarn-llama2:7b-128k
 #     context: 131072
 
+# Ansible connects through the mdt automation account, while interactive
+# workstation tools belong to the primary desktop user.
+ai_workstation_tools_target_user: miket
+
 # ========================================
 # Monitoring Configuration
 # ========================================

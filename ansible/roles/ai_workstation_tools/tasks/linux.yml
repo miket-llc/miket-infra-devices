@@ -1,0 +1,576 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Resolve the AI tools target account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ ai_workstation_tools_target_user }}"
+    fail_key: true
+  check_mode: false
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Record the AI tools target home directory
+  ansible.builtin.set_fact:
+    ai_workstation_tools_target_home: >-
+      {{ ansible_facts.getent_passwd[ai_workstation_tools_target_user][4] }}
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Validate the AI tools target home directory
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_target_home | length > 1
+      - ai_workstation_tools_target_home is match('^/')
+    fail_msg: >-
+      Could not resolve an absolute home directory for
+      {{ ai_workstation_tools_target_user }} through getent.
+    quiet: true
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+# ChatGPT desktop
+- name: Validate ChatGPT Fedora support
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Fedora'
+      - >-
+        ansible_facts.distribution_major_version | int in
+        ai_workstation_tools_supported_fedora_versions
+      - ansible_facts.architecture in ai_workstation_tools_chatgpt_rpm_urls
+    fail_msg: >-
+      ChatGPT desktop requires Fedora
+      {{ ai_workstation_tools_supported_fedora_versions | join(' or ') }} on
+      x86_64 or aarch64; found {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_major_version }} on
+      {{ ansible_facts.architecture }}.
+    quiet: true
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Check the ChatGPT RPM installation
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --query
+      - "{{ ai_workstation_tools_chatgpt_package }}"
+  register: ai_workstation_tools_chatgpt_rpm_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Download the current official ChatGPT RPM
+  ansible.builtin.get_url:
+    url: >-
+      {{ ai_workstation_tools_chatgpt_rpm_urls[ansible_facts.architecture] }}
+    dest: "{{ ai_workstation_tools_chatgpt_rpm_path }}"
+    mode: "0644"
+    force: true
+    timeout: 180
+  become: true
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_chatgpt_rpm_check.rc != 0
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt]
+
+- name: Install the official ChatGPT RPM with DNF
+  ansible.builtin.dnf:
+    name: "{{ ai_workstation_tools_chatgpt_rpm_path }}"
+    state: present
+  become: true
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_chatgpt_rpm_check.rc != 0
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt]
+
+- name: Update ChatGPT from its official package repository  # noqa package-latest
+  ansible.builtin.dnf:
+    name: "{{ ai_workstation_tools_chatgpt_package }}"
+    state: latest
+    update_cache: true
+  become: true
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_chatgpt_rpm_check.rc == 0
+    - ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt]
+
+- name: Report the planned ChatGPT installation in check mode
+  ansible.builtin.debug:
+    msg: >-
+      ChatGPT is absent and would be installed from the official
+      {{ ansible_facts.architecture }} RPM.
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_chatgpt_rpm_check.rc != 0
+    - ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Verify the ChatGPT RPM
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --query
+      - "{{ ai_workstation_tools_chatgpt_package }}"
+  register: ai_workstation_tools_chatgpt_rpm_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Verify the ChatGPT launcher
+  ansible.builtin.stat:
+    path: /usr/bin/chatgpt
+  register: ai_workstation_tools_chatgpt_launcher_verify
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Confirm ChatGPT is usable
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_chatgpt_rpm_verify.rc == 0
+      - ai_workstation_tools_chatgpt_launcher_verify.stat.exists
+      - ai_workstation_tools_chatgpt_launcher_verify.stat.executable
+    fail_msg: >-
+      ChatGPT installation verification failed: the chatgpt RPM and executable
+      /usr/bin/chatgpt must both be present.
+    quiet: true
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_chatgpt_rpm_check.rc == 0
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+# Codex CLI
+- name: Check the target user's Codex CLI
+  ansible.builtin.stat:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/codex"
+  register: ai_workstation_tools_codex_precheck
+  when: ai_workstation_tools_codex_enabled | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Download the official Codex standalone installer
+  ansible.builtin.get_url:
+    url: "{{ ai_workstation_tools_codex_installer_url }}"
+    dest: "{{ ai_workstation_tools_codex_installer_path }}"
+    mode: "0755"
+    force: true
+    timeout: 60
+  become: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ai_workstation_tools_codex_precheck.stat.exists or
+      ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, codex]
+
+- name: Install Codex CLI as the target user
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - "{{ ai_workstation_tools_codex_installer_path }}"
+  become: true
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  environment:
+    HOME: "{{ ai_workstation_tools_target_home }}"
+    USER: "{{ ai_workstation_tools_target_user }}"
+    LOGNAME: "{{ ai_workstation_tools_target_user }}"
+    PATH: >-
+      {{ ai_workstation_tools_target_home }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+  register: ai_workstation_tools_codex_install
+  changed_when: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ai_workstation_tools_codex_precheck.stat.exists or
+      ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, codex]
+
+- name: Report the planned Codex installation in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Codex CLI is absent and would be installed for
+      {{ ai_workstation_tools_target_user }} with OpenAI's standalone installer.
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - not ai_workstation_tools_codex_precheck.stat.exists
+    - ansible_check_mode
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Check the installed Codex CLI path
+  ansible.builtin.stat:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/codex"
+  register: ai_workstation_tools_codex_path_verify
+  when: ai_workstation_tools_codex_enabled | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Read the installed Codex CLI version
+  ansible.builtin.command:
+    argv:
+      - "{{ ai_workstation_tools_target_home }}/.local/bin/codex"
+      - --version
+  become: true
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  environment:
+    HOME: "{{ ai_workstation_tools_target_home }}"
+  register: ai_workstation_tools_codex_version_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - ai_workstation_tools_codex_path_verify.stat.exists
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Confirm Codex CLI is usable
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_codex_path_verify.stat.exists
+      - ai_workstation_tools_codex_path_verify.stat.executable
+      - ai_workstation_tools_codex_version_verify.rc | default(1) == 0
+    fail_msg: >-
+      Codex CLI verification failed for {{ ai_workstation_tools_target_user }};
+      expected an executable at
+      {{ ai_workstation_tools_target_home }}/.local/bin/codex.
+    quiet: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_codex_precheck.stat.exists
+  tags: [ai_workstation_tools, codex, verify]
+
+# Claude Code
+- name: Validate Claude Code RPM support
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == 'RedHat'
+    fail_msg: >-
+      The configured Claude Code repository requires a Fedora or RHEL-family
+      host with DNF.
+    quiet: true
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Check the Claude Code RPM installation
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --query
+      - "{{ ai_workstation_tools_claude_code_package }}"
+  register: ai_workstation_tools_claude_rpm_precheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Inspect the target user's Claude launcher
+  ansible.builtin.stat:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/claude"
+    follow: false
+  register: ai_workstation_tools_claude_user_launcher_precheck
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Identify a native-installer Claude version-store link
+  ansible.builtin.set_fact:
+    ai_workstation_tools_claude_native_version_link: >-
+      {{
+        ai_workstation_tools_claude_user_launcher_precheck.stat.islnk |
+        default(false) and
+        (
+          (
+            ai_workstation_tools_claude_user_launcher_precheck.stat.lnk_source |
+            default('')
+          ).startswith(
+            ai_workstation_tools_target_home ~
+            '/.local/share/claude/versions/'
+          ) or
+          (
+            ai_workstation_tools_claude_user_launcher_precheck.stat.lnk_target |
+            default('')
+          ).startswith('../share/claude/versions/')
+        )
+      }}
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Report a preserved non-native Claude launcher
+  ansible.builtin.debug:
+    msg: >-
+      {{ ai_workstation_tools_target_home }}/.local/bin/claude already exists
+      and is not a native version-store symlink. It will be preserved; final
+      verification will report the shadowing conflict for manual resolution.
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_user_launcher_precheck.stat.exists | default(false)
+    - not ai_workstation_tools_claude_native_version_link | bool
+    - >-
+      not ai_workstation_tools_claude_user_launcher_precheck.stat.islnk |
+      default(false) or
+      ai_workstation_tools_claude_user_launcher_precheck.stat.lnk_source |
+      default('') != '/usr/bin/claude'
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Install GnuPG for Claude repository key verification
+  ansible.builtin.dnf:
+    name: gnupg2
+    state: present
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Download the Claude Code repository signing key
+  ansible.builtin.get_url:
+    url: "{{ ai_workstation_tools_claude_code_key_url }}"
+    dest: "{{ ai_workstation_tools_claude_code_key_path }}"
+    mode: "0644"
+    force: true
+    timeout: 60
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Verify the Claude Code signing key in an isolated GnuPG home
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - not ansible_check_mode
+  become: true
+  tags: [ai_workstation_tools, claude_code]
+  block:
+    - name: Create a temporary GnuPG home
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: ai-workstation-tools-claude-gpg-
+      register: ai_workstation_tools_claude_gpg_home
+      changed_when: false
+
+    - name: Restrict the temporary GnuPG home
+      ansible.builtin.file:
+        path: "{{ ai_workstation_tools_claude_gpg_home.path }}"
+        state: directory
+        mode: "0700"
+
+    - name: Read the Claude Code signing key fingerprint
+      ansible.builtin.command:
+        argv:
+          - gpg
+          - --batch
+          - --no-options
+          - --homedir
+          - "{{ ai_workstation_tools_claude_gpg_home.path }}"
+          - --with-colons
+          - --show-keys
+          - "{{ ai_workstation_tools_claude_code_key_path }}"
+      register: ai_workstation_tools_claude_key_details
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Validate the Claude Code signing key fingerprint
+      ansible.builtin.assert:
+        that:
+          - ai_workstation_tools_claude_key_details.rc == 0
+          - >-
+            ai_workstation_tools_claude_code_key_fingerprint in
+            (ai_workstation_tools_claude_key_details.stdout | upper)
+        fail_msg: >-
+          Refusing to configure the Claude Code repository: its signing key
+          did not match fingerprint
+          {{ ai_workstation_tools_claude_code_key_fingerprint }}.
+        quiet: true
+  always:
+    - name: Remove the temporary GnuPG home
+      ansible.builtin.file:
+        path: "{{ ai_workstation_tools_claude_gpg_home.path }}"
+        state: absent
+      changed_when: false
+      when:
+        - ai_workstation_tools_claude_gpg_home is defined
+        - ai_workstation_tools_claude_gpg_home.path is defined
+
+- name: Import the verified Claude Code signing key
+  ansible.builtin.rpm_key:
+    key: "{{ ai_workstation_tools_claude_code_key_path }}"
+    state: present
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Configure the official Claude Code repository
+  ansible.builtin.yum_repository:
+    name: claude-code
+    description: Claude Code
+    baseurl: "{{ ai_workstation_tools_claude_code_repo_base_url }}"
+    enabled: true
+    gpgcheck: true
+    gpgkey: "file://{{ ai_workstation_tools_claude_code_key_path }}"
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Install Claude Code from its official repository
+  ansible.builtin.dnf:
+    name: "{{ ai_workstation_tools_claude_code_package }}"
+    state: "{{ 'latest' if ai_workstation_tools_update | bool else 'present' }}"
+    update_cache: "{{ ai_workstation_tools_update | bool }}"
+  become: true
+  register: ai_workstation_tools_claude_package_install
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Restore packaged Claude Code file ownership
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --setugids
+      - "{{ ai_workstation_tools_claude_code_package }}"
+  become: true
+  changed_when: false
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_package_install is succeeded
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Point the managed Claude launcher to the packaged binary
+  ansible.builtin.file:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/claude"
+    src: /usr/bin/claude
+    state: link
+    follow: false
+    force: true
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - >-
+      ai_workstation_tools_claude_native_version_link | bool or
+      (
+        ai_workstation_tools_claude_user_launcher_precheck.stat.islnk |
+        default(false) and
+        ai_workstation_tools_claude_user_launcher_precheck.stat.lnk_source |
+        default('') == '/usr/bin/claude'
+      )
+    - ai_workstation_tools_claude_package_install is succeeded
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Report the planned Claude Code installation in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Claude Code is absent and would be installed from Anthropic's signed
+      {{ ai_workstation_tools_claude_code_channel }} DNF repository.
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_rpm_precheck.rc != 0
+    - ansible_check_mode
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Verify the Claude Code RPM
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - --query
+      - "{{ ai_workstation_tools_claude_code_package }}"
+  register: ai_workstation_tools_claude_rpm_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Verify the packaged Claude Code binary
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/claude
+      - --version
+  register: ai_workstation_tools_claude_system_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Inspect the packaged Claude Code binary
+  ansible.builtin.stat:
+    path: /usr/bin/claude
+    follow: false
+  register: ai_workstation_tools_claude_system_stat
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Inspect the final target-user Claude launcher
+  ansible.builtin.stat:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/claude"
+    follow: false
+  register: ai_workstation_tools_claude_user_launcher_verify
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Verify Claude Code in the target user's shell
+  ansible.builtin.command:
+    argv:
+      - /bin/bash
+      - -lc
+      - command -v claude && claude --version
+  become: true
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  environment:
+    HOME: "{{ ai_workstation_tools_target_home }}"
+    PATH: >-
+      {{ ai_workstation_tools_target_home }}/.local/bin:/usr/local/bin:/usr/bin:/bin
+  register: ai_workstation_tools_claude_user_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Confirm Claude Code is usable without unsafe shadowing
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_claude_rpm_verify.rc == 0
+      - ai_workstation_tools_claude_system_verify.rc == 0
+      - ai_workstation_tools_claude_system_stat.stat.exists
+      - ai_workstation_tools_claude_system_stat.stat.executable
+      - ai_workstation_tools_claude_system_stat.stat.pw_name == 'root'
+      - ai_workstation_tools_claude_system_stat.stat.gr_name == 'root'
+      - ai_workstation_tools_claude_user_verify.rc == 0
+      - >-
+        not ai_workstation_tools_claude_user_launcher_verify.stat.exists |
+        default(false) or
+        (
+          ai_workstation_tools_claude_user_launcher_verify.stat.islnk |
+          default(false) and
+          ai_workstation_tools_claude_user_launcher_verify.stat.lnk_source |
+          default('') == '/usr/bin/claude'
+        )
+    fail_msg: >-
+      Claude Code verification failed. The signed RPM must provide a working
+      root-owned /usr/bin/claude, and any {{ ai_workstation_tools_target_home
+      }}/.local/bin/claude entry must safely link to it. Existing user data was
+      preserved.
+    quiet: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_claude_rpm_precheck.rc == 0
+  tags: [ai_workstation_tools, claude_code, verify]

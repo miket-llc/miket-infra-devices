@@ -74,6 +74,9 @@
     - role: workstation_fedora
       tags: [workstation, desktop]
 
+    - role: ai_workstation_tools
+      tags: [workstation, ai-tools]
+
     # Phase 5: Filesystem layout (Flux/Space/Time)
     - role: filesystem_layout
       tags: [filesystem, mounts]
@@ -118,4 +121,3 @@
       ansible.builtin.systemd:
         name: firewalld
         state: reloaded
-

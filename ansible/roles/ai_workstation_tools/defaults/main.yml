@@ -1,0 +1,48 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Fleet policy switches
+ai_workstation_tools_enabled: true
+ai_workstation_tools_chatgpt_enabled: true
+ai_workstation_tools_codex_enabled: true
+ai_workstation_tools_claude_code_enabled: true
+ai_workstation_tools_update: false
+
+# The macOS and Windows installers run in this user's session. On Linux, the
+# account is resolved through the passwd database before installing user tools.
+ai_workstation_tools_target_user: >-
+  {{ ansible_user | default(ansible_user_id | default(''), true) }}
+
+# ChatGPT desktop for supported Fedora workstations
+ai_workstation_tools_supported_fedora_versions:
+  - 43
+  - 44
+ai_workstation_tools_chatgpt_rpm_urls:
+  x86_64: "https://persistent.oaistatic.com/codex-app-prod/linux/rpm/latest/chatgpt.x86_64.rpm"
+  aarch64: "https://persistent.oaistatic.com/codex-app-prod/linux/rpm/latest/chatgpt.aarch64.rpm"
+ai_workstation_tools_chatgpt_rpm_path: "/var/tmp/chatgpt.rpm"
+ai_workstation_tools_chatgpt_package: "chatgpt"
+
+# Codex standalone installer for Linux and macOS
+ai_workstation_tools_codex_installer_url: "https://chatgpt.com/codex/install.sh"
+ai_workstation_tools_codex_installer_path: "/var/tmp/openai-codex-install.sh"
+
+# Claude Code signed RPM repository
+ai_workstation_tools_claude_code_channel: "stable"
+ai_workstation_tools_claude_code_key_url: "https://downloads.claude.ai/keys/claude-code.asc"
+ai_workstation_tools_claude_code_key_fingerprint: "31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE"
+ai_workstation_tools_claude_code_key_path: "/etc/pki/rpm-gpg/RPM-GPG-KEY-claude-code"
+ai_workstation_tools_claude_code_repo_base_url: >-
+  https://downloads.claude.ai/claude-code/rpm/{{ ai_workstation_tools_claude_code_channel }}
+ai_workstation_tools_claude_code_package: "claude-code"
+
+# Homebrew cask identifiers
+ai_workstation_tools_macos_chatgpt_cask: "chatgpt"
+ai_workstation_tools_macos_claude_code_cask: "claude-code"
+
+# Windows Package Manager and npm identifiers
+ai_workstation_tools_windows_chatgpt_id: "9PLM9XGG6VKS"
+ai_workstation_tools_windows_chatgpt_source: "msstore"
+ai_workstation_tools_windows_claude_code_id: "Anthropic.ClaudeCode"
+ai_workstation_tools_windows_claude_code_source: "winget"
+ai_workstation_tools_windows_codex_npm_package: "@openai/codex"

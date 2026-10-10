@@ -1,0 +1,322 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Identify the active macOS account
+  ansible.builtin.command: id -un
+  register: ai_workstation_tools_macos_active_user
+  changed_when: false
+  check_mode: false
+  become: false
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Record whether macOS tasks must switch to the target user
+  ansible.builtin.set_fact:
+    ai_workstation_tools_macos_become_target: >-
+      {{ ai_workstation_tools_macos_active_user.stdout | trim !=
+      ai_workstation_tools_target_user }}
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Report the macOS automation-account user switch
+  ansible.builtin.debug:
+    msg: >-
+      User-scoped installers will run as {{ ai_workstation_tools_target_user }}
+      instead of connection user
+      {{ ai_workstation_tools_macos_active_user.stdout | trim }}.
+  when: ai_workstation_tools_macos_become_target | bool
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Resolve the target user's macOS home directory
+  ansible.builtin.command:
+    argv:
+      - dscl
+      - .
+      - -read
+      - "/Users/{{ ai_workstation_tools_target_user }}"
+      - NFSHomeDirectory
+  register: ai_workstation_tools_macos_home_lookup
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: false
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Validate the target user's macOS home directory
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_macos_home_lookup.rc == 0
+      - "'NFSHomeDirectory:' in ai_workstation_tools_macos_home_lookup.stdout"
+    fail_msg: >-
+      Could not resolve the macOS home directory for
+      {{ ai_workstation_tools_target_user }} with dscl.
+    quiet: true
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Record the target user's macOS home directory
+  ansible.builtin.set_fact:
+    ai_workstation_tools_target_home: >-
+      {{ ai_workstation_tools_macos_home_lookup.stdout |
+      regex_replace('^NFSHomeDirectory:\\s*', '') | trim }}
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Check Apple Silicon Homebrew
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/brew
+  register: ai_workstation_tools_homebrew_arm
+  tags: [ai_workstation_tools, chatgpt, claude_code, verify]
+
+- name: Check Intel Homebrew
+  ansible.builtin.stat:
+    path: /usr/local/bin/brew
+  register: ai_workstation_tools_homebrew_intel
+  tags: [ai_workstation_tools, chatgpt, claude_code, verify]
+
+- name: Record the Homebrew executable
+  ansible.builtin.set_fact:
+    ai_workstation_tools_homebrew_path: >-
+      {{ '/opt/homebrew/bin/brew'
+      if ai_workstation_tools_homebrew_arm.stat.exists
+      else '/usr/local/bin/brew' }}
+  tags: [ai_workstation_tools, chatgpt, claude_code, verify]
+
+- name: Require Homebrew for enabled cask installations
+  ansible.builtin.assert:
+    that:
+      - >-
+        ai_workstation_tools_homebrew_arm.stat.exists or
+        ai_workstation_tools_homebrew_intel.stat.exists
+    fail_msg: >-
+      Homebrew is required to manage the enabled ChatGPT and Claude Code casks.
+      Install Homebrew for {{ ai_workstation_tools_target_user }} first.
+    quiet: true
+  when:
+    - >-
+      ai_workstation_tools_chatgpt_enabled | bool or
+      ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, claude_code, verify]
+
+# ChatGPT desktop
+- name: Validate ChatGPT macOS architecture support
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.architecture in ['arm64', 'aarch64']
+    fail_msg: >-
+      The ChatGPT macOS cask requires Apple Silicon; found
+      {{ ansible_facts.architecture }}.
+    quiet: true
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Check the ChatGPT macOS application
+  ansible.builtin.stat:
+    path: /Applications/ChatGPT.app
+  register: ai_workstation_tools_macos_chatgpt_precheck
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Install ChatGPT with Homebrew
+  community.general.homebrew_cask:
+    name: "{{ ai_workstation_tools_macos_chatgpt_cask }}"
+    state: "{{ 'latest' if ai_workstation_tools_update | bool else 'present' }}"
+    path: /opt/homebrew/bin:/usr/local/bin
+    update_homebrew: "{{ ai_workstation_tools_update | bool }}"
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt]
+
+- name: Verify the ChatGPT macOS application
+  ansible.builtin.stat:
+    path: /Applications/ChatGPT.app
+  register: ai_workstation_tools_macos_chatgpt_verify
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Confirm ChatGPT is installed on macOS
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_macos_chatgpt_verify.stat.exists
+      - ai_workstation_tools_macos_chatgpt_verify.stat.isdir
+    fail_msg: "ChatGPT.app was not found in /Applications after installation."
+    quiet: true
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_macos_chatgpt_precheck.stat.exists
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+# Codex CLI
+- name: Check the target user's Codex CLI on macOS
+  ansible.builtin.stat:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/codex"
+  register: ai_workstation_tools_macos_codex_precheck
+  when: ai_workstation_tools_codex_enabled | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Create the Codex installer cache directory
+  ansible.builtin.file:
+    path: "{{ ai_workstation_tools_target_home }}/Library/Caches/ai-workstation-tools"
+    state: directory
+    mode: "0700"
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ai_workstation_tools_macos_codex_precheck.stat.exists or
+      ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, codex]
+
+- name: Download the official Codex standalone installer on macOS
+  ansible.builtin.get_url:
+    url: "{{ ai_workstation_tools_codex_installer_url }}"
+    dest: >-
+      {{ ai_workstation_tools_target_home
+      }}/Library/Caches/ai-workstation-tools/codex-install.sh
+    mode: "0700"
+    force: true
+    timeout: 60
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ai_workstation_tools_macos_codex_precheck.stat.exists or
+      ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, codex]
+
+- name: Install Codex CLI as the macOS target user
+  ansible.builtin.command:
+    argv:
+      - /bin/sh
+      - >-
+        {{ ai_workstation_tools_target_home
+        }}/Library/Caches/ai-workstation-tools/codex-install.sh
+  environment:
+    HOME: "{{ ai_workstation_tools_target_home }}"
+    USER: "{{ ai_workstation_tools_target_user }}"
+    LOGNAME: "{{ ai_workstation_tools_target_user }}"
+    PATH: >-
+      {{ ai_workstation_tools_target_home }}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin
+  register: ai_workstation_tools_macos_codex_install
+  changed_when: true
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ai_workstation_tools_macos_codex_precheck.stat.exists or
+      ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, codex]
+
+- name: Report the planned Codex installation on macOS
+  ansible.builtin.debug:
+    msg: >-
+      Codex CLI is absent and would be installed for
+      {{ ai_workstation_tools_target_user }} with OpenAI's standalone installer.
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - not ai_workstation_tools_macos_codex_precheck.stat.exists
+    - ansible_check_mode
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Check the installed Codex CLI path on macOS
+  ansible.builtin.stat:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/codex"
+  register: ai_workstation_tools_macos_codex_path_verify
+  when: ai_workstation_tools_codex_enabled | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Read the installed Codex CLI version on macOS
+  ansible.builtin.command:
+    argv:
+      - "{{ ai_workstation_tools_target_home }}/.local/bin/codex"
+      - --version
+  environment:
+    HOME: "{{ ai_workstation_tools_target_home }}"
+  register: ai_workstation_tools_macos_codex_version_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - ai_workstation_tools_macos_codex_path_verify.stat.exists
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Confirm Codex CLI is usable on macOS
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_macos_codex_path_verify.stat.exists
+      - ai_workstation_tools_macos_codex_path_verify.stat.executable
+      - ai_workstation_tools_macos_codex_version_verify.rc | default(1) == 0
+    fail_msg: >-
+      Codex CLI verification failed for {{ ai_workstation_tools_target_user }};
+      expected an executable at
+      {{ ai_workstation_tools_target_home }}/.local/bin/codex.
+    quiet: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_macos_codex_precheck.stat.exists
+  tags: [ai_workstation_tools, codex, verify]
+
+# Claude Code
+- name: Check Claude Code from Homebrew
+  ansible.builtin.command:
+    argv:
+      - "{{ ai_workstation_tools_homebrew_path | dirname }}/claude"
+      - --version
+  register: ai_workstation_tools_macos_claude_precheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Install Claude Code with Homebrew
+  community.general.homebrew_cask:
+    name: "{{ ai_workstation_tools_macos_claude_code_cask }}"
+    state: "{{ 'latest' if ai_workstation_tools_update | bool else 'present' }}"
+    path: /opt/homebrew/bin:/usr/local/bin
+    update_homebrew: "{{ ai_workstation_tools_update | bool }}"
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Verify Claude Code on macOS
+  ansible.builtin.command:
+    argv:
+      - "{{ ai_workstation_tools_homebrew_path | dirname }}/claude"
+      - --version
+  register: ai_workstation_tools_macos_claude_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Confirm Claude Code is usable on macOS
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_macos_claude_verify.rc == 0
+    fail_msg: >-
+      Claude Code verification failed; expected the Homebrew cask to provide
+      {{ ai_workstation_tools_homebrew_path | dirname }}/claude.
+    quiet: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_macos_claude_precheck.rc == 0
+  tags: [ai_workstation_tools, claude_code, verify]

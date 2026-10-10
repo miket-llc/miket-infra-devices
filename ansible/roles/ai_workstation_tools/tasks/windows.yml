@@ -1,0 +1,354 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Check Windows Package Manager
+  ansible.windows.win_command: winget.exe --version
+  register: ai_workstation_tools_winget_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - >-
+      ai_workstation_tools_chatgpt_enabled | bool or
+      ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, claude_code, verify]
+
+- name: Require Windows Package Manager for enabled applications
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_winget_check.rc == 0
+    fail_msg: >-
+      winget is required to install the enabled ChatGPT and Claude Code
+      packages in the target user's Windows session.
+    quiet: true
+  when:
+    - >-
+      ai_workstation_tools_chatgpt_enabled | bool or
+      ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, claude_code, verify]
+
+# ChatGPT desktop
+- name: Check the ChatGPT Microsoft Store package
+  ansible.windows.win_command: >-
+    winget.exe list
+    --id {{ ai_workstation_tools_windows_chatgpt_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_chatgpt_source }}
+    --accept-source-agreements
+    --disable-interactivity
+  register: ai_workstation_tools_windows_chatgpt_precheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Install ChatGPT from the Microsoft Store
+  ansible.windows.win_command: >-
+    winget.exe install
+    --id {{ ai_workstation_tools_windows_chatgpt_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_chatgpt_source }}
+    --accept-source-agreements
+    --accept-package-agreements
+    --silent
+    --disable-interactivity
+  register: ai_workstation_tools_windows_chatgpt_install
+  changed_when: ai_workstation_tools_windows_chatgpt_install.rc == 0
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_windows_chatgpt_precheck.rc != 0
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt]
+
+- name: Update ChatGPT from the Microsoft Store
+  ansible.windows.win_command: >-
+    winget.exe upgrade
+    --id {{ ai_workstation_tools_windows_chatgpt_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_chatgpt_source }}
+    --accept-source-agreements
+    --accept-package-agreements
+    --silent
+    --disable-interactivity
+  register: ai_workstation_tools_windows_chatgpt_update
+  changed_when: >-
+    'Successfully installed' in
+    (ai_workstation_tools_windows_chatgpt_update.stdout | default(''))
+  failed_when: >-
+    ai_workstation_tools_windows_chatgpt_update.rc not in
+    [0, -1978335189, 2316632107] and
+    'No available upgrade found' not in
+    (ai_workstation_tools_windows_chatgpt_update.stdout | default('')) and
+    'No newer package versions are available' not in
+    (ai_workstation_tools_windows_chatgpt_update.stdout | default(''))
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_windows_chatgpt_precheck.rc == 0
+    - ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt]
+
+- name: Report the planned ChatGPT Windows installation
+  ansible.builtin.debug:
+    msg: >-
+      ChatGPT is absent and would be installed from Microsoft Store product
+      {{ ai_workstation_tools_windows_chatgpt_id }}.
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - ai_workstation_tools_windows_chatgpt_precheck.rc != 0
+    - ansible_check_mode
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Verify the ChatGPT Microsoft Store package
+  ansible.windows.win_command: >-
+    winget.exe list
+    --id {{ ai_workstation_tools_windows_chatgpt_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_chatgpt_source }}
+    --accept-source-agreements
+    --disable-interactivity
+  register: ai_workstation_tools_windows_chatgpt_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_chatgpt_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+- name: Confirm ChatGPT is installed on Windows
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_windows_chatgpt_verify.rc == 0
+      - >-
+        ai_workstation_tools_windows_chatgpt_id | lower in
+        (ai_workstation_tools_windows_chatgpt_verify.stdout | lower)
+    fail_msg: >-
+      ChatGPT Microsoft Store product
+      {{ ai_workstation_tools_windows_chatgpt_id }} was not found after the
+      winget installation.
+    quiet: true
+  when:
+    - ai_workstation_tools_chatgpt_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_windows_chatgpt_precheck.rc == 0
+  tags: [ai_workstation_tools, chatgpt, verify]
+
+# Claude Code
+- name: Check the Claude Code winget package
+  ansible.windows.win_command: >-
+    winget.exe list
+    --id {{ ai_workstation_tools_windows_claude_code_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_code_source }}
+    --accept-source-agreements
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_precheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Install Claude Code with winget
+  ansible.windows.win_command: >-
+    winget.exe install
+    --id {{ ai_workstation_tools_windows_claude_code_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_code_source }}
+    --accept-source-agreements
+    --accept-package-agreements
+    --silent
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_install
+  changed_when: ai_workstation_tools_windows_claude_install.rc == 0
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_windows_claude_precheck.rc != 0
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Update Claude Code with winget
+  ansible.windows.win_command: >-
+    winget.exe upgrade
+    --id {{ ai_workstation_tools_windows_claude_code_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_code_source }}
+    --accept-source-agreements
+    --accept-package-agreements
+    --silent
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_update
+  changed_when: >-
+    'Successfully installed' in
+    (ai_workstation_tools_windows_claude_update.stdout | default(''))
+  failed_when: >-
+    ai_workstation_tools_windows_claude_update.rc not in
+    [0, -1978335189, 2316632107] and
+    'No available upgrade found' not in
+    (ai_workstation_tools_windows_claude_update.stdout | default('')) and
+    'No newer package versions are available' not in
+    (ai_workstation_tools_windows_claude_update.stdout | default(''))
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_windows_claude_precheck.rc == 0
+    - ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Report the planned Claude Code Windows installation
+  ansible.builtin.debug:
+    msg: >-
+      Claude Code is absent and would be installed from winget package
+      {{ ai_workstation_tools_windows_claude_code_id }}.
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_windows_claude_precheck.rc != 0
+    - ansible_check_mode
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Verify the Claude Code winget package
+  ansible.windows.win_command: >-
+    winget.exe list
+    --id {{ ai_workstation_tools_windows_claude_code_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_code_source }}
+    --accept-source-agreements
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Read the Claude Code version when available in PATH
+  ansible.windows.win_command: cmd.exe /d /c claude --version
+  register: ai_workstation_tools_windows_claude_version
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Confirm Claude Code is installed on Windows
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_windows_claude_verify.rc == 0
+      - >-
+        ai_workstation_tools_windows_claude_code_id | lower in
+        (ai_workstation_tools_windows_claude_verify.stdout | lower)
+    fail_msg: >-
+      Claude Code package {{ ai_workstation_tools_windows_claude_code_id }} was
+      not found after the winget installation. A new shell may be required
+      before the optional claude --version check resolves its PATH shim.
+    quiet: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_windows_claude_precheck.rc == 0
+  tags: [ai_workstation_tools, claude_code, verify]
+
+# Codex CLI
+- name: Check Codex CLI on Windows
+  ansible.windows.win_command: cmd.exe /d /c where codex
+  register: ai_workstation_tools_windows_codex_precheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_codex_enabled | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Check the Windows Node.js prerequisite
+  ansible.windows.win_command: node.exe --version
+  register: ai_workstation_tools_windows_node_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      ai_workstation_tools_windows_codex_precheck.rc != 0 or
+      ai_workstation_tools_update | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Check the Windows npm prerequisite
+  ansible.windows.win_command: npm.cmd --version
+  register: ai_workstation_tools_windows_npm_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      ai_workstation_tools_windows_codex_precheck.rc != 0 or
+      ai_workstation_tools_update | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Require Node.js and npm for the Windows Codex package
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_windows_node_check.rc == 0
+      - ai_workstation_tools_windows_npm_check.rc == 0
+    fail_msg: >-
+      Node.js and npm are fleet prerequisites for installing Codex CLI on
+      Windows. Install the Node.js baseline before applying this role.
+    quiet: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      ai_workstation_tools_windows_codex_precheck.rc != 0 or
+      ai_workstation_tools_update | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Install Codex CLI with the official npm package on Windows
+  ansible.windows.win_command: >-
+    npm.cmd install --global
+    {{ ai_workstation_tools_windows_codex_npm_package }}
+    --no-audit
+    --no-fund
+  register: ai_workstation_tools_windows_codex_install
+  changed_when: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      ai_workstation_tools_windows_codex_precheck.rc != 0 or
+      ai_workstation_tools_update | bool
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, codex]
+
+- name: Report the planned Codex Windows installation
+  ansible.builtin.debug:
+    msg: >-
+      Codex CLI is absent and would be installed for the current Windows user
+      from {{ ai_workstation_tools_windows_codex_npm_package }}.
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - ai_workstation_tools_windows_codex_precheck.rc != 0
+    - ansible_check_mode
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Verify Codex CLI on Windows
+  ansible.windows.win_command: cmd.exe /d /c codex --version
+  register: ai_workstation_tools_windows_codex_verify
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when: ai_workstation_tools_codex_enabled | bool
+  tags: [ai_workstation_tools, codex, verify]
+
+- name: Confirm Codex CLI is usable on Windows
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_windows_codex_verify.rc == 0
+    fail_msg: >-
+      Codex CLI installation verification failed. Ensure npm's global binary
+      directory is in the target user's PATH and start a new shell if needed.
+    quiet: true
+  when:
+    - ai_workstation_tools_codex_enabled | bool
+    - >-
+      not ansible_check_mode or
+      ai_workstation_tools_windows_codex_precheck.rc == 0
+  tags: [ai_workstation_tools, codex, verify]

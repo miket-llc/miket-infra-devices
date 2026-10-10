@@ -137,13 +137,16 @@ the chosen interval. Use `r` to trigger a manual refresh and `q` to quit.
 
 ---
 
-## Codex CLI Deployment
+## Standard AI Tools
 
-After Tailnet CLI is manually installed, Codex CLI can be deployed automatically using Ansible:
+Deploy ChatGPT desktop, Codex CLI, and Claude Code through their shared,
+cross-platform Ansible role:
 
 ```bash
-cd /path/to/miket-infra-devices/ansible
-ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml
+make deploy-ai-tools
+make validate-ai-tools
 ```
 
-Codex CLI will be installed globally via npm and configured automatically. See the [Codex CLI deployment playbook](../../ansible/playbooks/deploy-codex-cli.yml) for details.
+Authentication remains interactive and is not stored in Ansible. See
+[AI Workstation Tools](ai-workstation-tools.md) for platform installers,
+focused tags, updates, and troubleshooting.

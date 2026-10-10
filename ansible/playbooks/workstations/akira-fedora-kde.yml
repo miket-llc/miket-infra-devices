@@ -89,7 +89,8 @@
             6. secrets_sync          - Azure Key Vault → .env files
             7. common_dev_tools      - Development tools
             8. podman_standard_linux - Container runtime
-            9. workstation_gui_tools - GUI applications
+            9. ai_workstation_tools  - ChatGPT, Codex CLI, Claude Code
+           10. workstation_gui_tools - GUI applications
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
@@ -148,7 +149,13 @@
       tags: [containers, podman]
 
     # ========================================
-    # Phase 9: GUI Applications
+    # Phase 9: Standard AI Workstation Tools
+    # ========================================
+    - role: ai_workstation_tools
+      tags: [ai_tools]
+
+    # ========================================
+    # Phase 10: GUI Applications
     # ========================================
     - role: workstation_gui_tools
       tags: [gui_tools]
@@ -222,6 +229,5 @@
           
           Run: sudo systemctl reboot
       tags: [always]
-
 
 

@@ -1,11 +1,8 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Deploy OpenAI Codex CLI to all nodes
-# 
-# Prerequisites:
-# - Tailscale must be installed and connected (manual prerequisite)
-# - WSL2 with Ubuntu required for Windows nodes (manual prerequisite)
+# Compatibility entrypoint for deploying OpenAI Codex CLI to workstations.
+# The ai_workstation_tools role is the authoritative implementation.
 #
 # Usage:
 #   ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml
@@ -17,7 +14,7 @@
 #   timeout 300 ansible-playbook -i inventory/hosts.yml playbooks/deploy-codex-cli.yml --limit akira
 
 - name: Deploy OpenAI Codex CLI
-  hosts: tailnet_all
+  hosts: all_workstations
   gather_facts: yes
   
   pre_tasks:
@@ -26,11 +23,10 @@
         msg: |
           Deploying Codex CLI to {{ inventory_hostname }}
           - OS: {{ ansible_os_family }}
-          - Node.js 18+ required
-          - Windows: Will install in WSL2 Ubuntu
+          - Installer is selected by the standard AI workstation role
   
   roles:
-    - codex_cli
+    - role: codex_cli
   
   post_tasks:
     - name: Deployment complete
@@ -38,4 +34,4 @@
         msg: |
           ✅ Codex CLI deployment complete on {{ inventory_hostname }}!
           - Run 'codex' to authenticate and start using
-          - Windows: Use 'wsl -d Ubuntu-24.04 -- codex' or enter WSL2 shell first
+          - Run 'codex' as the interactive workstation user

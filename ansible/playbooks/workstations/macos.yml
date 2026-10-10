@@ -43,7 +43,8 @@
           
           Deployment Phases:
             1. common_dev_tools      - Baseline dev tooling (git, gh, jq, etc.)
-            2. workstation_gui_tools - GUI apps (Cursor, Warp, VS Code)
+            2. ai_workstation_tools  - ChatGPT, Codex CLI, and Claude Code
+            3. workstation_gui_tools - GUI apps (Cursor, Warp, VS Code)
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
@@ -56,7 +57,13 @@
       tags: [dev_tools]
 
     # ========================================
-    # Phase 2: Workstation GUI Tools
+    # Phase 2: Standard AI Workstation Tools
+    # ========================================
+    - role: ai_workstation_tools
+      tags: [ai_tools]
+
+    # ========================================
+    # Phase 3: Workstation GUI Tools
     # ========================================
     - role: workstation_gui_tools
       tags: [workstation_gui]
@@ -71,6 +78,11 @@
           
           ✅ Dev Tools
              - git, gh, jq, btop, htop, tmux, etc.
+
+          ✅ AI Tools
+             - ChatGPT desktop
+             - Codex CLI
+             - Claude Code
           
           ✅ GUI Tools (via Homebrew Cask)
              - VS Code:  installed in /Applications
@@ -84,7 +96,6 @@
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
-
 
 
 

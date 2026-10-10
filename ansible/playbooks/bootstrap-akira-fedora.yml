@@ -85,6 +85,9 @@
     
     - role: workstation_gui_tools
       tags: [workstation, gui]
+
+    - role: ai_workstation_tools
+      tags: [workstation, ai-tools]
     
     # ========================================
     # Phase 3: Remote Desktop (NoMachine)
@@ -158,4 +161,3 @@
           
           Phase 0 Bootstrap: SUCCESS
           ================================================================================
-

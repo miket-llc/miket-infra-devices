@@ -5,7 +5,7 @@
 # 
 # This playbook:
 # 1. Configures Tailscale on all nodes (assumes already installed via bootstrap)
-# 2. Installs OpenAI Codex CLI with Node.js/npm prerequisites
+# 2. Installs OpenAI Codex CLI through the standard workstation role
 #
 # Prerequisites:
 # - Tailscale must be installed and connected on all devices (via bootstrap scripts)
@@ -34,7 +34,7 @@
           Deploying to {{ inventory_hostname }}
           - OS: {{ ansible_os_family }}
           - Tailscale: Configuration only (must be pre-installed)
-          - Codex CLI: Full installation with Node.js/npm
+          - Codex CLI: Vendor-supported installation
   
   roles:
     - role: tailscale
@@ -60,6 +60,5 @@
           Codex CLI:
           - Run 'codex' to authenticate and start using
           - First run will prompt for authentication
-
 
 

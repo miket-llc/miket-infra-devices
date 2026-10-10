@@ -1,4 +1,4 @@
-.PHONY: help deploy-wintermute deploy-armitage rollback-wintermute rollback-armitage test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
+.PHONY: help deploy-wintermute deploy-armitage rollback-wintermute rollback-armitage test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-ai-tools update-ai-tools validate-ai-tools deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
@@ -63,6 +63,12 @@ help:
 	@echo "Dev Tools (Node.js/npm):"
 	@echo "  deploy-nodejs-nvm          - Deploy nvm + Node.js (sudo-free npm install -g)"
 	@echo ""
+	@echo "AI Workstation Tools:"
+	@echo "  deploy-ai-tools            - Install ChatGPT, Codex CLI, and Claude Code"
+	@echo "  update-ai-tools            - Update the standard AI tools across workstations"
+	@echo "  validate-ai-tools          - Verify the standard AI tools are present"
+	@echo "  Optional: HOST=<name> limits any AI tools target to one workstation"
+	@echo ""
 	@echo "System Updates (Fedora):"
 	@echo "  update-all              - Update all Fedora hosts (packages + Tailscale + services)"
 	@echo "  update-all-check        - Dry-run updates (see what would change)"
@@ -78,7 +84,7 @@ help:
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
 	@echo "  deploy-ssh-config       - Deploy standardized SSH config to workstations"
 	@echo ""
-	@echo "Utility:
+	@echo "Utility:"
 	@echo "  backup-configs          - Backup current configurations"
 	@echo "  health-check            - Check health of all services"
 	@echo "  test-context            - Run context window smoke tests"
@@ -681,7 +687,6 @@ deploy-nodejs-nvm:
 	@echo "This will deploy nvm and Node.js to Linux servers:"
 	@echo "  ✓ nvm installed to ~/.nvm"
 	@echo "  ✓ Node.js LTS installed via nvm"
-	@echo "  ✓ @openai/codex and @anthropic-ai/claude-code"
 	@echo "  ✓ No sudo required for npm install -g"
 	@echo ""
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-nodejs-nvm.yml
@@ -691,6 +696,23 @@ deploy-nodejs-nvm:
 	@echo "Usage:"
 	@echo "  source ~/.bashrc  # or ~/.zshrc"
 	@echo "  npm install -g <package>  # no sudo needed!"
+	@echo "  AI tools: make deploy-ai-tools"
+
+# ========================================
+# Standard AI Workstation Tools
+# ========================================
+
+deploy-ai-tools:
+	@echo "Deploying ChatGPT, Codex CLI, and Claude Code to managed workstations..."
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml $(if $(HOST),--limit $(HOST),)
+
+update-ai-tools:
+	@echo "Updating ChatGPT, Codex CLI, and Claude Code on managed workstations..."
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml $(if $(HOST),--limit $(HOST),) -e ai_workstation_tools_update=true
+
+validate-ai-tools:
+	@echo "Validating ChatGPT, Codex CLI, and Claude Code on managed workstations..."
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml $(if $(HOST),--limit $(HOST),) --tags verify
 
 # ========================================
 # LLM Client Tools (OpenHands)
@@ -819,4 +841,3 @@ setup-update-scheduling:
 	@echo "✅ Scheduling configured!"
 	@echo ""
 	@echo "Check timer status: systemctl list-timers system-updates.timer"
-

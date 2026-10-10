@@ -45,7 +45,8 @@
           Deployment Phases:
             1. common_dev_tools       - Baseline dev tooling (git, gh, jq, etc.)
             2. podman_standard_linux  - Container runtime (Podman + Docker CLI compat)
-            3. workstation_gui_tools  - GUI apps (Cursor, Warp, VS Code)
+            3. ai_workstation_tools   - ChatGPT, Codex CLI, and Claude Code
+            4. workstation_gui_tools  - GUI apps (Cursor, Warp, VS Code)
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
@@ -66,7 +67,13 @@
       tags: [podman_standard, containers]
 
     # ========================================
-    # Phase 3: Workstation GUI Tools
+    # Phase 3: Standard AI Workstation Tools
+    # ========================================
+    - role: ai_workstation_tools
+      tags: [ai_tools]
+
+    # ========================================
+    # Phase 4: Workstation GUI Tools
     # ========================================
     # Cursor, Warp, VS Code - only for GUI-capable hosts
     - role: workstation_gui_tools
@@ -87,6 +94,11 @@
              - Podman (primary runtime)
              - Docker CLI compatibility enabled
              - podman-compose installed
+
+          ✅ AI Tools
+             - ChatGPT desktop
+             - Codex CLI
+             - Claude Code
           
           ✅ GUI Tools
              - VS Code: {{ 'installed' if vscode_enabled else 'skipped' }}
@@ -100,7 +112,6 @@
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
-
 
 
 
