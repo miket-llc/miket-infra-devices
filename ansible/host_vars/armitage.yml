@@ -16,7 +16,7 @@
 # =============================================================================
 os_family: linux
 distro: fedora
-distro_version: "41"
+distro_version: "44"
 desktop_environment: kde   # ADR-004: KDE Plasma is the Linux UI standard
 
 # =============================================================================

@@ -115,7 +115,7 @@ devices:
     armitage:
       hostname: armitage
       fqdn: armitage.pangolin-vega.ts.net
-      os: Fedora 43 KDE
+      os: Fedora 44 KDE
       type: Laptop Workstation
       hardware:
         model: Alienware m16 R2
