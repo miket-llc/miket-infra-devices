@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rpm -q*)",
+      "Bash(dmesg)",
+      "Bash(dnf search *)",
+      "Bash(dnf provides *)",
+      "Bash(dnf check-update *)",
+      "Bash(dnf5 check-update *)",
+      "Bash(dnf list *)",
+      "Bash(dnf5 list *)",
+      "Bash(dnf info *)",
+      "Bash(dnf5 info *)",
+      "Bash(dnf repolist *)",
+      "Bash(dnf5 repolist *)",
+      "Bash(gpg --show-keys *)",
+      "Bash(gpg --list-keys *)",
+      "Bash(gpg --fingerprint *)",
+      "Bash(systemctl status *)",
+      "Bash(systemctl is-active *)",
+      "Bash(systemctl is-enabled *)",
+      "Bash(systemctl list-units *)",
+      "Bash(systemctl show *)",
+      "Bash(systemctl cat *)",
+      "Bash(journalctl -u *)",
+      "Bash(journalctl --unit *)",
+      "Bash(lsmod)",
+      "Bash(lsusb)",
+      "Bash(lsusb *)",
+      "Bash(lspci)",
+      "Bash(lspci *)",
+      "Bash(lsblk)",
+      "Bash(lsblk *)",
+      "Bash(bluetoothctl devices)",
+      "Bash(bluetoothctl show)",
+      "Bash(bluetoothctl list)",
+      "Bash(bluetoothctl info *)",
+      "Bash(pactl list *)",
+      "Bash(pactl info)",
+      "Bash(wpctl status)"
+    ]
+  }
+}
