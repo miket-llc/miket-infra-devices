@@ -29,3 +29,28 @@
         daemon_reload: true
         state: restarted
       when: liferpg_db_unit.changed
+
+# macOS application firewall was found disabled on count-zero (2026-10-22).
+# Signed built-in services (sshd/Remote Login) and Tailscale's network extension
+# keep working; stealth mode drops unsolicited probes on the LAN.
+- name: Enable macOS application firewall
+  hosts: macos
+  gather_facts: false
+  vars:
+    # count-zero sets ansible_become: false at host level, which beats the play
+    # keyword; play vars outrank inventory host vars.
+    ansible_become: true
+  tasks:
+    - name: Read firewall state
+      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate --getstealthmode --getallowsigned
+      register: macos_fw
+      changed_when: false
+      check_mode: false
+
+    - name: Turn on firewall, stealth mode, allow signed built-ins
+      ansible.builtin.command: "/usr/libexec/ApplicationFirewall/socketfilterfw {{ item.flag }}"
+      loop:
+        - { flag: "--setglobalstate on", done: "Firewall is enabled" }
+        - { flag: "--setstealthmode on", done: "Stealth mode enabled" }
+        - { flag: "--setallowsigned on", done: "built-in software ENABLED" }
+      when: item.done not in macos_fw.stdout
