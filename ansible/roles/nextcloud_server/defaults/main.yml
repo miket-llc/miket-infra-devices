@@ -37,7 +37,10 @@ nextcloud_log_path: /space/_ops/logs/nextcloud
 nextcloud_m365_inbox: /space/mike/inbox/ms365
 
 # Container images (fully qualified for podman)
-nextcloud_image: docker.io/library/nextcloud:29-apache
+# Nextcloud only upgrades one major at a time: step the tag 1 major per deploy.
+# 33 ships PHP 8.4.27 (PHP2Shell CVE-2026-109618/109619 fixed). 29 was EOL and
+# frozen on PHP 8.2.29 since 2025-07; the image tag never got security rebuilds.
+nextcloud_image: docker.io/library/nextcloud:33-apache
 nextcloud_postgres_image: docker.io/library/postgres:16-alpine
 nextcloud_redis_image: docker.io/library/redis:7-alpine
 
