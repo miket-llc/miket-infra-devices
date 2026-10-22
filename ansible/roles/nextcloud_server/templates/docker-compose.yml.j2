@@ -85,7 +85,10 @@ services:
       - {{ nextcloud_log_path }}:/var/log/nextcloud:Z
       
     ports:
-      - "{{ nextcloud_port }}:80"
+      # Loopback only: cloudflared and Tailscale Serve both proxy to localhost.
+      # Root podman port-forwards bypass firewalld zones, so 0.0.0.0 here would
+      # put Nextcloud on the LAN regardless of host firewall policy.
+      - "{{ nextcloud_bind_address }}:{{ nextcloud_port }}:80"
     networks:
       - nextcloud-net
     healthcheck:

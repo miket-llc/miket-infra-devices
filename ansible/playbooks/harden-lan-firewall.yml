@@ -1,0 +1,31 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+# Close Fedora Workstation's default 1025-65535 LAN exposure (see role defaults).
+#   ansible-playbook -i inventory/hosts.yml playbooks/harden-lan-firewall.yml --check --diff
+- name: Harden LAN firewall on Fedora hosts
+  hosts: linux
+  become: true
+  roles:
+    - role: ../roles/firewalld_lan_lockdown
+
+# Root podman port-forwards (netavark DNAT) bypass firewalld zones, so closing the
+# zone does not hide containers published on 0.0.0.0. liferpg-db is a hand-made
+# `podman generate systemd` unit (no role yet); bind it to loopback -- life-rpg
+# connects via localhost:5433.
+- name: Bind liferpg-db to loopback
+  hosts: akira
+  become: true
+  tasks:
+    - name: Publish liferpg-db on 127.0.0.1 only
+      ansible.builtin.replace:
+        path: /etc/systemd/system/liferpg-db.service
+        regexp: '-p 5433:5432'
+        replace: '-p 127.0.0.1:5433:5432'
+      register: liferpg_db_unit
+
+    - name: Restart liferpg-db with the new binding
+      ansible.builtin.systemd:
+        name: liferpg-db.service
+        daemon_reload: true
+        state: restarted
+      when: liferpg_db_unit.changed

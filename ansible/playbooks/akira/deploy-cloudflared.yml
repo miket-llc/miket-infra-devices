@@ -37,8 +37,27 @@
 
     # Ingress rules - Nextcloud runs locally on akira:8080 (no Tailscale hop)
     cloudflared_ingress_rules:
+      # Cloudflare Access has a "bypass everyone" app on nextcloud.miket.io/remote.php/*
+      # (miket-infra entra-access, nextcloud_api), so this path reached PHP with no
+      # login -- exposed to PHP2Shell (CVE-2026-109618/109619). Sync clients use
+      # Tailscale Serve (akira.pangolin-vega.ts.net), so refuse it on the public
+      # hostname. Rule order matters: this must precede the catch-all for the host.
+      # Deliberately unanchored + case-insensitive: Access normalizes the path
+      # before matching its bypass app, cloudflared matches the raw path, so an
+      # anchored ^/remote\.php was bypassed by //remote.php, /./remote.php and
+      # /index.php/../remote.php (all verified reaching PHP on 2026-10-22).
+      - hostname: nextcloud.miket.io
+        path: (?i)remote\.php
+        service: http_status:403
       - hostname: nextcloud.miket.io
         service: http://localhost:8080
+      # Agora / The Commons (n2s-inner-source FAST shell demo, :8600) -- public
+      # demo, intentionally not behind Access. Added by hand 2026-08-27; codified here
+      # so a redeploy does not drop it.
+      - hostname: agora.miket.io
+        service: http://localhost:8600
+      - hostname: commons.miket.io
+        service: http://localhost:8600
 
   roles:
     - role: ../../roles/cloudflared

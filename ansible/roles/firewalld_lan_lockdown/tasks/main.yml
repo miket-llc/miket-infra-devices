@@ -1,0 +1,35 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+---
+- name: Check whether the LAN zone exists
+  ansible.builtin.command: firewall-cmd --permanent --get-zones
+  register: firewalld_lan_zones
+  changed_when: false
+  check_mode: false
+
+- name: Lock down LAN zone
+  when: firewalld_lan_zone in firewalld_lan_zones.stdout.split()
+  block:
+    - name: Allow LAN services
+      ansible.posix.firewalld:
+        zone: "{{ firewalld_lan_zone }}"
+        service: "{{ item }}"
+        state: enabled
+        permanent: true
+        immediate: true
+      loop: "{{ firewalld_lan_services }}"
+
+    - name: Close Fedora Workstation's wide-open high port ranges
+      ansible.posix.firewalld:
+        zone: "{{ firewalld_lan_zone }}"
+        port: "{{ item }}"
+        state: disabled
+        permanent: true
+        immediate: true
+      loop: "{{ firewalld_lan_closed_ports }}"
+
+    - name: Confirm tailscale0 is still trusted
+      ansible.builtin.command: firewall-cmd --get-zone-of-interface=tailscale0
+      register: firewalld_lan_ts_zone
+      changed_when: false
+      check_mode: false
+      failed_when: firewalld_lan_ts_zone.stdout != 'trusted'

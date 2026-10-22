@@ -46,6 +46,7 @@ nextcloud_redis_image: docker.io/library/redis:7-alpine
 
 # Network / Ports
 nextcloud_port: 8080
+nextcloud_bind_address: 127.0.0.1
 # NOTE: Internal access uses Tailscale MagicDNS hostname
 # Tailscale HTTPS serves certs for *.pangolin-vega.ts.net
 nextcloud_internal_hostname: "{{ inventory_hostname }}.pangolin-vega.ts.net"
