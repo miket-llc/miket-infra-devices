@@ -64,6 +64,7 @@ ansible-playbook -i ../inventory/hosts.yml playbooks/updates/all-updates.yml --c
 **Tags:**
 - `linux` - Linux system updates only
 - `windows` - Windows system updates only
+- `macos` - macOS system updates only
 - `docker` - Docker image updates only
 - `apps` - Application code updates only
 - `security` - Security updates only
@@ -94,6 +95,26 @@ ansible-playbook -i ../inventory/hosts.yml playbooks/updates/windows-updates.yml
 - `updates` - Windows Update tasks
 - `chocolatey` - Chocolatey package updates
 - `reboot-check` - Reboot requirement checks only
+- `security` - Security-related tasks only
+
+### `macos-updates.yml`
+Patches macOS hosts (count-zero): Apple software updates plus Homebrew formulae and casks. `make update-host HOST=count-zero` runs it.
+
+**Features:**
+- Apple recommended updates installed only when no restart is needed; restart-requiring updates are reported (notify only)
+- Upgrades exactly what `brew outdated` reports, minus `macos_brew_held_back`
+- `tailscale` is held back by default: upgrading it restarts `tailscaled` and drops the Tailscale SSH session the playbook runs over. Upgrade it locally on the Mac with `brew upgrade tailscale && sudo brew services restart tailscale`
+- Requires the Tailscale SSH server on the Mac (`tailscale set --ssh`)
+
+**Usage:**
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/updates/macos-updates.yml --limit count-zero --check --diff
+ansible-playbook -i inventory/hosts.yml playbooks/updates/macos-updates.yml --limit count-zero
+```
+
+**Tags:**
+- `softwareupdate` - Apple software updates only
+- `brew` - Homebrew formulae + casks only
 - `security` - Security-related tasks only
 
 ### `docker-updates.yml`

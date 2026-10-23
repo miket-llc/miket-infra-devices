@@ -1,0 +1,160 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# macOS System Updates Playbook
+# Purpose: Patch macOS workstations (Apple software updates + Homebrew)
+# Scope: softwareupdate (recommended, no-restart), brew formulae, brew casks
+# Idempotent: Yes - only upgrades what `brew outdated` / `softwareupdate -l` report
+#
+# Usage:
+#   # Check what would be updated (dry run)
+#   ansible-playbook -i inventory/hosts.yml playbooks/updates/macos-updates.yml --limit count-zero --check --diff
+#
+#   # Update a specific Mac
+#   ansible-playbook -i inventory/hosts.yml playbooks/updates/macos-updates.yml --limit count-zero
+#
+# Held-back packages:
+#   Anything in macos_brew_held_back is never upgraded remotely. tailscale is held
+#   back by default because upgrading it restarts tailscaled, which drops the
+#   Tailscale SSH session this playbook runs over. Upgrade those locally:
+#     brew upgrade tailscale && sudo brew services restart tailscale
+#
+# Reboots:
+#   Never automatic. Apple updates that require a restart are reported, not installed.
+#
+# Tags:
+#   - pre-check: Pre-flight checks only
+#   - softwareupdate: Apple software updates
+#   - brew: Homebrew formulae + casks
+#   - security: Security-related tasks only
+
+- name: Update macOS Systems
+  hosts: macos
+  gather_facts: true
+  become: false
+
+  vars:
+    macos_brew_held_back:
+      - tailscale
+    macos_brew_upgrade_casks: true
+    macos_softwareupdate_install: true
+    brew_env:
+      PATH: "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      HOMEBREW_NO_ENV_HINTS: "1"
+
+  tasks:
+    - name: Skip non-macOS hosts
+      meta: end_host
+      when: ansible_facts['os_family'] != "Darwin"
+
+    - name: Display update information
+      debug:
+        msg:
+          - "================================================================"
+          - "  macOS System Updates: {{ inventory_hostname }}"
+          - "================================================================"
+          - "macOS: {{ ansible_facts['distribution_version'] }}"
+          - "Held back (upgrade locally): {{ macos_brew_held_back | join(', ') }}"
+          - "Auto Reboot: Disabled (notify only)"
+          - "================================================================"
+      tags: [always]
+
+    # ========================================
+    # Apple software updates
+    # ========================================
+    - name: List available Apple software updates
+      command: softwareupdate --list
+      register: softwareupdate_list
+      changed_when: false
+      check_mode: false
+      tags: [softwareupdate, security]
+
+    - name: Parse Apple software updates
+      set_fact:
+        softwareupdate_pending: "{{ softwareupdate_list.stdout_lines | select('match', '^\\s*\\* Label:') | map('regex_replace', '^\\s*\\* Label:\\s*', '') | list }}"
+        softwareupdate_restart_required: "{{ 'restart' in (softwareupdate_list.stdout | lower) }}"
+      tags: [softwareupdate, security]
+
+    - name: Install recommended Apple updates that do not require a restart
+      command: softwareupdate --install --recommended --no-scan
+      become: true
+      register: softwareupdate_install
+      when:
+        - macos_softwareupdate_install | bool
+        - softwareupdate_pending | length > 0
+        - not softwareupdate_restart_required
+      tags: [softwareupdate, security]
+
+    # ========================================
+    # Homebrew
+    # ========================================
+    - name: Refresh Homebrew metadata
+      command: brew update --quiet
+      environment: "{{ brew_env }}"
+      register: brew_update
+      changed_when: "'Already up-to-date' not in brew_update.stdout"
+      when: not ansible_check_mode
+      tags: [brew]
+
+    - name: List outdated Homebrew packages
+      command: brew outdated --json=v2
+      environment: "{{ brew_env }}"
+      register: brew_outdated_raw
+      changed_when: false
+      check_mode: false
+      tags: [brew, security]
+
+    - name: Compute Homebrew upgrade set (minus held-back packages)
+      set_fact:
+        brew_outdated_formulae: "{{ (brew_outdated_raw.stdout | from_json).formulae | map(attribute='name') | reject('in', macos_brew_held_back) | list }}"
+        brew_outdated_casks: "{{ (brew_outdated_raw.stdout | from_json).casks | map(attribute='name') | reject('in', macos_brew_held_back) | list }}"
+        brew_held_back_outdated: "{{ ((brew_outdated_raw.stdout | from_json).formulae + (brew_outdated_raw.stdout | from_json).casks) | map(attribute='name') | select('in', macos_brew_held_back) | list }}"
+      tags: [brew, security]
+
+    - name: Show Homebrew upgrade plan
+      debug:
+        msg:
+          - "Formulae to upgrade ({{ brew_outdated_formulae | length }}): {{ brew_outdated_formulae | join(', ') }}"
+          - "Casks to upgrade ({{ brew_outdated_casks | length if macos_brew_upgrade_casks else 0 }}): {{ brew_outdated_casks | join(', ') if macos_brew_upgrade_casks else '(disabled)' }}"
+          - "Held back: {{ brew_held_back_outdated | join(', ') if brew_held_back_outdated else 'none outdated' }}"
+      tags: [brew, security]
+
+    - name: Upgrade outdated Homebrew formulae
+      community.general.homebrew:
+        name: "{{ brew_outdated_formulae }}"
+        state: latest
+      environment: "{{ brew_env }}"
+      register: brew_formulae_result
+      when: brew_outdated_formulae | length > 0
+      tags: [brew, security]
+
+    - name: Upgrade outdated Homebrew casks
+      community.general.homebrew_cask:
+        name: "{{ brew_outdated_casks }}"
+        state: upgraded
+      environment: "{{ brew_env }}"
+      register: brew_casks_result
+      when:
+        - macos_brew_upgrade_casks | bool
+        - brew_outdated_casks | length > 0
+      tags: [brew]
+
+    # ========================================
+    # Summary
+    # ========================================
+    - name: Generate update summary
+      debug:
+        msg:
+          - "================================================================"
+          - "  macOS Update Summary: {{ inventory_hostname }}"
+          - "================================================================"
+          - "Apple updates pending: {{ softwareupdate_pending | default([]) | join(', ') or 'none' }}"
+          - "Apple updates installed: {{ 'yes' if (softwareupdate_install | default({}) is changed) else 'no' }}"
+          - "{{ 'RESTART REQUIRED - install Apple updates manually: softwareupdate --install --all --restart' if (softwareupdate_restart_required | default(false)) else 'No Apple restart required' }}"
+          - "Brew formulae upgraded: {{ brew_outdated_formulae | default([]) | length if (brew_formulae_result | default({}) is changed) else 0 }}"
+          - "Brew casks upgraded: {{ brew_outdated_casks | default([]) | length if (brew_casks_result | default({}) is changed) else 0 }}"
+          - "{{ ('Held back, upgrade locally: brew upgrade ' ~ (brew_held_back_outdated | join(' '))) if (brew_held_back_outdated | default([])) else 'Nothing held back' }}"
+          - "================================================================"
+      tags: [always]

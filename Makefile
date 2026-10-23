@@ -66,7 +66,7 @@ help:
 	@echo "System Updates (Fedora):"
 	@echo "  update-all              - Update all Fedora hosts (packages + Tailscale + services)"
 	@echo "  update-all-check        - Dry-run updates (see what would change)"
-	@echo "  update-host HOST=<name> - Update a single host (e.g., make update-host HOST=akira)"
+	@echo "  update-host HOST=<name> - Update a single Fedora or macOS host (e.g., make update-host HOST=akira)"
 	@echo "  verify-services         - Verify all services are running (no updates)"
 	@echo "  setup-update-scheduling - Setup weekly automated updates on control node"
 	@echo ""
@@ -792,6 +792,7 @@ ifndef HOST
 	$(error HOST is not set. Usage: make update-host HOST=akira)
 endif
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/updates/fedora-updates.yml --limit $(HOST)
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/updates/macos-updates.yml --limit $(HOST)
 	@echo ""
 	@echo "✅ Updates complete for $(HOST)!"
 
