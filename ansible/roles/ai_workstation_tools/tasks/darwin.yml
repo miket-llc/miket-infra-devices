@@ -320,3 +320,35 @@
       not ansible_check_mode or
       ai_workstation_tools_macos_claude_precheck.rc == 0
   tags: [ai_workstation_tools, claude_code, verify]
+
+- name: Install the Claude desktop app with Homebrew
+  community.general.homebrew_cask:
+    name: "{{ ai_workstation_tools_macos_claude_desktop_cask }}"
+    state: "{{ 'latest' if ai_workstation_tools_update | bool else 'present' }}"
+    path: /opt/homebrew/bin:/usr/local/bin
+    update_homebrew: "{{ ai_workstation_tools_update | bool }}"
+  become: "{{ ai_workstation_tools_macos_become_target | bool }}"
+  become_user: "{{ ai_workstation_tools_target_user }}"
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_desktop_enabled | bool
+  tags: [ai_workstation_tools, claude_code, claude_desktop]
+
+- name: Disable the Claude Code self-updater on macOS (Homebrew owns updates)
+  ansible.builtin.blockinfile:
+    path: /etc/zshenv
+    create: true
+    owner: root
+    group: wheel
+    mode: "0644"
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: ai_workstation_tools claude-code"
+    block: |
+      # Claude Code is installed and updated from Homebrew (brew upgrade), so
+      # disable its in-app self-updater and the perpetual "update available"
+      # banner. Managed by role ai_workstation_tools.
+      export DISABLE_AUTOUPDATER=1
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_code_disable_autoupdater | bool
+  tags: [ai_workstation_tools, claude_code]

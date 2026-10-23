@@ -247,6 +247,10 @@
   tags: [ai_workstation_tools, codex, verify]
 
 # Claude Code
+# The full Claude desktop app has no Fedora/RHEL package (Anthropic's official
+# Linux desktop app is apt/Debian-only), so Linux installs the signed-RPM CLI
+# only. macOS and Windows additionally install the desktop app via
+# ai_workstation_tools_claude_desktop_enabled (see darwin.yml / windows.yml).
 - name: Validate Claude Code RPM support
   ansible.builtin.assert:
     that:
@@ -312,6 +316,7 @@
     - ai_workstation_tools_claude_code_enabled | bool
     - ai_workstation_tools_claude_user_launcher_precheck.stat.exists | default(false)
     - not ai_workstation_tools_claude_native_version_link | bool
+    - not ai_workstation_tools_claude_code_reconcile_local | bool
     - >-
       not ai_workstation_tools_claude_user_launcher_precheck.stat.islnk |
       default(false) or
@@ -468,6 +473,55 @@
         ai_workstation_tools_claude_user_launcher_precheck.stat.lnk_source |
         default('') == '/usr/bin/claude'
       )
+    - ai_workstation_tools_claude_package_install is succeeded
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Disable the Claude Code self-updater (updates come from the RPM repo)
+  ansible.builtin.copy:
+    dest: /etc/profile.d/claude-code.sh
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible (role: ai_workstation_tools). Do not edit by hand.
+      # Claude Code is installed and updated from Anthropic's signed RPM repo via
+      # dnf / `make update-all`, so disable its in-app self-updater and the perpetual
+      # "update available" banner: the stable RPM channel trails the native release
+      # manifest the checker polls, so the banner otherwise never clears.
+      export DISABLE_AUTOUPDATER=1
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_code_disable_autoupdater | bool
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Reconcile stray native Claude installs (managed RPM is authoritative)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  become: true
+  loop:
+    - "{{ ai_workstation_tools_target_home }}/.local/share/claude/versions"
+    - "{{ ai_workstation_tools_target_home }}/.claude/local"
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_code_reconcile_local | bool
+    - ai_workstation_tools_claude_package_install is succeeded
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code]
+
+- name: Force the Claude launcher to the managed RPM binary (reconcile mode)
+  ansible.builtin.file:
+    path: "{{ ai_workstation_tools_target_home }}/.local/bin/claude"
+    src: /usr/bin/claude
+    state: link
+    follow: false
+    force: true
+  become: true
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_code_reconcile_local | bool
     - ai_workstation_tools_claude_package_install is succeeded
     - not ansible_check_mode
   tags: [ai_workstation_tools, claude_code]

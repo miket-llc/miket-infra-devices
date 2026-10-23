@@ -250,6 +250,82 @@
       ai_workstation_tools_windows_claude_precheck.rc == 0
   tags: [ai_workstation_tools, claude_code, verify]
 
+# Claude desktop app
+- name: Check the Claude desktop app winget package
+  ansible.windows.win_command: >-
+    winget.exe list
+    --id {{ ai_workstation_tools_windows_claude_desktop_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_desktop_source }}
+    --accept-source-agreements
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_desktop_precheck
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_desktop_enabled | bool
+  tags: [ai_workstation_tools, claude_code, claude_desktop, verify]
+
+- name: Install the Claude desktop app with winget
+  ansible.windows.win_command: >-
+    winget.exe install
+    --id {{ ai_workstation_tools_windows_claude_desktop_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_desktop_source }}
+    --accept-source-agreements
+    --accept-package-agreements
+    --silent
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_desktop_install
+  changed_when: ai_workstation_tools_windows_claude_desktop_install.rc == 0
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_desktop_enabled | bool
+    - ai_workstation_tools_windows_claude_desktop_precheck.rc != 0
+    - not ansible_check_mode
+  tags: [ai_workstation_tools, claude_code, claude_desktop]
+
+- name: Update the Claude desktop app with winget
+  ansible.windows.win_command: >-
+    winget.exe upgrade
+    --id {{ ai_workstation_tools_windows_claude_desktop_id }}
+    --exact
+    --source {{ ai_workstation_tools_windows_claude_desktop_source }}
+    --accept-source-agreements
+    --accept-package-agreements
+    --silent
+    --disable-interactivity
+  register: ai_workstation_tools_windows_claude_desktop_update
+  changed_when: >-
+    'Successfully installed' in
+    (ai_workstation_tools_windows_claude_desktop_update.stdout | default(''))
+  failed_when: >-
+    ai_workstation_tools_windows_claude_desktop_update.rc not in
+    [0, -1978335189, 2316632107] and
+    'No available upgrade found' not in
+    (ai_workstation_tools_windows_claude_desktop_update.stdout | default('')) and
+    'No newer package versions are available' not in
+    (ai_workstation_tools_windows_claude_desktop_update.stdout | default(''))
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_desktop_enabled | bool
+    - ai_workstation_tools_windows_claude_desktop_precheck.rc == 0
+    - ai_workstation_tools_update | bool
+  tags: [ai_workstation_tools, claude_code, claude_desktop]
+
+- name: Disable the Claude Code self-updater on Windows (winget owns updates)
+  ansible.windows.win_environment:
+    name: DISABLE_AUTOUPDATER
+    value: "1"
+    level: machine
+    state: present
+  when:
+    - ai_workstation_tools_claude_code_enabled | bool
+    - ai_workstation_tools_claude_code_disable_autoupdater | bool
+  tags: [ai_workstation_tools, claude_code]
+
 # Codex CLI
 - name: Check Codex CLI on Windows
   ansible.windows.win_command: cmd.exe /d /c where codex
