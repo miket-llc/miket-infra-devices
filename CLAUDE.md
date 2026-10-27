@@ -13,6 +13,12 @@ Personal Hybrid Cloud (PHC) endpoint automation using Ansible. Manages Linux/Win
 - ADR-005: Workstations use Ollama; servers use vLLM
 - ADR-0010: `/space` and Nextcloud migrated from motoko → akira (Dec 2025)
 
+**Canonical architecture docs (read first for orientation):**
+1. `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` - System-wide principles
+2. `docs/architecture/Miket_Infra_Devices_Architecture.md` - Device roles, automation layers, IaC/CaC boundary
+3. `docs/architecture/FILESYSTEM_ARCHITECTURE.md` - Flux/Space/Time/Matter storage spec
+4. `docs/architecture/components/NEXTCLOUD_PHC_ARCHITECTURE.md` - Nextcloud pure façade model
+
 ## Common Commands
 
 ```bash
@@ -27,6 +33,9 @@ ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/<playbook>.yml
 
 # Run single task by tag
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/<playbook>.yml --tags "install" --limit <host>
+
+# Note: ansible.cfg sets inventory and roles_path, so from the ansible/ dir you can omit -i:
+#   cd ansible && ansible-playbook playbooks/<playbook>.yml --limit <host>
 
 # Windows automation requires env vars first
 set -a && source /etc/ansible/windows-automation.env && set +a
@@ -88,6 +97,8 @@ scripts/bootstrap-macos.sh     # macOS: autofs, CLI tools, Tailscale
 - **`/time`** - Backup/history tier (read-mostly)
 - **`/matter`** - Derived/cached data (embeddings, indexes, build artifacts). Rebuildable from `/space`.
 - UX paths: `~/{flux,space,time,matter}` on Linux/macOS; `X:/S:/T:/M:` on Windows
+- Ingestion: OS clouds (iCloud/OneDrive) flow one-way INTO `/space/devices/<host>/<user>/`
+- Backups: `/space` → B2 object storage (via restic/rclone); never reverse
 
 ### Secrets Management
 Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
@@ -112,15 +123,21 @@ Per ADR-005, LLM runtimes split by node type:
 - **Gateway (LiteLLM):** akira:4000 - unified proxy, routes to vLLM backend
 - **Clients:** Use `ASK_BASE_URL=http://akira:4000` for all LLM requests
 
+### Service Deployment Lifecycle
+Services (LiteLLM, Nextcloud, vLLM) follow this lifecycle:
+1. **Storage ready:** Mount `/space` before starting containers
+2. **Secrets synced:** Run `secrets-sync.yml` to render `.env` files from AKV
+3. **Container/service start:** Systemd units with `EnvironmentFile=` pointing to synced env files
+4. **Health check:** Services write `_status.json` to `/space/devices/<hostname>/`
+
+Systemd units must declare: `Requires=<mount>.mount` and `After=<mount>.mount`
+
 ## Key Files
 - `Makefile` - Primary task runner (`make help` for targets)
 - `ansible/inventory/hosts.yml` - Device inventory + capability groups
 - `ansible/secrets-map.yml` - AKV → .env mappings per service
 - `ansible/playbooks/secrets-sync.yml` - Sync secrets from AKV to hosts
 - `devices/<hostname>/` - Device-specific configs and scripts (e.g., `devices/wintermute/config.yml`)
-- `docs/architecture/PHC_VNEXT_ARCHITECTURE.md` - PHC big picture
-- `docs/architecture/FILESYSTEM_ARCHITECTURE.md` - Flux/Space/Time storage model
-- `docs/architecture/Miket_Infra_Devices_Architecture.md` - Device roles, automation layers
 - `docs/runbooks/` - Operational runbooks (70+ procedures)
 - `docs/communications/COMMUNICATION_LOG.md` - Dated architectural decisions
 - `scripts/tailscale-ssh-wrapper.sh` - SSH wrapper for Ansible (handles Tailscale auth)
@@ -144,6 +161,7 @@ Master orchestration playbooks (call sub-playbooks via `import_playbook`):
 - All playbooks must be idempotent (use `creates`, `unless`, `changed_when: false`)
 - Always test with `--check` and `--diff` first; use `--limit` for phased rollout
 - GPU checks: Roles validate GPU presence before deploying GPU-dependent services (fail fast)
+- Master playbooks use `import_playbook` to compose sub-playbooks with tags
 
 ### Inventory Groups
 Key capability groups in `ansible/inventory/hosts.yml`:
@@ -154,33 +172,31 @@ Key capability groups in `ansible/inventory/hosts.yml`:
 - `fedora_kde_workstations` - KDE Plasma desktops (ADR-004)
 - `headless_servers`, `basecamp_nodes` - Server/hacker node modes
 - `monitoring_exporters`, `monitoring_stack` - Prometheus infrastructure
-- `container_hosts` - Nodes running Podman/Docker
+- `container_hosts` - Nodes running Podman
 - `llm_client_nodes` - Nodes that consume the LiteLLM gateway
 
-### Service Dependencies
-Systemd services must declare storage dependencies:
-```ini
-Requires=<mount>.mount
-After=<mount>.mount
+### Container Runtime Standard
+**Podman-only** - no Docker daemon. CI guardrail (`.github/workflows/podman-only-guardrail.yml`) rejects Docker daemon/service references and `community.docker` Ansible modules on every PR.
+- Use `containers.podman` Ansible collection (not `community.docker`)
+- Use `podman-compose.yml` (not `docker-compose.yml`)
+- Docker CLI compatibility via `podman-docker` package is allowed (muscle memory)
+- Reference: `docs/reference/CONTAINERS_RUNTIME_STANDARD.md`
+
+### Pre-commit Hooks
+Copyright header check runs on all text files via `scripts/pre-commit-copyright-check.sh`. Install with:
+```bash
+pip install pre-commit && pre-commit install
 ```
 
-## Critical Invariants
+## Critical Invariants and Pitfalls
 
-1. **`/space` is the only SoR** - Never mirror FROM `/space` to external clouds
-2. **Nextcloud is a pure façade** - External storage to `/space/mike/*` only; no internal homes
+1. **`/space` is the only SoR** - Never mirror FROM `/space` to external clouds; `/space` is the destination, not a source
+2. **Nextcloud is a pure façade** - External storage to `/space/mike/*` only; no internal homes. Don't expose `/space/projects`, `/space/code`, `/space/dev`
 3. **Secrets from AKV** - Never hardcode; always use `secrets-sync`
-4. **Tailscale hostnames** - Always use MagicDNS (`*.pangolin-vega.ts.net`), never IPs
-5. **OS cloud loop prevention** - iCloud/OneDrive must NOT sync back from network mounts
-6. **systemd mount dependencies** - Services must declare `Requires=` and `After=` for mounts
-
-## Common Pitfalls
-
-- **Don't mirror FROM `/space`** - `/space` is the destination, not a source for external clouds
-- **Don't skip AKV for secrets** - Hardcoded passwords will break; use `secrets-sync`
-- **Don't use IPs in mount scripts** - Always use MagicDNS hostnames (ACL changes may reassign IPs)
-- **macOS autofs loop prevention** - Use `--no-links` with rsync to avoid following symlinks back into autofs mounts
-- **Windows WinRM env vars** - Must source `/etc/ansible/windows-automation.env` before running Windows playbooks
-- **Nextcloud prohibited paths** - Don't expose `/space/projects`, `/space/code`, `/space/dev` via external storage
+4. **Tailscale hostnames** - Always use MagicDNS (`*.pangolin-vega.ts.net`), never IPs (ACL changes may reassign IPs)
+5. **OS cloud loop prevention** - iCloud/OneDrive must NOT sync back from network mounts; use `rsync --no-links` on macOS autofs
+6. **Windows WinRM env vars** - Must source `/etc/ansible/windows-automation.env` before running Windows playbooks
+7. **Podman-only** - Never introduce Docker daemon references; CI will reject them
 
 ## File Organization
 
@@ -192,11 +208,12 @@ After=<mount>.mount
 
 ## When Making Changes
 
-1. **Architecture changes:** Update `docs/architecture/`, log in `COMMUNICATION_LOG.md`
-2. **New secrets:** Add to `secrets-map.yml`, provision in AKV (upstream), run `secrets-sync.yml`
+1. **Architecture changes:** Update canonical docs in `docs/architecture/`, log decision in `COMMUNICATION_LOG.md`
+2. **New secrets:** Add mapping to `secrets-map.yml`, provision in AKV (upstream), run `secrets-sync.yml`
 3. **New services:** Document storage paths, prove `/space` alignment, add systemd mount deps
-4. **New devices:** Add to `ansible/inventory/hosts.yml`, create `devices/<hostname>/config.yml`
+4. **New devices:** Add to `ansible/inventory/hosts.yml`, create `devices/<hostname>/config.yml`, apply Tailscale tags (upstream ACL)
 5. **Always validate:** Run the corresponding `make validate-*` target after deployment
+6. **Test first:** Always `--check --diff` before applying; use `--limit` for phased rollout
 
 ## Creating New Roles
 
