@@ -54,3 +54,45 @@
         - { flag: "--setstealthmode on", done: "Stealth mode enabled" }
         - { flag: "--setallowsigned on", done: "built-in software ENABLED" }
       when: item.done not in macos_fw.stdout
+
+# wintermute's Ethernet is on the Public profile, and several service rules allowed
+# RemoteAddress=Any: sshd, NoMachine (including the rule *named* "Tailscale Only",
+# drifted from roles/remote_server_windows_nomachine), Netdata, vLLM, windows_exporter,
+# and WinRM from the LAN. Scope them to the tailnet. Ansible reaches wintermute via
+# WinRM over Tailscale ("WinRM-HTTP-Tailscale"), so this does not cut off management.
+# Game/Steam program rules are left alone.
+- name: Scope Windows service firewall rules to the tailnet
+  hosts: windows
+  gather_facts: false
+  vars:
+    windows_tailnet_cidr: 100.64.0.0/10
+    windows_tailnet_scoped_rules:
+      - OpenSSH SSH Server (sshd)
+      - NoMachine - Tailscale Only
+      - NoMachine NX Server
+      - Netdata Web UI
+      - vLLM 8000
+      - vLLM 8001
+      - vLLM Port 8000
+      - windows_exporter (HTTP 9182)
+      - WinRM-HTTP-Local
+      - Windows Remote Management (HTTP-In)
+  tasks:
+    - name: Restrict rule RemoteAddress to the tailnet
+      ansible.windows.win_powershell:
+        parameters:
+          Names: "{{ windows_tailnet_scoped_rules }}"
+          Cidr: "{{ windows_tailnet_cidr }}"
+        script: |
+          param([string[]]$Names, [string]$Cidr)
+          $Ansible.Changed = $false
+          foreach ($n in $Names) {
+            foreach ($r in @(Get-NetFirewallRule -DisplayName $n -ErrorAction SilentlyContinue)) {
+              $cur = @(($r | Get-NetFirewallAddressFilter).RemoteAddress)
+              if ($cur.Count -ne 1 -or $cur[0] -notin @($Cidr, '100.64.0.0/255.192.0.0')) {
+                $r | Set-NetFirewallRule -RemoteAddress $Cidr
+                $Ansible.Changed = $true
+                "scoped: $n (was $($cur -join ','))"
+              }
+            }
+          }
