@@ -36,7 +36,7 @@ prometheus_node_exporter_targets:
   - name: atom
     address: "atom.pangolin-vega.ts.net:9100"
   - name: armitage
-    address: "armitage.pangolin-vega.ts.net:9100"
+    address: "armitage.pangolin-vega.ts.net:9182"  # windows_exporter (Windows 11 since 2026-11)
 
 # ========================================
 # Blackbox Exporter Configuration

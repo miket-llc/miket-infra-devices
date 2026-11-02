@@ -39,7 +39,7 @@
     dest: "{{ ansible_user_dir }}\\Documents\\NoMachine\\{{ item.name }}.nxs"
   loop:
     - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
-    - { name: 'armitage', host: 'armitage', session_type: 'unix' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
     - { name: 'akira', host: 'akira', session_type: 'unix' }
 
 - name: Display NoMachine client installation status
@@ -49,5 +49,5 @@
       - "Launch from: Start Menu > NoMachine"
       - "Pre-configured servers available in Documents\\NoMachine:"
       - "  - wintermute (Windows)"
-      - "  - armitage (Linux - Fedora KDE)"
+      - "  - armitage (Windows)"
       - "  - akira (Linux)"

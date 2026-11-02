@@ -14,12 +14,10 @@
   gather_facts: false
   
   pre_tasks:
-    - name: Verify host has vLLM configuration
-      ansible.builtin.assert:
-        that:
-          - vllm is defined
-          - vllm.enabled | default(false) | bool
-        fail_msg: "Host {{ inventory_hostname }} does not have vLLM enabled in host_vars"
+    # Ollama workstations (armitage) sit in ai_nodes too; skip them instead of failing.
+    - name: Skip hosts without a vLLM configuration
+      ansible.builtin.meta: end_host
+      when: vllm is not defined or not (vllm.enabled | default(false) | bool)
 
   roles:
     - podman_vllm_windows

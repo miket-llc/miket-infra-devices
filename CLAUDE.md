@@ -74,7 +74,7 @@ scripts/bootstrap-macos.sh     # macOS: autofs, CLI tools, Tailscale
 | Device | Role | OS | Key Services |
 |--------|------|----|--------------|
 | **akira** | Control node + Storage SoR + AI/server node | Fedora 44 KDE | **Ansible control**, **cloudflared tunnel** (`nextcloud.miket.io`), `/space` (18TB), `/time` export, Nextcloud, vLLM, LiteLLM, Prometheus/Grafana |
-| **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine |
+| **armitage** | Windows gaming/dev workstation | Windows 11 Pro | NoMachine, gaming (RTX 4070 Laptop), LiteLLM client; WinRM-managed like wintermute |
 | **flatline** | Workstation | Fedora KDE | Basic workstation (Lenovo Yoga, no dedicated GPU) |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine |
 | **atom** | Hacker/radio node | Fedora | SDR, Sway/i3 UI, occasionally on |
@@ -107,7 +107,7 @@ Secrets flow from Azure Key Vault → local `.env` files via `secrets-sync`:
 
 ### LLM Fabric (AI Nodes)
 Per ADR-005, LLM runtimes split by node type:
-- **Workstations (Ollama):** armitage - interactive, model switching, `ollama run`
+- **Workstations (Ollama):** none at present (armitage dropped Ollama 2026-11 and is a LiteLLM client only)
 - **Servers (vLLM):** akira - high-throughput inference, OpenAI-compatible API
 - **Gateway (LiteLLM):** akira:4000 - unified proxy, routes to vLLM backend
 - **Clients:** Use `ASK_BASE_URL=http://akira:4000` for all LLM requests

@@ -2,7 +2,7 @@
 
 ---
 # Shared configuration for Windows workstations
-# Applies to: wintermute and future Windows workstations (armitage migrated to Fedora per ADR-005)
+# Applies to: wintermute and armitage (armitage returned to Windows 11 Pro 2026-11)
 
 # User configuration
 # All Windows workstations use the 'mdt' local user account

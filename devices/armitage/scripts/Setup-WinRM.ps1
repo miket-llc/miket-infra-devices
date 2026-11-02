@@ -64,5 +64,6 @@ try {
 Write-Host "`n✅ WinRM configuration complete!" -ForegroundColor Green
 Write-Host "`nYou can now manage this workstation via Ansible from akira" -ForegroundColor Cyan
 Write-Host "Test connection with:" -ForegroundColor Cyan
-Write-Host "  ansible armitage -i ansible/inventory/hosts.yml -m win_ping -e 'ansible_password=MonkeyB0y'" -ForegroundColor White
+Write-Host "  ansible armitage -i ansible/inventory/hosts.yml -m win_ping" -ForegroundColor White
+Write-Host "  (the inventory reads the password from Azure Key Vault: armitage-ansible-password)" -ForegroundColor White
 

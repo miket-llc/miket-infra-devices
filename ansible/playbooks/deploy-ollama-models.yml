@@ -5,7 +5,7 @@
 #
 # Usage:
 #   ansible-playbook playbooks/deploy-ollama-models.yml
-#   ansible-playbook playbooks/deploy-ollama-models.yml --limit armitage
+#   ansible-playbook playbooks/deploy-ollama-models.yml --limit wintermute
 #
 # After running, verify via LiteLLM:
 #   curl http://akira:4000/v1/models
@@ -23,14 +23,6 @@
   gather_facts: false
   
   tasks:
-    - name: Test chat-fast (armitage)
-      ansible.builtin.uri:
-        url: "http://armitage.pangolin-vega.ts.net:11434/api/tags"
-        method: GET
-        timeout: 10
-      register: armitage_test
-      ignore_errors: true
-
     - name: Test chat-deep (wintermute)
       ansible.builtin.uri:
         url: "http://wintermute.pangolin-vega.ts.net:11434/api/tags"
@@ -52,7 +44,6 @@
         msg: |
           PHC AI Fabric Endpoint Status:
           ═══════════════════════════════════════════════════════════
-          chat-fast (armitage):     {{ 'OK' if armitage_test.status == 200 else 'FAILED' }}
           chat-deep (wintermute):   {{ 'OK' if wintermute_test.status == 200 else 'FAILED' }}
           longcontext (count-zero): {{ 'OK' if countzero_test.status == 200 else 'FAILED' }}
           ═══════════════════════════════════════════════════════════

@@ -2,7 +2,7 @@
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
-ARMITAGE_HOST ?= armitage.tailnet.local
+ARMITAGE_HOST ?= armitage.pangolin-vega.ts.net
 AKIRA_HOST ?= akira.pangolin-vega.ts.net
 LITELLM_PORT ?= 4000
 VLLM_PORT ?= 8000
@@ -93,7 +93,7 @@ help:
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  WINTERMUTE_HOST         - Wintermute hostname (default: wintermute.tailnet.local)"
-	@echo "  ARMITAGE_HOST           - Armitage hostname (default: armitage.tailnet.local)"
+	@echo "  ARMITAGE_HOST           - Armitage hostname (default: armitage.pangolin-vega.ts.net)"
 	@echo "  AKIRA_HOST              - Akira hostname (default: akira.pangolin-vega.ts.net)"
 
 # Create necessary directories
@@ -330,8 +330,8 @@ deploy-nomachine-servers:
 	@echo "========================================"
 	@echo ""
 	@echo "This will:"
-	@echo "  ✓ Install NoMachine on akira, armitage (Linux)"
-	@echo "  ✓ Install NoMachine on wintermute (Windows)"
+	@echo "  ✓ Install NoMachine on akira (Linux)"
+	@echo "  ✓ Install NoMachine on wintermute, armitage (Windows)"
 	@echo "  ✓ Remove VNC completely from Linux"
 	@echo "  ✓ Disable RDP on Windows"
 	@echo "  ✓ Configure firewalls for Tailscale-only access"
@@ -356,8 +356,8 @@ deploy-nomachine-clients:
 	@echo ""
 	@echo "This will install NoMachine client on:"
 	@echo "  - count-zero (macOS)"
-	@echo "  - wintermute (Windows)"
-	@echo "  - akira, armitage (Linux)"
+	@echo "  - wintermute, armitage (Windows)"
+	@echo "  - akira (Linux)"
 	@echo ""
 	@read -p "Continue? (y/N): " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
@@ -752,7 +752,7 @@ deploy-llm-client-canary:
 	@echo "========================================"
 	@echo ""
 	@echo "Deploying to canary hosts only:"
-	@echo "  - armitage (Linux workstation)"
+	@echo "  - armitage (Windows workstation)"
 	@echo "  - akira (AI workstation)"
 	@echo ""
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml --limit armitage,akira

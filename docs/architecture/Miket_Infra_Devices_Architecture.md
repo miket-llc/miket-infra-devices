@@ -10,13 +10,12 @@
   - Hosts Ansible control node and systemd timers (flux-backup, secrets-sync).
   - Exports `/time` via SMB (Time Machine backups for count-zero).
   - **Note:** `/space` and Nextcloud migrated to akira per ADR-0010 (2025-12).
-- **armitage (Fedora KDE workstation / GPU / Ollama LLM node):**
-  - Fedora KDE desktop (per ADR-004: KDE Plasma is the Linux UI standard).
-  - Ollama LLM runtime (per ADR-005: workstations use Ollama, servers use vLLM).
-  - NVIDIA RTX 4070 GPU for local LLM inference.
-  - Tailscale tags: `linux`, `gpu`, `llm_node`.
-  - Remote UX via NoMachine. SSH via tailnet.
-  - **Note:** A small Windows partition exists for Dell support/diagnostics only (offline, not on tailnet, not managed by Ansible).
+- **armitage (Windows 11 Pro gaming laptop / GPU):**
+  - Alienware m16 R2 (hybrid Intel Arc iGPU + RTX 4070 Laptop). Windows 11 Pro since 2026-11; ran Fedora KDE 2025-12 to 2026-11 (see COMMUNICATION_LOG 2026-11-02).
+  - ADR-004 exception (same as wintermute): the box is primarily a gaming/peripheral machine.
+  - No local LLM runtime (Ollama dropped 2026-11); LiteLLM client only, via akira:4000.
+  - Tailscale tags: `workstation`, `windows`, `gaming`. Local admin `mdt` only, no Microsoft account.
+  - Managed over WinRM (5985) from akira like wintermute; OpenSSH server and NoMachine for remote UX.
 - **akira (storage + Nextcloud + AI workstation):**
   - Fedora 43 KDE Plasma desktop (per ADR-004: KDE Plasma is the Linux UI standard).
   - **Hosts `/space` (SoR)** on WD Red 18TB external drive (per ADR-0010).

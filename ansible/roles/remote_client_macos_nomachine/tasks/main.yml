@@ -44,7 +44,7 @@
     mode: '0644'
   loop:
     - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
-    - { name: 'armitage', host: 'armitage', session_type: 'unix' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
     - { name: 'akira', host: 'akira', session_type: 'unix' }
 
 - name: Display NoMachine client installation status
@@ -54,6 +54,6 @@
       - "Launch from: /Applications/NoMachine.app"
       - "Pre-configured servers available in ~/Documents/NoMachine:"
       - "  - wintermute (Windows)"
-      - "  - armitage (Linux - Fedora KDE)"
+      - "  - armitage (Windows)"
       - "  - akira (Linux)"
       - "Keyboard tip: macOS Command key maps to Ctrl in remote sessions"
