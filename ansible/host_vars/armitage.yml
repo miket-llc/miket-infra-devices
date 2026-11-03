@@ -58,6 +58,9 @@ podman_desktop:
 # =============================================================================
 hostname: armitage
 tailscale_hostname: armitage
+# WinRM already runs as the elevated local admin; disable become so plays that set
+# `become: true` for their Linux hosts (llm-client, deploy-nomachine) don't try sudo here.
+ansible_become: false
 # Must match miket-infra ACL tagOwners (platform-owned)
 tailscale_tags:
   - "tag:workstation"
