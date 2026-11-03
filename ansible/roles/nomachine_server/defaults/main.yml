@@ -35,6 +35,8 @@ nomachine_service_name: nxserver
 # Installation paths
 nomachine_install_path_linux: /usr/NX
 nomachine_install_path_windows: "C:\\Program Files\\NoMachine"
+# Windows service name: 9.x registers nxservice64, 10.x registers nxservice
+nomachine_service_name_windows: nxservice64
 nomachine_install_path_macos: /Applications/NoMachine.app
 
 # Tailnet security settings

@@ -71,7 +71,10 @@ tailscale_tags:
 remote_protocol: nomachine
 remote_port: 4000
 restrict_to_tailscale: true
-nomachine_version: "9.2.18"
+# 10.2.3 installed by hand 2026-11-03 (nomachine.com no longer offers the free 9.2.18;
+# 10.x Personal Edition runs on a 14-day trial until a subscription is added).
+nomachine_version: "10.2.3"
+nomachine_service_name_windows: nxservice
 nomachine_port: 4000
 
 # =============================================================================
