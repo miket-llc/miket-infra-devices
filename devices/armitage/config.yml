@@ -42,7 +42,8 @@ operating_system:
   os: Windows 11 Pro
   version: Latest
   wsl: true
-  docker_desktop: false     # BANNED - Podman Desktop only
+  docker_desktop: false     # BANNED
+  podman_desktop: false     # no container runtime on armitage (2026-11-02)
   local_account_only: true  # No Microsoft account; local admin 'mdt' is the automation account
 
 network:
@@ -62,7 +63,6 @@ management:
   bootstrap: "autounattend.xml + firstlogon.ps1 (WinRM, Tailscale, OpenSSH, product key) at install time"
 
 services:
-  - Podman Desktop (container runtime, WSL2 backend)
   - NVIDIA CUDA Toolkit
   - NoMachine (remote desktop)
   - OpenSSH Server

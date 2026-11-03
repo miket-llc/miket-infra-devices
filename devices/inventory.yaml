@@ -125,7 +125,7 @@ devices:
         memory_gb: 32
         storage_tb: 1
       network:
-        tailscale_ip: 100.88.153.51
+        tailscale_ip: 100.117.169.64
         tailscale: enabled
         tailscale_ssh: disabled   # Windows: WinRM 5985 + OpenSSH server
         tailscale_tags:
@@ -135,7 +135,6 @@ devices:
         remote_desktop: nomachine
         wake_on_lan: enabled
       services:
-        - Podman Desktop (WSL2)
         - NVIDIA CUDA Toolkit
         - NoMachine
         - OpenSSH Server

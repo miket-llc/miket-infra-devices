@@ -48,7 +48,10 @@ device_roles:
   - windows-workstation
   - gaming-mode
   - cuda-development
-  - podman-desktop
+
+# No container runtime on armitage (decided 2026-11-02); overrides the windows_workstations default.
+podman_desktop:
+  enabled: false
 
 # =============================================================================
 # Identity & Network
