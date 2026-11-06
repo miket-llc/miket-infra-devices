@@ -75,6 +75,9 @@
       - /qn
       - ENABLED_COLLECTORS={{ windows_exporter_collectors | join(',') }}
       - LISTEN_PORT={{ windows_exporter_port }}
+      # The MSI's own rule allows the port from any address on every profile;
+      # the Tailnet-only rule below is the only one we want.
+      - ADD_FIREWALL_EXCEPTION=no
   register: install_result
   when: download_result.changed | default(false)
   tags: [observability, windows_exporter, install]
@@ -94,6 +97,12 @@
     remoteip: "{{ windows_exporter_tailnet_cidr }}"
     state: present
     enabled: true
+  tags: [observability, windows_exporter, firewall]
+
+- name: Remove the MSI's unscoped windows_exporter rule (any address, any profile)
+  community.windows.win_firewall_rule:
+    name: windows_exporter (HTTP {{ windows_exporter_port }})
+    state: absent
   tags: [observability, windows_exporter, firewall]
 
 # ========================================

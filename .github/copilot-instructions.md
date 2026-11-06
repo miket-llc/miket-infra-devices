@@ -30,7 +30,7 @@ This repo automates the **Personal Hybrid Cloud (PHC)** endpoint devices using A
 | Device | Role | OS | Key Services | Tailnet |
 |--------|------|----|--------------|---------|
 | **akira** | Control node + Storage + AI/server node | Fedora 43 KDE | Ansible control, cloudflared tunnel, `/space` SoR (18TB WD Red), `/time` export, Nextcloud, vLLM, LiteLLM proxy, space-mirror | akira.pangolin-vega.ts.net |
-| **armitage** | Workstation + Ollama | Fedora KDE | Ollama (RTX 4070), NoMachine, KDE Plasma | armitage.pangolin-vega.ts.net |
+| **armitage** | Windows gaming/dev workstation | Windows 11 Pro | NoMachine, gaming (RTX 4070 Laptop), LiteLLM client | armitage.pangolin-vega.ts.net |
 | **wintermute** | Windows workstation | Windows 11 | vLLM (RTX 4070 Super), NoMachine | wintermute.pangolin-vega.ts.net |
 | **atom** | Resilience node | Fedora 43 | Battery-backed SSH foothold, minimal services | atom.pangolin-vega.ts.net |
 | **flatline** | Workstation | Fedora KDE | Basic KDE workstation (Lenovo Yoga, no GPU) | flatline.pangolin-vega.ts.net |
@@ -188,7 +188,7 @@ make backup-configs           # Backup current configs before changes
 ### Device-Specific Notes
 - **akira:** Runs `/space` SoR on external 18TB WD Red; Nextcloud, space-mirror, and vLLM
 - **akira:** Ansible control node (run playbooks here); `/space` SoR; LiteLLM proxy; vLLM; Nextcloud; `/time` Time Machine backups
-- **armitage:** Ollama workstation (not vLLM); KDE Plasma; small Windows partition offline (Dell support only)
+- **armitage:** Windows 11 Pro gaming laptop (back from Fedora KDE 2026-11); no local LLM runtime (LiteLLM client only); WinRM-managed like wintermute; local account only
 - **wintermute:** Windows GPU node; vLLM + NoMachine; drives X:/S:/T: for Flux/Space/Time
 - **atom:** Battery-backed resilience node; minimal services; proof-of-life + SSH foothold during power failures
 

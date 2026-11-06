@@ -1,0 +1,42 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+- name: Validate AI workstation tools role inputs
+  ansible.builtin.assert:
+    that:
+      - ai_workstation_tools_target_user | length > 0
+      - >-
+        ansible_facts.system in ['Linux', 'Darwin', 'Win32NT'] or
+        ansible_facts.os_family == 'Windows'
+    fail_msg: >-
+      ai_workstation_tools requires a target user and supports Linux, Darwin,
+      and Windows hosts only.
+    quiet: true
+  when:
+    - ai_workstation_tools_enabled | bool
+    - >-
+      ai_workstation_tools_chatgpt_enabled | bool or
+      ai_workstation_tools_codex_enabled | bool or
+      ai_workstation_tools_claude_code_enabled | bool
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Include Linux AI workstation tool tasks
+  ansible.builtin.include_tasks: linux.yml
+  when:
+    - ai_workstation_tools_enabled | bool
+    - ansible_facts.system == 'Linux'
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Include Darwin AI workstation tool tasks
+  ansible.builtin.include_tasks: darwin.yml
+  when:
+    - ai_workstation_tools_enabled | bool
+    - ansible_facts.system == 'Darwin'
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]
+
+- name: Include Windows AI workstation tool tasks
+  ansible.builtin.include_tasks: windows.yml
+  when:
+    - ai_workstation_tools_enabled | bool
+    - ansible_facts.os_family == 'Windows'
+  tags: [ai_workstation_tools, chatgpt, codex, claude_code, verify]

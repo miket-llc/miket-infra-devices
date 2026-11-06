@@ -218,11 +218,9 @@ workstation_packages:
   - podman-compose
   - buildah
 
-# Flatpaks for workstation
-flatpak_apps:
-  - com.visualstudio.code
-  - dev.warp.Warp
-  - io.github.ArcticFox-Dev.ArcticFox.Cursor
+# Flatpaks: baseline comes from the linux_desktop_base role.
+# Add akira-specific apps via linux_desktop_flatpaks_extra after auditing
+# what is actually installed there (host was unreachable at time of writing).
 
 # =============================================================================
 # KDE Plasma Desktop Configuration

@@ -72,6 +72,11 @@
           ═══════════════════════════════════════════════════════════════
       tags: [always]
 
+    - name: Skip hosts that opt out of Podman Desktop (host_vars podman_desktop.enabled false)
+      ansible.builtin.meta: end_host
+      when: not (podman_desktop.enabled | default(true) | bool)
+      tags: [always]
+
   roles:
     - role: podman_desktop_windows
       tags: [podman_desktop]

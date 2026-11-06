@@ -116,6 +116,8 @@
   register: machine_start
   changed_when: "'Successfully started' in machine_start.stdout"
   failed_when: false  # May already be running
+  # Podman is for development only; don't leave the WSL2 machine running unless a host asks.
+  when: podman_desktop.start_machine | default(false) | bool
   tags: [podman_windows, machine]
 
 # ========================================

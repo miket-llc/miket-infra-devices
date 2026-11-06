@@ -194,10 +194,21 @@
 
     - name: Ensure NoMachine service is running (Windows)
       ansible.windows.win_service:
-        name: nxservice64
+        name: "{{ nomachine_service_name_windows }}"
         state: started
         start_mode: auto
       when: nomachine_installed_win.stat.exists or (nomachine_install_win.changed | default(false))
+
+    # The installer's own rules (Server, NX Server, Node, Runner, Player) allow any
+    # address on every profile; scope them to the Tailnet like the Linux firewalld zone.
+    - name: Restrict NoMachine firewall rules to Tailnet (Windows)
+      ansible.windows.win_shell: |
+        $wide = Get-NetFirewallRule -DisplayName 'NoMachine*' -ErrorAction SilentlyContinue |
+          Where-Object { ($_ | Get-NetFirewallAddressFilter).RemoteAddress -contains 'Any' }
+        if ($wide) { $wide | Set-NetFirewallRule -RemoteAddress '{{ nomachine_accept_from }}'; 'CHANGED' } else { 'OK' }
+      register: nomachine_fw_win
+      changed_when: "'CHANGED' in nomachine_fw_win.stdout"
+      when: nomachine_tailscale_only | bool
 
 # ============================================
 # MACOS INSTALLATION

@@ -90,7 +90,7 @@
           - name: atom
             address: "atom.pangolin-vega.ts.net:9100"
           - name: armitage
-            address: "armitage.pangolin-vega.ts.net:9100"
+            address: "armitage.pangolin-vega.ts.net:9182"  # windows_exporter
         blackbox_http_targets:
           - name: nextcloud_status
             url: "https://nextcloud.miket.io/status.php"
@@ -212,10 +212,10 @@
           OBSERVABILITY DEPLOYMENT COMPLETE
           ========================================
 
-          node_exporter deployed to:
-            - akira
-            - atom
-            - armitage
+          exporters deployed to:
+            - akira (node_exporter)
+            - atom (node_exporter)
+            - armitage (windows_exporter :9182)
 
           Observability stack on Akira:
             - Prometheus (http://akira.pangolin-vega.ts.net:9090)

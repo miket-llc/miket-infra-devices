@@ -48,7 +48,7 @@
   become: false
   loop:
     - { name: 'akira', host: 'akira', session_type: 'unix' }
-    - { name: 'armitage', host: 'armitage', session_type: 'unix' }
+    - { name: 'armitage', host: 'armitage', session_type: 'windows' }
     - { name: 'wintermute', host: 'wintermute', session_type: 'windows' }
 
 - name: Display NoMachine client installation status
@@ -58,5 +58,5 @@
       - "Launch from: Applications menu > NoMachine or run 'nxplayer'"
       - "Pre-configured servers available in ~/Documents/NoMachine:"
       - "  - akira (Linux)"
-      - "  - armitage (Linux - Fedora KDE)"
+      - "  - armitage (Windows)"
       - "  - wintermute (Windows)"

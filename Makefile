@@ -1,8 +1,8 @@
-.PHONY: help deploy-wintermute deploy-armitage rollback-wintermute rollback-armitage test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
+.PHONY: help deploy-wintermute deploy-armitage rollback-wintermute rollback-armitage test-context test-burst test-nomachine test-nextcloud backup-configs health-check deploy-nomachine-servers deploy-nomachine-clients validate-nomachine rollback-nomachine deploy-nextcloud validate-nextcloud verify-tailscale deploy-ssh-config deploy-observability uninstall-netdata validate-observability deploy-basecamp validate-basecamp deploy-data-lifecycle validate-backups deploy-litellm validate-litellm deploy-ask-cli deploy-nodejs-nvm deploy-ai-tools update-ai-tools validate-ai-tools deploy-llm-client deploy-llm-client-canary validate-llm-client update-all update-all-check update-host verify-services setup-update-scheduling deploy-claude-agent validate-claude-agent deploy-openconnect-vpn validate-openconnect-vpn
 
 # Configuration
 WINTERMUTE_HOST ?= wintermute.tailnet.local
-ARMITAGE_HOST ?= armitage.tailnet.local
+ARMITAGE_HOST ?= armitage.pangolin-vega.ts.net
 AKIRA_HOST ?= akira.pangolin-vega.ts.net
 LITELLM_PORT ?= 4000
 VLLM_PORT ?= 8000
@@ -63,6 +63,12 @@ help:
 	@echo "Dev Tools (Node.js/npm):"
 	@echo "  deploy-nodejs-nvm          - Deploy nvm + Node.js (sudo-free npm install -g)"
 	@echo ""
+	@echo "AI Workstation Tools:"
+	@echo "  deploy-ai-tools            - Install ChatGPT, Codex CLI, and Claude Code"
+	@echo "  update-ai-tools            - Update the standard AI tools across workstations"
+	@echo "  validate-ai-tools          - Verify the standard AI tools are present"
+	@echo "  Optional: HOST=<name> limits any AI tools target to one workstation"
+	@echo ""
 	@echo "System Updates (Fedora):"
 	@echo "  update-all              - Update all Fedora hosts (packages + Tailscale + services)"
 	@echo "  update-all-check        - Dry-run updates (see what would change)"
@@ -78,7 +84,7 @@ help:
 	@echo "  verify-tailscale        - E2E verification of Tailscale mesh connectivity"
 	@echo "  deploy-ssh-config       - Deploy standardized SSH config to workstations"
 	@echo ""
-	@echo "Utility:
+	@echo "Utility:"
 	@echo "  backup-configs          - Backup current configurations"
 	@echo "  health-check            - Check health of all services"
 	@echo "  test-context            - Run context window smoke tests"
@@ -87,7 +93,7 @@ help:
 	@echo ""
 	@echo "Environment variables:"
 	@echo "  WINTERMUTE_HOST         - Wintermute hostname (default: wintermute.tailnet.local)"
-	@echo "  ARMITAGE_HOST           - Armitage hostname (default: armitage.tailnet.local)"
+	@echo "  ARMITAGE_HOST           - Armitage hostname (default: armitage.pangolin-vega.ts.net)"
 	@echo "  AKIRA_HOST              - Akira hostname (default: akira.pangolin-vega.ts.net)"
 
 # Create necessary directories
@@ -324,8 +330,8 @@ deploy-nomachine-servers:
 	@echo "========================================"
 	@echo ""
 	@echo "This will:"
-	@echo "  ✓ Install NoMachine on akira, armitage (Linux)"
-	@echo "  ✓ Install NoMachine on wintermute (Windows)"
+	@echo "  ✓ Install NoMachine on akira (Linux)"
+	@echo "  ✓ Install NoMachine on wintermute, armitage (Windows)"
 	@echo "  ✓ Remove VNC completely from Linux"
 	@echo "  ✓ Disable RDP on Windows"
 	@echo "  ✓ Configure firewalls for Tailscale-only access"
@@ -350,8 +356,8 @@ deploy-nomachine-clients:
 	@echo ""
 	@echo "This will install NoMachine client on:"
 	@echo "  - count-zero (macOS)"
-	@echo "  - wintermute (Windows)"
-	@echo "  - akira, armitage (Linux)"
+	@echo "  - wintermute, armitage (Windows)"
+	@echo "  - akira (Linux)"
 	@echo ""
 	@read -p "Continue? (y/N): " confirm; \
 	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
@@ -681,7 +687,6 @@ deploy-nodejs-nvm:
 	@echo "This will deploy nvm and Node.js to Linux servers:"
 	@echo "  ✓ nvm installed to ~/.nvm"
 	@echo "  ✓ Node.js LTS installed via nvm"
-	@echo "  ✓ @openai/codex and @anthropic-ai/claude-code"
 	@echo "  ✓ No sudo required for npm install -g"
 	@echo ""
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-nodejs-nvm.yml
@@ -691,6 +696,23 @@ deploy-nodejs-nvm:
 	@echo "Usage:"
 	@echo "  source ~/.bashrc  # or ~/.zshrc"
 	@echo "  npm install -g <package>  # no sudo needed!"
+	@echo "  AI tools: make deploy-ai-tools"
+
+# ========================================
+# Standard AI Workstation Tools
+# ========================================
+
+deploy-ai-tools:
+	@echo "Deploying ChatGPT, Codex CLI, and Claude Code to managed workstations..."
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml $(if $(HOST),--limit $(HOST),)
+
+update-ai-tools:
+	@echo "Updating ChatGPT, Codex CLI, and Claude Code on managed workstations..."
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml $(if $(HOST),--limit $(HOST),) -e ai_workstation_tools_update=true
+
+validate-ai-tools:
+	@echo "Validating ChatGPT, Codex CLI, and Claude Code on managed workstations..."
+	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml $(if $(HOST),--limit $(HOST),) --tags verify
 
 # ========================================
 # LLM Client Tools (OpenHands)
@@ -730,7 +752,7 @@ deploy-llm-client-canary:
 	@echo "========================================"
 	@echo ""
 	@echo "Deploying to canary hosts only:"
-	@echo "  - armitage (Linux workstation)"
+	@echo "  - armitage (Windows workstation)"
 	@echo "  - akira (AI workstation)"
 	@echo ""
 	cd ansible && ansible-playbook -i inventory/hosts.yml playbooks/llm-client.yml --limit armitage,akira
@@ -820,4 +842,3 @@ setup-update-scheduling:
 	@echo "✅ Scheduling configured!"
 	@echo ""
 	@echo "Check timer status: systemctl list-timers system-updates.timer"
-

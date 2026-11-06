@@ -31,6 +31,40 @@ cursor_linux_appimage_url: "https://downloads.cursor.com/production/latest/linux
 warp_enabled: true
 # Warp is currently Linux and macOS only (no Windows support yet)
 
+# VS Code Wayland override
+# On KDE Wayland, VS Code launches via XWayland by default, which produces
+# blank secondary windows on hybrid Intel + NVIDIA graphics. Running it as a
+# native Wayland client fixes it without giving up GPU acceleration.
+# Deployed as a /usr/local/share/applications override so the RPM's own
+# desktop file is left untouched (same approach as cool-retro-term).
+vscode_wayland_override_enabled: true
+
+# ========================================
+# Obsidian Configuration
+# ========================================
+# Obsidian ships no official Fedora RPM. Rather than pull in a Flatpak, we
+# install the upstream AppImage to /opt and write our own desktop entry -
+# the same approach this role uses for Cursor on Debian.
+# Bump obsidian_version to upgrade; the download is idempotent via `creates`.
+obsidian_enabled: true
+obsidian_version: "1.13.7"
+obsidian_install_dir: "/opt/obsidian"
+obsidian_appimage_url: "https://github.com/obsidianmd/obsidian-releases/releases/download/v{{ obsidian_version }}/Obsidian-{{ obsidian_version }}.AppImage"
+
+# ========================================
+# Google Chrome Configuration
+# ========================================
+# Native RPM from Google's own repo (preferred over the Flatpak build).
+chrome_enabled: true
+
+# ========================================
+# Slack Configuration
+# ========================================
+# Slack publishes a current-version API; resolve the RPM URL from it rather
+# than pinning a URL that goes stale.
+slack_enabled: true
+slack_release_api: "https://slack.com/api/desktop.latestRelease?arch=x64&variant=rpm"
+
 # ========================================
 # Cool Retro Term Configuration
 # ========================================

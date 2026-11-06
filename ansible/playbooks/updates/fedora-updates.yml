@@ -322,30 +322,7 @@
       when: inventory_hostname == 'akira'
       tags: [services, verify]
 
-    # Armitage services (Ollama workstation)
-    - name: Ensure Armitage services are running
-      block:
-        - name: Ensure Ollama is running
-          systemd:
-            name: ollama
-            state: started
-            enabled: yes
-          failed_when: false
-          register: ollama_status
-
-        - name: Check node_exporter is running
-          systemd:
-            name: node_exporter
-            state: started
-            enabled: yes
-          failed_when: false
-
-        - name: Display Armitage service status
-          debug:
-            msg:
-              - "Ollama: {{ 'Running' if ollama_status.status.ActiveState | default('unknown') == 'active' else 'NOT RUNNING' }}"
-      when: inventory_hostname == 'armitage'
-      tags: [services, verify]
+    # (armitage Ollama/node_exporter checks removed 2026-11: armitage is Windows 11 again)
 
     # Atom services (basecamp/resilience node)
     - name: Ensure Atom services are running

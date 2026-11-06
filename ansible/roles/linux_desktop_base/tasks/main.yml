@@ -65,7 +65,7 @@
   community.general.flatpak:
     name: "{{ item }}"
     state: present
-  loop: "{{ linux_desktop_flatpaks }}"
+  loop: "{{ linux_desktop_flatpaks + linux_desktop_flatpaks_extra }}"
   failed_when: false  # Don't fail if app not found in repo
   tags: [flatpak]
 

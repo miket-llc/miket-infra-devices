@@ -22,10 +22,10 @@ nodejs_nvm_dir: ".nvm"
 # Whether to remove system nodejs packages
 nodejs_remove_system_packages: false
 
-# Global npm packages to install after node setup
-nodejs_global_packages:
-  - "@openai/codex"
-  - "@anthropic-ai/claude-code"
+# Global npm packages to install after node setup.
+# Codex and Claude Code are managed by the ai_workstation_tools role using
+# vendor-supported installers, so they must not be duplicated here.
+nodejs_global_packages: []
 
 # Shell profile files to update for nvm integration
 nodejs_shell_profiles:

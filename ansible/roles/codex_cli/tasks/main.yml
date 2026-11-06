@@ -1,17 +1,12 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 
 ---
-# Main tasks for codex_cli role
-# Platform-specific tasks are included based on OS
-
-- name: Include Linux tasks for Debian/RedHat families
-  include_tasks: linux.yml
-  when: ansible_os_family in ['Debian', 'RedHat', 'Suse', 'Archlinux']
-
-- name: Include macOS tasks for Darwin
-  include_tasks: darwin.yml
-  when: ansible_os_family == 'Darwin'
-
-- name: Include Windows tasks
-  include_tasks: windows.yml
-  when: ansible_system == 'Win32NT'
+# Compatibility wrapper for older playbooks that still call codex_cli.
+- name: Install Codex through the standard AI workstation role
+  ansible.builtin.include_role:
+    name: ai_workstation_tools
+  vars:
+    ai_workstation_tools_chatgpt_enabled: false
+    ai_workstation_tools_codex_enabled: true
+    ai_workstation_tools_claude_code_enabled: false
+    ai_workstation_tools_update: "{{ codex_cli_update | bool }}"

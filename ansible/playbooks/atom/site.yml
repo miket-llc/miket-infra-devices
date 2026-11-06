@@ -128,7 +128,13 @@
       tags: [workstation, gui, tools]
 
     # ========================================
-    # Phase 4: NoMachine Server
+    # Phase 4: Standard AI Workstation Tools
+    # ========================================
+    - role: ai_workstation_tools
+      tags: [ai_tools]
+
+    # ========================================
+    # Phase 5: NoMachine Server
     # ========================================
     # - Remote desktop access for when you're not physically there
     # - Essential for a node you might need to access remotely
@@ -220,4 +226,3 @@
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
-

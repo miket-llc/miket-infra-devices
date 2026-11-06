@@ -175,7 +175,7 @@ ansible-playbook -i inventory/hosts.yml \
 
 # armitage (Fedora 41 KDE)
 ansible-playbook -i inventory/hosts.yml \
-  playbooks/workstations/armitage-fedora-kde-ollama.yml \
+  docs/archive/ansible-playbooks/armitage-fedora-kde-ollama.yml  # archived 2026-11 (armitage is Windows again) \
   --tags qt-theming,kde,cool-retro-term
 ```
 

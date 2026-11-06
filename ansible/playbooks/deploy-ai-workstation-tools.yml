@@ -1,0 +1,29 @@
+# Copyright (c) 2025 MikeT LLC. All rights reserved.
+
+---
+# Deploy the standard interactive AI toolset to every managed workstation.
+# Authentication remains per-user and is never stored in this repository.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml --limit armitage
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml --tags verify
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-ai-workstation-tools.yml \
+#     -e ai_workstation_tools_update=true
+
+- name: Deploy Standard AI Workstation Tools
+  hosts: all_workstations
+  gather_facts: true
+
+  roles:
+    - role: ai_workstation_tools
+      tags: [ai_tools]
+
+  post_tasks:
+    - name: Display authentication reminder
+      ansible.builtin.debug:
+        msg: >-
+          AI workstation tools are installed on {{ inventory_hostname }}.
+          ChatGPT, Codex, and Claude Code authentication must be completed
+          interactively by {{ ai_workstation_tools_target_user }}.
+      tags: [always]

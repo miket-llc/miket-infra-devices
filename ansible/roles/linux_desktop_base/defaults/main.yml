@@ -80,9 +80,19 @@ system_locale: "en_US.UTF-8"
 # Flathub repository URL
 flathub_repo: "https://dl.flathub.org/repo/flathub.flatpakrepo"
 
-# Common Flatpak applications (DE-agnostic)
-linux_desktop_flatpaks:
-  - com.visualstudio.code
-  - dev.warp.Warp
-  # - io.github.ArcticFox-Dev.ArcticFox.Cursor  # Cursor IDE when available
+# Common Flatpak applications (DE-agnostic).
+# Keep this list MINIMAL: prefer native RPM/repo packages. Anything that ships
+# a real repo (VS Code, Warp, Cursor) is installed by the workstation_gui_tools
+# role instead - listing it here too would install a duplicate Flatpak copy
+# alongside the RPM.
+# Deliberately empty: every baseline GUI app has a native RPM/repo and is
+# installed by the workstation_gui_tools role (VS Code, Warp, Chrome, Slack)
+# or as an upstream AppImage (Obsidian, Cursor). Only add something here if
+# it has no maintained native packaging at all.
+linux_desktop_flatpaks: []
+
+# Per-host additions, merged with linux_desktop_flatpaks above.
+# Set in host_vars/<host>.yml so a host can add apps without
+# clobbering the shared baseline list.
+linux_desktop_flatpaks_extra: []
 

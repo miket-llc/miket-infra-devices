@@ -115,38 +115,35 @@ devices:
     armitage:
       hostname: armitage
       fqdn: armitage.pangolin-vega.ts.net
-      os: Fedora 43 KDE
+      os: Windows 11 Pro   # back from Fedora KDE 2026-11
       type: Laptop Workstation
       hardware:
         model: Alienware m16 R2
-        cpu: Intel Core i9-13900HX
-        gpu: NVIDIA GeForce RTX 4070 Max-Q
-        gpu_driver: "580.119.02"
-        memory_gb: 16
-        storage_tb: 2
+        cpu: Intel Core Ultra 7 155H
+        gpu: NVIDIA GeForce RTX 4070 Laptop (+ Intel Arc iGPU)
+        gpu_driver: latest
+        memory_gb: 32
+        storage_tb: 1
       network:
-        tailscale_ip: 100.88.153.51
+        tailscale_ip: 100.117.169.64
         tailscale: enabled
-        tailscale_ssh: enabled
+        tailscale_ssh: disabled   # Windows: WinRM 5985 + OpenSSH server
         tailscale_tags:
-          - tag:linux
-          - tag:gaming
           - tag:workstation
+          - tag:windows
+          - tag:gaming
         remote_desktop: nomachine
         wake_on_lan: enabled
-      selinux:
-        mode: enforcing
-        tailscale_ssh_policy: installed  # Custom policy module for Tailscale SSH
       services:
-        - Podman
         - NVIDIA CUDA Toolkit
-        - Ollama
-        - KDE Plasma
+        - NoMachine
+        - OpenSSH Server
+        - windows_exporter
       notes: |
-        High-performance Alienware m16 R2 laptop
-        Rebuilt from Fedora 43 GNOME to KDE (2025-12-20)
-        Mobile development, gaming, and LLM workstation
-        SELinux enforcing with custom Tailscale SSH policy
+        High-performance Alienware m16 R2 gaming laptop (hybrid Intel Arc + RTX 4070)
+        Windows 11 -> Fedora KDE (2025-12-20) -> Windows 11 Pro (2026-11)
+        Local admin 'mdt' only (no Microsoft account); managed over WinRM like wintermute
+        Gaming (primary) and mobile development workstation; LiteLLM client, no local LLM
       
   macos:
     count-zero:

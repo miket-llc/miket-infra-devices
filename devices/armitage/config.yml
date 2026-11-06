@@ -1,13 +1,18 @@
 # Copyright (c) 2025 MikeT LLC. All rights reserved.
 #
-# Armitage - Fedora KDE Workstation + Ollama LLM Node
-# Last Updated: 2025-12-20
+# Armitage - Windows 11 Pro Gaming Laptop
+# Last Updated: 2026-11-02
+#
+# History: Windows 11 -> Fedora KDE (2025-12-20) -> Windows 11 Pro (2026-11).
+# Why: the box is primarily a gaming/peripheral machine (DualSense Edge, Xbox Elite 2,
+# Denuvo titles, hybrid Intel/NVIDIA graphics). Every hardware-specific problem on Fedora
+# was a Linux-on-hybrid-laptop problem that does not exist on Windows.
+# See docs/communications/COMMUNICATION_LOG.md (2026-11-02).
 #
 # Architecture References:
-#   - ADR-004-kde-plasma-linux-ui-standard.md: KDE Plasma is the standard desktop
-#   - ADR-005-llm-runtime-llama-vs-vllm.md: Workstations use Ollama pattern
-#   - AI_FABRIC_SERVICE.md: Dual-pattern LLM architecture
-#   - AI_FABRIC_PLATFORM_CONTRACT.md: Node topology and ports
+#   - ADR-004: KDE Plasma is the Linux UI standard; armitage is a Windows exception (like wintermute)
+#   - ADR-005: no local LLM runtime on this node since 2026-11 (LiteLLM client only)
+#   - AI_FABRIC_SERVICE.md / AI_FABRIC_PLATFORM_CONTRACT.md
 
 device:
   hostname: armitage
@@ -17,116 +22,67 @@ device:
 
   # Device classification
   roles:
-    - linux_workstation
+    - windows_workstation
     - gpu_node
-    - llm_node
     - cuda_development
-    - kde_desktop
     - gaming
 
 hardware:
   manufacturer: Alienware
   model: m16 R2
-  cpu: Intel Core i9-13900HX (24 cores, 32 threads)
-  gpu: NVIDIA GeForce RTX 4070 Max-Q (8GB VRAM, CUDA capable)
-  gpu_driver: "580.119.02"
-  memory: 16GB DDR5
+  cpu: Intel Core Ultra 7 155H (16 cores, 22 threads)
+  igpu: Intel Arc (Meteor Lake) - primary display adapter
+  gpu: NVIDIA GeForce RTX 4070 Laptop (8GB VRAM, CUDA capable)
+  gpu_driver: latest
+  memory: 32GB DDR5
   storage:
-    - 2TB NVMe SSD (Primary - Fedora + data)
+    - 1TB NVMe SSD (Primary - Windows + data)
 
 operating_system:
-  os: Fedora
-  version: "43"
-  desktop: KDE Plasma       # ADR-004: KDE is the Linux UI standard
-  selinux: enforcing        # Proper SELinux policy for Tailscale SSH
-  container_runtime: podman
-  docker_desktop: false     # Docker is BANNED - Podman only
+  os: Windows 11 Pro
+  version: Latest
+  wsl: true
+  docker_desktop: false     # BANNED
+  podman_desktop: false     # no container runtime on armitage (2026-11-02)
+  local_account_only: true  # No Microsoft account; local admin 'mdt' is the automation account
 
 network:
   tailscale_enabled: true
-  tailscale_ip: 100.88.153.51
   tailscale_hostname: armitage.pangolin-vega.ts.net
   tailscale_tags:
-    - linux
-    - gaming
     - workstation
-  tailscale_ssh: true
+    - windows
+    - gaming
+  tailscale_ssh: false      # Windows: managed via WinRM (5985) + OpenSSH server
   remote_desktop: nomachine
   wake_on_lan: true
 
+management:
+  ansible_connection: winrm
+  ansible_password_secret: armitage-ansible-password   # Azure Key Vault (kv-miket-ops)
+  bootstrap: "autounattend.xml + firstlogon.ps1 (WinRM, Tailscale, OpenSSH, product key) at install time"
+
 services:
-  # LLM Runtime (ADR-005: Ollama pattern for workstations)
-  - Ollama (workstation LLM runtime)
-  # Container Runtime
-  - Podman (container runtime)
-  # GPU/Development
   - NVIDIA CUDA Toolkit
-  - NVIDIA Container Toolkit
-  # Development IDEs
-  - VS Code (Flatpak)
-  - Warp Terminal (Flatpak)
-  # Remote Access
   - NoMachine (remote desktop)
+  - OpenSSH Server
+  - windows_exporter (Prometheus, :9182)
+  - Steam / Heroic / Xbox app (gaming)
 
-# =============================================================================
-# LLM Configuration: Ollama Workstation Pattern
-# =============================================================================
-# Per ADR-005 and AI Fabric Platform Contract:
-#   - armitage runs Ollama (workstation pattern)
-#   - akira runs vLLM (server pattern)
-#
-# Ports per AI Fabric ACLs:
-#   - 11434: Ollama API (default)
-#   - 8000: LLM Gateway (optional, for LiteLLM proxy)
+# No local LLM runtime (Ollama dropped 2026-11). LLM access goes through the
+# LiteLLM gateway on akira:4000 (ASK_BASE_URL), like every other client node.
 ollama:
-  enabled: true
-  port: 11434
-  api_endpoint: "http://armitage.pangolin-vega.ts.net:11434"
-  models:
-    - qwen2.5:7b
-    - llama3.2:3b
-  # Filesystem layout (Flux/Space/Time standard)
-  config_path: /flux/apps/ollama
-  models_path: /space/llm/ollama/models
-  data_path: /space/llm/ollama/data
-
-# Optional LLM Gateway on port 8000 (per AI Fabric contract)
-llm_gateway:
   enabled: false
-  port: 8000
-  type: litellm  # or custom proxy
 
 use_cases:
-  - Local LLM inference via Ollama
-  - Mobile development workstation
+  - Gaming (primary) with native controller and peripheral support
+  - LLM access via the LiteLLM gateway on akira (no local models)
+  - Mobile development workstation (WSL2 + chezmoi)
   - CUDA/ML development
-  - Podman containerization
   - Remote access via Tailscale
 
-# =============================================================================
-# IMPORTANT: Windows Partition (Out-of-Band)
-# =============================================================================
-# A small Windows partition exists for Dell support/diagnostics ONLY.
-#
-# This partition is:
-#   ❌ NOT joined to tailnet
-#   ❌ NOT managed by Ansible
-#   ❌ NOT part of any infrastructure automation
-#   ❌ NOT used for regular workloads
-#
-# It is a recovery/diagnostic partition only. All active work uses Fedora KDE.
-windows_partition:
-  purpose: "Dell support, diagnostics, BIOS updates"
-  on_tailnet: false
-  managed_by_ansible: false
-  note: "Out-of-band utility partition. Boot into Windows ONLY for hardware diagnostics."
-
 notes:
-  - High-performance Alienware m16 R2 laptop with RTX 4070 Max-Q
-  - Rebuilt from Fedora 43 GNOME to Fedora 43 KDE (2025-12-20)
-  - KDE Plasma desktop per ADR-004
-  - Ollama LLM runtime per ADR-005 (not vLLM)
-  - Connected to Tailnet with linux/gaming/workstation tags
-  - LLM ports 11434/8000 accessible via tailnet ACLs
-  - SELinux enforcing with custom policy for Tailscale SSH
-  - NVIDIA driver 580.119.02 via RPM Fusion akmod
+  - Alienware m16 R2 with hybrid Intel Arc iGPU + RTX 4070 Laptop
+  - Local admin account 'mdt' only; activated with a user-supplied Windows 11 Pro key (firmware OEM key unused)
+  - Managed like wintermute: WinRM over Tailscale, Windows playbooks in ansible/playbooks/*-windows.yml
+  - Fedora-era playbooks archived under docs/archive/ansible-playbooks/

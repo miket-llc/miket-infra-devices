@@ -1,3 +1,43 @@
+## 2026-11-05 – Podman is opt-in on Windows workstations; wintermute vLLM disabled {#2026-11-05-podman-opt-in}
+
+Podman Desktop on Windows is for development only and must not run all the time. `group_vars/windows_workstations` now defaults `podman_desktop.enabled: false` and `start_machine: false`; a host opts in via host_vars when someone develops with containers on it, and the `podman_desktop_windows` role no longer runs `podman machine start` unless `start_machine` is true. armitage already opted out (no container runtime). wintermute drops the `podman-desktop` device role and its Podman-hosted vLLM (`vllm.enabled: false`): the container restarted with the Podman machine (`unless-stopped`) and held ~88% of the GPU, and the LiteLLM gateway on akira has no route to it (server inference lives on akira per ADR-005). Its vLLM settings stay in host_vars so it can be re-enabled.
+
+Follow-up when wintermute is next online: stop and remove the `vllm-wintermute` container, `podman machine stop`, and turn off Podman Desktop's start-at-login, or uninstall Podman Desktop if nobody develops there.
+
+## 2026-11-02 – armitage returns to Windows 11 Pro (Fedora KDE retired on this node) {#2026-11-02-armitage-windows}
+
+### Context
+armitage (Alienware m16 R2, hybrid Intel Arc iGPU + RTX 4070 Laptop) ran Fedora KDE from 2025-12. Its workload is primarily gaming and peripherals (DualSense Edge, Xbox Elite 2, Razer mouse, Denuvo/UE5 titles under Proton). Every hardware-specific problem on the node over ten months was a Linux-on-hybrid-laptop problem that does not exist on Windows: the eDP panel wedge (two different root causes; fixed with `i915.enable_psr=0`), Intel-first Vulkan enumeration needing per-app GPU filters, Proton version pinning with Denuvo activation burn, a DualSense Edge relay whose upstream went dormant, and on 2026-11-02 a hard freeze during a UE5 game with an NVIDIA VA-space error. The generic Linux issues (Discover snap backend, tether IPv6 hijack) were durably fixed and did not drive the decision. Nothing on the node is Source of Record.
+
+### Decision
+- armitage becomes a **Windows 11 Pro workstation managed exactly like wintermute**: WinRM (5985, NTLM) from akira, `ansible_password` from AKV `armitage-ansible-password`, Windows playbooks (`deploy-openssh-windows`, `deploy-nomachine`, `deploy-mounts-windows`, `deploy-observability` with windows_exporter).
+- **ADR-004 exception** recorded for armitage (same status as wintermute). **No local LLM runtime:** Ollama is dropped along with Fedora; armitage is a LiteLLM client only (akira:4000). Under ADR-005 the fleet currently has no Ollama workstation; `llm_workstations_ollama` is empty.
+- **Local account only.** Setup is unattended (`autounattend.xml` on the same-disk install partition) and creates local admin `mdt`, skipping every Microsoft-account screen. Windows 11 Pro edition is forced with Microsoft's generic Pro install key; the owner's real key is applied at first logon from `productkey.txt` or via Settings. The firmware's OEM (Home) key is not used.
+- **Install method (no USB):** btrfs shrunk online by 12 GiB, GPT rewritten (p3 shrunk, p4 = 12 GiB FAT32 `WININST`, Microsoft basic data), ISO contents copied to p4 with `install.wim` split by wimlib, firmware BootNext entry pointing at p4. Fedora stays bootable until its partitions are deleted inside Setup.
+- A first-logon script on `WININST` configures WinRM (firewall limited to 100.64.0.0/10), installs Tailscale and the OpenSSH server, applies the product key, and scrubs every cached answer file (they carry the account password).
+
+### Code Changes
+- `ansible/inventory/hosts.yml` — armitage moved from `linux`/`linux_workstations`/`fedora_kde_workstations`/`linux_servers` to `windows`→`windows_workstations` and `windows_servers`; stays in gpu, cuda, wol, container_hosts, llm_client_nodes, monitoring_exporters; removed from ai_nodes, llm_nodes, llm_workstations_ollama.
+- `ansible/host_vars/armitage.yml`, `devices/armitage/config.yml`, `devices/inventory.yaml` — rewritten for Windows 11 Pro; hardware corrected (Core Ultra 7 155H, 32 GB, 1 TB, RTX 4070 Laptop + Arc iGPU).
+- `ansible/secrets-map.yml` — `ARMITAGE_ANSIBLE_PASSWORD` added to `windows_automation` (akira); Linux-only `ai_fabric_workstation` mapping disabled.
+- `ansible/roles/remote_client_*_nomachine` — armitage session type `windows`; `roles/tailscale/defaults` — tags `workstation,windows,gaming` (ACL tagOwners are miket-infra's).
+- `roles/observability_stack/defaults`, `playbooks/deploy-observability.yml` — armitage scraped on 9182 (windows_exporter).
+- `playbooks/deploy-vllm-windows.yml` — hosts without `vllm.enabled` are skipped (`meta: end_host`) instead of failing the play.
+- `playbooks/updates/fedora-updates.yml` — armitage Ollama/node_exporter block removed.
+- Fedora-era playbooks archived to `docs/archive/ansible-playbooks/`: `deploy-armitage-fedora-kde.yml`, `workstations/armitage-fedora-kde-ollama.yml`, `fix-nvidia-repo-armitage.yml`.
+- `devices/armitage/scripts/Setup-WinRM.ps1` — hardcoded password removed from the usage hint.
+- `Makefile`, `CLAUDE.md`, `README.md`, `.github/copilot-instructions.md`, `docs/architecture/Miket_Infra_Devices_Architecture.md` — device table/labels updated.
+
+### Follow-ups
+- On akira: `ansible-playbook ansible/playbooks/secrets-sync.yml --limit akira` to add `ARMITAGE_ANSIBLE_PASSWORD` to `/etc/ansible/windows-automation.env`; then `ansible armitage -m win_ping`.
+- After first boot: `tailscale up` login on armitage (auth key not provisioned), disable key expiry in the admin console; confirm the `tag:windows` tagOwner in miket-infra ACLs.
+- Run, with `--limit armitage`: `deploy-openssh-windows.yml`, `deploy-nomachine.yml`, `deploy-mounts-windows.yml`, `deploy-observability.yml`, `llm-client.yml`.
+- Delete the `WININST` partition from Disk Management once Windows is up (it holds no secrets after first logon, but it is 12 GiB of dead space).
+- Pre-existing gap, unchanged: wintermute is in `monitoring_exporters` but not in the Prometheus target list.
+- Memory notes about the Fedora-era armitage (PSR fix, hybrid GPU offload, Edge relay, Discover/IPv6 fixes) are historical as of this change.
+
+---
+
 ## 2026-06-22 – Control node moved motoko → akira; cloudflared tunnel relocated {#2026-06-22-control-node-akira}
 
 ### Context

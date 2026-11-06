@@ -72,7 +72,8 @@
             5. llm_workstation_ollama  - Ollama LLM runtime
             6. common_dev_tools        - Development tools
             7. podman_standard_linux   - Container runtime
-            8. workstation_gui_tools   - GUI applications
+            8. ai_workstation_tools    - ChatGPT, Codex CLI, Claude Code
+            9. workstation_gui_tools   - GUI applications
           
           ═══════════════════════════════════════════════════════════════
       tags: [always]
@@ -123,7 +124,13 @@
       tags: [containers, podman]
 
     # ========================================
-    # Phase 8: GUI Applications
+    # Phase 8: Standard AI Workstation Tools
+    # ========================================
+    - role: ai_workstation_tools
+      tags: [ai_tools]
+
+    # ========================================
+    # Phase 9: GUI Applications
     # ========================================
     - role: workstation_gui_tools
       tags: [gui_tools]
@@ -156,6 +163,7 @@
           ✅ Development Environment
              - Container runtime: Podman
              - Dev tools: git, tmux, neovim, etc.
+             - AI tools: ChatGPT, Codex CLI, Claude Code
              - GUI apps: VS Code, Warp
           
           ═══════════════════════════════════════════════════════════════
@@ -177,6 +185,5 @@
         name: llm_workstation_ollama
         tasks_from: validate
       tags: [validate]
-
 
 

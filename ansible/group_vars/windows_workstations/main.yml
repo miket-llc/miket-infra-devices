@@ -2,7 +2,7 @@
 
 ---
 # Shared configuration for Windows workstations
-# Applies to: wintermute and future Windows workstations (armitage migrated to Fedora per ADR-005)
+# Applies to: wintermute and armitage (armitage returned to Windows 11 Pro 2026-11)
 
 # User configuration
 # All Windows workstations use the 'mdt' local user account
@@ -11,8 +11,12 @@ automation_user: mdt
 automation_user_home: "C:\\Users\\mdt"
 
 # Podman Desktop configuration (standardized container runtime, replaces the legacy DD stack)
+# Opt-in, development only (decided 2026-11-05): a host sets enabled: true in host_vars
+# when someone is actually developing with containers on it. The machine is never
+# started by Ansible; start it by hand (`podman machine start`) when needed.
 podman_desktop:
-  enabled: true
+  enabled: false
+  start_machine: false
   backend: wsl2
   
 # vLLM configuration defaults (shared by wintermute and armitage)

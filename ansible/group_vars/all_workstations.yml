@@ -24,6 +24,20 @@ warp_enabled: false
 workstation_create_desktop_entries: true
 
 # ========================================
+# Standard AI Workstation Tools
+# ========================================
+# The ai_workstation_tools role is the sole owner of these applications.
+ai_workstation_tools_enabled: true
+ai_workstation_tools_chatgpt_enabled: true
+ai_workstation_tools_codex_enabled: true
+ai_workstation_tools_claude_code_enabled: true
+
+# Normal workstation runs install missing tools without forcing upgrades.
+# Set true for an intentional fleet update rollout.
+ai_workstation_tools_update: false
+ai_workstation_tools_target_user: "{{ ansible_user }}"
+
+# ========================================
 # AI/LLM CLIs (for workstations)
 # ========================================
 # Shell-GPT (ChatGPT CLI) - sgpt command
@@ -38,4 +52,3 @@ common_dev_tools_install_claude_cli: true
 # Aider (AI pair programming)
 # aider-chat disabled - requires Python <3.14, current Fedora 43 has Python 3.14
 common_dev_tools_install_aider: false
-
