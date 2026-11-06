@@ -1,3 +1,9 @@
+## 2026-11-05 – Podman is opt-in on Windows workstations; wintermute vLLM disabled {#2026-11-05-podman-opt-in}
+
+Podman Desktop on Windows is for development only and must not run all the time. `group_vars/windows_workstations` now defaults `podman_desktop.enabled: false` and `start_machine: false`; a host opts in via host_vars when someone develops with containers on it, and the `podman_desktop_windows` role no longer runs `podman machine start` unless `start_machine` is true. armitage already opted out (no container runtime). wintermute drops the `podman-desktop` device role and its Podman-hosted vLLM (`vllm.enabled: false`): the container restarted with the Podman machine (`unless-stopped`) and held ~88% of the GPU, and the LiteLLM gateway on akira has no route to it (server inference lives on akira per ADR-005). Its vLLM settings stay in host_vars so it can be re-enabled.
+
+Follow-up when wintermute is next online: stop and remove the `vllm-wintermute` container, `podman machine stop`, and turn off Podman Desktop's start-at-login, or uninstall Podman Desktop if nobody develops there.
+
 ## 2026-11-02 – armitage returns to Windows 11 Pro (Fedora KDE retired on this node) {#2026-11-02-armitage-windows}
 
 ### Context

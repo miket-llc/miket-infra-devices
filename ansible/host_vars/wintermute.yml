@@ -40,7 +40,6 @@ device_roles:
   - windows-workstation
   - gaming-mode
   - cuda-development
-  - podman-desktop
 
 # Remote desktop configuration
 # NoMachine is the standardized remote access protocol (RDP retired 2025-11-22)
@@ -53,8 +52,11 @@ nomachine_version: "9.2.18"
 nomachine_port: 4000
 
 # vLLM Configuration
+# Disabled 2026-11-05: it runs in Podman (keeping the WSL2 machine and ~88% of the GPU
+# busy around the clock), and the LiteLLM gateway on akira has no route to it; server
+# inference lives on akira (ADR-005). Settings kept so it can be re-enabled.
 vllm:
-  enabled: true
+  enabled: false
   model: "casperhansen/llama-3-8b-instruct-awq"
   served_model_name: "llama31-8b-wintermute"
   port: 8000
